@@ -52,8 +52,6 @@ async def get_ranking(
     year:        Optional[str] = Query(None),
     statuses:    Optional[str] = Query(None),
     agente:      Optional[str] = Query(None),
-    mercado:     Optional[str] = Query(None),
-    servicio:    Optional[str] = Query(None),
     limit:       Optional[int] = Query(None),
     debug:       Optional[str] = Query(None),
     user: dict = Depends(current_user),
@@ -81,45 +79,23 @@ async def get_ranking(
 
     hard_limit = min(int(limit) if limit else 100, 500)
 
-    cache_key = f"{start_date}|{end_date}|{statuses}|{agente}|{mercado}|{servicio}|{hard_limit}"
+    cache_key = f"{start_date}|{end_date}|{statuses}|{agente}|{hard_limit}"
     cached = _cache.get(cache_key)
     if cached and time.time() - cached["ts"] < _CACHE_TTL and debug != "1":
         return cached["response"]
 
     # ── SQL query ──────────────────────────────────────────────────
-    # Calcular fecha exclusiva del mes siguiente para capturar todas las horas del último día
-    from datetime import date as _date
-    import calendar as _rcal
-    _s_date = _date.fromisoformat(start_date)
-    _nm = _s_date.month + 1 if _s_date.month < 12 else 1
-    _ny = _s_date.year if _s_date.month < 12 else _s_date.year + 1
-    end_excl = f"{_ny}-{_nm:02d}-01"
-
-    params: dict = {"s": start_date, "e": end_date, "lim": hard_limit, "end_excl": end_excl}
-
     where = [
-        "dia_venta >= :s AND dia_venta < :end_excl",
+        "dia_venta BETWEEN :s AND :e OR (created_at BETWEEN :s AND :e AND dia_venta IS NULL)",
         "(agente_nombre IS NOT NULL AND agente_nombre != '') OR (agente IS NOT NULL AND agente != '')",
         "excluir_de_reporte = FALSE OR excluir_de_reporte IS NULL",
-        """UPPER(TRIM(COALESCE(status,''))) IN (
-            'PENDING','PENDIENTE','PENDIENTES',
-            'COMPLETED','ACTIVE','COMPLETADO','ACTIVO','ACTIVA','VENDIDO','CERRADO','CERRADA','VENTA CERRADA',
-            'RESERVA'
-        )""",
+        "UPPER(TRIM(COALESCE(status,''))) NOT REGEXP 'RESERVA'",
     ]
+    params: dict = {"s": start_date, "e": end_date, "lim": hard_limit}
 
     if agente:
         where.append("(LOWER(agente_nombre) LIKE :ag OR LOWER(agente) LIKE :ag)")
         params["ag"] = f"%{agente.lower()}%"
-
-    if mercado:
-        where.append("UPPER(TRIM(COALESCE(mercado,''))) = :mercado")
-        params["mercado"] = mercado.strip().upper()
-
-    if servicio:
-        # Busca en tipo_servicio o dentro del campo servicios (JSON array guardado como texto)
-        where.append("(UPPER(COALESCE(tipo_servicio,'')) LIKE :svc OR UPPER(COALESCE(servicios,'')) LIKE :svc)")
-        params["svc"] = f"%{servicio.strip().upper()}%"
 
     where_sql = " AND ".join(f"({w})" for w in where)
 

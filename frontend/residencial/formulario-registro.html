@@ -97,27 +97,21 @@
   })();
 </script>
 
-<!-- Tailwind CSS -->
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        colors: {
-          teal: { 50:'#f0fdfa',100:'#ccfbf1',200:'#99f6e4',300:'#5eead4',400:'#2dd4bf',500:'#14b8a6',600:'#0d9488',700:'#0f766e',800:'#115e59',900:'#134e4a',950:'#042f2e' }
-        }
-      }
-    }
-  }
-</script>
-
 <!-- Font Awesome -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-<!-- Sidebar CSS (obligatorio para el sidebar) -->
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Exo+2:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!-- Custom CSS -->
+<link rel="stylesheet" href="/css/theme.css?v=20251124f">
 <link rel="stylesheet" href="/css/sidebar-shared.css?v=20260529b">
-<link rel="stylesheet" href="/css/sidebar-modern.css?v=20260601b">
+  <link rel="stylesheet" href="/css/sidebar-modern.css?v=20260601b">
+<link rel="stylesheet" href="/css/form-styles.css?v=20250916">
+<link rel="stylesheet" href="/css/responsive-grid.css">
+<link rel="stylesheet" href="/css/responsive-tables.css">
 <link rel="stylesheet" href="/css/responsive-sidebar.css">
+<link rel="stylesheet" href="/css/responsive-components.css">
 
 <!-- Scripts -->
 <script src="/js/fetch-interceptor.js"></script>
@@ -194,224 +188,362 @@
 </script>
 
 <style>
-  /* Sidebar offset */
-  body { background: #f8fafc; }
-  .main-content { min-height: 100vh; overflow-x: hidden; }
+  :root {
+    --accent: #0d9488;
+    --accent-light: rgba(13,148,136,0.09);
+    --accent-border: rgba(13,148,136,0.26);
+    --text: #1a2e3b;
+    --text-dim: #5a7a8a;
+    --label: #2a6a78;
+    --border: #d0dde6;
+    --input-bg: #f6fafb;
+    --input-border: #c5d5df;
+    --section-bg: #eef6f7;
+  }
 
-  /* Gauge — JS controla background vía conic-gradient */
-  .gauge-ring {
-    width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
-    background: conic-gradient(rgba(255,255,255,.2) 0%, rgba(255,255,255,.06) 0%);
-    border: 2px solid rgba(255,255,255,.3);
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #dce8f0;
+    background-image:
+      radial-gradient(ellipse at 15% 10%, rgba(13,148,136,0.07) 0%, transparent 50%),
+      radial-gradient(ellipse at 85% 90%, rgba(2,132,199,0.05) 0%, transparent 50%);
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 24px 8px 40px;
+    font-family: 'Exo 2', sans-serif;
+    color: var(--text);
+  }
+
+  .form-wrapper {
+    width: 100%;
+    max-width: none;
+    background: #ffffff;
+    border: 1.5px solid var(--border);
+    border-top: 3px solid var(--accent);
+    border-radius: 14px;
+    box-shadow: 0 6px 32px rgba(0,0,0,0.09);
+    overflow: hidden;
+  }
+
+  /* HEADER */
+  .form-header {
+    padding: 12px 80px;
+    background: linear-gradient(90deg, #e5f4f2, #f2fafa, #e5f4f2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+  .header-icon {
+    width: 30px; height: 30px;
+    background: white;
+    border: 1.5px solid var(--accent-border);
+    border-radius: 7px;
     display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 6px rgba(13,148,136,0.10);
+    flex-shrink: 0;
   }
-  .gauge-label { color:#fff; font-weight:800; font-size:.9rem; }
-  .score-num   { display:none; }
-
-  /* Chip activo */
-  .chip.active { border-color:#0d9488 !important; background:#f0fdfa !important; color:#0d9488 !important; font-weight:700; }
-
-  /* Radio-btn checked */
-  .radio-btn.checked { background:#0d9488 !important; border-color:#0d9488 !important; color:#fff !important; }
-  .radio-btn input, .radio-dot { display:none; }
-
-  /* Upload hover */
-  #img-upload-zone:hover { border-color:#0d9488; background:#f0fdfa; }
-
-  /* Validation error */
-  .field-error { border-color:#ef4444 !important; box-shadow:0 0 0 3px rgba(239,68,68,.15) !important; }
-
-  /* Agent note */
-  .agents-note { font-size:.6rem; color:#94a3b8; font-style:italic; margin-top:2px; }
-
-  @keyframes slideIn  { from{transform:translateX(400px);opacity:0} to{transform:translateX(0);opacity:1} }
-  @keyframes slideOut { from{transform:translateX(0);opacity:1}   to{transform:translateX(400px);opacity:0} }
-
-  /* ── Animación de entrada (igual que inicio.html) ── */
-  @keyframes fsu { from{opacity:0;transform:translateY(44px)} to{opacity:1;transform:translateY(0)} }
-  .fsu     { opacity:0; animation:fsu 1.8s cubic-bezier(.16,1,.3,1) forwards; animation-play-state:paused; }
-  .fsu.go  { animation-play-state:running; }
-
-  /* ── DARK MODE — overrides para clases Tailwind ── */
-  body.dark-theme { background:#0d1420 !important; }
-
-  /* Header sticky */
-  body.dark-theme .sticky.bg-white { background-color:#1e293b !important; border-color:#334155 !important; }
-
-  /* Cards */
-  body.dark-theme .bg-white { background-color:#1e293b !important; }
-  body.dark-theme .border-slate-200 { border-color:#334155 !important; }
-  body.dark-theme .border-slate-100 { border-color:#1e3a5f !important; }
-
-  /* Textos */
-  body.dark-theme .text-slate-800 { color:#e2e8f0 !important; }
-  body.dark-theme .text-slate-700 { color:#cbd5e1 !important; }
-  body.dark-theme .text-slate-600 { color:#94a3b8 !important; }
-  body.dark-theme .text-slate-500 { color:#64748b !important; }
-  body.dark-theme .text-slate-400 { color:#475569 !important; }
-
-  /* Inputs y selects */
-  body.dark-theme .bg-slate-50,
-  body.dark-theme input[class*="bg-slate"],
-  body.dark-theme select[class*="bg-slate"] { background-color:#0f172a !important; }
-  body.dark-theme input, body.dark-theme select {
-    background-color:#0f172a !important;
-    border-color:#334155 !important;
-    color:#e2e8f0 !important;
-  }
-  body.dark-theme input::placeholder { color:#475569 !important; }
-  body.dark-theme select option { background:#0f172a !important; color:#e2e8f0 !important; }
-
-  /* Iconos en inputs */
-  body.dark-theme .fa-user, body.dark-theme .fa-phone, body.dark-theme .fa-location-dot,
-  body.dark-theme .fa-hashtag, body.dark-theme .fa-layer-group, body.dark-theme .fa-tag,
-  body.dark-theme .fa-credit-card, body.dark-theme .fa-globe, body.dark-theme .fa-display,
-  body.dark-theme .fa-calendar-days, body.dark-theme .fa-magnifying-glass {
-    color:#475569 !important;
+  .header-icon svg { width: 15px; height: 15px; stroke: var(--accent); fill: none; stroke-width: 2; }
+  h1 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: 0.10em;
+    color: #0a3d38;
+    text-transform: uppercase;
   }
 
-  /* Cajas de iconos de sección */
-  body.dark-theme .bg-purple-100 { background-color:rgba(139,92,246,.18) !important; }
-  body.dark-theme .bg-amber-100  { background-color:rgba(245,158,11,.18) !important; }
-  body.dark-theme .bg-teal-50    { background-color:rgba(13,148,136,.15) !important; }
-  body.dark-theme .bg-blue-50    { background-color:rgba(59,130,246,.10) !important; }
-  body.dark-theme .border-blue-100 { border-color:rgba(59,130,246,.20) !important; }
-  body.dark-theme .text-blue-700 { color:#60a5fa !important; }
-  body.dark-theme .text-blue-500 { color:#93c5fd !important; }
-  body.dark-theme .fa-circle-info { color:#60a5fa !important; }
-  body.dark-theme .fa-clipboard-check { color:rgba(59,130,246,.25) !important; }
+  /* BODY */
+  .form-body { padding: 14px 80px 18px; display: flex; flex-direction: column; gap: 12px; }
 
-  /* Chips inactivos */
-  body.dark-theme .chip:not(.active) {
-    background-color:#0f172a !important;
-    border-color:#334155 !important;
-    color:#64748b !important;
+  /* CARD */
+  .card { border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+  .card-header {
+    display: flex; align-items: center; gap: 7px;
+    padding: 6px 12px;
+    background: var(--section-bg);
+    border-bottom: 1px solid var(--border);
+  }
+  .card-header svg { width: 12px; height: 12px; stroke: var(--accent); fill: none; stroke-width: 2.2; flex-shrink: 0; }
+  .card-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 800;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--label);
+  }
+  .card-body { padding: 11px 13px; }
+
+  /* GRIDS */
+  .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 9px 14px; }
+  .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 9px 14px; }
+  .g4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 9px 14px; }
+  .s2 { grid-column: span 2; }
+  .s3 { grid-column: span 3; }
+  .s4 { grid-column: span 4; }
+
+  /* FIELD */
+  .field { display: flex; flex-direction: column; gap: 3px; }
+  .field label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--label);
   }
 
-  /* Radio btn inactivo */
-  body.dark-theme .radio-btn:not(.checked) {
-    background-color:#0f172a !important;
-    border-color:#334155 !important;
-    color:#64748b !important;
+  input[type="text"], input[type="date"], select, textarea {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 5px;
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 8px 12px;
+    transition: border-color 0.17s, box-shadow 0.17s;
+    outline: none;
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+    min-height: 38px;
+  }
+  input[type="text"]::placeholder { color: #b0c8d2; }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(13,148,136,0.10);
+    background: #fff;
+  }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6'%3E%3Cpath d='M0 0l4.5 6L9 0z' fill='%230d9488' opacity='.6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    padding-right: 22px;
+    cursor: pointer;
+  }
+  select option { background: #fff; color: var(--text); }
+  textarea { resize: vertical; min-height: 75px; }
+  input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.4; cursor: pointer; }
+
+  /* CHIPS */
+  .chips-wrap { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+  .chip {
+    display: flex; align-items: center; gap: 5px;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 5px;
+    padding: 7px 10px;
+    cursor: pointer;
+    transition: all 0.17s;
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    user-select: none;
+  }
+  .chip:hover { border-color: var(--accent-border); color: var(--text); background: #f0fafa; }
+  .chip.active { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+  .chip svg { width: 10px; height: 10px; stroke: currentColor; fill: none; stroke-width: 2.2; flex-shrink: 0; }
+
+  /* RADIO STATUS */
+  .radio-group { display: flex; gap: 5px; height: 100%; }
+  .radio-btn {
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+    flex: 1;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 5px;
+    padding: 7px 10px;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    transition: all 0.17s;
+    user-select: none;
+  }
+  .radio-btn input { display: none; }
+  .radio-dot { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--input-border); background: white; flex-shrink: 0; transition: all 0.17s; }
+  .radio-btn.checked { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+  .radio-btn.checked .radio-dot { border-color: var(--accent); background: var(--accent); }
+
+  /* SCORE */
+  .score-panel {
+    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(90deg, #e5f4f2, #f2fafa);
+    border: 1px solid var(--accent-border);
+    border-radius: 7px;
+    padding: 8px 12px;
+    height: 100%;
+  }
+  .score-left { display: flex; align-items: center; gap: 8px; }
+  .score-icon {
+    width: 26px; height: 26px;
+    background: white; border: 1px solid var(--accent-border); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .score-icon svg { width: 12px; height: 12px; stroke: var(--accent); fill: none; stroke-width: 2; }
+  .score-text strong { font-family: 'Rajdhani', sans-serif; font-size: 0.85rem; font-weight: 800; letter-spacing: 0.07em; color: var(--text); display: block; }
+  .score-text span { font-size: 0.72rem; color: var(--text-dim); font-weight: 600; }
+  .gauge-wrap { display: flex; align-items: center; gap: 7px; }
+  .gauge-ring {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: conic-gradient(var(--accent) 0%, rgba(13,148,136,0.12) 0%);
+    display: flex; align-items: center; justify-content: center; position: relative; flex-shrink: 0;
+  }
+  .gauge-ring::before { content: ''; position: absolute; inset: 5px; border-radius: 50%; background: #f0fafa; }
+  .gauge-label { position: relative; z-index: 1; font-family: 'Rajdhani', sans-serif; font-size: 0.72rem; font-weight: 800; color: var(--text-dim); }
+  .score-num { font-size: 0.72rem; color: var(--text-dim); line-height: 1.4; font-weight: 600; }
+  .score-num b { color: var(--accent); font-size: 0.95rem; display: block; font-weight: 800; }
+
+  /* DIVIDER */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 9px 0; }
+
+  /* AGENT */
+  .agent-row { display: flex; gap: 5px; }
+  .agent-row select { flex: 1; }
+  .search-btn {
+    background: var(--accent-light); border: 1px solid var(--accent-border); border-radius: 5px;
+    color: var(--accent); cursor: pointer; padding: 0 8px; transition: background 0.17s;
+    display: flex; align-items: center; flex-shrink: 0;
+  }
+  .search-btn:hover { background: rgba(13,148,136,0.17); }
+  .search-btn svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2.5; }
+  .agents-note { font-size: 0.58rem; color: #8aacb8; margin-top: 3px; font-style: italic; }
+
+  /* FOOTER */
+  .form-footer { padding: 12px 80px 16px; border-top: 1px solid var(--border); background: #f5f9fa; display: flex; justify-content: center; }
+  .save-btn {
+    background: linear-gradient(90deg, #0a7a72, #0d9488, #0a7a72);
+    border: 1.5px solid #0d9488; border-radius: 40px; color: #fff; cursor: pointer;
+    font-family: 'Rajdhani', sans-serif; font-size: 1rem; font-weight: 800;
+    letter-spacing: 0.18em; text-transform: uppercase; padding: 12px 56px;
+    transition: all 0.22s; box-shadow: 0 4px 14px rgba(13,148,136,0.22);
+  }
+  .save-btn:hover { background: linear-gradient(90deg, #0c9088, #0fb5a5, #0c9088); box-shadow: 0 6px 20px rgba(13,148,136,0.32); transform: translateY(-1px); }
+  .save-btn:active { transform: translateY(0); }
+  .save-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  @keyframes slideIn {
+    from { transform: translateX(400px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes slideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(400px); opacity: 0; }
   }
 
-  /* Botón buscar agente */
-  body.dark-theme .bg-teal-50.border-teal-200 {
-    background-color:rgba(13,148,136,.12) !important;
-    border-color:rgba(13,148,136,.30) !important;
+  @media (max-width: 900px) {
+    .g3, .g4 { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 640px) {
+    .g2,.g3,.g4,.chips-wrap { grid-template-columns: 1fr 1fr; }
+    .s2,.s3,.s4 { grid-column: span 2; }
+    h1 { font-size: 0.95rem; }
+    .form-body { padding: 14px 16px 18px; }
+    .form-header { padding: 12px 16px; }
+    .form-footer { padding: 12px 16px 16px; }
   }
 
-  /* Upload zone */
-  body.dark-theme #img-upload-zone {
-    background-color:#0f172a !important;
-    border-color:#334155 !important;
+  /* ── DARK MODE ── */
+  body.dark-theme {
+    --accent: #2dd4bf;
+    --accent-light: rgba(45,212,191,0.09);
+    --accent-border: rgba(45,212,191,0.26);
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --label: #94a3b8;
+    --border: #334155;
+    --input-bg: #1e293b;
+    --input-border: #334155;
+    --section-bg: #162032;
+    background: #0d1a28 !important;
+    background-image:
+      radial-gradient(ellipse at 15% 10%, rgba(45,212,191,0.05) 0%, transparent 50%),
+      radial-gradient(ellipse at 85% 90%, rgba(56,189,248,0.04) 0%, transparent 50%) !important;
   }
-  body.dark-theme #img-upload-zone .text-slate-500 { color:#475569 !important; }
-  body.dark-theme #img-upload-zone .text-slate-400 { color:#334155 !important; }
-
-  /* Separadores */
-  body.dark-theme .border-t.border-slate-100 { border-color:#334155 !important; }
+  body.dark-theme .form-wrapper {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+  }
+  body.dark-theme .form-header { background: #162032 !important; }
+  body.dark-theme .form-footer { background: #162032 !important; }
+  body.dark-theme .card-section  { background: var(--section-bg) !important; border-color: #334155 !important; }
+  body.dark-theme .chip { background: #162032 !important; border-color: #334155 !important; color: #94a3b8 !important; }
+  body.dark-theme .chip.selected { background: rgba(45,212,191,0.12) !important; border-color: var(--accent) !important; color: var(--accent) !important; }
+  body.dark-theme select option { background: #1e293b !important; color: #e2e8f0 !important; }
+  body.dark-theme .gauge-ring::before { background: #1e293b !important; }
 </style>
 </head>
 <body>
-<div class="main-content">
+<div class="form-wrapper">
 
-<!-- ══ HEADER ══ -->
-<div class="flex items-center justify-between bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-10 shadow-sm">
-  <div class="flex items-center gap-4">
-    <div class="w-10 h-10 bg-teal-50 rounded-xl flex items-center justify-center flex-shrink-0">
-      <i class="fas fa-clipboard-list text-teal-600 text-sm"></i>
+  <!-- HEADER -->
+  <div class="form-header">
+    <div class="header-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
     </div>
-    <div>
-      <h1 class="text-base font-bold text-slate-800 leading-tight">Registro de Lead Corporativo</h1>
-      <p class="text-[11px] text-slate-400 mt-0.5">Ingresa los detalles del cliente potencial y categorización del servicio</p>
+    <h1>Formulario de Registro de Lead Corporativo</h1>
+    <div class="header-icon">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
     </div>
   </div>
-  <button id="save-btn" class="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold uppercase tracking-wider px-5 py-2.5 rounded-xl shadow-sm transition-colors duration-150 disabled:opacity-60">
-    <i class="fas fa-save text-xs"></i>
-    Guardar Lead
-  </button>
-</div>
 
-<!-- ══ GRID PRINCIPAL ══ -->
-<div class="w-full max-w-[1400px] mx-auto grid grid-cols-12 gap-6 p-6">
-
-  <!-- ── COLUMNA IZQUIERDA (8/12) ── -->
-  <div class="col-span-12 lg:col-span-8 flex flex-col gap-6">
+  <div class="form-body">
 
     <!-- ① DATOS DE CONTACTO -->
-    <div class="fsu bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-      <div class="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
-        <div class="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
-          <i class="fas fa-user text-purple-600 text-sm"></i>
-        </div>
-        <div>
-          <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide">Datos de Contacto</h2>
-          <p class="text-[11px] text-slate-400">Información personal y de contacto del cliente potencial</p>
-        </div>
+    <div class="card">
+      <div class="card-header">
+        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span class="card-title">Datos de Contacto</span>
       </div>
-      <div class="p-6 grid grid-cols-1 md:grid-cols-6 gap-4">
-        <div class="md:col-span-6">
-          <label class="text-[11px] font-bold text-slate-500 uppercase">Nombre del Cliente</label>
-          <div class="relative mt-1">
-            <i class="fas fa-user absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
-            <input type="text" id="nombre-cliente" name="nombre_cliente" placeholder="Ej: Mirna Najera Ruiz" required
-              class="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition">
+      <div class="card-body">
+        <div class="g4">
+          <div class="field s2">
+            <label>Nombre del Cliente</label>
+            <input type="text" id="nombre-cliente" name="nombre_cliente" required>
           </div>
-        </div>
-        <div class="md:col-span-3">
-          <label class="text-[11px] font-bold text-slate-500 uppercase">Teléfono Principal</label>
-          <div class="relative mt-1">
-            <i class="fas fa-phone absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
-            <input type="text" id="telefono-principal" name="telefono_principal" placeholder="(305) 555-1234" required
-              class="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition">
+          <div class="field">
+            <label>Teléfono Principal</label>
+            <input type="text" id="telefono-principal" name="telefono_principal" required>
           </div>
-        </div>
-        <div class="md:col-span-3">
-          <label class="text-[11px] font-bold text-slate-500 uppercase">Teléfono Alterno</label>
-          <div class="relative mt-1">
-            <i class="fas fa-phone absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
-            <input type="text" id="telefono_2" name="telefono_2" placeholder="(305) 555-5678"
-              class="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition">
+          <div class="field">
+            <label>Teléfono Alterno</label>
+            <input type="text" id="telefono_2" name="telefono_2" required>
           </div>
-        </div>
-        <div class="md:col-span-4">
-          <label class="text-[11px] font-bold text-slate-500 uppercase">Dirección Completa</label>
-          <div class="relative mt-1">
-            <i class="fas fa-location-dot absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
-            <input type="text" id="direccion" name="direccion" placeholder="Ej: 1234 SW 8th St, Miami, FL" required
-              class="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition">
+          <div class="field s2">
+            <label>Dirección</label>
+            <input type="text" id="direccion" name="direccion" required>
           </div>
-        </div>
-        <div class="md:col-span-2">
-          <label class="text-[11px] font-bold text-slate-500 uppercase">Zip Code</label>
-          <div class="relative mt-1">
-            <i class="fas fa-hashtag absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
-            <input type="text" id="zip-code" name="zip-code" placeholder="33030" required
-              class="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition">
+          <div class="field">
+            <label>Zip Code</label>
+            <input type="text" id="zip-code" name="zip-code" required>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ② DETALLES DE SERVICIO Y CUENTAS -->
-    <div class="fsu bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-      <div class="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
-        <div class="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
-          <i class="fas fa-bolt text-amber-500 text-sm"></i>
-        </div>
-        <div>
-          <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide">Detalles de Servicio y Cuentas</h2>
-          <p class="text-[11px] text-slate-400">Información sobre servicios contratados y cuentas asociadas</p>
-        </div>
+    <!-- ② SERVICIOS Y CATEGORIZACIÓN -->
+    <div class="card">
+      <div class="card-header">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        <span class="card-title">Detalles de Servicio y Categorización</span>
+        <svg viewBox="0 0 24 24" style="margin-left:4px;"><rect x="2" y="3" width="6" height="6" rx="1"/><rect x="16" y="3" width="6" height="6" rx="1"/><rect x="9" y="15" width="6" height="6" rx="1"/><path d="M5 9v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M12 11v4"/></svg>
       </div>
-      <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="card-body">
 
-        <div>
-          <label class="text-[11px] font-bold text-slate-500 uppercase">Servicios</label>
-          <div class="relative mt-1">
-            <i class="fas fa-layer-group absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
-            <select id="servicios" name="servicios" required class="w-full pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition appearance-none cursor-pointer">
+        <!-- Fila 1: Servicios + Tipo + Cuenta + Mercado -->
+        <div class="g4">
+          <div class="field">
+            <label>Servicios</label>
+            <select id="servicios" name="servicios" required>
               <option value="">Elige</option>
               <optgroup label="DIRECTV (Video)">
                 <option value="VIDEO DIRECTV VIA INTERNET">VIDEO DIRECTV VIA INTERNET</option>
@@ -491,33 +623,45 @@
               </optgroup>
             </select>
           </div>
-        </div>
-
-        <div>
-          <label class="text-[11px] font-bold text-slate-500 uppercase">Tipo de Servicios</label>
-          <div class="relative mt-1">
-            <i class="fas fa-tag absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
-            <select id="tipo-servicio" name="tipo_servicio" required class="w-full pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition appearance-none cursor-pointer">
+          <div class="field">
+            <label>Tipo de Servicios</label>
+            <select id="tipo-servicio" name="tipo_servicio" required>
               <option value="">Elige</option>
-              <option value="VIDEO">VIDEO</option><option value="INTERNET">INTERNET</option><option value="AT&T AIR">AT&T AIR</option><option value="WIRELESS">WIRELESS</option><option value="SINGLE INTERNET">SINGLE INTERNET</option><option value="FRONTIER">FRONTIER</option><option value="WINDSTREAM">WINDSTREAM</option><option value="OPTIMUM">OPTIMUM</option><option value="WOW">WOW</option><option value="ALTAFIBER">ALTAFIBER</option><option value="CONSOLIDATE">CONSOLIDATE</option><option value="HUGHESNET">HUGHESNET</option><option value="VIASAT">VIASAT</option><option value="STARLINK">STARLINK</option><option value="CENTURYLINK">CENTURYLINK</option><option value="METRONET">METRONET</option><option value="ZIPLY FIBER">ZIPLY FIBER</option><option value="HAWAIIAN">HAWAIIAN</option><option value="DOUBLE PLAY">DOUBLE PLAY</option><option value="VIVINT">VIVINT</option><option value="EARTHLINK">EARTHLINK</option><option value="XFINITY">XFINITY</option><option value="BRIGHTSPEED">BRIGHTSPEED</option><option value="ATT 300">ATT 300</option><option value="ATT 500">ATT 500</option><option value="ATT 1G">ATT 1G</option>
+              <option value="VIDEO">VIDEO</option>
+              <option value="INTERNET">INTERNET</option>
+              <option value="AT&T AIR">AT&T AIR</option>
+              <option value="WIRELESS">WIRELESS</option>
+              <option value="SINGLE INTERNET">SINGLE INTERNET</option>
+              <option value="FRONTIER">FRONTIER</option>
+              <option value="WINDSTREAM">WINDSTREAM</option>
+              <option value="OPTIMUM">OPTIMUM</option>
+              <option value="WOW">WOW</option>
+              <option value="ALTAFIBER">ALTAFIBER</option>
+              <option value="CONSOLIDATE">CONSOLIDATE</option>
+              <option value="HUGHESNET">HUGHESNET</option>
+              <option value="VIASAT">VIASAT</option>
+              <option value="STARLINK">STARLINK</option>
+              <option value="CENTURYLINK">CENTURYLINK</option>
+              <option value="METRONET">METRONET</option>
+              <option value="ZIPLY FIBER">ZIPLY FIBER</option>
+              <option value="HAWAIIAN">HAWAIIAN</option>
+              <option value="DOUBLE PLAY">DOUBLE PLAY</option>
+              <option value="VIVINT">VIVINT</option>
+              <option value="EARTHLINK">EARTHLINK</option>
+              <option value="XFINITY">XFINITY</option>
+              <option value="BRIGHTSPEED">BRIGHTSPEED</option>
+              <option value="ATT 300">ATT 300</option>
+              <option value="ATT 500">ATT 500</option>
+              <option value="ATT 1G">ATT 1G</option>
             </select>
           </div>
-        </div>
-
-        <div>
-          <label class="text-[11px] font-bold text-slate-500 uppercase">Número de Cuenta</label>
-          <div class="relative mt-1">
-            <i class="fas fa-credit-card absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
-            <input type="text" id="numero-cuenta" name="numero_cuenta" placeholder="Ingrese número de cuenta" required
-              class="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition">
+          <div class="field">
+            <label>Número de Cuenta</label>
+            <input type="text" id="numero-cuenta" name="numero_cuenta" required>
           </div>
-        </div>
-
-        <div>
-          <label class="text-[11px] font-bold text-slate-500 uppercase">Mercado</label>
-          <div class="relative mt-1">
-            <i class="fas fa-globe absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
-            <select id="mercado" name="mercado" required class="w-full pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-teal-500 transition appearance-none cursor-pointer">
+          <div class="field">
+            <label>Mercado</label>
+            <select id="mercado" name="mercado" required>
               <option value="">Elige</option>
               <option value="ICON">ICON</option>
               <option value="BAMO">BAMO</option>
@@ -525,143 +669,142 @@
           </div>
         </div>
 
-        <div>
-          <label class="text-[11px] font-bold text-slate-500 uppercase">Autopago</label>
-          <div class="relative mt-1">
-            <i class="fas fa-credit-card absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
-            <select id="autopago" name="autopay" required class="w-full pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-teal-500 transition appearance-none cursor-pointer">
-              <option value="">Seleccionar</option>
+        <div class="divider"></div>
+
+        <!-- Fila 2: Categorización (chips, 4 cols) -->
+        <div style="margin-bottom:9px;">
+          <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--label);margin-bottom:5px;">¿Por qué llamó el cliente?</div>
+          <div class="chips-wrap">
+            <div class="chip active" data-value="BILL ALTO" onclick="toggleChip(this)"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Bill Alto</div>
+            <div class="chip" data-value="PROBLEMAS DE INTERNET" onclick="toggleChip(this)"><svg viewBox="0 0 24 24"><path d="M1 6l11 11L23 6"/></svg>Problemas Internet</div>
+            <div class="chip" data-value="ADQUIRIR SERVICIOS" onclick="toggleChip(this)"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>Adquirir Servicios</div>
+            <div class="chip" data-value="MUDANZA" onclick="toggleChip(this)"><svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>Mudanza</div>
+            <div class="chip" data-value="CANCELAR SERVICIOS" onclick="toggleChip(this)"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Cancelar Servicios</div>
+            <div class="chip" data-value="PAGAR BILL" onclick="toggleChip(this)"><svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Pagar Bill</div>
+            <div class="chip" data-value="ATENCION AL CLIENTE" onclick="toggleChip(this)"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Atención Cliente</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Fila 3: Status + Autopago + Sistema + Riesgo | Comentario + Puntaje -->
+        <div class="g4">
+          <div class="field">
+            <label>Status</label>
+            <div class="radio-group">
+              <label class="radio-btn checked" id="rb-pending" onclick="selectRadio('pending')">
+                <input type="radio" name="status" value="PENDING" required><span class="radio-dot"></span>Pending
+              </label>
+              <label class="radio-btn" id="rb-repro" onclick="selectRadio('repro')">
+                <input type="radio" name="status" value="REPRO" required><span class="radio-dot"></span>Repro
+              </label>
+            </div>
+          </div>
+          <div class="field">
+            <label>Autopago</label>
+            <select id="autopago" name="autopay" required>
+              <option value="">Elige</option>
               <option value="SI">SI</option>
               <option value="NO">NO</option>
             </select>
           </div>
-        </div>
-
-        <div>
-          <label class="text-[11px] font-bold text-slate-500 uppercase">Sistema</label>
-          <div class="relative mt-1">
-            <i class="fas fa-display absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
-            <select id="sistema" name="sistema" required class="w-full pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-teal-500 transition appearance-none cursor-pointer">
-              <option value="">Seleccionar</option>
+          <div class="field">
+            <label>Sistema</label>
+            <select id="sistema" name="sistema" required>
+              <option value="">Elige</option>
               <option value="SARA">SARA</option>
               <option value="B.O">B.O</option>
               <option value="N/A">N/A</option>
               <option value="CHUZO">CHUZO</option>
             </select>
           </div>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- ③ BANNER INFO -->
-    <div class="fsu bg-blue-50 border border-blue-100 rounded-2xl p-5 flex items-center justify-between gap-4">
-      <div class="flex items-start gap-3">
-        <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-          <i class="fas fa-circle-info text-blue-600 text-xs"></i>
-        </div>
-        <div>
-          <h3 class="text-sm font-bold text-blue-700">Completa todos los campos requeridos</h3>
-          <p class="text-[11px] text-blue-500 mt-0.5">Esta información nos ayuda a procesar tu lead de manera más eficiente.</p>
-        </div>
-      </div>
-      <i class="fas fa-clipboard-check text-blue-200 text-4xl flex-shrink-0"></i>
-    </div>
-
-  </div><!-- /col-left -->
-
-  <!-- ── COLUMNA DERECHA (4/12) ── -->
-  <div class="col-span-12 lg:col-span-4 flex flex-col gap-5">
-
-    <!-- PUNTAJE AUTOMÁTICO -->
-    <div class="fsu bg-[#004d40] text-white p-5 rounded-2xl shadow-sm flex justify-between items-center gap-4">
-      <div>
-        <h3 class="text-xs font-bold uppercase tracking-wider text-teal-200">Puntaje Automático</h3>
-        <p class="text-[10px] text-teal-100/70 mt-0.5 leading-relaxed">Calculado según el servicio y nivel de riesgo seleccionado</p>
-        <p class="text-sm font-bold text-teal-300 mt-2">Puntaje: <span id="score-num">--</span></p>
-      </div>
-      <div class="gauge-ring w-16 h-16 flex-shrink-0">
-        <span class="gauge-label">--</span>
-      </div>
-    </div>
-
-    <!-- ¿POR QUÉ LLAMÓ? + STATUS + RIESGO -->
-    <div class="fsu bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
-        <div class="w-8 h-8 bg-teal-50 rounded-lg flex items-center justify-center flex-shrink-0">
-          <i class="fas fa-phone text-teal-600 text-xs"></i>
-        </div>
-        <h2 class="text-xs font-bold text-slate-600 uppercase tracking-wide">¿Por qué llamó el cliente?</h2>
-      </div>
-      <div class="p-5">
-        <div class="chips-wrap grid grid-cols-2 gap-2 mb-4">
-          <div class="chip p-2.5 text-left text-xs border rounded-xl cursor-pointer select-none transition active" data-value="BILL ALTO" onclick="toggleChip(this)">⚡ Bill Alto</div>
-          <div class="chip p-2.5 text-left text-xs border rounded-xl cursor-pointer select-none transition" data-value="PROBLEMAS DE INTERNET" onclick="toggleChip(this)">🌐 Prob. Internet</div>
-          <div class="chip p-2.5 text-left text-xs border rounded-xl cursor-pointer select-none transition" data-value="ADQUIRIR SERVICIOS" onclick="toggleChip(this)">🛒 Adquirir Serv.</div>
-          <div class="chip p-2.5 text-left text-xs border rounded-xl cursor-pointer select-none transition" data-value="MUDANZA" onclick="toggleChip(this)">📦 Mudanza</div>
-          <div class="chip p-2.5 text-left text-xs border rounded-xl cursor-pointer select-none transition" data-value="CANCELAR SERVICIOS" onclick="toggleChip(this)">❌ Cancelar Serv.</div>
-          <div class="chip p-2.5 text-left text-xs border rounded-xl cursor-pointer select-none transition" data-value="PAGAR BILL" onclick="toggleChip(this)">💳 Pagar Bill</div>
-          <div class="chip p-2.5 text-left text-xs col-span-2 border rounded-xl cursor-pointer select-none transition" data-value="ATENCION AL CLIENTE" onclick="toggleChip(this)">💬 Atención Cliente</div>
-        </div>
-        <div class="grid grid-cols-2 gap-3 pt-4 border-t border-slate-100">
-          <div>
-            <label class="text-[10px] font-bold text-slate-400 uppercase">Status</label>
-            <div class="mt-1.5 flex gap-1.5 radio-group">
-              <label class="radio-btn checked flex-1 py-2 text-xs font-bold border rounded-xl text-center cursor-pointer transition" id="rb-pending" onclick="selectRadio('pending')">
-                <input type="radio" name="status" value="PENDING" required><span class="radio-dot"></span>Pending
-              </label>
-              <label class="radio-btn flex-1 py-2 text-xs font-medium border border-slate-200 text-slate-500 rounded-xl text-center cursor-pointer transition" id="rb-repro" onclick="selectRadio('repro')">
-                <input type="radio" name="status" value="REPRO"><span class="radio-dot"></span>Repro
-              </label>
-            </div>
-          </div>
-          <div>
-            <label class="text-[10px] font-bold text-slate-400 uppercase">Riesgo</label>
-            <select id="riesgo" name="riesgo" required class="w-full mt-1.5 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-teal-500 transition appearance-none cursor-pointer">
-              <option value="">Seleccionar riesgo</option>
+          <div class="field">
+            <label>Riesgo</label>
+            <select id="riesgo" name="riesgo" required>
+              <option value="">Elige</option>
               <option value="LOW">LOW</option>
               <option value="MEDIUM">MEDIUM</option>
               <option value="HIGH">HIGH</option>
               <option value="N/A">N/A</option>
             </select>
           </div>
+          <div class="field s2">
+            <label>Imagen del Lead</label>
+            <div id="img-upload-zone" style="
+              min-height:75px; border:1.5px dashed var(--input-border);
+              border-radius:5px; background:var(--input-bg);
+              display:flex; align-items:center; justify-content:center;
+              cursor:pointer; position:relative; overflow:hidden;
+              transition:border-color 0.17s, background 0.17s;
+            " onclick="document.getElementById('img-file-input').click()"
+               ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+               ondragleave="this.style.borderColor='var(--input-border)'"
+               ondrop="handleImgDrop(event)">
+              <div id="img-placeholder" style="display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                <span style="font-size:0.68rem;font-weight:700;color:var(--text-dim);letter-spacing:0.06em;text-transform:uppercase;">Click o arrastra una imagen</span>
+              </div>
+              <img id="img-preview" src="/" alt="preview" style="
+                display:none; width:100%; height:100%;
+                object-fit:cover; position:absolute; inset:0;
+              " onclick="event.stopPropagation();openImgLightbox()" title="Click para ampliar"/>
+              <div id="img-expand-hint" style="
+                display:none; position:absolute; bottom:4px; right:6px;
+                background:rgba(0,0,0,0.45); color:#fff; font-size:0.6rem;
+                padding:2px 6px; border-radius:3px; pointer-events:none;
+              ">🔍 Click para ver</div>
+              <button id="img-remove-btn" type="button" onclick="event.stopPropagation();removeImg()" style="
+                display:none; position:absolute; top:4px; right:5px;
+                background:rgba(239,68,68,0.85); border:none; border-radius:3px;
+                color:#fff; font-size:0.65rem; padding:2px 6px; cursor:pointer; font-weight:700;
+              ">✕</button>
+            </div>
+            <input type="file" id="img-file-input" accept="image/*" style="display:none" onchange="handleImgSelect(event)">
+            <input type="hidden" id="imagen-url-hidden" name="imagen_url">
+          </div>
+          <div class="field s2">
+            <label>Indicadores de Puntaje</label>
+            <div class="score-panel">
+              <div class="score-left">
+                <div class="score-icon">
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                </div>
+                <div class="score-text">
+                  <strong>PUNTAJE (Auto)</strong>
+                  <span>Seleccione servicio y riesgo para el cálculo</span>
+                </div>
+              </div>
+              <div class="gauge-wrap">
+                <div class="gauge-ring"><span class="gauge-label">--</span></div>
+                <div class="score-num">Puntaje:<b id="score-num">--</b></div>
+              </div>
+            </div>
+          </div>
         </div>
+
       </div>
     </div>
 
-    <!-- LOGÍSTICA Y ASIGNACIÓN -->
-    <div class="fsu bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
-        <div class="w-8 h-8 bg-teal-50 rounded-lg flex items-center justify-center flex-shrink-0">
-          <i class="fas fa-truck text-teal-600 text-xs"></i>
-        </div>
-        <h2 class="text-xs font-bold text-slate-600 uppercase tracking-wide">Logística y Asignación</h2>
+    <!-- ③ LOGÍSTICA Y ASIGNACIÓN -->
+    <div class="card">
+      <div class="card-header">
+        <svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        <span class="card-title">Logística y Asignación</span>
       </div>
-      <div class="p-5 flex flex-col gap-3">
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-[10px] font-bold text-slate-500 uppercase">Día de Venta</label>
-            <div class="relative mt-1">
-              <i class="fas fa-calendar-days absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
-              <input type="date" id="dia-venta" name="dia_venta" required
-                class="w-full pl-8 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 outline-none focus:border-teal-500 transition">
-            </div>
+      <div class="card-body">
+        <div class="g4">
+          <div class="field">
+            <label>Día de Venta</label>
+            <input type="date" id="dia-venta" name="dia_venta" required>
           </div>
-          <div>
-            <label class="text-[10px] font-bold text-slate-500 uppercase">Día de Instalación</label>
-            <div class="relative mt-1">
-              <i class="fas fa-calendar-days absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
-              <input type="date" id="dia-instalacion" name="dia_instalacion" required
-                class="w-full pl-8 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 outline-none focus:border-teal-500 transition">
-            </div>
+          <div class="field">
+            <label>Día de Instalación</label>
+            <input type="date" id="dia-instalacion" name="dia_instalacion" required>
           </div>
-        </div>
-        <div>
-          <label class="text-[10px] font-bold text-slate-500 uppercase">Supervisor</label>
-          <div class="relative mt-1">
-            <i class="fas fa-user absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
-            <select id="supervisor" name="supervisor" class="w-full pl-8 pr-6 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 outline-none focus:border-teal-500 transition appearance-none cursor-pointer">
-              <option value="">Seleccionar supervisor</option>
+          <div class="field">
+            <label>Supervisor</label>
+            <select id="supervisor" name="supervisor">
+              <option value="">— Selecciona supervisor —</option>
               <option value="Irania Serrano">Irania Serrano</option>
               <option value="Roberto Velasquez">Roberto Velasquez</option>
               <option value="Randal Martinez">Randal Martinez</option>
@@ -669,58 +812,31 @@
               <option value="Marisol Beltran">Marisol Beltran</option>
             </select>
           </div>
-        </div>
-        <div id="agent-assign-field">
-          <label class="text-[10px] font-bold text-slate-500 uppercase flex justify-between items-center">
-            <span>Asignación de Agente</span>
-            <span class="text-[9px] font-normal text-slate-400 normal-case" id="agents-count-label">Cargando...</span>
-          </label>
-          <div class="flex gap-1.5 mt-1">
-            <select id="agentAssign" name="agentAssign" required class="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 outline-none focus:border-teal-500 transition appearance-none cursor-pointer">
-              <option value="">Asignar a agente</option>
-            </select>
-            <button type="button" class="px-3 py-2 bg-teal-50 border border-teal-200 rounded-xl text-teal-600 hover:bg-teal-100 transition flex items-center">
-              <i class="fas fa-magnifying-glass text-xs"></i>
-            </button>
+          <div class="field s4" id="agent-assign-field">
+            <label style="display:flex;justify-content:space-between;align-items:center;">
+              <span>Asignación de Agente</span>
+              <span style="font-size:0.58rem;font-weight:400;color:var(--text-dim);text-transform:none;letter-spacing:0;" id="agents-count-label">Cargando...</span>
+            </label>
+            <div class="agent-row">
+              <select id="agentAssign" name="agentAssign" required><option value="">Asignar a agente</option></select>
+              <button type="button" class="search-btn">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </button>
+            </div>
+            <div class="agents-note">Si la lista no aparece, el nombre del agente se enviará como asignación.</div>
           </div>
-          <p class="agents-note mt-1">Si la lista no aparece, el nombre del agente se enviará como asignación.</p>
         </div>
       </div>
     </div>
 
-    <!-- IMAGEN DEL LEAD -->
-    <div class="fsu bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
-        <div class="w-8 h-8 bg-teal-50 rounded-lg flex items-center justify-center flex-shrink-0">
-          <i class="fas fa-camera text-teal-600 text-xs"></i>
-        </div>
-        <h2 class="text-xs font-bold text-slate-600 uppercase tracking-wide">Imagen del Lead</h2>
-      </div>
-      <div class="p-4">
-        <div id="img-upload-zone"
-             class="border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center bg-slate-50 cursor-pointer relative overflow-hidden min-h-[110px] transition hover:border-teal-400 hover:bg-teal-50"
-             onclick="document.getElementById('img-file-input').click()"
-             ondragover="event.preventDefault();this.className=this.className.replace('border-slate-200','border-teal-400')"
-             ondragleave="this.className=this.className.replace('border-teal-400','border-slate-200')"
-             ondrop="handleImgDrop(event)">
-          <div id="img-placeholder" style="display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;padding:16px;">
-            <i class="fas fa-cloud-arrow-up text-teal-400 text-2xl"></i>
-            <p class="text-[11px] text-slate-500 font-medium">Click o arrastra un archivo aquí</p>
-            <p class="text-[10px] text-slate-400">Formatos: JPG, PNG, PDF (Máx. 5MB)</p>
-          </div>
-          <img id="img-preview" src="/" alt="preview" style="display:none;width:100%;height:100%;object-fit:cover;position:absolute;inset:0;" onclick="event.stopPropagation();openImgLightbox()" title="Click para ampliar"/>
-          <div id="img-expand-hint" style="display:none;position:absolute;bottom:6px;right:8px;background:rgba(0,0,0,0.45);color:#fff;font-size:0.60rem;padding:2px 7px;border-radius:4px;pointer-events:none;">🔍 Click para ver</div>
-          <button id="img-remove-btn" type="button" onclick="event.stopPropagation();removeImg()" style="display:none;position:absolute;top:6px;right:7px;background:rgba(239,68,68,0.85);border:none;border-radius:6px;color:#fff;font-size:0.65rem;padding:3px 8px;cursor:pointer;font-weight:700;">✕ Quitar</button>
-        </div>
-        <input type="file" id="img-file-input" accept="image/*,.pdf" style="display:none" onchange="handleImgSelect(event)">
-        <input type="hidden" id="imagen-url-hidden" name="imagen_url">
-      </div>
-    </div>
+  </div>
 
-  </div><!-- /col-right -->
+  <!-- FOOTER -->
+  <div class="form-footer">
+    <button class="save-btn" id="save-btn">Guardar Lead</button>
+  </div>
 
-</div><!-- /grid -->
-</div><!-- /main-content -->
+</div>
 
 <script>
   // Mapeo de Servicios a Tipo y Sistema
@@ -1009,10 +1125,9 @@
 
   function handleImgDrop(e) {
     e.preventDefault();
-    const zone = document.getElementById('img-upload-zone');
-    if (zone) zone.style.borderColor = '';
+    document.getElementById('img-upload-zone').style.borderColor = 'var(--input-border)';
     const file = e.dataTransfer.files[0];
-    if (file && (file.type.startsWith('image/') || file.type === 'application/pdf')) _setImgPreview(file);
+    if (file && file.type.startsWith('image/')) _setImgPreview(file);
   }
 
   function _setImgPreview(file) {
@@ -1054,19 +1169,16 @@
     if (!_imgFile) return '';
     const formData = new FormData();
     formData.append('file', _imgFile);
+    const token = (localStorage.getItem('token') || '').trim();
     const res = await fetch('/api/files/upload', {
       method: 'POST',
       credentials: 'include',
+      headers: token ? { 'Authorization': 'Bearer ' + token } : {},
       body: formData,
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || `Error subiendo imagen (${res.status})`);
-    }
-    const json = await res.json();
-    const url = (json.data && json.data.url) || json.file_path || json.url || '';
-    if (!url) throw new Error('El servidor no devolvió una URL para la imagen. Inténtalo de nuevo.');
-    return url;
+    if (!res.ok) throw new Error('Error subiendo imagen');
+    const data = await res.json();
+    return (data.data && data.data.url) || data.file_path || data.url || '';
   }
   // ─────────────────────────────────────────────────────────────
 
@@ -1327,27 +1439,6 @@
     }
     setTimeout(cleanup, 300);
   })();
-</script>
-
-<script>
-/* ── Stagger de entrada — igual que inicio.html ── */
-(function(){
-  function go(el, delay){
-    if (!el) return;
-    setTimeout(function(){ el.classList.add('go'); }, delay || 0);
-  }
-
-  document.addEventListener('DOMContentLoaded', function(){
-    var cards = document.querySelectorAll('.fsu');
-    cards.forEach(function(el, i){ go(el, i * 260); });
-  });
-
-  // Fallback si DOMContentLoaded ya pasó
-  if (document.readyState !== 'loading') {
-    var cards = document.querySelectorAll('.fsu');
-    cards.forEach(function(el, i){ go(el, i * 260); });
-  }
-})();
 </script>
 
 <script>

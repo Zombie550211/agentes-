@@ -244,23 +244,13 @@ body.dark-theme .leaflet-tile-pane { filter: brightness(1.6) contrast(1.1) satur
 .map-empty      { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 8px; color: var(--t3); font-size: .8rem; text-align: center; }
 
 /* ══ ANIMATIONS ══ */
-@keyframes up       { from { opacity:0; transform:translateY(22px); } to { opacity:1; transform:translateY(0); } }
-@keyframes bounce   { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-4px); } }
-@keyframes fadeIn   { from { opacity:0; } to { opacity:1; } }
-@keyframes slideUp  { from { opacity:0; transform:translateY(32px) scale(.98); } to { opacity:1; transform:translateY(0) scale(1); } }
-@keyframes slideLeft{ from { opacity:0; transform:translateX(-20px); } to { opacity:1; transform:translateX(0); } }
-@keyframes popIn    { 0% { opacity:0; transform:scale(.88); } 60% { transform:scale(1.04); } 100% { opacity:1; transform:scale(1); } }
-
-/* (clip-path reservado para otros usos) */
+@keyframes up     { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 
 /* ══ STAGGER ══ */
-@keyframes fsu { from { opacity:0; transform:translateY(40px) scale(.97); } to { opacity:1; transform:translateY(0) scale(1); } }
-.fsu     { opacity:0; animation: fsu 1.0s cubic-bezier(.16,1,.3,1) forwards; animation-play-state: paused; }
+@keyframes fsu { from { opacity:0; transform:translateY(44px); } to { opacity:1; transform:translateY(0); } }
+.fsu     { opacity:0; animation: fsu 1.8s cubic-bezier(.16,1,.3,1) forwards; animation-play-state: paused; }
 .fsu.go  { animation-play-state: running; }
-
-/* KPI counter */
-@keyframes kpiPop { 0%{transform:scale(.85);opacity:0} 60%{transform:scale(1.08)} 100%{transform:scale(1);opacity:1} }
-.kpi-pop { animation: kpiPop .6s cubic-bezier(.34,1.56,.64,1) both; }
 
 /* ══ DARK MODE ══ */
 body.dark-theme {
@@ -678,21 +668,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 // ── Widgets ───────────────────────────────────────────────────────────────
 
-function _countUp(id, target, decimals, duration) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.classList.add('kpi-pop');
-  const start = performance.now();
-  const step = (now) => {
-    const p = Math.min((now - start) / duration, 1);
-    const ease = 1 - Math.pow(1 - p, 3);
-    el.textContent = (target * ease).toFixed(decimals);
-    if (p < 1) requestAnimationFrame(step);
-    else el.textContent = target.toFixed(decimals);
-  };
-  requestAnimationFrame(step);
-}
-
 function _renderKpis(dash, user) {
   const kpis  = dash.kpis       || {};
   const us    = dash.user_stats || {};
@@ -702,10 +677,8 @@ function _renderKpis(dash, user) {
   const _fmt    = v => Number(v) > 0 ? Math.round(Number(v)) : 0;
   const _fmtPts = v => { const n = Number(v) || 0; return n.toFixed(2); };
 
-  const ventasVal = isAdmBo ? (kpis.ventas_totales ?? 0) : (us.ventas ?? 0);
-  const puntosVal = isAdmBo ? (Number(kpis.puntos_totales) || 0) : (Number(us.puntos) || 0);
-  _countUp('kpi-ventas', ventasVal, 0, 900);
-  _countUp('kpi-puntos', puntosVal, 2, 900);
+  _set('kpi-ventas', isAdmBo ? (kpis.ventas_totales ?? 0) : (us.ventas ?? 0));
+  _set('kpi-puntos', isAdmBo ? _fmtPts(kpis.puntos_totales) : _fmtPts(us.puntos));
   _set('kpi-seller', kpis.mejor_vendedor || '—');
   _set('kpi-team',   kpis.mejor_team     || '—');
   // compat
@@ -977,7 +950,7 @@ function _buildApexOptions(categories, seriesData) {
   return {
     series: [{ name: 'Ventas', data: seriesData }],
     chart: { type: 'area', height: '100%', background: 'transparent', toolbar: { show: false },
-      animations: { enabled: false }
+      animations: { enabled: true, easing: 'easeinout', speed: 1400, animateGradually: { enabled: true, delay: 120 }, dynamicAnimation: { enabled: true, speed: 600 } }
     },
     stroke: { curve: 'smooth', width: 3, colors: [lineColor] },
     fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.55, opacityTo: 0.02, stops: [0, 95] } },
@@ -1010,45 +983,7 @@ function renderMonthlySalesChart(seriesData, categories) {
     _apexMonthlySalesChart.updateOptions(_buildApexOptions(categories, seriesData), true, true); return;
   }
   _apexMonthlySalesChart = new ApexCharts(el, _buildApexOptions(categories, seriesData));
-  _apexMonthlySalesChart.render().then(function(){
-    _animateChartDraw(el);
-  });
-}
-
-function _animateChartDraw(el) {
-  // Buscar el path del trazo (la línea, no el fill)
-  var svg = el.querySelector('svg');
-  if (!svg) return;
-
-  // El trazo principal está en .apexcharts-line o .apexcharts-area-series path con stroke
-  var paths = svg.querySelectorAll('.apexcharts-line, .apexcharts-area path[stroke]:not([stroke="none"])');
-  if (!paths.length) {
-    // fallback: todos los paths con stroke visible
-    paths = svg.querySelectorAll('path[stroke]:not([stroke="none"]):not([stroke="transparent"])');
-  }
-
-  paths.forEach(function(path) {
-    var len = path.getTotalLength ? path.getTotalLength() : 0;
-    if (!len) return;
-    // Esconder el trazo
-    path.style.strokeDasharray  = len;
-    path.style.strokeDashoffset = len;
-    path.style.transition = 'none';
-    // Forzar reflow
-    path.getBoundingClientRect();
-    // Animar de izquierda a derecha en 2.5s
-    path.style.transition = 'stroke-dashoffset 5s cubic-bezier(.4,0,.2,1)';
-    path.style.strokeDashoffset = '0';
-  });
-
-  // El área rellena aparece con fade después de un pequeño delay
-  var fills = svg.querySelectorAll('.apexcharts-area');
-  fills.forEach(function(fill) {
-    fill.style.opacity = '0';
-    fill.style.transition = 'opacity 2s ease 1.5s';
-    fill.getBoundingClientRect();
-    fill.style.opacity = '1';
-  });
+  _apexMonthlySalesChart.render();
 }
 
 document.addEventListener('themeChanged', () => {
@@ -1120,33 +1055,21 @@ if (hn) {
 <script>
 /* ── Stagger entrance ───────────────────────────────────────────────────── */
 (function(){
-  function go(el, delay){
-    if(!el) return;
-    setTimeout(function(){
-      el.classList.add('go');
-    }, delay || 0);
-  }
+  function go(el, delay){ if(!el) return; setTimeout(function(){ el.classList.add('go'); }, delay || 0); }
 
-  // Hero aparece de inmediato con slide desde arriba
+  // Hero aparece de inmediato
   go(document.querySelector('.hero.fsu'), 0);
 
-  // Paneles esperan a que los datos estén listos — stagger por filas
+  // Paneles esperan a que los datos estén listos
   document.addEventListener('crm:data-ready', function(){
-    var rows = ['.row-top', '.row-mid', '.row-bot'];
-    rows.forEach(function(rowSel, rowIdx){
-      var row = document.querySelector(rowSel);
-      if(!row) return;
-      var panels = row.querySelectorAll('.gpanel.fsu');
-      panels.forEach(function(el, colIdx){
-        go(el, rowIdx * 200 + colIdx * 120);
-      });
-    });
+    var panels = document.querySelectorAll('.gpanel.fsu');
+    panels.forEach(function(el, i){ go(el, i * 260); });
   }, { once: true });
 
-  // Fallback si la API tarda más de 5s
+  // Fallback: si la API tarda más de 6s
   setTimeout(function(){
     document.querySelectorAll('.fsu:not(.go)').forEach(function(el){ el.classList.add('go'); });
-  }, 5000);
+  }, 6000);
 })();
 </script>
 </body>

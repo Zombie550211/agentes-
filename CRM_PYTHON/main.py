@@ -24,7 +24,6 @@ from limiter import limiter
 from database_mysql import init_mysql, close_mysql, engine
 from sqlalchemy import text as _sa_text
 from routers import auth as auth_router
-from routers import dashboard as dashboard_router
 from routers import (
     teams, premios, facturacion, chat, media, pre_leads, employees_month,
     facturacion_lineas, llamadas_ventas_lineas, bulk_status,
@@ -67,31 +66,7 @@ _MIGRATIONS = [
     "ALTER TABLE leads ADD COLUMN notas JSON NULL",
     "ALTER TABLE users ADD COLUMN active TINYINT(1) NOT NULL DEFAULT 1",
     "ALTER TABLE note_files ADD COLUMN content LONGBLOB NULL",
-    # Índices para acelerar queries del dashboard
-    "CREATE INDEX idx_leads_dia_venta  ON leads (dia_venta)",
-    "CREATE INDEX idx_leads_status     ON leads (status(50))",
-    "CREATE INDEX idx_leads_agente     ON leads (agente_nombre(100))",
-    "CREATE INDEX idx_leads_venta_stat ON leads (dia_venta, status(50))",
-    "CREATE INDEX idx_lc_supervisor    ON lineas_clientes (supervisor(100))",
-    "CREATE INDEX idx_lc_status        ON lineas_clientes (status(50))",
-    # Índices para consultas frecuentes en leads
-    "CREATE INDEX idx_leads_dia_venta   ON leads (dia_venta)",
-    "CREATE INDEX idx_leads_dia_inst    ON leads (dia_instalacion)",
-    "CREATE INDEX idx_leads_created     ON leads (created_at)",
-    "CREATE INDEX idx_leads_status      ON leads (status(50))",
-    "CREATE INDEX idx_leads_agente      ON leads (agente_nombre(100))",
-    "CREATE INDEX idx_leads_supervisor  ON leads (supervisor(100))",
-    "CREATE INDEX idx_leads_venta_stat  ON leads (dia_venta, status(50))",
-    # Índices para lineas_clientes
-    "CREATE INDEX idx_lc_agente         ON lineas_clientes (agente(100))",
-    "CREATE INDEX idx_lc_supervisor     ON lineas_clientes (supervisor(100))",
-    "CREATE INDEX idx_lc_status         ON lineas_clientes (status(50))",
-    "CREATE INDEX idx_lc_created        ON lineas_clientes (created_at)",
     "ALTER TABLE employees_month MODIFY COLUMN period_date VARCHAR(100)",
-    # Coordenadas para el mapa de clientes
-    "ALTER TABLE leads ADD COLUMN lat  DOUBLE NULL",
-    "ALTER TABLE leads ADD COLUMN lng  DOUBLE NULL",
-    "CREATE INDEX idx_leads_coords ON leads (lat, lng)",
     """CREATE TABLE IF NOT EXISTS employees_month (
         id INT AUTO_INCREMENT PRIMARY KEY,
         employee VARCHAR(20) NOT NULL UNIQUE,
@@ -100,15 +75,6 @@ _MIGRATIONS = [
         image_url TEXT,
         period_date VARCHAR(50),
         updated_at DATETIME
-    )""",
-    # Historial de cambios de nombre de equipos
-    """CREATE TABLE IF NOT EXISTS team_renames (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        old_name VARCHAR(200) NOT NULL,
-        new_name VARCHAR(200) NOT NULL,
-        changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        created_by VARCHAR(200) NULL,
-        INDEX idx_tr_old (old_name(100))
     )""",
 ]
 
@@ -157,38 +123,8 @@ async def lifespan(app: FastAPI):
         await _fix_api_file_urls()
     except Exception as e:
         print(f"[fix-images] {e}")
-    try:
-        await _seed_team_renames()
-    except Exception as e:
-        print(f"[team-renames] {e}")
     yield
     await close_mysql()
-
-
-async def _seed_team_renames():
-    """Inserta renames conocidos si aún no existen (idempotente)."""
-    from database_mysql import AsyncSessionLocal
-    _known = [
-        # Todas las variantes de Bryan/Pleitez → TEAM RANDAL MARTINEZ desde 25 mayo 2026 14:00
-        ("TEAM BRYAN PLEITEZ", "TEAM RANDAL MARTINEZ", "2026-05-25 14:00:00"),
-        ("TEAM_BRYAN",         "TEAM RANDAL MARTINEZ", "2026-05-25 14:00:00"),
-        ("BRYAN PLEITEZ",      "TEAM RANDAL MARTINEZ", "2026-05-25 14:00:00"),
-        ("BRYAN",              "TEAM RANDAL MARTINEZ", "2026-05-25 14:00:00"),
-        ("PLEITEZ",            "TEAM RANDAL MARTINEZ", "2026-05-25 14:00:00"),
-    ]
-    async with AsyncSessionLocal() as s:
-        for old, new, dt in _known:
-            exists = await s.execute(
-                _sa_text("SELECT id FROM team_renames WHERE old_name=:o AND new_name=:n LIMIT 1"),
-                {"o": old, "n": new}
-            )
-            if not exists.first():
-                await s.execute(
-                    _sa_text("INSERT INTO team_renames (old_name,new_name,changed_at,created_by) VALUES(:o,:n,:d,'system')"),
-                    {"o": old, "n": new, "d": dt}
-                )
-        await s.commit()
-    print("[team-renames] Seeds aplicados")
 
 app = FastAPI(
     title="CRM Connecting — Python",
@@ -215,7 +151,6 @@ app.add_middleware(
 
 # ── Routers ──────────────────────────────────────────────────────
 app.include_router(auth_router.router)
-app.include_router(dashboard_router.router)
 app.include_router(teams.router)
 app.include_router(premios.router)
 app.include_router(facturacion.router)
