@@ -5,7 +5,8 @@ from sqlalchemy import text
 from deps import current_user, require_roles
 from datetime import datetime
 from typing import Optional, List, Any, Dict
-import re, unicodedata, time, json, calendar, traceback
+import re, unicodedata, time, json, calendar, traceback, asyncio
+from geocoder import geocode_and_save
 
 router = APIRouter(tags=["Leads"])
 
@@ -87,6 +88,148 @@ async def leads_months(
         """), {"lim": limit})
         months = [row["ym"] for row in r.mappings().all()]
     return {"success": True, "data": months, "months": months, "source": "leads", "count": len(months)}
+
+
+# ── GET /api/leads/bootstrap ──────────────────────────────────────
+# Una sola llamada que devuelve leads + teams + agents + months en paralelo
+@router.get("/api/leads/bootstrap")
+async def leads_bootstrap(
+    month:       Optional[str] = Query(None),
+    year:        Optional[str] = Query(None),
+    noAutoMonth: Optional[str] = Query(None),
+    allData:     Optional[str] = Query(None),
+    limit:       int           = Query(5000),
+    user: dict = Depends(current_user),
+):
+    async def _get_leads():
+        where = ["1=1"]
+        params: dict = {}
+        mercado_restrict = _mercado_restrict(user)
+        if mercado_restrict:
+            where.append("UPPER(TRIM(COALESCE(mercado,''))) = :mer")
+            params["mer"] = mercado_restrict
+        if _is_agent(user):
+            username = user.get("username", "")
+            if username:
+                where.append("(agente_nombre = :u OR agente = :u OR created_by = :u)")
+                params["u"] = username
+        disable_auto = str(noAutoMonth or "").lower() in ("1", "true")
+        is_global    = str(allData or "").lower() in ("true", "1")
+        if not is_global and not disable_auto:
+            now = datetime.utcnow()
+            if month and re.match(r"^\d{4}-\d{2}$", month):
+                yr, mo = map(int, month.split("-"))
+            else:
+                yr, mo = now.year, now.month
+            dts = f"{yr}-{mo:02d}-01"
+            _, last_day = calendar.monthrange(yr, mo)
+            dte = f"{yr}-{mo:02d}-{last_day:02d}"
+            where.append("dia_venta >= :dts AND dia_venta < :dte_excl")
+            import calendar as _c2
+            _nm2 = mo + 1 if mo < 12 else 1
+            _ny2 = yr if mo < 12 else yr + 1
+            params["dte_excl"] = f"{_ny2}-{_nm2:02d}-01"
+            params["dts"] = dts
+            params["dte"] = dte
+        params["_lim"] = min(int(limit), 20000)
+        where_sql = " AND ".join(where)
+        count_params = {k: v for k, v in params.items() if k != "_lim"}
+        async with AsyncSessionLocal() as s:
+            rc = await s.execute(text(f"SELECT COUNT(*) AS total FROM leads WHERE {where_sql}"), count_params)
+            total_mes = int(rc.scalar() or 0)
+            r = await s.execute(text(f"SELECT * FROM leads WHERE {where_sql} ORDER BY created_at DESC LIMIT :_lim"), params)
+            return [_serialize_lead(row) for row in r.mappings().all()], total_mes
+
+    async def _get_teams():
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(text("SELECT DISTINCT team FROM users WHERE team IS NOT NULL AND team != '' ORDER BY team"))
+            return [row["team"] for row in r.mappings().all()]
+
+    async def _get_agents():
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(text("SELECT id, username, name, role, team, supervisor FROM users ORDER BY name"))
+            return [dict(row) for row in r.mappings().all()]
+
+    async def _get_months():
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(text("""
+                SELECT DISTINCT
+                  CASE WHEN dia_venta IS NOT NULL THEN DATE_FORMAT(dia_venta,'%Y-%m')
+                       ELSE DATE_FORMAT(created_at,'%Y-%m') END AS ym
+                FROM leads
+                WHERE dia_venta IS NOT NULL OR created_at IS NOT NULL
+                HAVING ym IS NOT NULL AND ym REGEXP '^[0-9]{4}-[0-9]{2}$'
+                ORDER BY ym DESC LIMIT 120
+            """))
+            return [row["ym"] for row in r.mappings().all()]
+
+    async def _get_renames():
+        try:
+            async with AsyncSessionLocal() as s:
+                r = await s.execute(text("""
+                    SELECT old_name, new_name,
+                           DATE_FORMAT(changed_at, '%Y-%m-%d') AS changed_at
+                    FROM team_renames ORDER BY changed_at ASC
+                """))
+                return [dict(row) for row in r.mappings().all()]
+        except Exception:
+            return []
+
+    async def _get_lineas_stats():
+        try:
+            now = datetime.utcnow()  # noqa
+            if month and re.match(r"^\d{4}-\d{2}$", month):
+                yr, mo = map(int, month.split("-"))
+            else:
+                yr, mo = now.year, now.month
+            _, last_day = calendar.monthrange(yr, mo)
+            mes_ini = f"{yr}-{mo:02d}-01"
+            mes_fin = f"{yr}-{mo:02d}-{last_day:02d}"
+            hoy     = now.strftime("%Y-%m-%d")
+
+            # Agrupar por supervisor directamente desde lineas_clientes
+            async with AsyncSessionLocal() as s:
+                r = await s.execute(text("""
+                    SELECT
+                      UPPER(TRIM(COALESCE(supervisor, 'SIN SUPERVISOR'))) AS sup,
+                      SUM(CASE WHEN dia_venta BETWEEN :ini AND :fin THEN 1 ELSE 0 END) AS mes,
+                      SUM(CASE WHEN DATE(dia_venta) = :hoy THEN 1 ELSE 0 END)          AS hoy
+                    FROM lineas_clientes
+                    WHERE LOWER(TRIM(COALESCE(status,''))) NOT IN
+                          ('cancelled','cancelado','cancelada','cancel')
+                    GROUP BY sup
+                    ORDER BY mes DESC
+                """), {"ini": mes_ini, "fin": mes_fin, "hoy": hoy})
+                rows = r.mappings().all()
+
+            # Mapear supervisorKey → nombre de equipo
+            sup_map = {
+                "JONATHAN F": "TEAM LINEAS JONATHAN",
+                "JONATHAN":   "TEAM LINEAS JONATHAN",
+                "LUIS G":     "TEAM LINEAS LUIS",
+                "LUIS":       "TEAM LINEAS LUIS",
+            }
+            teams: dict = {}
+            for row in rows:
+                sup_raw = str(row["sup"] or "").strip().upper()
+                team_lbl = sup_map.get(sup_raw, sup_raw)
+                if team_lbl not in teams:
+                    teams[team_lbl] = {"team": team_lbl, "mes": 0, "hoy": 0}
+                teams[team_lbl]["mes"] += int(row["mes"] or 0)
+                teams[team_lbl]["hoy"] += int(row["hoy"] or 0)
+
+            return sorted(teams.values(), key=lambda x: -x["mes"])
+        except Exception as _le:
+            import traceback as _tb
+            print(f"[lineas_stats ERROR] {_le}\n{_tb.format_exc()}")
+            return []
+
+    (leads, total_mes), teams, agents, months, renames, lineas_stats = await asyncio.gather(
+        _get_leads(), _get_teams(), _get_agents(), _get_months(), _get_renames(), _get_lineas_stats()
+    )
+    return {"success": True, "v": "v2", "leads": leads, "total_mes": total_mes,
+            "teams": teams, "agents": agents,
+            "months": months, "renames": renames, "lineas_stats": lineas_stats}
 
 
 @router.get("/api/leads/collection-counts-public")
@@ -274,6 +417,10 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
         })
         await s.commit()
         new_id = r.lastrowid
+
+    # Geocodificar en background — no bloquea la respuesta
+    if body.direccion and body.direccion.strip():
+        asyncio.create_task(geocode_and_save(new_id, body.direccion))
 
     return {"success": True, "message": "Lead guardado exitosamente", "id": str(new_id)}
 
@@ -585,15 +732,42 @@ async def leads_lineas(
     is_privileged = any(r in role for r in ["admin", "backoffice", "supervisor"])
     full_export   = allData in ("true", "1", "yes") and is_privileged
 
+    # Mes por defecto: mes actual si no se especifica
+    target_month = month
+    if not target_month:
+        now = datetime.utcnow()
+        if year and re.match(r"^\d{4}$", year):
+            target_month = f"{year}-{now.month:02d}"
+        else:
+            target_month = now.strftime("%Y-%m")
+
     where = ["1=1"]
     params: dict = {}
+
+    # Filtro de agente para no-privilegiados
     if not is_privileged:
         display = username.replace(".", " ").replace("_", " ").upper()
         where.append("(agente = :u OR agente_nombre = :u OR agente = :d OR agente_nombre = :d)")
         params["u"] = username
         params["d"] = display
 
-    limit_clause = "" if full_export else "LIMIT 1000"
+    # Filtro de mes en MySQL — incluye mes actual + mes anterior (para colchón)
+    if not full_export and target_month and re.match(r"^\d{4}-\d{2}$", target_month):
+        yr, mo = map(int, target_month.split("-"))
+        _, last_day = calendar.monthrange(yr, mo)
+        prev_mo = mo - 1 if mo > 1 else 12
+        prev_yr = yr if mo > 1 else yr - 1
+        dts = f"{prev_yr}-{prev_mo:02d}-01"   # inicio del mes anterior
+        dte = f"{yr}-{mo:02d}-{last_day:02d}"  # fin del mes actual
+        where.append("""(
+            (dia_venta IS NOT NULL AND dia_venta BETWEEN :dts AND :dte)
+            OR (dia_venta IS NULL AND dia_instalacion IS NOT NULL AND dia_instalacion BETWEEN :dts AND :dte)
+            OR (dia_venta IS NULL AND dia_instalacion IS NULL AND DATE(created_at) BETWEEN :dts AND :dte)
+        )""")
+        params["dts"] = dts
+        params["dte"] = dte
+
+    limit_clause = "" if full_export else "LIMIT 3000"
 
     async with AsyncSessionLocal() as s:
         r = await s.execute(text(f"""
@@ -615,9 +789,10 @@ async def leads_lineas(
             if d.get("dia_venta"): d["dia_venta"] = str(d["dia_venta"])
             leads.append(d)
 
-    cap = len(leads) if full_export else 1000
+    cap = len(leads) if full_export else 3000
     return {"success": True, "data": leads[:cap], "count": len(leads),
-            "meta": {"total": len(leads), "returned": min(len(leads), cap)}}
+            "month": target_month,
+            "meta": {"total": len(leads), "returned": min(len(leads), cap), "month": target_month}}
 
 
 # ── SINGLE LEAD CRUD ───────────────────────────────────────────────

@@ -3,7 +3,23 @@ from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
 from typing import Optional
-import datetime as _dt, unicodedata, re, json, calendar
+import datetime as _dt, unicodedata, re, json, calendar, time
+
+# ── Caché en memoria — TTL 5 minutos ─────────────────────────────────────
+_cache: dict = {}
+_CACHE_TTL = 300  # segundos
+
+def _get_cache(key: str):
+    entry = _cache.get(key)
+    if entry and (time.time() - entry["ts"]) < _CACHE_TTL:
+        return entry["data"]
+    return None
+
+def _set_cache(key: str, data: dict):
+    _cache[key] = {"data": data, "ts": time.time()}
+
+def _clear_cache():
+    _cache.clear()
 
 router = APIRouter(tags=["Init"])
 

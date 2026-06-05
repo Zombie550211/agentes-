@@ -709,13 +709,16 @@ async def lineas_team_delete(body: LineasTeamDeleteBody, user: dict = Depends(cu
 # ── GET /api/lineas-team ─────────────────────────────────────────────
 
 @router.get("/api/lineas-team")
-async def lineas_team_list(user: dict = Depends(current_user)):
+async def lineas_team_list(
+    month: Optional[str] = None,   # YYYY-MM — si se pasa, filtra por ese mes
+    user: dict = Depends(current_user),
+):
     role     = str(user.get("role", "")).lower()
     username = str(user.get("username", ""))
     is_admin_bo   = any(r in role for r in ["admin", "backoffice", "back_office", "rol_icon", "rol_bamo", "icon", "bamo"])
     is_supervisor = "supervisor" in role
 
-    cache_key = "__admin__" if is_admin_bo else username
+    cache_key = (f"__admin__{month}" if is_admin_bo else f"{username}__{month}") if month else ("__admin__" if is_admin_bo else username)
     cached = _cache_get(cache_key)
     if cached is not None:
         return {"success": True, "data": cached, "count": len(cached)}
@@ -752,14 +755,20 @@ async def lineas_team_list(user: dict = Depends(current_user)):
         params["ag1"] = username
         params["ag2"] = display
 
+    # Filtro de mes si se especifica (optimiza mucho el payload)
+    if month and re.match(r"^\d{4}-\d{2}$", month):
+        where.append("LEFT(COALESCE(dia_venta, created_at), 7) = :month_filter")
+        params["month_filter"] = month
+
     where_sql = ("WHERE " + " AND ".join(f"({w})" for w in where)) if where else ""
 
-    # Admins y backoffice: sin límite fijo (max 10000); supervisores/agentes: 3000
     row_limit = 10000 if is_admin_bo else 3000
 
     async with AsyncSessionLocal() as s:
         r = await s.execute(text(f"""
-            SELECT * FROM lineas_clientes
+            SELECT id, team, supervisor, agente, agente_nombre,
+                   cantidad_lineas, dia_venta, status, mercado, nombre_cliente
+            FROM lineas_clientes
             {where_sql}
             ORDER BY created_at DESC
             LIMIT :_lim
@@ -837,3 +846,73 @@ async def lineas_team_line_status(body: LineStatusBody, user: dict = Depends(cur
     _cache_invalidate()
     return {"success": True, "message": "Estado de línea actualizado",
             "lineIndex": idx, "status": new_status}
+
+
+# ── GET /api/lineas/team-stats ─────────────────────────────────────────────
+# Devuelve ventas del mes y del día por equipo de líneas, usando los supervisores
+# registrados como "Supervisor Team Lineas" en la tabla users.
+@router.get("/api/lineas-equipos/stats")
+async def lineas_team_stats(
+    month: Optional[str] = None,   # YYYY-MM, default: mes actual
+    user: dict = Depends(current_user),
+):
+    now = datetime.utcnow()
+    if month and re.match(r"^\d{4}-\d{2}$", month):
+        yr, mo = map(int, month.split("-"))
+    else:
+        yr, mo = now.year, now.month
+
+    import calendar as _cal
+    _, last_day = _cal.monthrange(yr, mo)
+    mes_ini = f"{yr}-{mo:02d}-01"
+    mes_fin = f"{yr}-{mo:02d}-{last_day:02d}"
+    hoy     = now.strftime("%Y-%m-%d")
+
+    # Obtener supervisores de Team Lineas desde users
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            SELECT username, name, team FROM users
+            WHERE LOWER(role) LIKE '%supervisor team lineas%'
+               OR LOWER(role) LIKE '%supervisor%lineas%'
+            ORDER BY name
+        """))
+        supervisors = r.mappings().all()
+
+    # Si no hay supervisores registrados, usar los conocidos como fallback
+    if not supervisors:
+        sup_keys = [
+            {"username": "jonathan.figueroa", "name": "TEAM LINEAS JONATHAN", "team": "TEAM LINEAS JONATHAN"},
+            {"username": "luis.g",            "name": "TEAM LINEAS LUIS",     "team": "TEAM LINEAS LUIS"},
+        ]
+    else:
+        sup_keys = [dict(s) for s in supervisors]
+
+    teams_out = []
+    for sup in sup_keys:
+        sup_u    = str(sup.get("username") or "").lower()
+        team_lbl = str(sup.get("team") or sup.get("name") or sup_u).upper()
+
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(text("""
+                SELECT
+                  SUM(CASE WHEN dia_venta BETWEEN :ini AND :fin THEN 1 ELSE 0 END) AS mes,
+                  SUM(CASE WHEN DATE(dia_venta) = :hoy             THEN 1 ELSE 0 END) AS hoy
+                FROM lineas_clientes
+                WHERE (
+                    LOWER(TRIM(supervisor))      = :sup
+                    OR LOWER(TRIM(supervisor))   LIKE :sup_like
+                )
+                AND LOWER(TRIM(COALESCE(status,''))) NOT IN ('cancelled','cancelado','cancelada','cancel')
+            """), {
+                "ini": mes_ini, "fin": mes_fin, "hoy": hoy,
+                "sup": sup_u, "sup_like": f"%{sup_u.replace('.', ' ')}%",
+            })
+            row = r.mappings().first()
+
+        teams_out.append({
+            "team":  team_lbl,
+            "mes":   int(row["mes"]  or 0) if row else 0,
+            "hoy":   int(row["hoy"]  or 0) if row else 0,
+        })
+
+    return {"success": True, "teams": teams_out, "month": f"{yr}-{mo:02d}"}

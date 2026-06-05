@@ -1,162 +1,842 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Inicio - Team Líneas</title>
-  <script>
-    (function guard(){
-      function allow(){ /* no-op: body remains visible */ }
-      function toInicio(){ window.location.replace('/login.html'); }
-      function toLogin(){ window.location.replace('/login.html'); }
-      try{
-        let user = null;
-        try { user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'null'); } catch {}
-        const role = String(user && user.role || '').toLowerCase();
-        const team = String(user && user.team || '').toLowerCase();
-        const okLocal = !!user && (role.includes('lineas') || team.includes('lineas') || role.includes('supervisor'));
-        if (okLocal) { allow(); return; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Team Líneas</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="/css/sidebar-shared.css?v=20260529b">
+<link rel="stylesheet" href="/css/sidebar-modern.css?v=20260601b">
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.49.0/dist/apexcharts.min.js"></script>
+<script src="/js/fetch-interceptor.js" defer></script>
+<script src="/js/logout-handler.js" defer></script>
+<script src="/js/sidebar-loader.js" defer></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif}
 
-        // No info local: verificar con servidor
-        fetch('/api/auth/verify-server', { credentials:'include' })
-          .then(r => r.ok ? r.json() : null)
-          .then(d => {
-            if (!d || !d.authenticated || !d.user) { toLogin(); return; }
-            const r = String(d.user.role||'').toLowerCase();
-            const t = String(d.user.team||'').toLowerCase();
-            const ok = r.includes('lineas') || t.includes('lineas') || r.includes('supervisor');
-            if (ok) {
-              try { localStorage.setItem('user', JSON.stringify(d.user)); } catch {}
-              allow();
-            } else {
-              toInicio();
-            }
-          })
-          .catch(() => { toLogin(); });
-      }catch{ toInicio(); }
-    })();
-  </script>
-  <link rel="stylesheet" href="/css/theme.css?v=20251124f"/>
-  <link rel="stylesheet" href="/css/sidebar-shared.css?v=20260529b" />
-  <link rel="stylesheet" href="/css/costumer-table-clean.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+/* ── FONDO DARK ── */
+body{
+  background:#060c1e;
+  background-image:
+    radial-gradient(ellipse 70% 50% at 10% 0%,   rgba(0,100,255,.18) 0%,transparent 55%),
+    radial-gradient(ellipse 50% 40% at 90% 5%,   rgba(0,200,255,.12) 0%,transparent 50%),
+    radial-gradient(ellipse 40% 60% at 80% 95%,  rgba(124,58,237,.15) 0%,transparent 55%),
+    radial-gradient(ellipse 60% 40% at 5%  90%,  rgba(0,150,255,.10) 0%,transparent 50%);
+  color:#e2e8f0;
+}
+
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(0,200,255,.20);border-radius:4px}
+
+/* ── VARIABLES ── */
+:root{
+  --neon:#00e5ff;
+  --neon2:#0066ff;
+  --purple:#7c3aed;
+  --amber:#f59e0b;
+  --green:#10b981;
+  --red:#ef4444;
+  --glass:rgba(8,18,48,0.72);
+  --glass-b:rgba(0,180,255,.10);
+  --glass-b2:rgba(0,180,255,.20);
+  --ink:#e2e8f0;
+  --ink2:#94a3b8;
+  --ink3:#475569;
+}
+
+/* ── LAYOUT ── */
+html,body{height:100%;overflow:hidden}
+
+/* El sidebar usa position:fixed — main-content ocupa toda la pantalla
+   y el sistema de auto-hide (sidebar-shared.css) le aplica margin-left */
+.main-content{
+  position:fixed;top:0;left:0;right:0;bottom:0;
+  display:flex;flex-direction:column;
+  overflow:hidden;
+  transition:margin-left .18s ease;
+}
+
+/* sidebar-shared.css ya aplica margin-left a .main-content en auto-hide */
+
+/* ── TOPBAR ── */
+.topbar{
+  flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
+  padding:0 22px;height:52px;
+  background:rgba(6,12,30,.85);border-bottom:1px solid rgba(0,200,255,.08);
+  backdrop-filter:blur(20px);
+}
+.topbar-brand{display:flex;align-items:center;gap:10px}
+.tb-logo{width:30px;height:30px;border-radius:8px;
+  background:linear-gradient(135deg,var(--neon2),var(--neon));
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:800;color:#fff;
+  box-shadow:0 0 16px rgba(0,229,255,.35)}
+.tb-title{font-family:'Space Grotesk',sans-serif;font-size:.88rem;font-weight:700;color:var(--ink)}
+.tb-sub{font-size:.60rem;color:var(--ink3);margin-top:1px}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.tb-date{font-size:.70rem;color:var(--ink3)}
+.tb-user{display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;
+  background:rgba(0,200,255,.06);border:1px solid rgba(0,200,255,.14);
+  border-radius:50px;cursor:pointer}
+.tb-av{width:26px;height:26px;border-radius:50%;
+  background:linear-gradient(135deg,var(--neon2),var(--neon));
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:800;color:#fff;
+  box-shadow:0 0 10px rgba(0,229,255,.40)}
+.tb-uname{font-size:.72rem;font-weight:600;color:var(--ink)}
+.tb-urole{font-size:.58rem;color:var(--ink3)}
+
+/* ── PAGE ── */
+.page{
+  flex:1;min-height:0;overflow:hidden;
+  display:grid;
+  grid-template-rows:1fr 1fr;
+  grid-template-columns:1fr;
+  gap:10px;padding:10px 14px 10px;
+}
+
+
+/* ── ROW 2: Welcome + Chart + Mini stats ── */
+.row2{display:grid;grid-template-columns:260px 1fr 220px;gap:10px;min-height:0}
+
+/* Welcome card */
+.welcome-card{
+  background:var(--glass);border:1px solid var(--glass-b);border-radius:16px;
+  backdrop-filter:blur(24px);overflow:hidden;display:flex;flex-direction:column;
+  position:relative;
+}
+.wc-bg{
+  position:absolute;inset:0;
+  background:linear-gradient(160deg,rgba(0,80,200,.25) 0%,rgba(124,58,237,.15) 50%,transparent 100%);
+  pointer-events:none;
+}
+.wc-body{position:relative;z-index:1;padding:18px;flex:1;display:flex;flex-direction:column;gap:12px}
+.wc-tag{font-size:.58rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--neon);opacity:.8}
+.wc-name{font-family:'Space Grotesk',sans-serif;font-size:1.2rem;font-weight:700;
+  color:#fff;line-height:1.2}
+.wc-role{font-size:.68rem;color:var(--ink2);margin-top:2px}
+.wc-divider{height:1px;background:rgba(0,200,255,.10);margin:4px 0}
+.wc-stat-row{display:flex;flex-direction:column;gap:6px}
+.wc-stat{display:flex;justify-content:space-between;align-items:center}
+.wc-stat-lbl{font-size:.65rem;color:var(--ink3)}
+.wc-stat-val{font-size:.75rem;font-weight:700;color:var(--ink)}
+.wc-pill{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;
+  background:rgba(0,229,255,.08);border:1px solid rgba(0,229,255,.18);
+  border-radius:50px;font-size:.65rem;color:var(--neon);font-weight:600;
+  margin-top:auto;cursor:pointer;text-decoration:none;transition:background .15s}
+.wc-pill:hover{background:rgba(0,229,255,.14)}
+.wc-pill i{font-size:.60rem}
+
+/* Chart panel */
+.chart-panel{
+  background:var(--glass);border:1px solid var(--glass-b);border-radius:16px;
+  backdrop-filter:blur(24px);display:flex;flex-direction:column;overflow:hidden;
+  position:relative;
+}
+.cp-header{
+  flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px 8px;
+}
+
+.cp-title{font-size:.72rem;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em}
+.cp-val{font-family:'Space Grotesk',sans-serif;font-size:1.6rem;font-weight:700;
+  color:var(--neon);text-shadow:0 0 20px rgba(0,229,255,.50);line-height:1;margin-top:2px}
+.cp-delta{font-size:.68rem;color:#34d399;font-weight:600;margin-top:2px}
+.cp-legend{display:flex;gap:14px}
+.cp-leg-item{display:flex;align-items:center;gap:5px;font-size:.62rem;color:var(--ink3)}
+.cp-leg-dot{width:8px;height:8px;border-radius:50%}
+.cp-chart{flex:1;min-height:0}
+
+/* Mini stats panel */
+.mini-panel{
+  background:var(--glass);border:1px solid var(--glass-b);border-radius:16px;
+  backdrop-filter:blur(24px);display:flex;flex-direction:column;gap:8px;
+  padding:14px;overflow:hidden;
+}
+.mp-title{font-size:.62rem;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;
+  margin-bottom:2px}
+.mp-big{font-family:'Space Grotesk',sans-serif;font-size:1.8rem;font-weight:700;
+  color:var(--ink);line-height:1}
+.mp-sub{font-size:.62rem;color:var(--ink3);margin-top:1px;margin-bottom:4px}
+.mp-divider{height:1px;background:rgba(0,200,255,.08)}
+.mp-agent{display:flex;align-items:center;gap:7px;padding:5px 0}
+.mp-ag-av{width:26px;height:26px;border-radius:8px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:.58rem;font-weight:800;color:#fff}
+.mp-ag-info{flex:1;min-width:0}
+.mp-ag-name{font-size:.68rem;font-weight:600;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mp-ag-role{font-size:.56rem;color:var(--ink3)}
+.mp-ag-val{font-size:.70rem;font-weight:700;color:var(--neon);flex-shrink:0}
+.mp-bar-row{margin-top:2px}
+.mp-bar{height:3px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden}
+.mp-bar-fill{height:100%;border-radius:4px;transition:width .8s cubic-bezier(.34,1.56,.64,1)}
+
+/* ── ROW 3: Ranking + Recientes ── */
+.row3{display:grid;grid-template-columns:1fr 1fr;gap:10px;min-height:0}
+
+.table-panel{
+  background:var(--glass);border:1px solid var(--glass-b);border-radius:16px;
+  backdrop-filter:blur(24px);display:flex;flex-direction:column;overflow:hidden;
+}
+.tp-header{
+  flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;border-bottom:1px solid rgba(0,200,255,.06);
+}
+.tp-title{font-size:.72rem;font-weight:700;color:var(--ink);
+  text-transform:uppercase;letter-spacing:.05em}
+.tp-link{font-size:.62rem;color:var(--neon);text-decoration:none;opacity:.8}
+.tp-link:hover{opacity:1}
+.tp-body{flex:1;overflow-y:auto;padding:0 6px 6px}
+.tp-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:10px;
+  transition:background .12s;cursor:default}
+.tp-row:hover{background:rgba(0,200,255,.04)}
+.tp-num{font-size:.60rem;font-weight:800;color:var(--ink3);width:14px;flex-shrink:0;text-align:center}
+.tp-av{width:28px;height:28px;border-radius:8px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:.60rem;font-weight:800;color:#fff}
+.tp-info{flex:1;min-width:0}
+.tp-name{font-size:.70rem;font-weight:600;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tp-team{font-size:.58rem;color:var(--ink3)}
+.tp-bar-wrap{width:80px;flex-shrink:0}
+.tp-bar{height:3px;border-radius:4px;background:rgba(255,255,255,.05);overflow:hidden}
+.tp-bar-fill{height:100%;border-radius:4px}
+.tp-pts{font-size:.68rem;font-weight:700;color:var(--neon);width:36px;text-align:right;flex-shrink:0}
+
+/* Recent activity */
+.act-list{flex:1;overflow-y:auto;padding:0 6px 6px}
+.act-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:10px;
+  transition:background .12s}
+.act-row:hover{background:rgba(0,200,255,.04)}
+.act-icon{width:30px;height:30px;border-radius:8px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:.72rem}
+.act-info{flex:1;min-width:0}
+.act-name{font-size:.70rem;font-weight:600;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.act-meta{font-size:.58rem;color:var(--ink3);margin-top:1px}
+.act-tag{font-size:.58rem;font-weight:700;padding:2px 7px;border-radius:20px;flex-shrink:0}
+.tag-ok {background:rgba(16,185,129,.12);color:#34d399}
+.tag-pen{background:rgba(245,158,11,.12);color:#fbbf24}
+.tag-can{background:rgba(239,68,68,.10);color:#f87171}
+
+/* ── Top Líneas (welcome card) ── */
+.tl-row{display:flex;align-items:center;gap:7px;padding:4px 6px;border-radius:8px;transition:background .12s}
+.tl-row:hover{background:rgba(0,229,255,.04)}
+.tl-pos{font-size:.58rem;font-weight:800;color:var(--ink3);width:14px;text-align:center;flex-shrink:0}
+.tl-av{width:24px;height:24px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.52rem;font-weight:800;color:#fff}
+.tl-name{flex:1;font-size:.66rem;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.tl-val{font-size:.70rem;font-weight:700;flex-shrink:0}
+.tl-sub{font-size:.54rem;color:var(--ink3);margin-top:1px}
+
+/* ── NEON BADGE podio ── */
+.neon-badge{
+  width:20px;height:20px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.52rem;font-weight:900;color:#fff;flex-shrink:0;
+}
+
+/* ── Skeleton loader ── */
+.skel{background:rgba(255,255,255,.04);border-radius:8px;animation:skel-pulse 1.4s ease-in-out infinite}
+@keyframes skel-pulse{0%,100%{opacity:.3}50%{opacity:.7}}
+
+/* ── Responsive ── */
+@media(max-width:1200px){
+  .row2{grid-template-columns:220px 1fr 200px}
+  .kcard-val{font-size:1.2rem}
+}
+@media(max-width:1000px){
+  html,body{overflow:auto;height:auto}
+  .main-content{position:static!important;height:auto!important;overflow-y:auto!important}
+  .page{grid-template-rows:auto auto auto;overflow:visible;height:auto}
+  .row2{grid-template-columns:1fr;grid-template-rows:auto 260px auto}
+  .row3{grid-template-columns:1fr}
+  .kpi-row{grid-template-columns:repeat(2,1fr)}
+}
+</style>
 </head>
 <body>
-  <div class="layout">
-    <nav class="sidebar sidebar-inicio" data-active="inicio"></nav>
-    <main class="main-content">
-      <div style="max-width:100%; margin:16px auto 0;">
-        <h1 style="margin:0 0 12px;">Inicio</h1>
 
-        <div class="toolbar" style="justify-content:space-between; align-items:center; margin-bottom:8px; display:flex; gap:8px;">
-          <div style="display:flex; gap:8px; align-items:center;">
-            <input id="q" class="form-control" placeholder="Buscar (nombre, agente, supervisor, mercado, status, fechas)" style="min-width:320px;" />
-            <button id="refreshBtn" class="btn">Buscar</button>
+<!-- Sidebar: sidebar-loader.js lo inyecta en position:fixed automáticamente -->
+<nav class="sidebar sidebar-inicio" data-active="inicio-lineas"></nav>
+
+<div class="main-content">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="topbar-brand">
+        <div class="tb-logo"><i class="fas fa-bolt"></i></div>
+        <div>
+          <div class="tb-title" id="tb-team-title">Team Líneas</div>
+          <div class="tb-sub">CRM · Servicios Móviles</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="tb-date" id="tb-date"></div>
+        <div class="tb-user">
+          <div class="tb-av" id="tb-av">??</div>
+          <div>
+            <div class="tb-uname" id="tb-uname">—</div>
+            <div class="tb-urole" id="tb-urole">Team Líneas</div>
           </div>
-          <div id="meta" style="font-size:13px; color:#6b7280;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE -->
+    <div class="page">
+
+      <!-- ROW 2 -->
+      <div class="row2">
+
+        <!-- Welcome / Top Líneas -->
+        <div class="welcome-card">
+          <div class="wc-bg"></div>
+          <div class="wc-body">
+            <div>
+              <div class="wc-tag" id="wc-greet">BIENVENIDO</div>
+              <div class="wc-name" id="wc-name">—</div>
+              <div class="wc-role" id="wc-role">Team Líneas</div>
+            </div>
+            <div class="wc-divider"></div>
+            <!-- Top por Líneas -->
+            <div style="font-size:.58rem;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--neon);opacity:.8;margin-bottom:6px">
+              <i class="fas fa-signal" style="margin-right:4px"></i>Top por Líneas · mes actual
+            </div>
+            <div id="wc-top-lineas" style="display:flex;flex-direction:column;gap:5px;flex:1;overflow:hidden">
+              <div class="skel" style="height:28px;border-radius:8px"></div>
+              <div class="skel" style="height:28px;border-radius:8px"></div>
+              <div class="skel" style="height:28px;border-radius:8px"></div>
+            </div>
+            <a href="/lineas/costumer.html" class="wc-pill" style="margin-top:8px">
+              <i class="fas fa-arrow-right"></i> Ver clientes
+            </a>
+          </div>
         </div>
 
-        <section style="margin-top:8px;">
-          <div class="costumer-table-container">
-            <div class="costumer-table-header">
-              <h2 class="costumer-table-title">Registros</h2>
-              <div class="costumer-table-actions"></div>
+        <!-- Chart -->
+        <div class="chart-panel">
+          <div class="cp-header">
+            <div class="cp-left">
+              <div class="cp-title">Ventas mensuales</div>
+              <div class="cp-val" id="cp-total">—</div>
+              <div class="cp-delta" id="cp-delta">ventas totales este año</div>
             </div>
-            <div class="table-responsive">
-              <table class="costumer-table" id="tbl">
-                <thead>
-                  <tr>
-                    <th>Nombre</th>
-                    <th>Agente</th>
-                    <th>Supervisor</th>
-                    <th>Mercado</th>
-                    <th>Status</th>
-                    <th>Día venta</th>
-                    <th>Día instalación</th>
-                    <th>Creado</th>
-                  </tr>
-                </thead>
-                <tbody id="tbody"></tbody>
-              </table>
+            <div class="cp-legend">
+              <div class="cp-leg-item">
+                <div class="cp-leg-dot" style="background:var(--neon);box-shadow:0 0 6px var(--neon)"></div>
+                <span>Ventas</span>
+              </div>
             </div>
           </div>
-        </section>
+          <div class="cp-chart" id="apex-monthly-sales"></div>
+        </div>
+
+        <!-- Mini stats -->
+        <div class="mini-panel">
+          <div class="mp-title">Top Semanal</div>
+          <div class="mp-big" id="mp-total-agents">—</div>
+          <div class="mp-sub" id="mp-week-label">ventas esta semana</div>
+          <div class="mp-divider"></div>
+          <div id="mp-agents-list">
+            <div class="skel" style="height:32px;margin-top:6px;border-radius:10px"></div>
+            <div class="skel" style="height:32px;margin-top:6px;border-radius:10px"></div>
+            <div class="skel" style="height:32px;margin-top:6px;border-radius:10px"></div>
+            <div class="skel" style="height:32px;margin-top:6px;border-radius:10px"></div>
+          </div>
+        </div>
+
       </div>
-    </main>
-  </div>
-  <script src="/js/fetch-interceptor.js"></script>
-  <script src="/js/logout-handler.js"></script>
-  <script src="/js/user-info.js"></script>
-  <script src="/js/sidebar-loader.js"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', function(){
-      if (window.loadSidebar) window.loadSidebar();
-      const btn = document.getElementById('refreshBtn');
-      const meta = document.getElementById('meta');
-      const tbody = document.getElementById('tbody');
-      const q = document.getElementById('q');
-      let allRows = [];
 
-      async function fetchData() {
-        tbody.innerHTML = '<tr><td colspan="8" style="padding:12px; color:#6b7280;">Cargando...</td></tr>';
-        try {
-          const url = '/api/lineas';
-          const resp = await fetch(url, { credentials: 'include' });
-          const data = await resp.json();
-          if (!resp.ok || data.success === false) throw new Error(data.message || 'Error');
-          allRows = data.data || [];
-          renderRows(applyFilter(allRows));
-          meta.textContent = `Registros: ${allRows.length}`;
-        } catch (e) {
-          tbody.innerHTML = `<tr><td colspan="8" style="padding:12px; color:#b91c1c;">${e.message || 'Error al cargar'}</td></tr>`;
-        }
+      <!-- ROW 3 -->
+      <div class="row3">
+
+        <!-- Ranking -->
+        <div class="table-panel">
+          <div class="tp-header">
+            <span class="tp-title">Ranking del mes</span>
+            <a href="/lineas/ranking.html" class="tp-link">Ver completo →</a>
+          </div>
+          <div class="tp-body" id="ranking-list">
+            <div class="skel" style="height:36px;margin:8px 0;border-radius:10px"></div>
+            <div class="skel" style="height:36px;margin:6px 0;border-radius:10px"></div>
+            <div class="skel" style="height:36px;margin:6px 0;border-radius:10px"></div>
+          </div>
+        </div>
+
+        <!-- Recientes -->
+        <div class="table-panel">
+          <div class="tp-header">
+            <span class="tp-title">Registros recientes</span>
+            <a href="/lineas/costumer.html" class="tp-link">Ver todos →</a>
+          </div>
+          <div class="act-list" id="recent-list">
+            <div class="skel" style="height:36px;margin:8px 0;border-radius:10px"></div>
+            <div class="skel" style="height:36px;margin:6px 0;border-radius:10px"></div>
+            <div class="skel" style="height:36px;margin:6px 0;border-radius:10px"></div>
+          </div>
+        </div>
+
+      </div>
+
+    </div><!-- /.page -->
+</div><!-- /.main-content -->
+
+<script src="/js/fetch-interceptor.js"></script>
+<script src="/js/logout-handler.js"></script>
+<script src="/js/sidebar-loader.js"></script>
+<script>
+'use strict';
+/* ═══════════════════════════════════════
+   DASHBOARD — Team Líneas  (dark neon)
+═══════════════════════════════════════ */
+
+const $ = id => document.getElementById(id);
+const fmt = d => { const p = n => String(n).padStart(2,'0'); const dd=new Date(d); return `${dd.getFullYear()}-${p(dd.getMonth()+1)}-${p(dd.getDate())}`; };
+const initials = s => String(s||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?';
+const capFirst = s => String(s||'').split(/\s+/).map(w=>w?w[0].toUpperCase()+w.slice(1):'').join(' ');
+const PALETTE  = ['#00e5ff','#0ea5e9','#6366f1','#f59e0b','#10b981','#ec4899','#a78bfa','#f97316'];
+const colorFor = s => { let h=0; for(const c of String(s||'')) h=(h*31+c.charCodeAt(0))&0xffff; return PALETTE[h%PALETTE.length]; };
+const MONTHS   = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+/* ── Usuario ── */
+let _user = null;
+try{ _user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'null'); }catch(_){}
+const _role    = String(_user?.role||'').toLowerCase();
+const _isSup   = _role.includes('supervisor');
+const _myUname = String(_user?.username||'').toLowerCase();
+
+/* ── Topbar ── */
+(function(){
+  const now = new Date();
+  const days=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  const months=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const h = now.getHours();
+  const greet = h<12?'BUENOS DÍAS ☀️':h<18?'BUENAS TARDES':'BUENAS NOCHES 🌙';
+  $('tb-date').textContent = `${days[now.getDay()]}, ${now.getDate()} de ${months[now.getMonth()]}`;
+  const name = _user?.username || _user?.name || 'Usuario';
+  const av   = initials(name);
+  $('tb-av').textContent    = av;
+  $('tb-uname').textContent = capFirst(name);
+  $('tb-urole').textContent = _user?.role || 'Team Líneas';
+  // Topbar: muestra el team del usuario
+  const teamName = _user?.team || 'Team Líneas';
+  const ttEl = $('tb-team-title');
+  if (ttEl) ttEl.textContent = teamName;
+  $('wc-greet').textContent = greet;
+  $('wc-name').textContent  = capFirst(name);
+  $('wc-role').textContent  = (_user?.role||'Team Líneas')+' · '+(_user?.team||'');
+})();
+
+/* ── Fetch ── */
+async function fetchLineas(url){
+  try{
+    const r = await fetch(url,{credentials:'include'});
+    if(!r.ok) return [];
+    const j = await r.json();
+    return Array.isArray(j)?j:(j.data||j.leads||j.clientes||[]);
+  }catch(_){ return []; }
+}
+
+/* ── Filtro rol ── */
+function filterForUser(leads){
+  if(_isSup) return leads;
+  const disp = _myUname.replace(/\./g,' ').replace(/_/g,' ').toUpperCase();
+  return leads.filter(l=>{
+    const ag = String(l.agente||l.agenteNombre||'').toLowerCase();
+    return ag===_myUname||ag.toUpperCase()===disp;
+  });
+}
+
+/* ── Fetch inmediato ── */
+const now      = new Date();
+const yrStart  = new Date(now.getFullYear(),0,1);
+const yrEnd    = new Date(now.getFullYear(),11,31);
+const msStart  = new Date(now.getFullYear(),now.getMonth(),1);
+const msEnd    = new Date(now.getFullYear(),now.getMonth()+1,0);
+const _allFetch = fetchLineas('/api/lineas-team');
+
+/* ═══════ APEX CHART ══════ */
+let _apexChart = null;
+let _animFrame = null;
+
+function _ease(t){ return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2; }
+
+function _apexOpts(cats,data){
+  return{
+    series:[{name:'Ventas',data}],
+    chart:{type:'area',height:'100%',background:'transparent',toolbar:{show:false},animations:{enabled:false}},
+    stroke:{curve:'smooth',width:2.5,colors:['#00e5ff']},
+    fill:{type:'gradient',gradient:{
+      shadeIntensity:1,
+      colorStops:[
+        {offset:0,  color:'#00e5ff',opacity:0.40},
+        {offset:60, color:'#0066ff',opacity:0.10},
+        {offset:100,color:'#060c1e',opacity:0.00}
+      ]
+    }},
+    colors:['#00e5ff'],
+    markers:{size:5,colors:['#00e5ff'],strokeColors:'#060c1e',strokeWidth:2,hover:{size:7}},
+    xaxis:{
+      categories:cats,
+      labels:{style:{colors:'#475569',fontSize:'10px',fontFamily:'Outfit,sans-serif'}},
+      axisBorder:{show:false},axisTicks:{show:false}
+    },
+    yaxis:{
+      min:0,forceNiceScale:true,
+      labels:{style:{colors:'#475569',fontSize:'10px',fontFamily:'Outfit,sans-serif'},formatter:v=>Math.round(v)}
+    },
+    grid:{
+      borderColor:'rgba(0,200,255,.06)',strokeDashArray:4,
+      xaxis:{lines:{show:false}},yaxis:{lines:{show:true}},
+      padding:{top:0,right:8,bottom:0,left:4}
+    },
+    tooltip:{
+      theme:'dark',
+      custom({series,seriesIndex,dataPointIndex,w}){
+        const val=series[seriesIndex][dataPointIndex];
+        const cat=w.globals.labels[dataPointIndex];
+        return '<div style="background:#0f1e3d;color:#e2e8f0;padding:8px 13px;border-radius:10px;'
+          +'border:1px solid rgba(0,229,255,.25);box-shadow:0 0 20px rgba(0,229,255,.15);font-family:Outfit,sans-serif;font-size:12px">'
+          +'<div style="font-size:10px;font-weight:600;color:#00e5ff;letter-spacing:.05em;margin-bottom:2px">'+cat+'</div>'
+          +'<div style="font-size:16px;font-weight:800">'+val+' <span style="font-size:10px;opacity:.6">ventas</span></div>'
+          +'</div>';
       }
+    },
+    dataLabels:{enabled:false},legend:{show:false}
+  };
+}
 
-      function applyFilter(rows){
-        const term = (q?.value || '').trim().toUpperCase();
-        if (!term) return rows;
-        const norm = (v) => String(v||'').toUpperCase();
-        return rows.filter(r => {
-          const blob = [
-            norm(r.nombre_cliente),
-            norm(r.agente||r.agenteNombre),
-            norm(r.supervisor),
-            norm(r.mercado),
-            norm(r.status),
-            norm(r.dia_venta),
-            norm(r.dia_instalacion),
-            norm(r.creadoEn)
-          ].join(' | ');
-          return blob.includes(term);
-        });
-      }
+function _startSvgAnim(container){
+  if(_animFrame){cancelAnimationFrame(_animFrame);_animFrame=null;}
+  const svg=container.querySelector('svg');
+  if(!svg) return;
+  const strokePath=Array.from(svg.querySelectorAll('.apexcharts-series path'))
+    .find(p=>{const s=p.getAttribute('stroke');return s&&s!=='transparent'&&s!=='none';});
+  if(!strokePath) return;
+  const pathLen=strokePath.getTotalLength();
+  if(!pathLen) return;
 
-      function fmt(d) {
-        try { if (!d) return ''; const dt = new Date(d); if (isNaN(dt)) return String(d); return dt.toLocaleDateString(); } catch { return String(d||''); }
-      }
+  /* Glow filter */
+  let defs=svg.querySelector('defs');
+  if(!defs){defs=document.createElementNS('http://www.w3.org/2000/svg','defs');svg.prepend(defs);}
+  if(!defs.querySelector('#lg2-glow')){
+    defs.insertAdjacentHTML('beforeend',`
+      <filter id="lg2-glow" x="-40%" y="-100%" width="180%" height="300%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="b1"/>
+        <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b2"/>
+        <feColorMatrix in="b1" type="matrix" values="0 0 0 0 0 0 0 0 0 0.9 0 0 0 0 1 0 0 0 2.5 0" result="g1"/>
+        <feColorMatrix in="b2" type="matrix" values="0 0 0 0 0 0 0 0 0 0.9 0 0 0 0 1 0 0 0 1.5 0" result="g2"/>
+        <feMerge><feMergeNode in="g1"/><feMergeNode in="g2"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="lg2-orb" x="-300%" y="-300%" width="700%" height="700%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="big"/>
+        <feGaussianBlur in="SourceGraphic" stdDeviation="4"  result="small"/>
+        <feMerge><feMergeNode in="big"/><feMergeNode in="small"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>`);
+  }
 
-      function renderRows(rows) {
-        if (!rows.length) { tbody.innerHTML = '<tr><td colspan="8" style="padding:12px; color:#6b7280;">Sin datos</td></tr>'; return; }
-        tbody.innerHTML = rows.map(r => `
-          <tr>
-            <td style="padding:10px; border-bottom:1px solid #eef2f7;">${(r.nombre_cliente||'').toString()}</td>
-            <td style="padding:10px; border-bottom:1px solid #eef2f7;">${(r.agente||r.agenteNombre||'')}</td>
-            <td style="padding:10px; border-bottom:1px solid #eef2f7;">${(r.supervisor||'')}</td>
-            <td style="padding:10px; border-bottom:1px solid #eef2f7;">${(r.mercado||'')}</td>
-            <td style="padding:10px; border-bottom:1px solid #eef2f7;">${(r.status||'')}</td>
-            <td style="padding:10px; border-bottom:1px solid #eef2f7;">${fmt(r.dia_venta)}</td>
-            <td style="padding:10px; border-bottom:1px solid #eef2f7;">${fmt(r.dia_instalacion)}</td>
-            <td style="padding:10px; border-bottom:1px solid #eef2f7;">${fmt(r.creadoEn)}</td>
-          </tr>
-        `).join('');
-      }
+  /* Glow layers */
+  let gp1=svg.querySelector('.lg2-gp1');
+  let gp2=svg.querySelector('.lg2-gp2');
+  if(!gp1){
+    gp1=strokePath.cloneNode(false); gp1.classList.add('lg2-gp1');
+    gp1.setAttribute('fill','none');gp1.setAttribute('stroke','#00e5ff');
+    gp1.setAttribute('stroke-width','14');gp1.style.filter='url(#lg2-glow)';
+    gp1.style.opacity='0.45';gp1.style.pointerEvents='none';
+    strokePath.parentNode.insertBefore(gp1,strokePath);
+    gp2=strokePath.cloneNode(false); gp2.classList.add('lg2-gp2');
+    gp2.setAttribute('fill','none');gp2.setAttribute('stroke','#0ea5e9');
+    gp2.setAttribute('stroke-width','6');gp2.style.filter='url(#lg2-glow)';
+    gp2.style.opacity='0.70';gp2.style.pointerEvents='none';
+    strokePath.parentNode.insertBefore(gp2,strokePath);
+  } else {
+    gp1.setAttribute('d',strokePath.getAttribute('d'));
+    gp2.setAttribute('d',strokePath.getAttribute('d'));
+  }
 
-      btn.addEventListener('click', fetchData);
-      if (q) q.addEventListener('input', ()=> renderRows(applyFilter(allRows)) );
-      fetchData();
-    });
-  </script>
+  strokePath.style.filter='url(#lg2-glow)';
+
+  /* Orbe */
+  let orbG=svg.querySelector('.lg2-orb');
+  if(!orbG){
+    orbG=document.createElementNS('http://www.w3.org/2000/svg','g');
+    orbG.classList.add('lg2-orb');orbG.style.pointerEvents='none';
+    const a1=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    a1.setAttribute('r','22');a1.setAttribute('fill','rgba(0,229,255,0.08)');a1.classList.add('o-a1');
+    const a2=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    a2.setAttribute('r','10');a2.setAttribute('fill','rgba(0,229,255,0.20)');a2.classList.add('o-a2');
+    const core=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    core.setAttribute('r','5');core.setAttribute('fill','#00e5ff');
+    core.style.filter='url(#lg2-orb)';core.classList.add('o-core');
+    orbG.appendChild(a1);orbG.appendChild(a2);orbG.appendChild(core);
+    strokePath.parentNode.appendChild(orbG);
+  }
+  const a1=orbG.querySelector('.o-a1');
+  const a2=orbG.querySelector('.o-a2');
+  const core=orbG.querySelector('.o-core');
+
+  /* Animate once */
+  const DRAW_MS=8000;
+  [strokePath,gp1,gp2].forEach(p=>{
+    p.style.strokeDasharray=pathLen;
+    p.style.strokeDashoffset=pathLen;
+  });
+  orbG.style.opacity='0';orbG.style.transition='';
+
+  const t0=performance.now();
+  function tick(now){
+    const t=Math.min((now-t0)/DRAW_MS,1);
+    const e=_ease(t);
+    const off=pathLen*(1-e);
+    strokePath.style.strokeDashoffset=off;
+    gp1.style.strokeDashoffset=off;
+    gp2.style.strokeDashoffset=off;
+    try{
+      const pt=strokePath.getPointAtLength(pathLen*e);
+      [a1,a2,core].forEach(el=>{el.setAttribute('cx',pt.x);el.setAttribute('cy',pt.y);});
+      orbG.style.opacity=t>.01?'1':'0';
+      const pulse=1+0.25*Math.sin(now/180);
+      a1.setAttribute('r',22*pulse); a2.setAttribute('r',10*pulse);
+    }catch(_){}
+    if(t<1){ _animFrame=requestAnimationFrame(tick); }
+    else{
+      orbG.style.transition='opacity 1000ms';
+      setTimeout(()=>{orbG.style.opacity='0';},800);
+    }
+  }
+  _animFrame=requestAnimationFrame(tick);
+}
+
+function renderChart(data,cats){
+  const el=$('apex-monthly-sales');
+  if(!el||typeof ApexCharts==='undefined') return;
+  if(_apexChart){
+    _apexChart.updateOptions(_apexOpts(cats,data),true,true);
+    setTimeout(()=>_startSvgAnim(el),150);
+    return;
+  }
+  _apexChart=new ApexCharts(el,_apexOpts(cats,data));
+  _apexChart.render().then(()=>setTimeout(()=>_startSvgAnim(el),150));
+}
+
+/* ═══════ RENDER HELPERS ══════ */
+/* ── Top por Líneas (welcome card) ── */
+function renderTopLineas(leads){
+  const el = $('wc-top-lineas');
+  if (!el) return;
+
+  /* Agrupar por agente sumando cantidad_lineas */
+  const agMap = {};
+  leads.forEach(l => {
+    const ag = l.agente || l.agente_nombre || l.agenteNombre || 'Sin agente';
+    const lineas = parseInt(l.cantidad_lineas || l.lineas || 0, 10) || 1; // default 1 si no hay dato
+    if (!agMap[ag]) agMap[ag] = { name: ag, lineas: 0, ventas: 0 };
+    agMap[ag].lineas += lineas;
+    agMap[ag].ventas++;
+  });
+
+  const sorted = Object.values(agMap).sort((a, b) => b.lineas - a.lineas);
+  if (!sorted.length) {
+    el.innerHTML = '<div style="padding:10px 0;text-align:center;color:#475569;font-size:.70rem">Sin datos este mes</div>';
+    return;
+  }
+
+  const medals = ['🥇','🥈','🥉'];
+  const max = sorted[0].lineas;
+  el.innerHTML = sorted.slice(0, 5).map((ag, i) => {
+    const col = colorFor(ag.name);
+    const pct = Math.round((ag.lineas / max) * 100);
+    return `<div class="tl-row">
+      <span class="tl-pos">${medals[i] || (i+1)}</span>
+      <div class="tl-av" style="background:${col};box-shadow:0 0 8px ${col}44">${initials(ag.name)}</div>
+      <div style="flex:1;min-width:0">
+        <div class="tl-name">${capFirst(ag.name)}</div>
+        <div style="height:2px;background:rgba(255,255,255,.06);border-radius:4px;margin-top:3px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:${col};border-radius:4px"></div>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div class="tl-val" style="color:${col}">${ag.lineas}<span style="font-size:.52rem;opacity:.7;margin-left:2px">líneas</span></div>
+        <div class="tl-sub">${ag.ventas} ventas</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderWeeklyAgents(sorted, weekTotal){
+  const list=$('mp-agents-list');
+  if(!list) return;
+  const totalEl=$('mp-total-agents');
+  if(totalEl) totalEl.textContent=weekTotal;
+  const max=sorted.length?sorted[0].ventas:1;
+  if(!sorted.length){
+    list.innerHTML='<div style="padding:14px 0;text-align:center;color:#475569;font-size:.72rem">Sin ventas esta semana</div>';
+    return;
+  }
+  list.innerHTML=sorted.slice(0,5).map((ag,i)=>{
+    const col=colorFor(ag.name);
+    const pct=Math.round((ag.ventas/max)*100);
+    const medals=['🥇','🥈','🥉'];
+    return `<div class="mp-agent">
+      <div class="mp-ag-av" style="background:${col};box-shadow:0 0 10px ${col}55;font-size:.65rem">
+        ${medals[i]||initials(ag.name)}
+      </div>
+      <div class="mp-ag-info">
+        <div class="mp-ag-name">${capFirst(ag.name)}</div>
+        <div class="mp-bar-row"><div class="mp-bar"><div class="mp-bar-fill" style="width:${pct}%;background:${col}"></div></div></div>
+      </div>
+      <div class="mp-ag-val" style="color:${col}">${ag.ventas}v</div>
+    </div>`;
+  }).join('');
+}
+
+function renderRankingList(sorted){
+  const list=$('ranking-list');
+  if(!list) return;
+  const max=sorted.length?sorted[0].ventas:1;
+  const medals=['🥇','🥈','🥉'];
+  list.innerHTML=sorted.slice(0,8).map((ag,i)=>{
+    const col=colorFor(ag.name);
+    const pct=Math.round((ag.ventas/max)*100);
+    return `<div class="tp-row">
+      <span class="tp-num">${medals[i]||i+1}</span>
+      <div class="tp-av" style="background:${col};box-shadow:0 0 8px ${col}44">${initials(ag.name)}</div>
+      <div class="tp-info">
+        <div class="tp-name">${capFirst(ag.name)}</div>
+        <div class="tp-team">Team Líneas</div>
+      </div>
+      <div class="tp-bar-wrap"><div class="tp-bar"><div class="tp-bar-fill" style="width:${pct}%;background:${col}"></div></div></div>
+      <div class="tp-pts">${ag.ventas}v</div>
+    </div>`;
+  }).join('');
+}
+
+function renderRecent(leads){
+  const list=$('recent-list');
+  if(!list) return;
+  const recent=leads.slice(0,8);
+  const statusTag=s=>{
+    const sl=(s||'').toLowerCase();
+    if(sl==='cali'||sl==='instalado'||sl==='completado') return 'tag-ok';
+    if(sl==='pending'||sl==='pendiente') return 'tag-pen';
+    return 'tag-can';
+  };
+  list.innerHTML=recent.map(l=>{
+    const name=l.nombre_cliente||l.nombre||'—';
+    const agente=l.agente||l.agenteNombre||'Sin agente';
+    const status=l.status||'—';
+    const tag=statusTag(status);
+    const col=colorFor(agente);
+    return `<div class="act-row">
+      <div class="act-icon" style="background:${col}22;color:${col}"><i class="fas fa-user"></i></div>
+      <div class="act-info">
+        <div class="act-name">${capFirst(name)}</div>
+        <div class="act-meta">${capFirst(agente)} · ${l.mercado||'—'}</div>
+      </div>
+      <span class="act-tag ${tag}">${status}</span>
+    </div>`;
+  }).join('');
+}
+
+/* ═══════ LOAD DASHBOARD ══════ */
+async function loadDashboard(){
+  const allData=await _allFetch;
+
+  /* Mes actual */
+  const allMonth=allData.filter(l=>{
+    const raw=l.dia_venta||l.created_at||l.creadoEn||'';
+    if(!raw) return false;
+    const d=new Date(raw);
+    return !isNaN(d)&&d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth();
+  });
+  const myMonth=filterForUser(allMonth);
+
+  const myVentas=myMonth.length;
+  const myPuntos=myMonth.reduce((s,l)=>s+parseFloat(l.puntaje||l.puntos||0),0);
+
+  /* Top por Líneas en welcome card (mes actual) */
+  renderTopLineas(filterForUser(allMonth));
+
+  /* Ranking mensual */
+  const agMap={};
+  allMonth.forEach(l=>{
+    const ag=l.agente||l.agente_nombre||l.agenteNombre||'Sin agente';
+    if(!agMap[ag]) agMap[ag]={name:ag,ventas:0,puntos:0};
+    agMap[ag].ventas++;
+    agMap[ag].puntos+=parseFloat(l.puntaje||l.puntos||0);
+  });
+  const sorted=Object.values(agMap).sort((a,b)=>b.ventas-a.ventas);
+
+  renderRankingList(sorted);
+  renderRecent(allData);
+
+  /* ── Top semanal ── */
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay()); // domingo
+  weekStart.setHours(0,0,0,0);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  weekEnd.setHours(23,59,59,999);
+
+  const weekLeads = allData.filter(l => {
+    const raw = l.dia_venta || l.created_at || l.creadoEn || '';
+    if (!raw) return false;
+    const d = new Date(raw);
+    return !isNaN(d) && d >= weekStart && d <= weekEnd;
+  });
+
+  const weekMap = {};
+  weekLeads.forEach(l => {
+    const ag = l.agente || l.agente_nombre || l.agenteNombre || 'Sin agente';
+    if (!weekMap[ag]) weekMap[ag] = { name: ag, ventas: 0 };
+    weekMap[ag].ventas++;
+  });
+  const weekSorted = Object.values(weekMap).sort((a,b) => b.ventas - a.ventas);
+
+  // Etiqueta con rango de la semana
+  const fmtD = d => `${d.getDate()}/${d.getMonth()+1}`;
+  const lbl = $('mp-week-label');
+  if (lbl) lbl.textContent = `${fmtD(weekStart)} – ${fmtD(weekEnd)}`;
+
+  renderWeeklyAgents(weekSorted, weekLeads.length);
+
+  /* Gráfico anual */
+  const allYear=allData.filter(l=>{
+    const raw=l.dia_venta||l.created_at||l.creadoEn||'';
+    if(!raw) return false;
+    const d=new Date(raw);
+    return !isNaN(d)&&d.getFullYear()===now.getFullYear();
+  });
+  const myYear=filterForUser(allYear);
+  const counts=new Array(12).fill(0);
+  myYear.forEach(l=>{
+    const raw=l.dia_venta||l.created_at||l.creadoEn||'';
+    if(!raw) return;
+    const d=new Date(raw);
+    if(!isNaN(d)) counts[d.getMonth()]++;
+  });
+
+  const totalYear=myYear.length;
+  $('cp-total').textContent=totalYear;
+  $('cp-delta').textContent=`ventas en ${now.getFullYear()}`;
+
+  const cm=now.getMonth();
+  if(counts.every(v=>v===0)){
+    const el=$('apex-monthly-sales');
+    if(el) el.innerHTML='<div style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:#475569"><i class="fas fa-chart-area" style="font-size:2rem;opacity:.3"></i><span style="font-size:.75rem">Sin ventas este año</span></div>';
+  } else {
+    renderChart(counts.slice(0,cm+1),MONTHS.slice(0,cm+1));
+  }
+}
+
+/* ═══════ INIT ══════ */
+document.addEventListener('DOMContentLoaded',function(){
+  if(window.loadSidebar) window.loadSidebar();
+  loadDashboard();
+});
+</script>
 </body>
 </html>
-
