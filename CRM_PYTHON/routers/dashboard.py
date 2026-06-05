@@ -7,22 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
-import datetime as _dt, calendar, time, traceback, json as _json
+import datetime as _dt, calendar, traceback, json as _json
 
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
 
-# ── Caché ──────────────────────────────────────────────────────────────────
-_cache: dict = {}
-_TTL = 300  # 5 minutos
-
-def _cache_get(key: str):
-    e = _cache.get(key)
-    if e and (time.time() - e["ts"]) < _TTL:
-        return e["data"]
-    return None
-
-def _cache_set(key: str, data: dict):
-    _cache[key] = {"data": data, "ts": time.time()}
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 _MES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio",
@@ -43,31 +31,39 @@ async def dashboard_home(user: dict = Depends(current_user)):
     username = (user.get("name") or user.get("username") or "").strip().lower()
     is_adm_bo = any(r in role for r in ("admin","administrator","administrador","backoffice","bo","administrativo"))
 
-    start, end = _month_range(now.year, now.month)
+    start, _end = _month_range(now.year, now.month)
+    # Usar el primer día del mes siguiente para capturar todas las horas del último día
+    import calendar as _cal
+    _nm = now.month + 1 if now.month < 12 else 1
+    _ny = now.year if now.month < 12 else now.year + 1
+    end = start  # alias para queries que usan :e como fecha fin
+    end   = _end  # fin del mes completo (YYYY-MM-DD)
+    end_excl = f"{_ny}-{_nm:02d}-01"  # fecha exclusiva para BETWEEN con datetime
     year_start = f"{now.year}-01-01"
-
-    cache_key = f"home_{'adm' if is_adm_bo else username}_{now.year}{now.month:02d}"
-    cached = _cache_get(cache_key)
-    if cached:
-        return cached
 
     try:
         async with AsyncSessionLocal() as s:
 
-            # ── 1. KPIs + Ranking del mes (una sola query) ──────────────
+            # ── 1a. Total real del mes (sin LIMIT) ──────────────────────
+            r0 = await s.execute(text("""
+                SELECT COUNT(*) AS total, COALESCE(SUM(puntaje), 0) AS puntos
+                FROM leads
+                WHERE dia_venta >= :s AND dia_venta < :ex
+            """), {"s": start, "ex": end_excl})
+            totals_row = r0.mappings().first()
+
+            # ── 1b. Ranking por agente (top 100 para mejores vendedor/team) ──
             r1 = await s.execute(text("""
                 SELECT
                     COALESCE(agente_nombre, agente, 'Sin asignar') AS nombre,
                     COUNT(*)                                        AS ventas,
                     COALESCE(SUM(puntaje), 0)                      AS puntos
                 FROM leads
-                WHERE (dia_venta BETWEEN :s AND :e
-                       OR (dia_venta IS NULL AND created_at BETWEEN :s AND :e))
-                  AND UPPER(TRIM(COALESCE(status,''))) NOT IN ('CANCELLED','CANCELADO','CANCELADA','CANCEL','HOLD','RESERVA','RESCHEDULED','REAGENDADO')
+                WHERE dia_venta >= :s AND dia_venta < :ex
                 GROUP BY agente_nombre, agente
                 ORDER BY puntos DESC
-                LIMIT 30
-            """), {"s": start, "e": end})
+                LIMIT 100
+            """), {"s": start, "ex": end_excl})
             ranking_rows = r1.mappings().all()
 
             # ── 2. Gráfica mensual — 12 meses con GROUP BY ───────────────
@@ -168,8 +164,8 @@ async def dashboard_home(user: dict = Depends(current_user)):
     deduped = sorted(_seen.values(), key=lambda x: -x["puntos"])
 
     # ── Procesar KPIs ──────────────────────────────────────────────────────
-    total_ventas = sum(d["ventas"] for d in deduped)
-    total_puntos = sum(d["puntos"] for d in deduped)
+    total_ventas = int(totals_row["total"] or 0) if totals_row else sum(d["ventas"] for d in deduped)
+    total_puntos = float(totals_row["puntos"] or 0) if totals_row else sum(d["puntos"] for d in deduped)
     mejor_vendedor = deduped[0]["nombre"] if deduped else "—"
     mejor_team     = semaforo_rows[0]["team"] if semaforo_rows else "—"
 
@@ -307,7 +303,6 @@ async def dashboard_home(user: dict = Depends(current_user)):
         },
     }
 
-    _cache_set(cache_key, result)
     return result
 
 

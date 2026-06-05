@@ -358,6 +358,25 @@ async def force_logout_all(user: dict = Depends(current_user)):
     return {"success": True, "message": "Todas las sesiones han sido cerradas", "ts": ts}
 
 
+# ── POST /api/admin/cache/clear ──────────────────────────────────
+@router.post("/api/admin/cache/clear")
+async def clear_all_caches(user: dict = Depends(current_user)):
+    if not _is_admin(_role_lower(user)):
+        raise HTTPException(403, "No autorizado")
+    import importlib, sys
+    cleared = []
+    for mod_name, attr in [
+        ("routers.dashboard", "_cache"),
+        ("routers.ranking",   "_cache"),
+        ("routers.lineas",    "_LINEAS_CACHE"),
+    ]:
+        mod = sys.modules.get(mod_name)
+        if mod and hasattr(mod, attr):
+            getattr(mod, attr).clear()
+            cleared.append(f"{mod_name}.{attr}")
+    return {"success": True, "cleared": cleared, "message": "Caché del servidor limpiado"}
+
+
 # ── POST /api/admin/rename-att-air ────────────────────────────────
 @router.post("/api/admin/rename-att-air")
 async def rename_att_air(user: dict = Depends(current_user)):
