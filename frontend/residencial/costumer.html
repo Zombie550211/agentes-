@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
@@ -117,6 +117,7 @@
       justify-content: space-between;
       padding-bottom: 12px;
       gap: 12px;
+      flex-wrap: wrap;
     }
 
     .cmd-title-block { display:flex; align-items:baseline; gap:10px; }
@@ -128,7 +129,8 @@
       border: 1px solid var(--line-1);
       border-radius: var(--rf);
       overflow: hidden;
-      flex-shrink: 0;
+      flex-shrink: 1;
+      flex-wrap: wrap;
     }
     .cls-item {
       display: flex; align-items: center; gap: 6px;
@@ -171,29 +173,35 @@
     .cmd-bar-row {
       display: flex; align-items: center; gap: 0;
       margin: 0 -20px; border-top: 1px solid var(--line-1);
-      background: var(--sheet-2); padding: 0 20px; height: 62px;
+      background: var(--sheet-2); padding: 6px 20px;
+      min-height: 54px; height: auto;
       overflow-x: auto; overflow-y: visible; scrollbar-width: none;
+      flex-wrap: wrap;
     }
     .cmd-bar-row::-webkit-scrollbar { display:none; }
 
     /* ── SEARCH INPUT (UIverse EddyBel) ── */
     .input__container {
       position: relative;
-      background: rgba(255,255,255,0.90);
-      padding: 8px 14px;   
+      background: rgba(5,15,35,0.55);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.15);
+      padding: 6px 14px;
       display: flex;
       justify-content: center;
       align-items: center;
       gap: 6px;
       border-radius: 22px;
-      width: 290px;
-      flex-shrink: 0;
+      width: 100%; max-width: 290px;
+      flex-shrink: 1; min-width: 160px;
       transition: box-shadow 300ms ease;
       margin-right: 12px;
-      box-shadow: 0 4px 18px rgba(108,71,255,0.18);
+      box-shadow: 0 4px 18px rgba(0,0,0,0.25);
     }
     .input__container:focus-within {
-      box-shadow: 0 6px 28px rgba(108,71,255,0.40);
+      border-color: rgba(255,255,255,0.30);
+      box-shadow: 0 6px 28px rgba(0,0,0,0.35);
     }
     .shadow__input {
       position: absolute;
@@ -793,9 +801,9 @@
   <style>
     :root {
       --bg:      transparent;
-      --sheet:   rgba(5,15,35,0.42);
-      --sheet-2: rgba(5,15,35,0.30);
-      --sheet-3: rgba(5,15,35,0.20);
+      --sheet:   rgba(5,15,35,0.45);
+      --sheet-2: rgba(5,15,35,0.32);
+      --sheet-3: rgba(255,255,255,0.06);
       --line-1:  rgba(255,255,255,0.10);
       --line-2:  rgba(255,255,255,0.08);
       --ink-1:   #fff;
@@ -804,13 +812,124 @@
       --ink-4:   rgba(255,255,255,0.40);
     }
     body, html { background: transparent !important; }
-    body * { color: #fff !important; }
+    body * { color: rgba(255,255,255,0.92) !important; }
+
+    /* ── Tabla: hover transparente, no blanco ── */
     tr, td, th { background: transparent !important; border-color: rgba(255,255,255,0.07) !important; }
-    tr:hover { background: rgba(255,255,255,0.04) !important; }
-    thead tr, thead th { background: rgba(5,15,35,0.60) !important; }
-    .input__search { background: rgba(5,15,35,0.55) !important; border-color: rgba(255,255,255,0.15) !important; }
+    thead tr, thead th { background: rgba(5,15,35,0.65) !important; }
+    .costumer-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.025) !important; }
+    .costumer-table tbody tr:hover { background: rgba(255,255,255,0.06) !important; }
+    .costumer-table tbody tr:hover td:first-child { background: rgba(255,255,255,0.04) !important; }
+    .costumer-table tbody tr.row-colchon { background: rgba(108,71,255,0.08) !important; }
+
+    /* ── Buscador transparente ── */
+    .input__container, .shadow__input { background: transparent !important; }
+    .input__search {
+      background: rgba(5,15,35,0.55) !important;
+      border-color: rgba(255,255,255,0.15) !important;
+      color: #fff !important;
+    }
     .input__search::placeholder { color: rgba(255,255,255,0.35) !important; }
-    .token, #cdrop, .cdrop-item { background: rgba(5,15,35,0.55) !important; border-color: rgba(255,255,255,0.12) !important; }
+    .input__button__shadow {
+      background: rgba(255,255,255,0.06) !important;
+      border-color: rgba(255,255,255,0.10) !important;
+    }
+    .input__button__shadow:hover { background: rgba(255,255,255,0.12) !important; }
+    .input__button__shadow svg path { fill: rgba(255,255,255,0.70) !important; }
+
+    /* ── Tokens / dropdowns ── */
+    .token, #cdrop, .cdrop-item {
+      background: rgba(5,15,35,0.50) !important;
+      border-color: rgba(255,255,255,0.12) !important;
+    }
+    .token:hover { background: rgba(255,255,255,0.10) !important; }
+    .cdrop-item:hover { background: rgba(255,255,255,0.08) !important; }
+
+    /* ── Botones ── */
+    .btn {
+      background: rgba(255,255,255,0.08) !important;
+      border-color: rgba(255,255,255,0.14) !important;
+      color: rgba(255,255,255,0.85) !important;
+      backdrop-filter: blur(4px) !important;
+    }
+    .btn:hover {
+      background: rgba(255,255,255,0.15) !important;
+      border-color: rgba(255,255,255,0.25) !important;
+    }
+    .btn-accent {
+      background: var(--a) !important;
+      border-color: var(--a-dark) !important;
+      color: #fff !important;
+    }
+    .btn-accent:hover { background: var(--a-dark) !important; }
+
+    /* ── Botones de acción (editar/eliminar) en la tabla ── */
+    .rab {
+      background: rgba(255,255,255,0.06) !important;
+      border-color: rgba(255,255,255,0.12) !important;
+      color: rgba(255,255,255,0.70) !important;
+    }
+    .rab:hover {
+      background: rgba(108,71,255,0.20) !important;
+      border-color: rgba(108,71,255,0.40) !important;
+      color: #fff !important;
+    }
+    .rab.delete-btn:hover {
+      background: rgba(248,81,73,0.20) !important;
+      border-color: rgba(248,81,73,0.40) !important;
+      color: #f85149 !important;
+    }
+
+    /* ── Status tabs ── */
+    .stab {
+      background: rgba(255,255,255,0.06) !important;
+      border-color: rgba(255,255,255,0.10) !important;
+      color: rgba(255,255,255,0.65) !important;
+    }
+    .stab:hover { background: rgba(255,255,255,0.12) !important; }
+    .stab.is-active {
+      background: rgba(108,71,255,0.30) !important;
+      border-color: rgba(108,71,255,0.50) !important;
+      color: #fff !important;
+    }
+
+    /* ── Command zone / table panel ── */
+    .command-zone, .table-panel, .pag, .scrollbar-mirror {
+      background: rgba(5,15,35,0.45) !important;
+      backdrop-filter: blur(12px) !important;
+      -webkit-backdrop-filter: blur(12px) !important;
+      border-color: rgba(255,255,255,0.08) !important;
+    }
+    .cmd-bar-row { border-color: rgba(255,255,255,0.08) !important; }
+
+    /* ── Date picker trigger ── */
+    .drp-trigger {
+      background: rgba(255,255,255,0.08) !important;
+      border-color: rgba(255,255,255,0.14) !important;
+    }
+    .drp-trigger:hover { background: rgba(255,255,255,0.14) !important; }
+
+    /* ── Live stats pills ── */
+    .cls-item { background: transparent !important; }
+    .cls-item:hover { background: rgba(255,255,255,0.08) !important; }
+
+    /* ── Contador de leads y puntaje ── */
+    #recuentoCount {
+      background: rgba(108,71,255,0.15) !important;
+      border-color: rgba(108,71,255,0.30) !important;
+      color: rgba(255,255,255,0.90) !important;
+    }
+    #puntajeTotalCount {
+      background: rgba(210,153,34,0.15) !important;
+      border-color: rgba(210,153,34,0.30) !important;
+      color: rgba(255,200,60,0.95) !important;
+    }
+
+    /* ── Scroll izq/der y Ver todos ── */
+    #scroll-left, #scroll-right, #toggle-forceall {
+      background: rgba(255,255,255,0.07) !important;
+      border-color: rgba(255,255,255,0.14) !important;
+    }
   </style>
 </head>
 <body>
@@ -869,10 +988,6 @@
         </div>
         <div class="cmd-actions">
           <button class="btn" id="enable-notifications-btn" title="Activar notificaciones" aria-label="Notificaciones">🔔</button>
-          <button class="btn" id="toggle-compact">⊞ Compacto</button>
-          <button class="btn" id="btn-bulk-status-phone" title="Cambio masivo de status por teléfonos">📞 Status masivo</button>
-          <button class="btn" id="btn-cuadratura" title="Cuadratura de puntaje y clientes" style="gap:5px;">⚖️ Cuadratura</button>
-          <button class="btn" id="btn-force-logout" title="Cerrar sesión de todos los usuarios" style="display:none;background:#fef2f2;color:#dc2626;border-color:#fca5a5;">⏏ Cerrar todas las sesiones</button>
           <button class="btn btn-accent" id="refresh-table">↻ Refrescar</button>
         </div>
       </div>

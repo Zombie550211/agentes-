@@ -1025,10 +1025,10 @@
         if (existing) existing.remove();
         
         const colors = {
-          success: { bg: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: '#059669' },
-          error: { bg: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', border: '#dc2626' },
-          warning: { bg: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', border: '#d97706' },
-          info: { bg: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', border: '#2563eb' }
+          success: { bg: 'linear-gradient(135deg, rgba(16, 185, 129, 0.75) 0%, rgba(5, 150, 105, 0.75) 100%)', border: '#059669' },
+          error: { bg: 'linear-gradient(135deg, rgba(239, 68, 68, 0.75) 0%, rgba(220, 38, 38, 0.75) 100%)', border: '#dc2626' },
+          warning: { bg: 'linear-gradient(135deg, rgba(245, 158, 11, 0.75) 0%, rgba(217, 119, 6, 0.75) 100%)', border: '#d97706' },
+          info: { bg: 'linear-gradient(135deg, rgba(59, 130, 246, 0.75) 0%, rgba(37, 99, 235, 0.75) 100%)', border: '#2563eb' }
         };
         
         const currentColor = colors[type] || colors.success;
@@ -1043,8 +1043,9 @@
           color: white;
           padding: 16px 24px;
           border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.15);
           border-left: 4px solid ${currentColor.border};
-          box-shadow: 0 10px 25px rgba(0,0,0,0.15), 0 4px 10px rgba(0,0,0,0.1);
+          box-shadow: 0 10px 30px rgba(0,0,0,0.25);
           z-index: 10001;
           font-size: 14px;
           font-weight: 500;
@@ -1054,7 +1055,8 @@
           min-width: 300px;
           max-width: 500px;
           animation: slideInBounce 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-          backdrop-filter: blur(10px);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
         `;
         
         const icons = {
@@ -1161,29 +1163,34 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.6);
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 10002;
             animation: fadeIn 0.2s ease-out;
-            backdrop-filter: blur(4px);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
           `;
           
           const modal = document.createElement('div');
           modal.style.cssText = `
-            background: white;
+            background: rgba(30, 41, 59, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border-radius: 16px;
             padding: 0;
             max-width: 400px;
             width: 90%;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
             animation: scaleIn 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
             overflow: hidden;
           `;
           
           modal.innerHTML = `
-            <div style="padding: 24px 24px 20px; border-bottom: 1px solid #e5e7eb;">
+            <div style="padding: 24px 24px 20px; border-bottom: 1px solid rgba(255,255,255,0.1);">
               <div style="display: flex; align-items: center; gap: 12px;">
                 <div style="width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1192,14 +1199,14 @@
                     <line x1="12" y1="17" x2="12.01" y2="17"></line>
                   </svg>
                 </div>
-                <h3 style="margin: 0; color: #0f172a; font-size: 18px; font-weight: 700;">${title}</h3>
+                <h3 style="margin: 0; color: #f8fafc; font-size: 18px; font-weight: 700;">${title}</h3>
               </div>
             </div>
             <div style="padding: 20px 24px;">
-              <p style="margin: 0; color: #64748b; font-size: 14px; line-height: 1.6;">${message}</p>
+              <p style="margin: 0; color: #cbd5e1; font-size: 14px; line-height: 1.6;">${message}</p>
             </div>
-            <div style="display: flex; gap: 12px; padding: 20px 24px; background: #f8f9fa; border-top: 1px solid #e5e7eb;">
-              <button class="confirm-cancel" style="flex: 1; background: white; color: #64748b; border: 1px solid #e5e7eb; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+            <div style="display: flex; gap: 12px; padding: 20px 24px; background: rgba(15, 23, 42, 0.45); border-top: 1px solid rgba(255,255,255,0.1);">
+              <button class="confirm-cancel" style="flex: 1; background: rgba(255,255,255,0.08); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.15); padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
                 Cancelar
               </button>
               <button class="confirm-accept" style="flex: 1; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);">
@@ -1216,12 +1223,12 @@
           const acceptBtn = modal.querySelector('.confirm-accept');
           
           cancelBtn.addEventListener('mouseenter', () => {
-            cancelBtn.style.background = '#f8f9fa';
-            cancelBtn.style.borderColor = '#cbd5e1';
+            cancelBtn.style.background = 'rgba(255, 255, 255, 0.15)';
+            cancelBtn.style.borderColor = 'rgba(255, 255, 255, 0.3)';
           });
           cancelBtn.addEventListener('mouseleave', () => {
-            cancelBtn.style.background = 'white';
-            cancelBtn.style.borderColor = '#e5e7eb';
+            cancelBtn.style.background = 'rgba(255, 255, 255, 0.08)';
+            cancelBtn.style.borderColor = 'rgba(255, 255, 255, 0.15)';
           });
           
           acceptBtn.addEventListener('mouseenter', () => {
@@ -2819,13 +2826,15 @@
           position: fixed; top: 0; left: 0; right: 0; bottom: 0;
           background: rgba(0,0,0,0.6); display: flex; align-items: center;
           justify-content: center; z-index: 10002; animation: fadeIn 0.2s ease-out;
-          backdrop-filter: blur(4px);
+          backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
         `;
         
         const modal = document.createElement('div');
         modal.style.cssText = `
-          background: white; border-radius: 16px; padding: 24px; max-width: 800px;
-          width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+          background: rgba(30, 41, 59, 0.75); border: 1px solid rgba(255, 255, 255, 0.15); color: #fff;
+          backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+          border-radius: 16px; padding: 24px; max-width: 800px;
+          width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4);
         `;
         
         const diffActivas = results.activasExcel - results.activasCRM;
@@ -2835,36 +2844,36 @@
         let faltantesCRMHtml = '';
         if (results.faltantesEnCRM.length > 0) {
           faltantesCRMHtml = results.faltantesEnCRM.slice(0, 10).map(f => 
-            '<div style="padding: 4px 0; border-bottom: 1px solid #FECACA;">' + (f.nombre || f.telefono || f.cuenta) + ' - ' + f.status + '</div>'
+            '<div style="padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">' + (f.nombre || f.telefono || f.cuenta) + ' - ' + f.status + '</div>'
           ).join('');
           if (results.faltantesEnCRM.length > 10) {
-            faltantesCRMHtml += '<div style="padding: 4px 0; color: #DC2626;">... y ' + (results.faltantesEnCRM.length - 10) + ' más</div>';
+            faltantesCRMHtml += '<div style="padding: 4px 0; color: #F87171;">... y ' + (results.faltantesEnCRM.length - 10) + ' más</div>';
           }
         } else {
-          faltantesCRMHtml = '<div style="color: #10B981;">✓ Todos los registros del Excel están en CRM</div>';
+          faltantesCRMHtml = '<div style="color: #34D399;">✓ Todos los registros del Excel están en CRM</div>';
         }
         
         let faltantesExcelHtml = '';
         if (results.faltantesEnExcel.length > 0) {
           faltantesExcelHtml = results.faltantesEnExcel.slice(0, 10).map(f => 
-            '<div style="padding: 4px 0; border-bottom: 1px solid #FDE68A;">' + (f.nombre_cliente || f.telefono_principal || f.numero_cuenta) + ' - ' + (f.status || 'N/A') + '</div>'
+            '<div style="padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">' + (f.nombre_cliente || f.telefono_principal || f.numero_cuenta) + ' - ' + (f.status || 'N/A') + '</div>'
           ).join('');
           if (results.faltantesEnExcel.length > 10) {
-            faltantesExcelHtml += '<div style="padding: 4px 0; color: #D97706;">... y ' + (results.faltantesEnExcel.length - 10) + ' más</div>';
+            faltantesExcelHtml += '<div style="padding: 4px 0; color: #FBBF24;">... y ' + (results.faltantesEnExcel.length - 10) + ' más</div>';
           }
         } else {
-          faltantesExcelHtml = '<div style="color: #10B981;">✓ Todos los registros del CRM están en Excel</div>';
+          faltantesExcelHtml = '<div style="color: #34D399;">✓ Todos los registros del CRM están en Excel</div>';
         }
         
         const rangoFechasHtml = (results.fechaDesde && results.fechaDesde !== 'N/A') ? 
-          '<div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 12px; margin-bottom: 16px; text-align: center;">' +
-          '<i class="fas fa-calendar-alt mr-2" style="color: #16A34A;"></i>' +
-          '<span style="font-weight: 600; color: #166534;">Rango de fechas analizado: ' + results.fechaDesde + ' - ' + results.fechaHasta + '</span></div>' : '';
+          '<div style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 16px; text-align: center;">' +
+          '<i class="fas fa-calendar-alt mr-2" style="color: #34D399;"></i>' +
+          '<span style="font-weight: 600; color: #34D399;">Rango de fechas analizado: ' + results.fechaDesde + ' - ' + results.fechaHasta + '</span></div>' : '';
         
         modal.innerHTML = '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">' +
-          '<h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #1E293B;">' +
-          '<i class="fas fa-chart-bar mr-2" style="color: #10B981;"></i>Análisis Excel vs CRM</h2>' +
-          '<button id="close-analysis" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #64748B;">&times;</button></div>' +
+          '<h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #ffffff;">' +
+          '<i class="fas fa-chart-bar mr-2" style="color: #34D399;"></i>Análisis Excel vs CRM</h2>' +
+          '<button id="close-analysis" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #94A3B8;">&times;</button></div>' +
           rangoFechasHtml +
           '<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px;">' +
           '<div style="background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%); color: white; padding: 16px; border-radius: 12px;">' +
@@ -2874,15 +2883,15 @@
           '<div style="font-size: 12px; opacity: 0.9;">Total en CRM</div>' +
           '<div style="font-size: 28px; font-weight: 700;">' + results.totalCRM + '</div></div></div>' +
           '<table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;"><thead>' +
-          '<tr style="background: #F1F5F9;"><th style="padding: 12px; text-align: left; font-weight: 600;">Status</th>' +
+          '<tr style="background: rgba(255,255,255,0.06); color: #cbd5e1;"><th style="padding: 12px; text-align: left; font-weight: 600;">Status</th>' +
           '<th style="padding: 12px; text-align: center; font-weight: 600;">Excel</th>' +
           '<th style="padding: 12px; text-align: center; font-weight: 600;">CRM</th>' +
           '<th style="padding: 12px; text-align: center; font-weight: 600;">Diferencia</th></tr></thead><tbody>' +
-          '<tr style="border-bottom: 1px solid #E2E8F0;"><td style="padding: 12px;"><span style="color: #10B981; font-weight: 600;">● ACTIVAS</span></td>' +
+          '<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 12px;"><span style="color: #10B981; font-weight: 600;">● ACTIVAS</span></td>' +
           '<td style="padding: 12px; text-align: center; font-weight: 600;">' + results.activasExcel + '</td>' +
           '<td style="padding: 12px; text-align: center; font-weight: 600;">' + results.activasCRM + '</td>' +
           '<td style="padding: 12px; text-align: center; font-weight: 600; color: ' + (diffActivas !== 0 ? '#EF4444' : '#10B981') + ';">' + diffActivas + '</td></tr>' +
-          '<tr style="border-bottom: 1px solid #E2E8F0;"><td style="padding: 12px;"><span style="color: #F59E0B; font-weight: 600;">● PENDIENTES</span></td>' +
+          '<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 12px;"><span style="color: #F59E0B; font-weight: 600;">● PENDIENTES</span></td>' +
           '<td style="padding: 12px; text-align: center; font-weight: 600;">' + results.pendientesExcel + '</td>' +
           '<td style="padding: 12px; text-align: center; font-weight: 600;">' + results.pendientesCRM + '</td>' +
           '<td style="padding: 12px; text-align: center; font-weight: 600; color: ' + (diffPendientes !== 0 ? '#EF4444' : '#10B981') + ';">' + diffPendientes + '</td></tr>' +
@@ -2892,12 +2901,12 @@
           '<td style="padding: 12px; text-align: center; font-weight: 600; color: ' + (diffCanceladas !== 0 ? '#EF4444' : '#10B981') + ';">' + diffCanceladas + '</td></tr>' +
           '</tbody></table>' +
           '<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">' +
-          '<div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 12px; padding: 16px;">' +
-          '<h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #DC2626;">' +
+          '<div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 16px;">' +
+          '<h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #F87171;">' +
           '<i class="fas fa-exclamation-triangle mr-2"></i>Faltantes en CRM (' + results.faltantesEnCRM.length + ')</h3>' +
           '<div style="max-height: 150px; overflow-y: auto; font-size: 12px;">' + faltantesCRMHtml + '</div></div>' +
-          '<div style="background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 12px; padding: 16px;">' +
-          '<h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #D97706;">' +
+          '<div style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 12px; padding: 16px;">' +
+          '<h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #FBBF24;">' +
           '<i class="fas fa-question-circle mr-2"></i>Faltantes en Excel (' + results.faltantesEnExcel.length + ')</h3>' +
           '<div style="max-height: 150px; overflow-y: auto; font-size: 12px;">' + faltantesExcelHtml + '</div></div></div>';
         

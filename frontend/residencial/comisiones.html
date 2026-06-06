@@ -137,31 +137,31 @@
 
     /* ── Agent card (admin grid) ── */
     .agents-grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 10px;
     }
     .agent-card {
       background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--r); padding: 20px; position: relative;
+      border-radius: var(--r); padding: 14px 16px; position: relative;
       transition: border-color .15s, transform .15s;
       cursor: default;
     }
     .agent-card:hover { border-color: var(--border2); transform: translateY(-1px); }
     .agent-card.no-meta { opacity: .55; }
 
-    .agent-card-top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .agent-card-top { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
     .agent-avatar {
-      width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0;
+      width: 32px; height: 32px; border-radius: 7px; flex-shrink: 0;
       background: var(--surface2); border: 1px solid var(--border2);
       display: flex; align-items: center; justify-content: center;
-      font-weight: 800; font-size: .82rem; color: var(--gold); letter-spacing: .05em;
+      font-weight: 800; font-size: .7rem; color: var(--gold); letter-spacing: .05em;
     }
-    .agent-name { font-size: .9rem; font-weight: 700; color: var(--ink); }
-    .agent-team { font-size: .68rem; color: var(--ink2); margin-top: 1px; }
+    .agent-name { font-size: .78rem; font-weight: 700; color: var(--ink); }
+    .agent-team { font-size: .62rem; color: var(--ink2); margin-top: 1px; }
 
-    .agent-rows { display: flex; flex-direction: column; gap: 7px; }
+    .agent-rows { display: flex; flex-direction: column; gap: 5px; }
     .agent-row { display: flex; justify-content: space-between; align-items: center; }
-    .agent-row-lbl { font-size: .7rem; color: var(--ink2); }
-    .agent-row-val { font-family: var(--fm); font-size: .78rem; font-weight: 500; color: var(--ink); }
+    .agent-row-lbl { font-size: .63rem; color: var(--ink2); }
+    .agent-row-val { font-family: var(--fm); font-size: .7rem; font-weight: 500; color: var(--ink); }
     .agent-row-val.gold { color: var(--gold); }
     .agent-row-val.green { color: var(--green); }
     .agent-row-val.red { color: var(--red); }
@@ -456,11 +456,14 @@
     /* ── Toast ── */
     .toast {
       position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-      padding: 10px 20px; border-radius: 8px; font-size: .8rem; font-weight: 700;
-      z-index: 9999; animation: toastIn .2s ease; box-shadow: 0 4px 20px rgba(0,0,0,.4);
+      padding: 10px 20px; border-radius: 12px; font-size: .8rem; font-weight: 700;
+      z-index: 9999; animation: toastIn .2s ease; box-shadow: 0 8px 32px rgba(0,0,0,.3);
+      border: 1px solid rgba(255,255,255,0.15);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
     }
-    .toast.ok { background: var(--green); color: #000; }
-    .toast.err { background: var(--red); color: #fff; }
+    .toast.ok { background: rgba(34, 197, 94, 0.75) !important; color: #fff !important; }
+    .toast.err { background: rgba(239, 68, 68, 0.75) !important; color: #fff !important; }
     @keyframes toastIn { from { opacity:0; transform: translateX(-50%) translateY(8px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
 
     /* ── Divider ── */
@@ -497,40 +500,160 @@
   </style>
   <link rel="stylesheet" href="/css/glass-cards.css?v=20260605">
   <style>
-    /* ── Transparencia fondo estadio ── */
+    /* ── Base transparente ── */
     body, html { background: transparent !important; }
-    body * { color: #fff !important; }
+    .main, .layout { background: transparent !important; }
+
+    /* ── Jerarquía de texto ── */
+    body * { color: rgba(255,255,255,0.92) !important; }
+    .kpi-lbl, .agent-team, .page-subtitle,
+    .section-title, .sv-hero-role, .sv-agent-meta,
+    .kpi-sub, .sv-stat-sub, .sv-comm-basis,
+    .agent-stat-label, .sv-track-node-lbl,
+    .sv-breakdown-title, .sv-ventas-head {
+      color: rgba(255,255,255,0.50) !important;
+    }
+    .agent-name, .kpi-val, .page-title,
+    .sv-agent-name, .sv-comm-amount,
+    .sv-stat-val, .sv-breakdown-val {
+      color: #ffffff !important;
+    }
+    /* Gold y green se preservan */
+    .kpi-val.gold, .sv-comm-amount, .escala-badge,
+    .sv-stat-val.gold, .sv-breakdown-val.gold,
+    .escala-dot, .gold { color: var(--gold) !important; }
+    .kpi-val.green, .sv-stat-val.green,
+    .sv-breakdown-val.green, .green { color: #4ade80 !important; }
+
+    /* ── Cards principales ── */
     .kpi-card,
     .agent-card,
     .sv-hero,
     .sv-track-card,
     .sv-breakdown,
-    .sv-ventas-card {
-      background: rgba(5,15,35,0.40) !important;
-      backdrop-filter: blur(10px) !important;
-      -webkit-backdrop-filter: blur(10px) !important;
+    .sv-ventas-card,
+    .sv-stat,
+    .table-wrap {
+      background: rgba(5,15,35,0.42) !important;
+      backdrop-filter: blur(12px) !important;
+      -webkit-backdrop-filter: blur(12px) !important;
       border-color: rgba(255,255,255,0.10) !important;
     }
-    .sv-ventas-head,
-    .month-nav,
-    .view-toggle {
-      background: rgba(5,15,35,0.50) !important;
-      border-color: rgba(255,255,255,0.10) !important;
+    .kpi-card:hover, .agent-card:hover {
+      border-color: rgba(255,255,255,0.18) !important;
+      background: rgba(5,15,35,0.52) !important;
     }
-    .main { background: transparent !important; }
+
+    /* ── Topbar / header ── */
+    .topbar, .page-header {
+      background: rgba(5,15,35,0.65) !important;
+      backdrop-filter: blur(16px) !important;
+      border-color: rgba(255,255,255,0.08) !important;
+    }
+
+    /* ── Controles: mes, view-toggle ── */
+    .month-nav, .view-toggle {
+      background: rgba(255,255,255,0.06) !important;
+      border-color: rgba(255,255,255,0.12) !important;
+      backdrop-filter: blur(8px) !important;
+    }
+    .month-btn:hover {
+      background: rgba(255,255,255,0.10) !important;
+    }
+    .vtab { color: rgba(255,255,255,0.55) !important; }
+    .vtab.active { background: var(--gold) !important; color: #000 !important; }
+
+    /* ── Avatares: transparentes con borde sutil ── */
+    .agent-avatar, .sv-avatar, .ucard-av {
+      background: rgba(255,255,255,0.08) !important;
+      border: 1px solid rgba(255,255,255,0.18) !important;
+      color: rgba(255,255,255,0.85) !important;
+      backdrop-filter: blur(4px) !important;
+    }
+
+    /* ── Sección header ── */
+    .section-title { color: rgba(255,255,255,0.55) !important; }
+    .section-title::before { background: var(--gold) !important; }
+
+    /* ── Progreso ── */
+    .prog-bar { background: rgba(255,255,255,0.08) !important; }
+    .sv-track-line { background: rgba(255,255,255,0.10) !important; }
+    .sv-track-dot {
+      background: rgba(255,255,255,0.08) !important;
+      border-color: rgba(255,255,255,0.20) !important;
+      color: rgba(255,255,255,0.60) !important;
+    }
+    .sv-track-dot.reached {
+      background: #4ade80 !important;
+      border-color: #4ade80 !important;
+      color: #000 !important;
+    }
+    .sv-track-dot.current {
+      background: var(--gold) !important;
+      border-color: var(--gold) !important;
+      color: #000 !important;
+    }
+
+    /* ── Tabla ── */
+    .sv-vtable thead tr, .ctable thead tr {
+      background: rgba(255,255,255,0.05) !important;
+    }
+    .sv-vtable tbody tr:hover, .ctable tbody tr:hover {
+      background: rgba(255,255,255,0.06) !important;
+    }
+    td, th { border-color: rgba(255,255,255,0.07) !important; }
+
+    /* ── Badges ── */
+    .badge-gold {
+      background: rgba(196,154,0,0.20) !important;
+      border-color: rgba(245,200,66,0.35) !important;
+    }
+    .badge-green {
+      background: rgba(34,197,94,0.15) !important;
+      border-color: rgba(74,222,128,0.35) !important;
+    }
+    .badge-gray {
+      background: rgba(255,255,255,0.06) !important;
+      border-color: rgba(255,255,255,0.12) !important;
+    }
+    .escala-badge {
+      background: rgba(196,154,0,0.18) !important;
+      border-color: rgba(245,200,66,0.30) !important;
+    }
+
+    /* ── Dividers ── */
+    hr.dim, .sv-breakdown-row {
+      border-color: rgba(255,255,255,0.07) !important;
+    }
+
+    /* ── Inputs ── */
+    .sv-num-input {
+      border-bottom-color: rgba(255,255,255,0.20) !important;
+    }
+    .sv-num-input:focus {
+      border-bottom-color: var(--gold) !important;
+    }
+
+    /* ── Sin meta badge ── */
+    .no-meta-tag {
+      background: rgba(255,255,255,0.10) !important;
+      border-color: rgba(255,255,255,0.20) !important;
+      color: rgba(255,255,255,0.75) !important;
+    }
+    /* Cards sin meta: no reducir opacity, se ven igual de claras */
+    .agent-card.no-meta {
+      opacity: 1 !important;
+    }
+    /* Comisión $0 en sin meta — gris suave, no amarillo */
+    .sv-comm-amount.no-meta {
+      color: rgba(255,255,255,0.45) !important;
+    }
   </style>
 </head>
 <body>
 <div class="layout">
   <nav class="sidebar sidebar-inicio" data-active="comisiones"></nav>
   <main class="main" id="main-content">
-    <div class="loader-wrap" id="page-loader">
-      <div class="box-of-star1"><div class="star star-position1"></div><div class="star star-position2"></div><div class="star star-position3"></div><div class="star star-position4"></div><div class="star star-position5"></div><div class="star star-position6"></div><div class="star star-position7"></div></div>
-      <div class="box-of-star2"><div class="star star-position1"></div><div class="star star-position2"></div><div class="star star-position3"></div><div class="star star-position4"></div><div class="star star-position5"></div><div class="star star-position6"></div><div class="star star-position7"></div></div>
-      <div class="box-of-star3"><div class="star star-position1"></div><div class="star star-position2"></div><div class="star star-position3"></div><div class="star star-position4"></div><div class="star star-position5"></div><div class="star star-position6"></div><div class="star star-position7"></div></div>
-      <div class="box-of-star4"><div class="star star-position1"></div><div class="star star-position2"></div><div class="star star-position3"></div><div class="star star-position4"></div><div class="star star-position5"></div><div class="star star-position6"></div><div class="star star-position7"></div></div>
-      <div data-js="astro" class="astronaut"><div class="head"></div><div class="arm arm-left"></div><div class="arm arm-right"></div><div class="body"><div class="panel"></div></div><div class="leg leg-left"></div><div class="leg leg-right"></div><div class="schoolbag"></div></div>
-    </div>
   </main>
 </div>
 
@@ -693,43 +816,10 @@ function getEscalaPctNuevo(p, mes) {
   return getEscalaPct(p);
 }
 
-// _usersCreatedAt: mapa normalizedKey → createdAt (string ISO)
+// _usersCreatedAt: eliminado — ya no se llama /api/users/admin-list
+// La detección de agentes nuevos usa override manual (localStorage) únicamente
 let _usersCreatedAt = {};
-
-async function loadUsersCreatedAt(){
-  try {
-    const res = await AUTH.sf('/api/users/admin-list');
-    if(!res||!res.ok) {
-      console.warn('[Comisiones] /api/users/admin-list error:', res?.status);
-      return;
-    }
-    const data = await res.json();
-    const list = data.users || data.agents || [];
-    console.log('[Comisiones] Usuarios cargados:', list.length);
-    _usersCreatedAt = {};
-    list.forEach(u => {
-      if(!u.createdAt) {
-        console.log('[Comisiones] Sin createdAt:', u.name||u.username);
-        return;
-      }
-      const key = normalizeStringForCompare(u.name||u.username||'').replace(/\./g,' ').trim();
-      if(key) {
-        _usersCreatedAt[key] = u.createdAt;
-        console.log('[Comisiones] Mapped:', key, '→', u.createdAt);
-      }
-      // también por username sin puntos
-      const ukey = normalizeStringForCompare(u.username||'').replace(/\./g,' ').trim();
-      if(ukey && ukey !== key) {
-        _usersCreatedAt[ukey] = u.createdAt;
-        console.log('[Comisiones] Mapped (alt):', ukey, '→', u.createdAt);
-      }
-    });
-    console.log('[Comisiones] _usersCreatedAt total:', Object.keys(_usersCreatedAt).length);
-  } catch(e){
-    console.error('[Comisiones] Error en loadUsersCreatedAt:', e);
-    _usersCreatedAt = {};
-  }
-}
+async function loadUsersCreatedAt(){ /* no-op: removido para reducir llamadas API */ }
 
 // Devuelve cuántos meses han pasado desde la creación del usuario hasta el mes visualizado
 function getMonthsWorked(agentKey, targetYM){
@@ -884,7 +974,7 @@ function normalizeAgentName(s){
   return String(s||'').replace(/\./g,' ').trim();
 }
 
-// Teams cache loaded from backend (/api/teams)
+// Teams: ya no se carga desde /api/teams — se usan directamente del lead
 let _teams = [];
 
 function normalizeStringForCompare(s){
@@ -892,29 +982,11 @@ function normalizeStringForCompare(s){
   catch{ return String(s||'').trim().toLowerCase(); }
 }
 
-async function loadTeams(){
-  try{
-    const res = await AUTH.sf('/api/teams');
-    if(!res||!res.ok) return;
-    const data = await res.json();
-    _teams = Array.isArray(data.teams) ? data.teams : (data.teams || []);
-  }catch(_){ _teams = []; }
-}
+async function loadTeams(){ /* no-op: removido para reducir llamadas API */ }
 
 function normalizeTeam(raw){
-  const r = String(raw||'').trim();
-  if(!r) return '';
-  const n = normalizeStringForCompare(r);
-  // Try to match against canonical teams loaded from backend
-  for(const t of (_teams||[])){
-    const candidates = [t.value, t.label, t.supervisor, t.supervisorName];
-    for(const c of candidates){
-      if(!c) continue;
-      if(normalizeStringForCompare(c) === n) return t.label || t.value;
-    }
-  }
-  // No exact match; heuristics: if raw looks like 'team' in upper case, return as-is
-  return r;
+  // Usar el valor directamente del lead sin normalización contra backend
+  return String(raw||'').trim();
 }
 
 /* ══════════════════════════════════════════════════════
@@ -1014,9 +1086,9 @@ let _agentIdx = -1; // -1 = propio usuario; 0..n = índice en _agents (solo admi
    FETCH LEADS
 ══════════════════════════════════════════════════════ */
 async function fetchLeads(){
-  // Para admins: scope=ranking trae todos los leads sin filtro de agente
+  // Solo trae los leads del mes activo — sin limit=10000, sin noAutoMonth
   const adminScope = isAdmin(_user?.role) ? '&scope=ranking' : '';
-  const res = await AUTH.sf(`/api/leads?limit=10000&noAutoMonth=1${adminScope}`);
+  const res = await AUTH.sf(`/api/leads?year=${_month.year}&month=${_month.month}${adminScope}`);
   if(!res||!res.ok) return [];
   try{
     const data = await res.json();
@@ -1510,10 +1582,7 @@ function render(){
         ${renderViewToggle()}
       </div>
     </div>
-    ${_loading
-      ? `<div class="loader-wrap"><div class="spinner"></div><span>Cargando datos...</span></div>`
-      : (showAdminView ? renderAdminView() : renderAgentSelfView())
-    }`;
+    ${showAdminView ? renderAdminView() : renderAgentSelfView()}`;
   // Inicializar KPIs de pago DESPUÉS de que el DOM esté listo
   if(!_loading && !showAdminView){
     const ym = getYM(_month.year, _month.month);
@@ -1551,12 +1620,10 @@ window.navAgent = function(delta){
 ══════════════════════════════════════════════════════ */
 async function loadData(){
   _loading = true;
-  render();
   const leads = await fetchLeads();
   _leads = leads;
   const ym = getYM(_month.year, _month.month);
   _agents = aggregateAgents(leads, ym);
-  // No resetear _agentIdx al recargar datos para mantener posición
   _loading = false;
   render();
 }
@@ -1565,18 +1632,24 @@ async function loadData(){
    INIT
 ══════════════════════════════════════════════════════ */
 (async function init(){
-  // Verificar sesión desde el servidor (no depende de localStorage)
-  const serverUser = await AUTH.verifySession();
-  if(!serverUser){ AUTH.redirectLogin(); return; }
+  // ── Llamada 1: Auth desde localStorage (sin server call si hay sesión) ──
+  let user = null;
+  try {
+    const cached = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+    if (cached && cached.username) user = cached;
+  } catch(_) {}
 
-  // Usar datos del servidor; también guardar en localStorage para otros scripts
-  _user = serverUser;
-  try{ localStorage.setItem('user', JSON.stringify(serverUser)); }catch(_){}
+  if (!user) {
+    // Solo ir al servidor si no hay sesión en localStorage
+    user = await AUTH.verifySession();
+    if (!user) { AUTH.redirectLogin(); return; }
+    try { localStorage.setItem('user', JSON.stringify(user)); } catch(_) {}
+  }
 
-  // Verificar acceso — admin, agente Y supervisor pueden entrar
+  _user = user;
   const role = String(_user?.role||'').toLowerCase();
   const allowed = isAdmin(role) || isAgentRole(role) || role.includes('supervisor');
-  if(!allowed){
+  if (!allowed) {
     document.getElementById('main-content').innerHTML = `
       <div class="empty" style="height:60vh">
         <div class="empty-icon">🔒</div>
@@ -1585,13 +1658,9 @@ async function loadData(){
     return;
   }
 
-  // Admins → vista admin por defecto | Agentes → mi vista
   _view = isAdmin(role) ? 'admin' : 'agent';
 
-  document.getElementById('page-loader').remove();
-
-  // Load canonical teams and user creation dates first
-  await Promise.all([loadTeams(), loadUsersCreatedAt()]);
+  // ── Llamada 2: Leads del mes actual (filtrado, sin limit=10000) ──
   await loadData();
 })();
 </script>

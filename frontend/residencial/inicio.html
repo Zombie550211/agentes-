@@ -257,8 +257,8 @@ body, body * { color: #fff !important; }
 .map-wrap       { flex: 1; min-height: 0; position: relative; overflow: hidden; border-radius: 8px; border: 1.5px solid rgba(124,58,237,.25); box-shadow: 0 0 0 1px rgba(124,58,237,.08); }
 body.dark-theme .map-wrap { border-color: rgba(124,58,237,.55); box-shadow: 0 0 12px rgba(124,58,237,.20); }
 body.dark-theme .leaflet-tile-pane { filter: brightness(1.6) contrast(1.1) saturate(0.7); }
-#mapa-leaflet.leaflet-container  { background: transparent !important; }
-#mapa-leaflet .leaflet-tile-pane { filter: invert(1) brightness(2) !important; opacity: 0.90 !important; }
+#mapa-leaflet.leaflet-container  { background: #f0f0f0 !important; }
+#mapa-leaflet .leaflet-tile-pane { opacity: 1 !important; filter: none; }
 #mapa-leaflet   { width: 100%; height: 100%; min-height: 140px; border-radius: 8px; }
 #mapa-empty     { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--t3); font-size: .78rem; text-align: center; background: rgba(238,242,255,.85); border-radius: 8px; pointer-events: none; z-index: 500; }
 .lf-pin { width: 12px; height: 12px; border-radius: 50%; background: #7c3aed; border: 2px solid #fff; box-shadow: 0 0 8px 3px rgba(124,58,237,.55); position: relative; }
@@ -920,7 +920,7 @@ function _renderMapaClientes(dash) {
       try {
         _leafletMap = L.map('mapa-leaflet', { zoomControl: false, attributionControl: false })
           .setView([20, -30], 2);
-        _leafletTile = L.tileLayer(_TILE_DARK, {
+        _leafletTile = L.tileLayer(_TILE_LIGHT, {
           subdomains: 'abcd', maxZoom: 18,
         }).addTo(_leafletMap);
       } catch (e) {
