@@ -11,8 +11,6 @@
     'home': 'inicio',
     'dashboard': 'inicio',
     'admin': 'inicio',
-    'premios': 'premios',
-    'premio': 'premios',
     'comisiones': 'comisiones',
     'comision': 'comisiones',
     'archivos': 'multimedia',
@@ -198,10 +196,10 @@
       if (window.__SIDEBAR_ACTIVE) return normalizeActiveKey(window.__SIDEBAR_ACTIVE);
 
       const path = decodeURIComponent(window.location?.pathname || '').toLowerCase();
-      if (/premios\.html?$/.test(path)) return 'premios';
       if (/comision/.test(path)) return 'comisiones';
       if (/rankings\.html?$/.test(path)) return 'rankings';
       if (/rankingagente\.html?$/.test(path)) return 'rankings';
+      if (/ranking-agente\.html?$/.test(path)) return 'rankings';
       if (/semaforo|semáforo/.test(path)) return 'semaforo';
       if (/llamadas/.test(path) && /team/.test(path)) return 'llamadas-team';
       if (/llamadas/.test(path) && /ventas/.test(path)) return 'llamadas-team';
@@ -365,6 +363,36 @@
       sidebarElement.innerHTML = sidebarHTML;
       initializeSidebarAvatars(sidebarElement);
 
+      // Aplicar estilos directamente al DOM (bypass total de caché CSS)
+      sidebarElement.style.cssText += ';background:rgba(5,15,35,0.55)!important;backdrop-filter:blur(14px)!important';
+
+      // Asegurar imagen brand visible siempre
+
+      const _userInfo = sidebarElement.querySelector('.user-info');
+      if (_userInfo) _userInfo.style.cssText += ';padding:10px 12px!important;background:transparent!important';
+
+      const _userDetails = sidebarElement.querySelector('.user-details');
+      if (_userDetails) _userDetails.style.cssText += ';display:flex!important;flex-direction:row!important;align-items:center!important;gap:10px!important;width:100%!important';
+
+      const _avatar = sidebarElement.querySelector('.avatar');
+      if (_avatar) _avatar.style.cssText += ';width:34px!important;height:34px!important;min-width:34px!important;font-size:.78rem!important;flex-shrink:0!important';
+
+      const _avatarImg = sidebarElement.querySelector('.avatar .user-avatar-img');
+      if (_avatarImg) _avatarImg.style.cssText += ';width:34px!important;height:34px!important';
+
+      const _avatarWrapper = sidebarElement.querySelector('.avatar-wrapper');
+      if (_avatarWrapper) _avatarWrapper.style.cssText += ';flex-shrink:0!important';
+
+      const _userName = sidebarElement.querySelector('.user-name');
+      if (_userName) _userName.style.cssText += ';font-size:.80rem!important;font-weight:600!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important';
+
+      const _userRole = sidebarElement.querySelector('.user-role');
+      if (_userRole) _userRole.style.cssText += ';font-size:.58rem!important';
+
+      sidebarElement.querySelectorAll('.nav-item, .btn-sidebar').forEach(el => {
+        el.style.cssText += ';background:transparent!important;box-shadow:none!important';
+      });
+
       // Fallback post-render: si el primer <ul.menu> no tiene items, inyectar menú de agente
       try {
         const firstMenu = sidebarElement.querySelector('ul.menu');
@@ -460,7 +488,7 @@
         const pinBtn = sidebarElement.querySelector('#sidebar-pin-btn');
         if (pinBtn) {
           // Verificar si el sidebar está fijado (guardado en localStorage)
-          const isPinned = localStorage.getItem('sidebar-pinned') === 'true';
+          const isPinned = localStorage.getItem('sidebar-pinned') !== 'false';
           if (isPinned) {
             document.body.classList.add('sidebar-pinned');
             document.body.classList.add('show-sidebar');
@@ -514,8 +542,9 @@
       ));
       if (useAutoHide) {
         setupGlobalAutoHideSidebar();
-        // Forzar estado inicial oculto
-        BODY.classList.remove('show-sidebar');
+        // Sidebar siempre fijado/abierto
+        BODY.classList.add('sidebar-pinned');
+        BODY.classList.add('show-sidebar');
       } else {
         ensureStaticSidebarLayout();
       }
@@ -662,17 +691,8 @@
     const menuBlocks = getModernMenuBlocks(normalizedRole, normalizedActive, { isLineas });
 
     return `
-      <div class="user-info">
-        <div class="user-details">
-          ${avatarWrapper}
-          <div style="display:flex;flex-direction:column;flex:1;">
-            <span class="user-name" id="user-name">${escapeHtml(displayName)}</span>
-            <span class="user-role" id="user-role">${roleName}</span>
-          </div>
-          <button type="button" class="sidebar-pin-btn" id="sidebar-pin-btn" title="Fijar sidebar">
-            <i class="fas fa-thumbtack"></i>
-          </button>
-        </div>
+      <div class="sb-brand-img" style="display:flex!important;visibility:visible!important;justify-content:center;align-items:center;padding:12px 8px 8px;flex-shrink:0;width:100%;box-sizing:border-box;">
+        <img src="/images/sidebar.png" alt="Logo" style="max-width:95%;max-height:120px;width:auto;object-fit:contain;border-radius:8px;display:block!important;">
       </div>
 
       <div class="nav-content">
@@ -702,6 +722,9 @@
               </div>
             </div>
           </label>
+        </div>
+        <div style="display:flex;justify-content:center;padding:6px 8px 4px;">
+          <img src="/images/pelota.jpeg" alt="Pelota" style="max-width:100%;max-height:110px;object-fit:cover;border-radius:10px;display:block;width:100%;">
         </div>
         <button type="button" class="footer-action logout" data-logout-button title="Cerrar Sesión">
           <i class="fas fa-sign-out-alt"></i>
@@ -790,14 +813,12 @@
       { key: 'inicio', icon: 'fa-home', text: 'Inicio', href: '/residencial/inicio.html', roles: allRoles },
       { key: 'costumer', icon: 'fa-users', text: 'Lista de Clientes', href: '/residencial/costumer.html', roles: allRoles },
       { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: '/residencial/ranking.html', roles: allRoles },
-      { key: 'premios', icon: 'fa-award', text: 'Premios', href: '/residencial/premios.html', roles: allRoles },
       { key: 'costumer-lineas', icon: 'fa-phone', text: 'Costumer Líneas', href: '/lineas/costumer.html', roles: adminBackofficeRoles },
       { key: 'estadisticas-lineas', icon: 'fa-chart-bar', text: 'Estadísticas Líneas', href: '/lineas/estadisticas.html', roles: allRoles },
       { key: 'rankings', icon: 'fa-chart-line', text: 'Rankings', href: '/residencial/ranking-agente.html', roles: allRoles },
       { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: '/residencial/estadisticas.html', roles: allRoles },
       { key: 'comisiones', icon: 'fa-coins', text: 'Comisiones', href: '/residencial/comisiones.html', roles: allRoles },
       { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: '/residencial/semaforo.html', roles: allRoles },
-      { key: 'llamadas-team', icon: 'fa-phone', text: 'Llamadas y Ventas por Team', href: '/residencial/llamadas-ventas.html', roles: adminBackofficeRoles },
       { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: '/residencial/facturacion.html', roles: adminBackofficeRoles },
       { key: 'crm-dashboard', icon: 'fa-chart-pie', text: 'CRM Dashboard', href: '/residencial/inicio.html', roles: allRoles },
       { key: 'empleado', icon: 'fa-medal', text: 'Empleado del Mes', href: '/residencial/empleado-mes.html', roles: allRoles },
@@ -885,9 +906,7 @@
       { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: '/residencial/estadisticas.html' },
       { key: 'rankings', icon: 'fa-chart-line', text: 'Ranking', href: '/residencial/ranking-agente.html' },
       { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: '/residencial/ranking.html' },
-      { key: 'historial', icon: 'fa-history', text: 'Historial de Agentes', href: '/residencial/historial-agentes.html', adminOnly: true },
       { key: 'reglas', icon: 'fa-book', text: 'Reglas y Puntajes', href: '/residencial/reglas.html' },
-      { key: 'premios', icon: 'fa-award', text: 'Premios', href: '/residencial/premios.html' },
       { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: '/residencial/facturacion.html' },
       { key: 'comisiones', icon: 'fa-coins', text: 'Comisión', href: '/residencial/comisiones.html' },
       { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: '/residencial/semaforo.html' }
@@ -895,7 +914,6 @@
     
     // Sección 3: Administración
     const administracionItems = [
-      { key: 'llamadas-team', icon: 'fa-phone', text: 'Llamadas y Ventas por Team', href: '/residencial/llamadas-ventas.html', adminOnly: true },
       { key: 'empleado', icon: 'fa-star', text: 'Empleado del Mes', href: '/residencial/empleado-mes.html' },
       { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de Puntaje', href: '/residencial/tabla-puntaje.html' },
       { key: 'crearcuenta', icon: 'fa-shield-alt', text: 'Permisos', href: '/crear-cuenta.html', adminOnly: true },
@@ -1091,23 +1109,6 @@
   // Generar sidebar de respaldo en caso de error
   function generateFallbackSidebar() {
     return `
-      <div class="user-info">
-        <div class="user-details">
-          <div class="avatar-wrapper" data-avatar-wrapper data-has-local="false" data-has-profile="false" data-has-server="false">
-            <div class="avatar" data-photo-state="fallback" data-avatar-source="" data-avatar-username="" data-profile-avatar="" data-server-avatar="" data-avatar-file-id="">
-              <span class="user-avatar">U</span>
-            </div>
-            <button type="button" class="avatar-edit-btn" data-avatar-trigger title="Actualizar foto">
-              <i class="fas fa-camera"></i><span class="sr-only">Actualizar foto</span>
-            </button>
-            <button type="button" class="avatar-remove-btn" data-avatar-clear title="Eliminar foto guardada">
-              <i class="fas fa-trash"></i><span class="sr-only">Eliminar foto</span>
-            </button>
-          </div>
-          <span class="user-name">Usuario</span>
-          <span class="user-role">Cargando...</span>
-        </div>
-      </div>
       <h3>Navegación</h3>
       <ul class="menu">
         <li><a href="/residencial/inicio.html" class="btn btn-sidebar"><i class="fas fa-home"></i><span class="menu-label">Inicio</span></a></li>

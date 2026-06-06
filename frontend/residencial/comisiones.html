@@ -487,6 +487,37 @@
       --ink3:     #64748b;
     }
     body.dark-theme .vtab.active { color: #0f172a !important; }
+  body { background: #000 !important; }
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background: url('/images/ESTADIOOO.jpeg') center center / cover no-repeat;
+    pointer-events: none;
+  }
+  </style>
+  <link rel="stylesheet" href="/css/glass-cards.css?v=20260605">
+  <style>
+    /* ── Transparencia fondo estadio ── */
+    body, html { background: transparent !important; }
+    body * { color: #fff !important; }
+    .kpi-card,
+    .agent-card,
+    .sv-hero,
+    .sv-track-card,
+    .sv-breakdown,
+    .sv-ventas-card {
+      background: rgba(5,15,35,0.40) !important;
+      backdrop-filter: blur(10px) !important;
+      -webkit-backdrop-filter: blur(10px) !important;
+      border-color: rgba(255,255,255,0.10) !important;
+    }
+    .sv-ventas-head,
+    .month-nav,
+    .view-toggle {
+      background: rgba(5,15,35,0.50) !important;
+      border-color: rgba(255,255,255,0.10) !important;
+    }
+    .main { background: transparent !important; }
   </style>
 </head>
 <body>
@@ -508,21 +539,26 @@
    AUTH helpers
 ══════════════════════════════════════════════════════ */
 const AUTH = (function(){
-  const TK='token', UK='crm_user';
-  function getToken(){ return localStorage.getItem(TK)||sessionStorage.getItem(TK)||null; }
   function getUser(){ try{ return JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}'); }catch(_){ return {}; } }
   function redirectLogin(){ sessionStorage.setItem('crm_redirect_after_login', window.location.pathname); window.location.replace('/login.html'); }
-  function check(){ const t=getToken(); if(!t){ redirectLogin(); return null; } return t; }
-  async function sf(url,opts){
-    const t=check(); if(!t) return null;
-    const headers=Object.assign({'Authorization':'Bearer '+t,'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},(opts&&opts.headers)||{});
+  async function verifySession(){
     try{
-      const res=await fetch(url,Object.assign({},opts,{headers}));
+      const r = await fetch('/api/auth/verify-server', { credentials:'include' });
+      if(!r.ok) return null;
+      const d = await r.json();
+      return d.authenticated ? (d.user || null) : null;
+    }catch(_){ return null; }
+  }
+  async function sf(url,opts){
+    try{
+      const res=await fetch(url,Object.assign({ credentials:'include' },opts,{
+        headers:Object.assign({'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},(opts&&opts.headers)||{})
+      }));
       if(res.status===401){ redirectLogin(); return null; }
       return res;
     }catch(e){ return null; }
   }
-  return { getToken, getUser, check, sf, redirectLogin };
+  return { getUser, verifySession, sf, redirectLogin };
 })();
 
 /* ══════════════════════════════════════════════════════
@@ -1529,19 +1565,22 @@ async function loadData(){
    INIT
 ══════════════════════════════════════════════════════ */
 (async function init(){
-  if(!AUTH.check()) return;
+  // Verificar sesión desde el servidor (no depende de localStorage)
+  const serverUser = await AUTH.verifySession();
+  if(!serverUser){ AUTH.redirectLogin(); return; }
 
-  // Get user
-  _user = AUTH.getUser();
+  // Usar datos del servidor; también guardar en localStorage para otros scripts
+  _user = serverUser;
+  try{ localStorage.setItem('user', JSON.stringify(serverUser)); }catch(_){}
 
-  // Verificar acceso
+  // Verificar acceso — admin, agente Y supervisor pueden entrar
   const role = String(_user?.role||'').toLowerCase();
-  const allowed = isAdmin(role) || isAgentRole(role);
+  const allowed = isAdmin(role) || isAgentRole(role) || role.includes('supervisor');
   if(!allowed){
     document.getElementById('main-content').innerHTML = `
       <div class="empty" style="height:60vh">
         <div class="empty-icon">🔒</div>
-        <span>No tienes acceso a esta página</span>  
+        <span>No tienes acceso a esta página</span>
       </div>`;
     return;
   }
