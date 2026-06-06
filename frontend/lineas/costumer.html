@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
@@ -36,8 +36,11 @@
     * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
 
     /* ═══ BODY / FONDO ═══ */
-    body { background: #EEF2F7 !important; }
-    .main-content { padding: 0 !important; }
+    body { background: transparent !important; }
+    .main-content { padding: 0 !important; position: relative !important; z-index: 10 !important; }
+
+    /* Eliminar header */
+    .crm-header { display: none !important; }
 
     /* ═══ HEADER AZUL ═══ */
     .crm-header {
@@ -91,10 +94,10 @@
     /* ═══ FILTROS ═══ */
     .filters,
     .bg-white.p-6.mb-6 {
-      background: #fff !important;
-      border: 1px solid #D1DCF0 !important;
+      background: transparent !important;
+      border: none !important;
       border-radius: 14px !important;
-      box-shadow: 0 2px 8px rgba(30,58,138,.06) !important;
+      box-shadow: none !important;
     }
 
     /* ═══ TABLA ═══ */
@@ -115,10 +118,10 @@
     }
     .costumer-table thead th:last-child { border-right: none !important; }
 
-    .costumer-table tbody { background: #fff !important; }
-    .costumer-table tbody tr { border-bottom: 1px solid #EDF2FB !important; }
-    .costumer-table tbody tr:nth-child(even) { background: #F8FAFF !important; }
-    .table-row:hover { background: #DBEAFE !important; box-shadow: none !important; }
+    .costumer-table tbody { background: transparent !important; }
+    .costumer-table tbody tr { border: none !important; background: transparent !important; }
+    .costumer-table tbody tr:nth-child(even) { background: transparent !important; }
+    .table-row:hover { background: transparent !important; box-shadow: none !important; }
 
     /* ═══ CONTENEDOR DE TABLA ═══ */
     .bg-white[style*="border-radius: 16px"] {
@@ -458,10 +461,12 @@
     .kpi-strip {
       display: flex !important;
       align-items: center !important;
-      background: #fff !important;
+      background: rgba(255,255,255,0.12) !important;
+      backdrop-filter: blur(16px) saturate(1.4) !important;
+      -webkit-backdrop-filter: blur(16px) saturate(1.4) !important;
       border-radius: 12px !important;
-      border: 1px solid #D1DCF0 !important;
-      box-shadow: 0 2px 8px rgba(30,58,138,.07) !important;
+      border: 1px solid rgba(255,255,255,0.20) !important;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.25) !important;
       padding: 0 8px !important;
       height: 72px !important;
       margin-bottom: 20px !important;
@@ -484,11 +489,12 @@
     .kpi-data { display: flex !important; flex-direction: column !important; gap: 1px !important; min-width:0 !important; }
     .kpi-val {
       font-size: 20px !important; font-weight: 800 !important;
-      color: #0F172A !important; line-height: 1.1 !important;
+      color: #ffffff !important; line-height: 1.1 !important;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.35) !important;
     }
     .kpi-lbl {
       font-size: 9px !important; font-weight: 700 !important;
-      color: #64748B !important; text-transform: uppercase !important;
+      color: rgba(255,255,255,0.75) !important; text-transform: uppercase !important;
       letter-spacing: .05em !important; white-space: nowrap !important;
       display: flex !important; align-items: center !important; gap: 4px !important;
     }
@@ -500,7 +506,7 @@
     }
     .kpi-sep {
       width: 1px !important; height: 36px !important;
-      background: #E0E8F5 !important; flex-shrink: 0 !important;
+      background: rgba(255,255,255,0.20) !important; flex-shrink: 0 !important;
     }
 
     /* ═══ CLIENT CARDS ═══ */
@@ -516,11 +522,11 @@
     .costumer-table tbody tr.table-row:hover { background: transparent !important; box-shadow: none !important; }
 
     .client-card {
-      background: #fff;
+      background: transparent;
       border-radius: 14px;
-      border: 1px solid #E0E8F5;
-      border-left: 4px solid #CBD5E1;
-      box-shadow: 0 2px 6px rgba(30,58,138,.06);
+      border: none;
+      border-left: none;
+      box-shadow: none;
       margin-bottom: 10px;
       overflow: hidden;
       transition: box-shadow .2s, transform .15s, border-color .2s;
@@ -553,7 +559,8 @@
     .cca-default   { background: linear-gradient(135deg,#94A3B8,#64748B); }
 
     .client-card-name {
-      font-size: 14px; font-weight: 700; color: #0F172A; flex: 1; line-height: 1.3;
+      font-size: 14px; font-weight: 700; color: #f0f4ff; flex: 1; line-height: 1.3;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.4);
     }
     .cc-badge {
       display: inline-flex; align-items: center; gap: 4px;
@@ -592,10 +599,10 @@
     .ccf-icon-wrap i { font-size: 9px; color: #94A3B8; }
     .ccf-wrap { display: flex; flex-direction: column; gap: 4px; }
     .ccf-label {
-      font-size: 9px; font-weight: 700; color: #CBD5E1;
+      font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.55);
       text-transform: uppercase; letter-spacing: .07em; line-height: 1;
     }
-    .ccf-value { font-size: 12px; font-weight: 600; color: #334155; line-height: 1.3; }
+    .ccf-value { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.90); line-height: 1.3; }
     .card-lines-badge {
       background: linear-gradient(135deg,#DBEAFE,#EFF6FF);
       color: #1E40AF; border: 1px solid #BFDBFE;
@@ -637,19 +644,131 @@
     .status-select-repro     { background-color: #EDE9FE !important; color: #5B21B6 !important; border-color: #DDD6FE !important; }
     .status-select-cancelled { background-color: #FEE2E2 !important; color: #991B1B !important; border-color: #FECACA !important; }
 
-    .table-wrapper { height: calc(100vh - 350px) !important; }
+    /* ═══ TABLA CONTENEDOR ═══ */
+    .table-wrapper {
+      height: auto !important;
+      max-height: none !important;
+      background: transparent !important;
+      overflow-y: visible !important;
+    }
+    .table-container { background: transparent !important; overflow-x: auto !important; }
+    .divide-y { background: transparent !important; }
+    /* Fila expandida: no cortar el contenido */
+    .details-row td { background: transparent !important; }
+    /* Inputs del form glassmorphism */
+    .details-row input, .details-row select, .details-row textarea {
+      background: rgba(255,255,255,0.12) !important;
+      color: #f0f4ff !important;
+      border-color: rgba(255,255,255,0.22) !important;
+    }
+    .details-row label {
+      color: rgba(255,255,255,0.60) !important;
+    }
+    .details-row input:disabled, .details-row select:disabled {
+      background: rgba(255,255,255,0.06) !important;
+      color: rgba(255,255,255,0.50) !important;
+    }
 
   body { background: #000 !important; }
   body::before {
     content: '';
-    position: fixed; inset: 0; z-index: 0;
+    position: fixed; inset: 0; z-index: -1;
     background: url('/images/ESTADIOOO.jpeg') center center / cover no-repeat;
     pointer-events: none;
+  }
+
+  /* ═══ FORZAR TAILWIND bg-white A TRANSPARENTE ═══ */
+  .main-content .bg-white {
+    background: rgba(255,255,255,0.10) !important;
+    backdrop-filter: blur(16px) saturate(1.3) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(1.3) !important;
+  }
+
+  /* ═══ GLASSMORPHISM EN FILTROS Y CONTENEDORES ═══ */
+  .filters-glass {
+    background: rgba(255,255,255,0.10) !important;
+    backdrop-filter: blur(16px) saturate(1.3) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(1.3) !important;
+    border: 1px solid rgba(255,255,255,0.18) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.25) !important;
+  }
+  /* Inputs/selects sobre fondo oscuro */
+  .filter-select, .search-input-field, .filter-input {
+    background: rgba(255,255,255,0.15) !important;
+    color: #fff !important;
+    border-color: rgba(255,255,255,0.25) !important;
+  }
+  .filter-select option {
+    background: #1e3a8a !important;
+    color: #fff !important;
+  }
+  .search-input-field::placeholder { color: rgba(255,255,255,0.5) !important; }
+  .filter-label { color: rgba(255,255,255,0.65) !important; }
+  /* CS Trigger glassmorphism */
+  .cs-trigger {
+    background: rgba(255,255,255,0.13) !important;
+    border-color: rgba(255,255,255,0.22) !important;
+    color: #fff !important;
+  }
+  .cs-dropdown {
+    background: rgba(15,30,60,0.92) !important;
+    border-color: rgba(255,255,255,0.15) !important;
+  }
+  .cs-option { color: rgba(255,255,255,0.85) !important; }
+  .cs-option:hover { background: rgba(255,255,255,0.12) !important; color: #fff !important; }
+  /* Status tabs */
+  .stab { background: rgba(255,255,255,0.10) !important; border-color: rgba(255,255,255,0.18) !important; color: rgba(255,255,255,0.75) !important; }
+  .stab:hover { background: rgba(255,255,255,0.18) !important; color: #fff !important; }
+  /* Lead counter badge */
+  .lead-counter-badge {
+    background: rgba(37,99,235,0.40) !important;
+    color: #bfdbfe !important;
+    border: 1px solid rgba(59,130,246,0.40) !important;
+  }
+  /* Team toggle */
+  .team-toggle {
+    background: rgba(255,255,255,0.12) !important;
+  }
+  .tt-btn { color: rgba(255,255,255,0.70) !important; }
+  .tt-btn:hover:not(.tt-active) { background: rgba(255,255,255,0.15) !important; color: #fff !important; }
+  /* Client card glassmorphism */
+  .client-card {
+    background: rgba(255,255,255,0.10) !important;
+    backdrop-filter: blur(12px) saturate(1.3) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(1.3) !important;
+    border: 1px solid rgba(255,255,255,0.16) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.20) !important;
+  }
+  .client-card-header {
+    background: rgba(255,255,255,0.06) !important;
+  }
+  .client-card-divider { background: rgba(255,255,255,0.10) !important; }
+  .client-card-body { background: transparent !important; }
+  .ccf-icon-wrap { background: rgba(255,255,255,0.12) !important; }
+  .ccf-icon-wrap i { color: rgba(255,255,255,0.7) !important; }
+  .client-card-field { border-right-color: rgba(255,255,255,0.10) !important; }
+  /* Notas */
+  .ile-note-card {
+    background: rgba(255,255,255,0.12) !important;
+    border-color: rgba(255,255,255,0.20) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+  }
+  .ile-note-card::after {
+    background: linear-gradient(transparent, rgba(10,20,50,0.6)) !important;
+  }
+  .ile-note-texto { color: rgba(255,255,255,0.85) !important; }
+  .ile-add-note-btn-main {
+    background: rgba(255,255,255,0.08) !important;
+    border-color: rgba(255,255,255,0.25) !important;
+    color: rgba(255,255,255,0.70) !important;
   }
   </style>
   <link rel="stylesheet" href="/css/glass-cards.css?v=20260605">
 </head>
-<body style="background: #EEF2F7;">
+<body style="background: transparent;">
   <div class="layout">
     <nav class="sidebar sidebar-inicio" data-active="costumer"></nav>
     <main class="main-content">
@@ -740,7 +859,7 @@
         </div>
 
         <!-- Filtros -->
-        <div style="background:#fff; border-radius:16px; border:1px solid #E0E8F5; box-shadow:0 2px 8px rgba(30,58,138,.06); padding:20px 24px; margin-bottom:20px;">
+        <div class="filters-glass" style="padding:20px 24px; margin-bottom:20px;">
           <div style="display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap;">
             <!-- Buscar -->
             <div style="flex:2; min-width:200px;">
@@ -809,13 +928,13 @@
         </div>
 
         <!-- Tabla principal con diseño moderno -->
-        <div class="bg-white" style="border-radius: 16px; border: 1px solid #F1F5F9; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);">
-          <div class="p-6" style="border-bottom: 1px solid #F1F5F9;">
+        <div class="filters-glass" style="border-radius: 16px;">
+          <div class="p-6" style="border-bottom: 1px solid rgba(255,255,255,0.12);">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
-              <h2 style="font-size: 18px; font-weight: 600; color: #1E293B; margin: 0;">
-                <i class="fas fa-table mr-2" style="color: #4F46E5;"></i>
+              <h2 style="font-size: 18px; font-weight: 600; color: #ffffff; margin: 0; text-shadow: 0 1px 3px rgba(0,0,0,0.4);">
+                <i class="fas fa-table mr-2" style="color: #93c5fd;"></i>
                 Lista de Clientes
-                <span id="leadCounter" class="lead-counter-badge">0 leads</span>
+                <span id="leadCounter" class="lead-counter-badge"></span>
               </h2>
             </div>
             <!-- Status Tabs -->
@@ -1598,17 +1717,17 @@
           {
             let detailsHTML = `<tr class="details-row" data-row-index="${idx}" style="display:none;">
               <td colspan="12" style="padding:0;">
-                <div style="padding:14px 20px; background:#F8FAFC; border-bottom:1px solid #E2E8F0;">
-                  <h4 style="color:#0F172A; font-size:16px; font-weight:700; margin:0; display:flex; align-items:center; gap:10px;">
-                    <i class="fas fa-user-edit" style="color:#4F46E5;"></i>
+                <div style="padding:14px 20px; background:rgba(15,30,80,0.55); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border-bottom:1px solid rgba(255,255,255,0.12);">
+                  <h4 style="color:#f0f4ff; font-size:16px; font-weight:700; margin:0; display:flex; align-items:center; gap:10px;">
+                    <i class="fas fa-user-edit" style="color:#93c5fd;"></i>
                     ${it.nombre_cliente||''}
                   </h4>
                 </div>
                 <!-- Formulario de edición inline -->
-                <div style="padding:16px 20px; background:#f0f4ff; border-bottom:2px solid #e0e7ff;">
+                <div style="padding:16px 20px; background:rgba(10,20,60,0.60); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-bottom:2px solid rgba(108,99,255,0.30);">
                   <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
-                    <span style="font-weight:700; color:#1e293b; font-size:13px; text-transform:uppercase; letter-spacing:.05em;">Datos del cliente</span>
-                    ${editable ? '' : '<span style="font-size:11px;color:#94a3b8;font-weight:700;background:#f1f5f9;padding:2px 10px;border-radius:999px;">Solo lectura</span>'}
+                    <span style="font-weight:700; color:#e2e8f0; font-size:13px; text-transform:uppercase; letter-spacing:.05em;">Datos del cliente</span>
+                    ${editable ? '' : '<span style="font-size:11px;color:rgba(255,255,255,0.5);font-weight:700;background:rgba(255,255,255,0.1);padding:2px 10px;border-radius:999px;">Solo lectura</span>'}
                   </div>
                   <!-- Layout: campos a la izquierda, imagen a la derecha -->
                   <div style="display:flex; gap:18px; align-items:flex-start;">
@@ -1616,48 +1735,48 @@
                     <div style="flex:1; min-width:0; max-width:640px;">
                       <div style="display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px;">
                         <div>
-                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Nombre Cliente</label>
-                          <input type="text" class="ile-nombre" data-row="${idx}" value="${(it.nombre_cliente||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;text-transform:uppercase;transition:border .15s;">
+                          <label style="display:block;font-size:10px;font-weight:800;color:rgba(255,255,255,0.60);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Nombre Cliente</label>
+                          <input type="text" class="ile-nombre" data-row="${idx}" value="${(it.nombre_cliente||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid rgba(255,255,255,0.22);border-radius:9px;font-size:13px;color:#f0f4ff;background:rgba(255,255,255,0.12);outline:none;text-transform:uppercase;transition:border .15s;">
                         </div>
                         <div>
-                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Teléfono Principal</label>
-                          <input type="tel" class="ile-tel" data-row="${idx}" value="${(it.telefono_principal||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;transition:border .15s;">
+                          <label style="display:block;font-size:10px;font-weight:800;color:rgba(255,255,255,0.60);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Teléfono Principal</label>
+                          <input type="tel" class="ile-tel" data-row="${idx}" value="${(it.telefono_principal||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid rgba(255,255,255,0.22);border-radius:9px;font-size:13px;color:#f0f4ff;background:rgba(255,255,255,0.12);outline:none;transition:border .15s;">
                         </div>
                         <div>
-                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Número de Cuenta</label>
-                          <input type="text" class="ile-cuenta" data-row="${idx}" value="${(it.numero_cuenta||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;transition:border .15s;">
+                          <label style="display:block;font-size:10px;font-weight:800;color:rgba(255,255,255,0.60);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Número de Cuenta</label>
+                          <input type="text" class="ile-cuenta" data-row="${idx}" value="${(it.numero_cuenta||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid rgba(255,255,255,0.22);border-radius:9px;font-size:13px;color:#f0f4ff;background:rgba(255,255,255,0.12);outline:none;transition:border .15s;">
                         </div>
                         <div>
-                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Pin de Seguridad</label>
-                          <input type="text" class="ile-pin" data-row="${idx}" value="${(it.pin_seguridad||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;transition:border .15s;">
+                          <label style="display:block;font-size:10px;font-weight:800;color:rgba(255,255,255,0.60);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Pin de Seguridad</label>
+                          <input type="text" class="ile-pin" data-row="${idx}" value="${(it.pin_seguridad||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid rgba(255,255,255,0.22);border-radius:9px;font-size:13px;color:#f0f4ff;background:rgba(255,255,255,0.12);outline:none;transition:border .15s;">
                         </div>
                         <div>
-                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Dirección</label>
-                          <input type="text" class="ile-dir" data-row="${idx}" value="${(it.direccion||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;transition:border .15s;">
+                          <label style="display:block;font-size:10px;font-weight:800;color:rgba(255,255,255,0.60);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Dirección</label>
+                          <input type="text" class="ile-dir" data-row="${idx}" value="${(it.direccion||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid rgba(255,255,255,0.22);border-radius:9px;font-size:13px;color:#f0f4ff;background:rgba(255,255,255,0.12);outline:none;transition:border .15s;">
                         </div>
                         <div>
-                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Status</label>
-                          <select class="ile-status" data-row="${idx}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
+                          <label style="display:block;font-size:10px;font-weight:800;color:rgba(255,255,255,0.60);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Status</label>
+                          <select class="ile-status" data-row="${idx}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid rgba(255,255,255,0.22);border-radius:9px;font-size:13px;color:#f0f4ff;background:rgba(20,40,100,0.70);outline:none;">
                             ${STATUS_OPTIONS.map(o=>`<option value="${o.val}" ${o.val===statusLower?'selected':''}>${o.label}</option>`).join('')}
                           </select>
                         </div>
                         <div>
-                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Día de Venta</label>
-                          <input type="date" class="ile-dventa" data-row="${idx}" value="${it.dia_venta||''}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;transition:border .15s;">
+                          <label style="display:block;font-size:10px;font-weight:800;color:rgba(255,255,255,0.60);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Día de Venta</label>
+                          <input type="date" class="ile-dventa" data-row="${idx}" value="${it.dia_venta||''}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid rgba(255,255,255,0.22);border-radius:9px;font-size:13px;color:#f0f4ff;background:rgba(255,255,255,0.12);outline:none;transition:border .15s;">
                         </div>
                         <div>
-                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Día de Instalación</label>
-                          <input type="date" class="ile-dinst" data-row="${idx}" value="${it.dia_instalacion||''}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;transition:border .15s;">
+                          <label style="display:block;font-size:10px;font-weight:800;color:rgba(255,255,255,0.60);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Día de Instalación</label>
+                          <input type="date" class="ile-dinst" data-row="${idx}" value="${it.dia_instalacion||''}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid rgba(255,255,255,0.22);border-radius:9px;font-size:13px;color:#f0f4ff;background:rgba(255,255,255,0.12);outline:none;transition:border .15s;">
                         </div>
                         <div>
-                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Cant. Líneas</label>
-                          <select class="ile-cant" data-row="${idx}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
+                          <label style="display:block;font-size:10px;font-weight:800;color:rgba(255,255,255,0.60);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Cant. Líneas</label>
+                          <select class="ile-cant" data-row="${idx}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid rgba(255,255,255,0.22);border-radius:9px;font-size:13px;color:#f0f4ff;background:rgba(20,40,100,0.70);outline:none;">
                             ${[1,2,3,4,5].map(n=>`<option value="${n}" ${parseInt(it.cantidad_lineas||1)===n?'selected':''}>${n}</option>`).join('')}
                           </select>
                         </div>
                         <div>
-                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Supervisor</label>
-                          <select class="ile-supervisor" data-row="${idx}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
+                          <label style="display:block;font-size:10px;font-weight:800;color:rgba(255,255,255,0.60);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Supervisor</label>
+                          <select class="ile-supervisor" data-row="${idx}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid rgba(255,255,255,0.22);border-radius:9px;font-size:13px;color:#f0f4ff;background:rgba(20,40,100,0.70);outline:none;">
                             <option value="">— Sin asignar —</option>
                             <option value="LUIS G"      ${(it.supervisor||'').toUpperCase().includes('LUIS')?'selected':''}>LUIS G</option>
                             <option value="JONATHAN F"  ${(it.supervisor||'').toUpperCase().includes('JONATHAN')?'selected':''}>JONATHAN F</option>
@@ -1670,7 +1789,7 @@
                       <!-- Imagen del Lead -->
                       <div style="width:155px;flex-shrink:0;display:flex;flex-direction:column;gap:8px;">
                         <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Imagen del Lead</label>
-                        <div class="ile-img-zone" data-row="${idx}" style="position:relative;width:155px;height:155px;border:2px dashed #c7d2fe;border-radius:12px;background:#f8fafc;display:flex;align-items:center;justify-content:center;overflow:hidden;${editable?'cursor:pointer;':''}" ${editable?'onclick="event.stopPropagation();var inp=this.nextElementSibling;if(inp&&inp.tagName===\'INPUT\')inp.click();" ondragover="event.preventDefault();event.stopPropagation();this.style.borderColor=\'#667eea\';" ondragleave="this.style.borderColor=\'#c7d2fe\';" ondrop="_clImgDrop(event,this)"':'onclick="event.stopPropagation();"'}>
+                        <div class="ile-img-zone" data-row="${idx}" style="position:relative;width:155px;height:155px;border:2px dashed rgba(108,99,255,0.50);border-radius:12px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;overflow:hidden;${editable?'cursor:pointer;':''}" ${editable?'onclick="event.stopPropagation();var inp=this.nextElementSibling;if(inp&&inp.tagName===\'INPUT\')inp.click();" ondragover="event.preventDefault();event.stopPropagation();this.style.borderColor=\'#667eea\';" ondragleave="this.style.borderColor=\'#c7d2fe\';" ondrop="_clImgDrop(event,this)"':'onclick="event.stopPropagation();"'}>
                           <div class="ile-img-ph" style="${it.imagen_url?'display:none;':''}display:flex;flex-direction:column;align-items:center;gap:5px;pointer-events:none;">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
                             <span style="font-size:11px;font-weight:700;color:#94a3b8;">${editable?'Click o arrastra':'Sin imagen'}</span>
@@ -1700,35 +1819,10 @@
                     </div>
                   </div>
                 </div>
-                <div style="padding:20px; background:#f8f9fa;">
-                  <!-- Información General del Cliente con diseño moderno -->
-                  <div class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 mb-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p class="text-sm text-gray-600 mb-1">Cliente</p>
-                        <p class="font-semibold text-gray-800 m-0">${it.nombre_cliente||'N/A'}</p>
-                      </div>
-                      <div>
-                        <p class="text-sm text-gray-600 mb-1">Teléfono Principal</p>
-                        <p class="font-semibold text-gray-800 m-0">${it.telefono_principal||'N/A'}</p>
-                      </div>
-                      <div>
-                        <p class="text-sm text-gray-600 mb-1">Fecha de Venta</p>
-                        <p class="font-semibold text-gray-800 m-0">${it.dia_venta||'N/A'}</p>
-                      </div>
-                      <div>
-                        <p class="text-sm text-gray-600 mb-1">Estado General</p>
-                        <span class="${statusBadgeClass}">
-                          <i class="fas ${statusLower === 'completed' ? 'fa-check-circle' : 'fa-clock'} mr-1"></i>
-                          ${String(it.status||'').toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  
+                <div style="padding:16px; background:rgba(8,15,50,0.55); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);">
                   <!-- Líneas Asociadas -->
-                  <h4 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                    <i class="fas fa-list-ul text-purple-600 mr-2"></i>
+                  <h4 class="text-lg font-semibold mb-3 flex items-center" style="color:#f0f4ff;">
+                    <i class="fas fa-list-ul mr-2" style="color:#a78bfa;"></i>
                     Líneas Asociadas
                   </h4>
                   <div style="display:grid; gap:16px;">`;
@@ -1749,7 +1843,6 @@
               //   notas: notas,
               //   notasLength: notas.length
               // });
-              
               // Obtener status de esta línea específica
               let lineStatus = extractLineStatus(it, i);
               if (!lineStatus && Array.isArray(lines) && lines[i] && lines[i].status) lineStatus = lines[i].status;
@@ -1764,31 +1857,31 @@
               else lineStatusBadge = `<span class="status-badge bg-gray-200 text-gray-700">${lineStatus}</span>`;
 
               detailsHTML += `
-                <div class="line-card bg-white border-2 border-gray-200 rounded-lg p-5 hover:border-purple-300 transition">
+                <div class="line-card" style="background:rgba(255,255,255,0.09); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.18); border-radius:12px; padding:20px; transition:border-color .2s;">
                   <div class="flex items-start justify-between mb-4">
                     <div class="flex items-center">
-                      <div class="bg-blue-100 p-3 rounded-lg mr-3">
-                        <i class="fas fa-phone-alt text-blue-600 text-lg"></i>
+                      <div style="background:rgba(59,130,246,0.25); border:1px solid rgba(59,130,246,0.35); padding:12px; border-radius:10px; margin-right:12px;">
+                        <i class="fas fa-phone-alt" style="color:#93c5fd; font-size:18px;"></i>
                       </div>
                       <div>
-                        <h5 class="font-semibold text-gray-800 text-lg m-0">Línea ${i+1}</h5>
-                        <p class="text-sm text-gray-500 m-0 line-tel-display">${telefono || 'Sin teléfono'}</p>
+                        <h5 class="font-semibold text-lg m-0" style="color:#f0f4ff;">Línea ${i+1}</h5>
+                        <p class="text-sm m-0 line-tel-display" style="color:rgba(255,255,255,0.55);">${telefono || 'Sin teléfono'}</p>
                       </div>
                     </div>
                     <div style="display:flex;align-items:center;gap:8px;">
-                      ${editable ? `<button class="btn-edit-line" data-client-id="${docId}" data-line-index="${i}" style="background:#3b82f6;color:#fff;border:none;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;white-space:nowrap;">✏ Editar</button>` : ''}
+                      ${editable ? `<button class="btn-edit-line" data-client-id="${docId}" data-line-index="${i}" style="background:#3b82f6;color:#fff;border:none;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;white-space:nowrap;">&#9998; Editar</button>` : ''}
                       ${lineStatusBadge}
                     </div>
                   </div>
                   
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
-                      <p class="text-xs text-gray-500 mb-1">Servicio</p>
-                      <p class="font-medium text-gray-700 m-0">${servicio || 'N/A'}</p>
+                      <p class="text-xs mb-1" style="color:rgba(255,255,255,0.50);">Servicio</p>
+                      <p class="font-medium m-0" style="color:#e2e8f0;">${servicio || 'N/A'}</p>
                     </div>
                     <div>
-                      <p class="text-xs text-gray-500 mb-1">Estado</p>
-                      <select class="line-status-select w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-semibold focus:outline-none focus:border-purple-500" data-client-id="${docId}" data-line-index="${i}" ${getUserRole() === 'supervisor' ? 'disabled' : ''}>
+                      <p class="text-xs mb-1" style="color:rgba(255,255,255,0.50);">Estado</p>
+                      <select class="line-status-select w-full px-3 py-2 border rounded-lg text-sm font-semibold focus:outline-none" style="background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.25);color:#fff;" data-client-id="${docId}" data-line-index="${i}" ${getUserRole() === 'supervisor' ? 'disabled' : ''}>
                         <option value="PENDING" ${lineStatus === 'PENDING' ? 'selected' : ''}>PENDING</option>
                         <option value="ACTIVE" ${lineStatus === 'ACTIVE' ? 'selected' : ''}>ACTIVE</option>
                         <option value="COMPLETED" ${lineStatus === 'COMPLETED' ? 'selected' : ''}>COMPLETED</option>
@@ -1799,17 +1892,17 @@
                   </div>
                   
                   <!-- Sección de Notas -->
-                  <div class="bg-gray-50 rounded-lg p-3 mt-4">
+                  <div style="background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:12px; margin-top:16px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                      <span style="color:#64748b; font-size:12px; font-weight:600;">Notas:</span>
+                      <span style="color:rgba(255,255,255,0.65); font-size:12px; font-weight:600;">Notas:</span>
                       <button class="btn-add-note" data-client-id="${docId}" data-line-index="${i}" style="background:#10b981; color:#fff; border:none; padding:6px 12px; border-radius:6px; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:4px;">
                         <span style="font-size:14px;">+</span> Agregar Nota
                       </button>
                     </div>
                     
                     <!-- Formulario para agregar nota (inicialmente oculto) -->
-                    <div class="note-form" data-line-index="${i}" style="display:none; background:#fff; border:1px solid #e5e7eb; border-radius:6px; padding:12px; margin-bottom:12px;">
-                      <textarea class="note-textarea" placeholder="Agregar nueva nota..." style="width:100%; min-height:80px; padding:8px; border:1px solid #e5e7eb; border-radius:4px; font-size:13px; resize:vertical; font-family:inherit;"></textarea>
+                    <div class="note-form" data-line-index="${i}" style="display:none; background:rgba(255,255,255,0.10); border:1px solid rgba(255,255,255,0.20); border-radius:6px; padding:12px; margin-bottom:12px;">
+                      <textarea class="note-textarea" placeholder="Agregar nueva nota..." style="width:100%; min-height:80px; padding:8px; border:1px solid rgba(255,255,255,0.25); border-radius:4px; font-size:13px; resize:vertical; font-family:inherit; background:rgba(255,255,255,0.10); color:#fff;"></textarea>
                       <div style="display:flex; gap:8px; margin-top:8px;">
                         <button class="btn-save-note" style="background:#10b981; color:#fff; border:none; padding:6px 16px; border-radius:6px; font-size:12px; cursor:pointer; font-weight:600;">
                           + Agregar Nota
@@ -1821,21 +1914,21 @@
                     </div>
                     
                   <!-- Mini-form edición de línea -->
-                  ${editable ? `<div class="line-edit-form" data-client-id="${docId}" data-line-index="${i}" style="display:none;margin-top:12px;background:#f0f4ff;border:1px solid #c7d2fe;border-radius:10px;padding:14px;">
+                  ${editable ? `<div class="line-edit-form" data-client-id="${docId}" data-line-index="${i}" style="display:none;margin-top:12px;background:rgba(108,99,255,0.18);border:1px solid rgba(108,99,255,0.35);border-radius:10px;padding:14px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);">
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
                       <div>
-                        <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Teléfono</label>
-                        <input type="tel" class="line-edit-tel" value="${telefono}" style="width:100%;padding:8px 11px;border:1px solid #dde3f0;border-radius:8px;font-size:13px;color:#1e293b;outline:none;">
+                        <label style="display:block;font-size:10px;font-weight:800;color:rgba(255,255,255,0.60);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Teléfono</label>
+                        <input type="tel" class="line-edit-tel" value="${telefono}" style="width:100%;padding:8px 11px;border:1px solid rgba(255,255,255,0.25);border-radius:8px;font-size:13px;color:#fff;background:rgba(255,255,255,0.12);outline:none;">
                       </div>
                       <div>
-                        <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Servicio</label>
-                        <input type="text" class="line-edit-serv" value="${servicio}" style="width:100%;padding:8px 11px;border:1px solid #dde3f0;border-radius:8px;font-size:13px;color:#1e293b;outline:none;">
+                        <label style="display:block;font-size:10px;font-weight:800;color:rgba(255,255,255,0.60);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Servicio</label>
+                        <input type="text" class="line-edit-serv" value="${servicio}" style="width:100%;padding:8px 11px;border:1px solid rgba(255,255,255,0.25);border-radius:8px;font-size:13px;color:#fff;background:rgba(255,255,255,0.12);outline:none;">
                       </div>
                     </div>
                     <div style="display:flex;gap:8px;align-items:center;">
                       <button class="btn-save-line" style="background:#10b981;color:#fff;border:none;padding:7px 18px;border-radius:7px;font-size:12px;cursor:pointer;font-weight:700;">Guardar</button>
                       <button class="btn-cancel-line" style="background:#64748b;color:#fff;border:none;padding:7px 14px;border-radius:7px;font-size:12px;cursor:pointer;">Cancelar</button>
-                      <span class="line-edit-msg" style="font-size:11px;color:#64748b;"></span>
+                      <span class="line-edit-msg" style="font-size:11px;color:rgba(255,255,255,0.55);"></span>
                     </div>
                   </div>` : ''}
                     <!-- Lista de notas existentes -->
@@ -1855,11 +1948,11 @@
                         }
                         const autor = nota.autor || '';
                         return `
-                        <div class="note-item" data-note-index="${nIdx}" style="background:#fff; border:1px solid #e5e7eb; border-radius:4px; padding:8px; position:relative;">
+                        <div class="note-item" data-note-index="${nIdx}" style="background:rgba(255,255,255,0.10); border:1px solid rgba(255,255,255,0.18); border-radius:6px; padding:8px; position:relative;">
                           <div style="display:flex; justify-content:space-between; align-items:start; gap:8px;">
                             <div style="flex:1;">
-                              <div class="note-text" style="color:#0f172a; font-size:13px;">${textoNota}</div>
-                              ${fechaNota ? `<div style="color:#94a3b8; font-size:11px; margin-top:4px;">${fechaNota}${autor ? ' - ' + autor : ''}</div>` : ''}
+                              <div class="note-text" style="color:#e2e8f0; font-size:13px;">${textoNota}</div>
+                              ${fechaNota ? `<div style="color:rgba(255,255,255,0.45); font-size:11px; margin-top:4px;">${fechaNota}${autor ? ' - ' + autor : ''}</div>` : ''}
                             </div>
                             <div style="display:flex; gap:4px;">
                               <button class="btn-edit-note" data-client-id="${docId}" data-line-index="${i}" data-note-index="${nIdx}" style="background:#3b82f6; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:2px;" title="Editar nota">

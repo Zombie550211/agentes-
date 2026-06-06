@@ -60,7 +60,7 @@ body::before {
 }
 
 /* ── Cards y widgets transparentes ── */
-.main-content { position: relative; z-index: 1; }
+.main-content { position: relative; z-index: 1; overflow-y: auto; }
 
 [style*="background: var(--glass)"],
 [style*="background:var(--glass)"],
@@ -86,15 +86,16 @@ body, body * { color: #fff !important; }
 
 /* ══ SHELL ══ */
 .main-content {
-  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  overflow: hidden; display: flex; flex-direction: column;
-  background: transparent !important; z-index: 1;
+  flex: 1;
+  overflow-y: auto;
+  background: transparent !important;
+  position: relative; z-index: 1;
+  min-height: 100vh;
 }
 .page {
-  flex: 1; min-height: 0;
   display: flex; flex-direction: column;
   gap: 8px; padding: 8px 13px 10px;
-  overflow: hidden;
+  min-height: 100vh;
 }
 
 /* ══ HERO ══ */
@@ -282,7 +283,7 @@ body.dark-theme .leaflet-tile-pane { filter: brightness(1.6) contrast(1.1) satur
 
 /* ══ STAGGER ══ */
 @keyframes fsu { from { opacity:0; transform:translateY(40px) scale(.97); } to { opacity:1; transform:translateY(0) scale(1); } }
-.fsu     { opacity:0; animation: fsu 1.0s cubic-bezier(.16,1,.3,1) forwards; animation-play-state: paused; }
+.fsu     { opacity:0; animation: fsu 0.8s cubic-bezier(.16,1,.3,1) forwards; animation-play-state: paused; }
 .fsu.go  { animation-play-state: running; }
 
 /* KPI counter */
@@ -676,7 +677,10 @@ document.addEventListener('DOMContentLoaded', async function() {
   let dash;
   try {
     dash = await window.__homeDataPromise;
-    if (!dash) return;
+    // Si dash es null (fallo de red), usar datos vacíos para mostrar las cards igualmente
+    if (!dash) {
+      dash = { success: true, user: {}, kpis: {}, user_stats: {}, ranking_mes: [], chart_ventas_mensuales: [], semaforo: [], top_productos: [], actividades_recientes: [], mapa_clientes: [] };
+    }
     if (!dash.success && !dash.user) { window.location.replace('/login.html'); return; }
   } catch (err) {
     console.error('[inicio] error cargando dashboard:', err);
@@ -1173,33 +1177,44 @@ if (hn) {
 <script>
 /* ── Stagger entrance ───────────────────────────────────────────────────── */
 (function(){
+  var _goFired = false;
+
   function go(el, delay){
     if(!el) return;
-    setTimeout(function(){
-      el.classList.add('go');
-    }, delay || 0);
+    setTimeout(function(){ el.classList.add('go'); }, delay || 0);
   }
 
-  // Hero aparece de inmediato con slide desde arriba
-  go(document.querySelector('.hero.fsu'), 0);
-
-  // Paneles esperan a que los datos estén listos — stagger por filas
-  document.addEventListener('crm:data-ready', function(){
+  function showAllPanels() {
+    if (_goFired) return;
+    _goFired = true;
     var rows = ['.row-top', '.row-mid', '.row-bot'];
     rows.forEach(function(rowSel, rowIdx){
       var row = document.querySelector(rowSel);
       if(!row) return;
       var panels = row.querySelectorAll('.gpanel.fsu');
       panels.forEach(function(el, colIdx){
-        go(el, rowIdx * 200 + colIdx * 120);
+        go(el, rowIdx * 150 + colIdx * 80);
       });
     });
+  }
+
+  // Hero aparece de inmediato
+  go(document.querySelector('.hero.fsu'), 0);
+
+  // Paneles aparecen cuando los datos están listos
+  document.addEventListener('crm:data-ready', function(){
+    showAllPanels();
   }, { once: true });
 
-  // Fallback si la API tarda más de 5s
+  // Fallback 1: si el DOM ya cargó y no hay datos en 1.2s
+  document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(showAllPanels, 1200);
+  });
+
+  // Fallback 2: absoluto en 2.5s por si DOMContentLoaded ya pasó
   setTimeout(function(){
     document.querySelectorAll('.fsu:not(.go)').forEach(function(el){ el.classList.add('go'); });
-  }, 5000);
+  }, 2500);
 })();
 </script>
 </body>
