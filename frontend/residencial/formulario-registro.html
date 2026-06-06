@@ -1103,19 +1103,23 @@
   // Toast notification system
   function showToast(message, type = 'info') {
     const toast = document.createElement('div');
+    const bg = type === 'error' ? 'rgba(239, 68, 68, 0.75)' : type === 'ok' ? 'rgba(16, 185, 129, 0.75)' : 'rgba(59, 130, 246, 0.75)';
     toast.style.cssText = `
       position: fixed;
       bottom: 20px;
       right: 20px;
       padding: 12px 20px;
-      border-radius: 6px;
+      border-radius: 12px;
       font-weight: 600;
       font-size: 0.9rem;
       z-index: 9999;
       animation: slideIn 0.3s ease;
-      background: ${type === 'error' ? '#ef4444' : type === 'ok' ? '#10b981' : '#3b82f6'};
+      background: ${bg};
       color: white;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.15);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
     `;
     toast.textContent = message;
     document.body.appendChild(toast);

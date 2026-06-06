@@ -47,7 +47,32 @@
 
   /* ── HELPERS ── */
   function escHTML(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-  function showToast(msg,type){const t=document.createElement('div');t.textContent=msg;t.setAttribute('role','alert');t.setAttribute('aria-live','assertive');Object.assign(t.style,{position:'fixed',bottom:'24px',left:'50%',transform:'translateX(-50%)',background:type==='ok'?'var(--go)':type==='error'?'var(--stop)':'var(--warn)',color:'#fff',padding:'10px 22px',borderRadius:'var(--rf)',fontSize:'.8rem',fontWeight:'700',zIndex:'9999',boxShadow:'0 4px 16px rgba(0,0,0,.15)'});document.body.appendChild(t);setTimeout(function(){t.remove();},3000);}
+  function showToast(msg,type){
+    const t=document.createElement('div');
+    t.textContent=msg;
+    t.setAttribute('role','alert');
+    t.setAttribute('aria-live','assertive');
+    const bg = type==='ok' ? 'rgba(0, 196, 140, 0.75)' : type==='error' ? 'rgba(255, 77, 109, 0.75)' : 'rgba(255, 159, 28, 0.75)';
+    Object.assign(t.style,{
+      position:'fixed',
+      bottom:'24px',
+      left:'50%',
+      transform:'translateX(-50%)',
+      background:bg,
+      color:'#fff',
+      padding:'10px 22px',
+      borderRadius:'var(--rf)',
+      fontSize:'.8rem',
+      fontWeight:'700',
+      zIndex:'9999',
+      boxShadow:'0 8px 32px rgba(0,0,0,.3)',
+      border:'1px solid rgba(255,255,255,0.1)',
+      backdropFilter:'blur(10px)',
+      webkitBackdropFilter:'blur(10px)'
+    });
+    document.body.appendChild(t);
+    setTimeout(function(){t.remove();},3000);
+  }
   function getVal(id){return(document.getElementById(id)?document.getElementById(id).value:'').trim();}
   function setVal(id,v){const el=document.getElementById(id);if(el)el.value=(v==null)?'':String(v);}
   function _stripAccents(s){try{return s.normalize('NFD').replace(/[̀-ͯ]/g,'');}catch(_){return s;}}
@@ -550,8 +575,8 @@
       const rowAnim='animation:rowFall .75s cubic-bezier(.16,1,.3,1) both;animation-delay:'+(_ri*0.06)+'s;';
       const pts=lead.puntaje!==''&&lead.puntaje!==null&&lead.puntaje!==undefined?parseFloat(String(lead.puntaje).replace(',','.')):null;
       const ptsColor=pts===null?'var(--ink-4)':pts>=1?'var(--go)':pts>=0.5?'var(--warn)':'var(--stop)';
-      const svcBadge=lead.tipo_servicio?'<span style="display:inline-block;font-size:.67rem;font-weight:700;background:var(--sheet-3);border:1px solid var(--line-1);border-radius:var(--rf);padding:2px 9px;color:var(--ink-2);white-space:nowrap;">'+escHTML(lead.tipo_servicio)+'</span>':'';
-      const sisBadge=lead.sistema&&lead.sistema!=='N/A'?'<span style="display:inline-block;font-size:.67rem;font-weight:700;background:var(--info-bg);border:1px solid var(--info-ln);border-radius:var(--rf);padding:2px 9px;color:var(--info);white-space:nowrap;">'+escHTML(lead.sistema)+(lead.riesgo&&lead.riesgo!=='N/A'&&lead.riesgo!==''?' ('+escHTML(lead.riesgo)+')':'')+'</span>':'';
+      const svcBadge=lead.tipo_servicio?'<span style="display:inline-block;font-size:.67rem;font-weight:700;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:var(--rf);padding:2px 9px;color:var(--ink-2);white-space:nowrap;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);">'+escHTML(lead.tipo_servicio)+'</span>':'';
+      const sisBadge=lead.sistema&&lead.sistema!=='N/A'?'<span style="display:inline-block;font-size:.67rem;font-weight:700;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.2);border-radius:var(--rf);padding:2px 9px;color:var(--info);white-space:nowrap;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);">'+escHTML(lead.sistema)+(lead.riesgo&&lead.riesgo!=='N/A'&&lead.riesgo!==''?' ('+escHTML(lead.riesgo)+')':'')+'</span>':'';
       return'<tr data-id="'+escHTML(lid)+'"'+rowClass+' style="'+rowAnim+'">'+
         // Col 1: Agente / Cliente
         '<td style="padding:10px 14px;">'+
@@ -1678,11 +1703,11 @@
     }
 
     var TYPE_CFG = {
-      status:  { color:'#6C47FF', bg:'#f0ecff', icon:'🔄', label:'Cambio de Status'  },
-      edicion: { color:'#f59e0b', bg:'#fffbeb', icon:'✏️',  label:'Lead Editado'      },
-      nota:    { color:'#10b981', bg:'#ecfdf5', icon:'📝',  label:'Nota Agregada'     },
-      deleted: { color:'#ef4444', bg:'#fef2f2', icon:'🗑️',  label:'Lead Eliminado'    },
-      info:    { color:'#3b82f6', bg:'#eff6ff', icon:'ℹ️',  label:'Info'              },
+      status:  { color:'#a855f7', bg:'rgba(168, 85, 247, 0.15)', icon:'🔄', label:'Cambio de Status'  },
+      edicion: { color:'#f59e0b', bg:'rgba(245, 158, 11, 0.15)', icon:'✏️',  label:'Lead Editado'      },
+      nota:    { color:'#10b981', bg:'rgba(16, 185, 129, 0.15)', icon:'📝',  label:'Nota Agregada'     },
+      deleted: { color:'#ef4444', bg:'rgba(239, 68, 68, 0.15)',  icon:'🗑️',  label:'Lead Eliminado'    },
+      info:    { color:'#3b82f6', bg:'rgba(59, 130, 246, 0.15)',  icon:'ℹ️',  label:'Info'              },
     };
 
     function fmtTime(){ return new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}); }
@@ -1692,11 +1717,12 @@
       var cfg = TYPE_CFG[tipo] || TYPE_CFG.info;
       var card = document.createElement('div');
       card.style.cssText = [
-        'pointer-events:all;width:320px;background:var(--sheet);border-radius:14px;',
-        'box-shadow:0 8px 32px rgba(0,0,0,.18);overflow:hidden;',
+        'pointer-events:all;width:320px;background:rgba(30, 41, 59, 0.7);border-radius:14px;',
+        'box-shadow:0 8px 32px rgba(0,0,0,.3);overflow:hidden;',
         'display:flex;flex-direction:column;',
+        'border:1px solid rgba(255, 255, 255, 0.1);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);',
         'transform:translateX(360px);transition:transform .35s cubic-bezier(.16,1,.3,1),opacity .35s;opacity:0;',
-        'font-family:system-ui,sans-serif;'
+        'font-family:system-ui,sans-serif;color:#fff;'
       ].join('');
 
       var actor = data.actor || 'Usuario';
@@ -1714,12 +1740,12 @@
               '<span style="font-size:.72rem;font-weight:700;color:'+cfg.color+';text-transform:uppercase;letter-spacing:.04em;">'+cfg.label+'</span>',
               '<span style="font-size:.68rem;color:#9ca3af;">'+hora+'</span>',
             '</div>',
-            (cliente ? '<div style="font-size:.85rem;font-weight:700;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;">'+escHTML(cliente)+'</div>' : ''),
+            (cliente ? '<div style="font-size:.85rem;font-weight:700;color:#f3f4f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;">'+escHTML(cliente)+'</div>' : ''),
             '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">',
               '<div style="width:20px;height:20px;border-radius:50%;background:'+cfg.color+';color:#fff;font-size:.62rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+escHTML(actor.charAt(0).toUpperCase())+'</div>',
-              '<span style="font-size:.78rem;color:#374151;font-weight:600;">'+escHTML(actor)+'</span>',
+              '<span style="font-size:.78rem;color:#e5e7eb;font-weight:600;">'+escHTML(actor)+'</span>',
             '</div>',
-            (detalle ? '<div style="font-size:.76rem;color:#6b7280;margin-top:2px;">'+escHTML(detalle)+'</div>' : ''),
+            (detalle ? '<div style="font-size:.76rem;color:#9ca3af;margin-top:2px;">'+escHTML(detalle)+'</div>' : ''),
             (extra   ? '<div style="font-size:.74rem;color:'+cfg.color+';font-weight:600;margin-top:4px;padding:3px 8px;background:'+cfg.bg+';border-radius:6px;display:inline-block;">'+escHTML(extra)+'</div>' : ''),
           '</div>',
           '<button style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:1rem;padding:0;line-height:1;flex-shrink:0;" onclick="this.closest(\'.crm-notif-card\').remove()">✕</button>',
@@ -1765,7 +1791,7 @@
     if (!('Notification' in window) || Notification.permission !== 'default') return;
     var banner = document.createElement('div');
     banner.id = 'notif-banner';
-    banner.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999;background:#1e1b4b;color:#fff;border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,.3);font-size:.82rem;max-width:320px;';
+    banner.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999;background:rgba(30, 27, 75, 0.85);color:#fff;border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,.3);font-size:.82rem;max-width:320px;border:1px solid rgba(255,255,255,0.1);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);';
     banner.innerHTML = '<span style="font-size:1.3rem">🔔</span><span style="flex:1;line-height:1.4">Activa las notificaciones para recibir alertas en tiempo real</span><button id="notif-allow-btn" style="background:#6C47FF;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap;">Activar</button><button id="notif-dismiss-btn" style="background:transparent;color:#aaa;border:none;cursor:pointer;font-size:1rem;padding:0 2px;">✕</button>';
     document.body.appendChild(banner);
     document.getElementById('notif-allow-btn').addEventListener('click', function() {

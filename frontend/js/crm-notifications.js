@@ -39,14 +39,14 @@
   }
 
   var TYPE_CFG = {
-    status:  { color: '#6C47FF', bg: '#f0ecff', icon: '🔄', label: 'Cambio de Status'  },
-    edicion: { color: '#f59e0b', bg: '#fffbeb', icon: '✏️',  label: 'Lead Editado'      },
-    nota:    { color: '#10b981', bg: '#ecfdf5', icon: '📝',  label: 'Nota Agregada'     },
-    deleted: { color: '#ef4444', bg: '#fef2f2', icon: '🗑️',  label: 'Lead Eliminado'    },
-    info:    { color: '#3b82f6', bg: '#eff6ff', icon: 'ℹ️',  label: 'Notificación'      },
-    warn:    { color: '#f59e0b', bg: '#fffbeb', icon: '⚠️',  label: 'Aviso'             },
-    chat:    { color: '#6366f1', bg: '#eef2ff', icon: '💬',  label: 'Mensaje nuevo'     },
-    email:   { color: '#0ea5e9', bg: '#f0f9ff', icon: '📧',  label: 'Correo nuevo'      },
+    status:  { color: '#a855f7', bg: 'rgba(168, 85, 247, 0.15)', icon: '🔄', label: 'Cambio de Status'  },
+    edicion: { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)', icon: '✏️',  label: 'Lead Editado'      },
+    nota:    { color: '#10b981', bg: 'rgba(16, 185, 129, 0.15)', icon: '📝',  label: 'Nota Agregada'     },
+    deleted: { color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)',  icon: '🗑️',  label: 'Lead Eliminado'    },
+    info:    { color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.15)',  icon: 'ℹ️',  label: 'Notificación'      },
+    warn:    { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)',  icon: '⚠️',  label: 'Aviso'             },
+    chat:    { color: '#6366f1', bg: 'rgba(99, 102, 241, 0.15)',  icon: '💬',  label: 'Mensaje nuevo'     },
+    email:   { color: '#0ea5e9', bg: 'rgba(14, 165, 233, 0.15)',  icon: '📧',  label: 'Correo nuevo'      },
   };
 
   if (!document.getElementById('crm-notif-kf')) {
@@ -73,10 +73,11 @@
     var card = document.createElement('div');
     card.className = 'crm-notif-card';
     card.style.cssText = [
-      'pointer-events:all;width:320px;background:#fff;border-radius:14px;',
-      'box-shadow:0 8px 32px rgba(0,0,0,.18);overflow:hidden;display:flex;flex-direction:column;',
+      'pointer-events:all;width:320px;background:rgba(30, 41, 59, 0.7);border-radius:14px;',
+      'box-shadow:0 8px 32px rgba(0,0,0,.3);overflow:hidden;display:flex;flex-direction:column;',
+      'border:1px solid rgba(255,255,255,0.1);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);',
       'transform:translateX(360px);transition:transform .35s cubic-bezier(.16,1,.3,1),opacity .35s;opacity:0;',
-      'font-family:system-ui,sans-serif;'
+      'font-family:system-ui,sans-serif;color:#fff;'
     ].join('');
 
     card.innerHTML = [
@@ -88,14 +89,14 @@
             '<span style="font-size:.72rem;font-weight:700;color:' + cfg.color + ';text-transform:uppercase;letter-spacing:.04em;">' + cfg.label + '</span>',
             '<span style="font-size:.68rem;color:#9ca3af;">' + hora + '</span>',
           '</div>',
-          (cliente ? '<div style="font-size:.85rem;font-weight:700;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;">' + escH(cliente) + '</div>' : ''),
+          (cliente ? '<div style="font-size:.85rem;font-weight:700;color:#f3f4f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;">' + escH(cliente) + '</div>' : ''),
           (actor ? [
             '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">',
               '<div style="width:20px;height:20px;border-radius:50%;background:' + cfg.color + ';color:#fff;font-size:.62rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' + escH(actor.charAt(0).toUpperCase()) + '</div>',
-              '<span style="font-size:.78rem;color:#374151;font-weight:600;">' + escH(actor) + '</span>',
+              '<span style="font-size:.78rem;color:#e5e7eb;font-weight:600;">' + escH(actor) + '</span>',
             '</div>'
           ].join('') : ''),
-          (detalle ? '<div style="font-size:.76rem;color:#6b7280;margin-top:2px;">' + escH(detalle) + '</div>' : ''),
+          (detalle ? '<div style="font-size:.76rem;color:#9ca3af;margin-top:2px;">' + escH(detalle) + '</div>' : ''),
           (extra ? '<div style="font-size:.74rem;color:' + cfg.color + ';font-weight:600;margin-top:4px;padding:3px 8px;background:' + cfg.bg + ';border-radius:6px;display:inline-block;">' + escH(extra) + '</div>' : ''),
         '</div>',
         '<button style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:1rem;padding:0;line-height:1;flex-shrink:0;" onclick="this.closest(\'.crm-notif-card\').remove()">✕</button>',
@@ -131,8 +132,8 @@
     if (!('Notification' in window) || Notification.permission !== 'default') return;
     var banner = document.createElement('div');
     banner.id = 'crm-notif-banner';
-    banner.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99998;background:#1e1b4b;color:#fff;border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,.3);font-size:.82rem;max-width:320px;font-family:system-ui,sans-serif;';
-    banner.innerHTML = '<span style="font-size:1.3rem">🔔</span><span style="flex:1;line-height:1.4;">Activa las notificaciones para recibir alertas en tiempo real</span><button id="crm-notif-allow" style="background:#6C47FF;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap;">Activar</button><button id="crm-notif-dismiss" style="background:transparent;color:#aaa;border:none;cursor:pointer;font-size:1rem;padding:0 2px;">✕</button>';
+    banner.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99998;background:rgba(30, 27, 75, 0.85);color:#fff;border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,.3);font-size:.82rem;max-width:320px;font-family:system-ui,sans-serif;border:1px solid rgba(255,255,255,0.1);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);';
+    banner.innerHTML = '<span style="font-size:1.3rem">🔔</span><span style="flex:1;line-height:1.4;">Activa las notificaciones para recibir alertas en tiempo real</span><button id="crm-notif-allow" style="background:#6C47FF;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap;">Activar</button><button id="crm-notif-dismiss" style="background:transparent;color:#cbd5e1;border:none;cursor:pointer;font-size:1rem;padding:0 2px;">✕</button>';
     document.body.appendChild(banner);
     document.getElementById('crm-notif-allow').addEventListener('click', function () {
       Notification.requestPermission().then(function (p) {
@@ -149,23 +150,23 @@
     setTimeout(function () {
       if (localStorage.getItem('crm_notif_announcement_v1')) return; // doble check
       var overlay = document.createElement('div');
-      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);font-family:system-ui,sans-serif;';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);font-family:system-ui,sans-serif;';
       overlay.innerHTML = [
-        '<div style="background:#fff;border-radius:20px;max-width:420px;width:100%;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.3);">',
-          '<div style="background:linear-gradient(135deg,#6C47FF,#a855f7);padding:28px 28px 20px;color:#fff;text-align:center;">',
+        '<div style="background:rgba(30, 41, 59, 0.7);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.15);border-radius:20px;max-width:420px;width:100%;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.4);color:#fff;">',
+          '<div style="background:linear-gradient(135deg,rgba(108,71,255,0.8),rgba(168,85,247,0.8));padding:28px 28px 20px;color:#fff;text-align:center;">',
             '<div style="font-size:2.5rem;margin-bottom:8px;">🔔</div>',
             '<div style="font-size:1.2rem;font-weight:700;margin-bottom:4px;">Sistema de Notificaciones</div>',
             '<div style="font-size:.82rem;opacity:.85;">Ya está activo en el CRM — en todas las páginas</div>',
           '</div>',
           '<div style="padding:24px 28px;">',
             '<ul style="list-style:none;padding:0;margin:0 0 20px;display:flex;flex-direction:column;gap:12px;">',
-              '<li style="display:flex;gap:12px;align-items:flex-start;"><span style="font-size:1.2rem">🔄</span><div><strong style="display:block;font-size:.85rem;color:#111;">Cambio de status</strong><span style="font-size:.78rem;color:#6b7280;">Alerta cuando se modifica el status de un lead</span></div></li>',
-              '<li style="display:flex;gap:12px;align-items:flex-start;"><span style="font-size:1.2rem">✏️</span><div><strong style="display:block;font-size:.85rem;color:#111;">Edición de leads</strong><span style="font-size:.78rem;color:#6b7280;">Notificación cuando un agente edita información</span></div></li>',
-              '<li style="display:flex;gap:12px;align-items:flex-start;"><span style="font-size:1.2rem">📝</span><div><strong style="display:block;font-size:.85rem;color:#111;">Notas nuevas</strong><span style="font-size:.78rem;color:#6b7280;">Alerta cuando se agrega una nota a tu cliente</span></div></li>',
-              '<li style="display:flex;gap:12px;align-items:flex-start;"><span style="font-size:1.2rem">⚡</span><div><strong style="display:block;font-size:.85rem;color:#111;">Funciona en todas las páginas</strong><span style="font-size:.78rem;color:#6b7280;">No necesitas estar en Costumer para recibirlas</span></div></li>',
+              '<li style="display:flex;gap:12px;align-items:flex-start;"><span style="font-size:1.2rem">🔄</span><div><strong style="display:block;font-size:.85rem;color:#f3f4f6;">Cambio de status</strong><span style="font-size:.78rem;color:#9ca3af;">Alerta cuando se modifica el status de un lead</span></div></li>',
+              '<li style="display:flex;gap:12px;align-items:flex-start;"><span style="font-size:1.2rem">✏️</span><div><strong style="display:block;font-size:.85rem;color:#f3f4f6;">Edición de leads</strong><span style="font-size:.78rem;color:#9ca3af;">Notificación cuando un agente edita información</span></div></li>',
+              '<li style="display:flex;gap:12px;align-items:flex-start;"><span style="font-size:1.2rem">📝</span><div><strong style="display:block;font-size:.85rem;color:#f3f4f6;">Notas nuevas</strong><span style="font-size:.78rem;color:#9ca3af;">Alerta cuando se agrega una nota a tu cliente</span></div></li>',
+              '<li style="display:flex;gap:12px;align-items:flex-start;"><span style="font-size:1.2rem">⚡</span><div><strong style="display:block;font-size:.85rem;color:#f3f4f6;">Funciona en todas las páginas</strong><span style="font-size:.78rem;color:#9ca3af;">No necesitas estar en Costumer para recibirlas</span></div></li>',
             '</ul>',
             '<button id="crm-ann-activate" style="width:100%;background:#6C47FF;color:#fff;border:none;border-radius:12px;padding:13px;font-size:.9rem;font-weight:700;cursor:pointer;">Activar notificaciones ahora</button>',
-            '<button id="crm-ann-skip" style="width:100%;background:none;border:none;color:#9ca3af;font-size:.78rem;cursor:pointer;margin-top:8px;padding:6px;">Quizás más tarde</button>',
+            '<button id="crm-ann-skip" style="width:100%;background:none;border:none;color:#cbd5e1;font-size:.78rem;cursor:pointer;margin-top:8px;padding:6px;">Quizás más tarde</button>',
           '</div>',
         '</div>'
       ].join('');
