@@ -767,7 +767,9 @@ async def lineas_team_list(
     async with AsyncSessionLocal() as s:
         r = await s.execute(text(f"""
             SELECT id, team, supervisor, agente, agente_nombre,
-                   cantidad_lineas, dia_venta, status, mercado, nombre_cliente
+                   cantidad_lineas, dia_venta, dia_instalacion, status, mercado, nombre_cliente,
+                   telefono_principal, numero_cuenta, pin_seguridad, direccion,
+                   telefonos, lineas_status, lines_data, servicios, imagen_url, autopago
             FROM lineas_clientes
             {where_sql}
             ORDER BY created_at DESC

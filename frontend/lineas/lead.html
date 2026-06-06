@@ -26,7 +26,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <style>
     /* ── Fondo claro para esta página ── */
-    .main-content { background: #f8fafc !important; }
+    .main-content { background: transparent !important; position: relative !important; z-index: 10 !important; }
 
     /* ── Wrapper ── */
     .ll-page {
@@ -48,12 +48,12 @@
     .ll-title {
       font-size: 20px;
       font-weight: 900;
-      color: #0f172a;
+      color: #fff;
       letter-spacing: 2px;
       text-transform: uppercase;
       line-height: 1.2;
     }
-    .ll-title span { color: #0891b2; }
+    .ll-title span { color: #00e5ff; }
     .ll-clock {
       text-align: right;
       line-height: 1.6;
@@ -62,28 +62,30 @@
       display: block;
       font-size: 17px;
       font-weight: 800;
-      color: #0891b2;
+      color: #00e5ff;
       letter-spacing: 1px;
     }
     #ll-clock-date {
       font-size: 12px;
-      color: #64748b;
+      color: #cbd5e1;
     }
 
     /* ── Cards ── */
     .ll-card {
-      background: #fff;
-      border: 1px solid #e2e8f0;
+      background: rgba(8, 18, 48, 0.45);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
       border-radius: 18px;
       padding: 26px 28px;
       margin-bottom: 18px;
-      box-shadow: 0 1px 6px rgba(0,0,0,.06);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     }
     .ll-section-title {
       font-size: 10px;
       font-weight: 900;
       letter-spacing: 3px;
-      color: #0891b2;
+      color: #00e5ff;
       text-transform: uppercase;
       margin: 0 0 22px;
       display: flex;
@@ -94,7 +96,7 @@
       content: '';
       flex: 1;
       height: 1px;
-      background: linear-gradient(90deg, rgba(8,145,178,.3), transparent);
+      background: linear-gradient(90deg, rgba(0,229,255,.4), transparent);
     }
 
     /* ── Grid y campos ── */
@@ -113,30 +115,30 @@
       font-size: 10px;
       font-weight: 800;
       letter-spacing: 1.5px;
-      color: #64748b;
+      color: #e2e8f0;
       text-transform: uppercase;
       margin-bottom: 8px;
     }
     .ll-field input,
     .ll-field select {
       width: 100%;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
       border-radius: 11px;
       padding: 12px 15px;
-      color: #0f172a;
+      color: #fff;
       font-size: 14px;
       outline: none;
       transition: border .2s, background .2s;
       box-sizing: border-box;
     }
-    .ll-field input::placeholder { color: #94a3b8; }
+    .ll-field input::placeholder { color: rgba(255, 255, 255, 0.4); }
     .ll-field input:focus,
     .ll-field select:focus {
-      border-color: #0891b2;
-      background: #f0f9ff;
+      border-color: #00e5ff;
+      background: rgba(0, 229, 255, 0.12);
     }
-    .ll-field select option { background: #fff; color: #0f172a; }
+    .ll-field select option { background: #0d1b2a; color: #fff; }
     .ll-field input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; }
 
     /* ── Toggle pills ── */
@@ -144,9 +146,9 @@
     .ll-pill {
       padding: 9px 22px;
       border-radius: 999px;
-      border: 1px solid #e2e8f0;
-      background: #f1f5f9;
-      color: #94a3b8;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.7);
       font-size: 12px;
       font-weight: 800;
       letter-spacing: 1px;
@@ -154,12 +156,12 @@
       transition: all .2s;
       user-select: none;
     }
-    .ll-pill:hover { border-color: #7dd3fc; color: #64748b; }
+    .ll-pill:hover { border-color: #00e5ff; color: #00e5ff; }
     .ll-pill.active {
-      background: #e0f2fe;
-      border-color: #0891b2;
-      color: #0891b2;
-      box-shadow: 0 0 8px rgba(8,145,178,.12);
+      background: rgba(0, 229, 255, 0.25);
+      border-color: #00e5ff;
+      color: #00e5ff;
+      box-shadow: 0 0 12px rgba(0, 229, 255, 0.3);
     }
 
     /* ── Circular line number buttons ── */
@@ -168,9 +170,9 @@
       width: 46px;
       height: 46px;
       border-radius: 50%;
-      border: 2px solid #e2e8f0;
-      background: #f1f5f9;
-      color: #94a3b8;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.7);
       font-size: 17px;
       font-weight: 900;
       cursor: pointer;
@@ -180,19 +182,19 @@
       justify-content: center;
       user-select: none;
     }
-    .ll-num-btn:hover { border-color: #7dd3fc; color: #64748b; }
+    .ll-num-btn:hover { border-color: #00e5ff; color: #00e5ff; }
     .ll-num-btn.active {
-      background: #e0f2fe;
-      border-color: #0891b2;
-      color: #0891b2;
-      box-shadow: 0 0 10px rgba(8,145,178,.15);
+      background: rgba(0, 229, 255, 0.25);
+      border-color: #00e5ff;
+      color: #00e5ff;
+      box-shadow: 0 0 15px rgba(0, 229, 255, 0.4);
     }
 
     /* ── Line accordion blocks ── */
     #linesContainer { margin-top: 18px; display: flex; flex-direction: column; gap: 10px; }
     .ll-line-block {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
       border-radius: 13px;
       overflow: hidden;
     }
@@ -204,11 +206,11 @@
       gap: 12px;
       user-select: none;
     }
-    .ll-line-header:hover { background: #f1f5f9; }
+    .ll-line-header:hover { background: rgba(255, 255, 255, 0.12); }
     .ll-line-badge {
-      background: #e0f2fe;
-      border: 1px solid #bae6fd;
-      color: #0891b2;
+      background: rgba(0, 229, 255, 0.2);
+      border: 1px solid rgba(0, 229, 255, 0.4);
+      color: #00e5ff;
       font-size: 10px;
       font-weight: 900;
       padding: 3px 12px;
@@ -216,14 +218,14 @@
       letter-spacing: 1.5px;
       text-transform: uppercase;
     }
-    .ll-line-hint { font-size: 12px; color: #94a3b8; }
+    .ll-line-hint { font-size: 12px; color: rgba(255, 255, 255, 0.5); }
     .ll-line-chevron {
       margin-left: auto;
-      color: #94a3b8;
+      color: rgba(255, 255, 255, 0.5);
       transition: transform .2s;
       font-size: 12px;
     }
-    .ll-line-block.open .ll-line-chevron { transform: rotate(180deg); color: #0891b2; }
+    .ll-line-block.open .ll-line-chevron { transform: rotate(180deg); color: #00e5ff; }
     .ll-line-body { display: none; padding: 0 18px 18px; }
     .ll-line-block.open .ll-line-body { display: block; }
 
@@ -237,21 +239,21 @@
     }
     .ll-submit-btn {
       padding: 15px 36px;
-      background: linear-gradient(135deg, #0ea5e9 0%, #0891b2 100%);
+      background: linear-gradient(135deg, #00e5ff 0%, #0ea5e9 100%);
       border: none;
       border-radius: 13px;
-      color: #0f172a;
+      color: #000;
       font-size: 14px;
       font-weight: 900;
       cursor: pointer;
       letter-spacing: 2px;
       text-transform: uppercase;
       transition: opacity .2s, transform .1s;
-      box-shadow: 0 4px 20px rgba(34,211,238,.25);
+      box-shadow: 0 4px 20px rgba(0, 229, 255, 0.4);
     }
     .ll-submit-btn:hover { opacity: .9; transform: translateY(-1px); }
     .ll-submit-btn:active { transform: translateY(0); }
-    #msg { font-size: 14px; color: #64748b; }
+    #msg { font-size: 14px; color: #cbd5e1; }
 
 
     @media (max-width: 680px) {
@@ -261,7 +263,7 @@
   body { background: #000 !important; }
   body::before {
     content: '';
-    position: fixed; inset: 0; z-index: 0;
+    position: fixed; inset: 0; z-index: -1;
     background: url('/images/ESTADIOOO.jpeg') center center / cover no-repeat;
     pointer-events: none;
   }
