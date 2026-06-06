@@ -358,6 +358,17 @@
       };
       clearSlot('.first-pos'); clearSlot('.second-pos'); clearSlot('.third-pos');
       setSlot('.first-pos', top1); setSlot('.second-pos', top2); setSlot('.third-pos', top3);
+      // actualizar labels visibles directamente desde los datos
+      try {
+        const _label = (pfx, item) => {
+          if (!item) return;
+          const vn = document.getElementById(`label-${pfx}-name`);
+          const vs = document.getElementById(`label-${pfx}-score`);
+          if (vn) vn.textContent = resolveDisplayName(item) || '—';
+          if (vs) vs.textContent = formatScore(getScoreFromItem(item));
+        };
+        _label('first', top1); _label('second', top2); _label('third', top3);
+      } catch(e) { console.warn('[RANKING] label sync error', e); }
       window.__rankFullList = list;
 
       const container = document.getElementById('rank-list-dynamic');
@@ -591,6 +602,17 @@
         if(nameEl) nameEl.textContent='—'; if(scoreEl) scoreEl.textContent='0'; if(imgEl) applyAvatarToElement(imgEl, null, { allowPhoto: false });
       });
       setSlot('.first-pos', top1); setSlot('.second-pos', top2); setSlot('.third-pos', top3);
+      // actualizar labels visibles directamente desde los datos
+      try {
+        const _label = (pfx, item) => {
+          if (!item) return;
+          const vn = document.getElementById(`label-${pfx}-name`);
+          const vs = document.getElementById(`label-${pfx}-score`);
+          if (vn) vn.textContent = resolveDisplayName(item) || '—';
+          if (vs) vs.textContent = fmt(getScore(item));
+        };
+        _label('first', top1); _label('second', top2); _label('third', top3);
+      } catch(e) { console.warn('[RANKING] label sync error', e); }
       const container=document.getElementById('rank-list-dynamic');
       if(container){
         const rest=safe.slice(3, 13);
@@ -642,17 +664,12 @@
     }
   }
 
-  async function loadLatestMedia(){
+  async function loadLatestMedia(mediaData){
     const mediaBox = document.getElementById('promo-media'); if (!mediaBox) return;
     try {
-      const url = `/api/media?category=marketing&limit=1&sort=desc&orderBy=uploadDate&t=${Date.now()}`;
-      const res = await fetch(url, { credentials: 'include' }); if (!res.ok) throw new Error('Server response not OK');
-      const list = await res.json(); const last = Array.isArray(list) && list.length ? list[0] : null;
-      if (!last || !last.url) { mediaBox.innerHTML = '<div class="promo-placeholder">📭 Sin promoción disponible</div>'; return; }
-      const headUrl = maybeProxyMedia(last.url) || last.url;
-      const fileResponse = await fetch(headUrl, { method: 'HEAD' }); if (!fileResponse.ok) { mediaBox.innerHTML = '<div class="promo-placeholder">📭 Archivo no encontrado</div>'; return; }
-      renderPromo(mediaBox, last);
-    } catch(e){ console.error('[PROMO] Error cargando multimedia:', e); mediaBox.innerHTML = '<div class="promo-placeholder">❌ Error al cargar promoción</div>'; }
+      if (!mediaData || !mediaData.url) { mediaBox.innerHTML = '<div class="promo-placeholder">📭 Sin promoción disponible</div>'; return; }
+      renderPromo(mediaBox, mediaData);
+    } catch(e){ mediaBox.innerHTML = '<div class="promo-placeholder">❌ Error al cargar promoción</div>'; }
   }
 
   async function handleUpload(e){
@@ -671,25 +688,45 @@
     } catch (error) { console.error('Error al ejecutar la corrección:', error); alert('Falló la corrección: ' + error.message); }
   }
 
-  // Initialization
+  // Initialization — una sola llamada combinada
   async function initRankingPage(){
     try{
       if (typeof window.__rankYear === 'undefined') { window.__rankYear = (new Date()).getFullYear(); }
       if (typeof window.__rankMonth === 'undefined') { window.__rankMonth = (new Date()).getMonth(); }
       if (typeof window.__rankViewAll === 'undefined') window.__rankViewAll = false;
 
-      const user = await getUser();
-      const promoActions = document.getElementById('promo-actions');
-      const promoFileInput = document.getElementById('promo-file');
+      const user = await getUser(); // lee localStorage primero, sin llamada extra
+
+      // ── LLAMADA ÚNICA: ranking + media ──────────────────────────────
+      const now = new Date();
+      const fi = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+      const ff = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+      let initData = null;
+      try {
+        const res = await fetch(`/api/ranking/init?fechaInicio=${fi}&fechaFin=${ff}&all=1&limit=500`, { credentials: 'include' });
+        if (res.ok) initData = await res.json();
+      } catch(e) { console.warn('[RANKING] init fetch error', e); }
+
+      // Ranking
+      const rankList = initData?.ranking || [];
+      setCachedRanking(`top3-${fi}`, { ranking: rankList });
+      window.__rankFullList = rankList;
+      updateRankingUI(rankList);
+      // Poblar también el slot top3 vía loadRankingTop3 compatible
+      try { window.loadRankingTop3 && await window.loadRankingTop3(); } catch(_){}
+
+      // Media
       const promoHero = document.querySelector('.promo-hero');
       if (promoHero) promoHero.style.display = 'flex';
-      try { await loadLatestMedia(); } catch(_) {}
-      const allowUpload = user && ['admin','administrador','supervisor','backoffice'].includes(((user.role||'')+'').toString().toLowerCase());
+      await loadLatestMedia(initData?.media || null);
+      const allowUpload = user && ['admin','administrador','supervisor','backoffice'].includes(((user.role||'')+'').toLowerCase());
+      const promoActions = document.getElementById('promo-actions');
+      const promoFileInput = document.getElementById('promo-file');
       if (promoActions) promoActions.style.display = allowUpload ? 'flex' : 'none';
       if (allowUpload && promoFileInput) promoFileInput.addEventListener('change', handleUpload);
+      // ────────────────────────────────────────────────────────────────
 
-      try { await loadRankingTop3(); } catch(e){ console.warn('[RANKING] No se pudo cargar el top 3 en init:', e); }
-      // Load current month
+      // Navegación por mes (usa endpoint normal de ranking, ya no llama media)
       loadRankingByMonth(window.__rankYear, window.__rankMonth);
 
       // Event listeners
@@ -702,8 +739,13 @@
     }catch(e){ console.error('[INIT] Error inicializando ranking page:', e); }
   }
 
-  // Role bar renderer (keeps same logic as before)
+  // Role bar renderer — lazy: solo carga si el usuario es admin/backoffice
   (async function renderRoleBar(){
+    const storedUser = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
+    const role = ((storedUser.role||'')+'').toLowerCase();
+    const isAdminBo = ['admin','administrador','backoffice'].some(r => role.includes(r));
+    if (!isAdminBo) return; // no cargar para agentes normales
+    await new Promise(r => setTimeout(r, 2000)); // diferir 2s para no bloquear render
     try{
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const opts = { method: 'GET', credentials: 'include', headers: Object.assign({'Content-Type':'application/json'}, token?{ 'Authorization': `Bearer ${token}` }:{}) };

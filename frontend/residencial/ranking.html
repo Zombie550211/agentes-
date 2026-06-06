@@ -19,8 +19,9 @@
   <noscript><link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet"></noscript>
   
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="/css/sidebar-shared.css?v=20260529b">
-  <link rel="stylesheet" href="/css/sidebar-modern.css?v=20260601b">
+  <style>.sidebar,.sidebar.sidebar-inicio{background:rgba(5,15,35,0.55)!important;backdrop-filter:blur(14px)!important;-webkit-backdrop-filter:blur(14px)!important}.sidebar .user-info,.sidebar .user-details,.sidebar .avatar-wrapper,.sidebar .avatar,.sidebar .user-name,.sidebar .user-role{display:none!important}.sidebar .nav-item,.sidebar .btn-sidebar{background:transparent!important;box-shadow:none!important}</style>
+  <link rel="stylesheet" href="/css/sidebar-shared.css?v=20260606f">
+  <link rel="stylesheet" href="/css/sidebar-modern.css?v=20260606e">
   <link rel="stylesheet" href="/css/costumer-table-actions.css">
   <!-- Overrides espec├¡ficos para Ranking: sin scroll interno en sidebar -->
   <style>
@@ -75,6 +76,13 @@
       min-width: 160px;
       text-align: center;
     }
+  body { background: #000 !important; }
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background: url('/images/ESTADIOOO.jpeg') center center / cover no-repeat;
+    pointer-events: none;
+  }
   </style>
   <!-- Override global de overflow para esta p├ígina -->
   <style>
@@ -1432,9 +1440,52 @@
         drop-shadow(0 0 28px rgba(37,99,235,.35)) !important; /* azul vivo */
     }
     
-    /* Badges de posici├│n - OCULTOS */
-    .position-badge { 
+    /* Badges de posición - OCULTOS (legacy) */
+    .position-badge {
       display: none !important;
+    }
+
+    /* Labels sobre los cilindros del podium */
+    .podium-label {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      pointer-events: none;
+      z-index: 5;
+      transform: translateX(-50%);
+    }
+    .label-first  { left: 50%;  top: 50%; }
+    .label-second { left: 30%;  top: 62%; }
+    .label-third  { left: 70%;  top: 62%; }
+    .place-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      white-space: nowrap;
+    }
+    .place-gold   { background: rgba(251,191,36,0.25); color: #fbbf24; border: 1px solid rgba(251,191,36,0.5); }
+    .place-silver { background: rgba(147,197,253,0.25); color: #93c5fd; border: 1px solid rgba(147,197,253,0.5); }
+    .place-bronze { background: rgba(192,132,252,0.25); color: #c084fc; border: 1px solid rgba(192,132,252,0.5); }
+    .podium-label-name {
+      font-size: 1rem;
+      font-weight: 800;
+      color: #ffffff;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+      white-space: nowrap;
+    }
+    .podium-label-score {
+      font-size: 1.8rem;
+      font-weight: 900;
+      color: #ffe06a;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+      line-height: 1.1;
     }
     
     .position-badge.gold {
@@ -2057,6 +2108,55 @@
     body:not(.dark-theme) #rank-list-dynamic .rank-item .agent-stats .points {
       color:#1e1b4b!important; -webkit-text-fill-color:#1e1b4b!important;
     }
+
+    /* ── ANIMACIÓN DE ENTRADA (igual que formulario-registro) ── */
+    @keyframes fsu { from{opacity:0;transform:translateY(44px)} to{opacity:1;transform:translateY(0)} }
+    .fsu     { opacity:0; animation:fsu 1.8s cubic-bezier(.16,1,.3,1) forwards; animation-play-state:paused; }
+    .fsu.go  { animation-play-state:running; }
+  </style>
+  <link rel="stylesheet" href="/css/glass-cards.css?v=20260605">
+  <style>
+    /* Transparencia forzada — iguala especificidad body:not(.dark-theme) = 121 pts */
+    body:not(.dark-theme) #rank-list-dynamic .rank-item,
+    body.dark-theme #rank-list-dynamic .rank-item,
+    body #rank-list-dynamic .rank-item,
+    .rank-item {
+      background: rgba(5,15,35,0.38) !important;
+      border-color: rgba(255,255,255,0.10) !important;
+      backdrop-filter: blur(10px) !important;
+    }
+    /* Texto blanco en toda la lista */
+    body #rank-list-dynamic .rank-item *,
+    body #rank-list-dynamic .rank-item h4,
+    body #rank-list-dynamic .rank-item p,
+    body #rank-list-dynamic .rank-item .rank-number,
+    body #rank-list-dynamic .rank-item .agent-details h4,
+    body #rank-list-dynamic .rank-item .agent-details p,
+    .rank-item *, .rank-item h4, .rank-item p, .rank-item .rank-number {
+      color: #fff !important;
+      -webkit-text-fill-color: #fff !important;
+    }
+    /* Puntaje y ventas — sobrescribir gradient clip */
+    body:not(.dark-theme) #rank-list-dynamic .rank-item .agent-stats .points,
+    body:not(.dark-theme) #rank-list-dynamic .rank-item .agent-stats .sales,
+    body #rank-list-dynamic .rank-item .agent-stats .points,
+    body #rank-list-dynamic .rank-item .agent-stats .sales,
+    body #rank-list-dynamic .rank-item .agent-stats *,
+    .rank-item .agent-stats *, .rank-item .points, .rank-item .sales,
+    .rank-item .agent-stats .points, .rank-item .agent-stats .sales {
+      color: #fff !important;
+      -webkit-text-fill-color: #fff !important;
+      background: none !important;
+      background-clip: unset !important;
+      -webkit-background-clip: unset !important;
+    }
+    body:not(.dark-theme) #rank-list-dynamic .rank-item:hover,
+    body.dark-theme #rank-list-dynamic .rank-item:hover,
+    body #rank-list-dynamic .rank-item:hover,
+    .rank-item:hover {
+      background: rgba(5,15,35,0.58) !important;
+      transform: translateY(-2px) !important;
+    }
   </style>
 </head>
 <body>
@@ -2066,7 +2166,7 @@
     <main class="main-content">
 
       <!-- Card principal con fondo morado -->
-      <div class="ranking-main-card">
+      <div class="ranking-main-card fsu">
         <div id="spline-container" style="display:none"></div>
 
         <div class="ranking-top-row">
@@ -2080,9 +2180,26 @@
               y conviértete en el mejor agente del mes.
             </div>
           </div>
-          <!-- Podium image -->
-          <div class="ranking-podium-final" style="flex:1;display:flex;align-items:flex-end;justify-content:center;min-height:420px">
-            <img src="/images/podium.png" alt="Podio" style="height:460px;width:auto;object-fit:contain;object-position:bottom center">
+          <!-- Podium image con labels sobre los cilindros -->
+          <div class="ranking-podium-final" style="flex:1;display:flex;align-items:flex-end;justify-content:center;min-height:420px;">
+            <div style="position:relative;display:inline-block;height:460px;flex-shrink:0;">
+              <img src="/images/podium.png" alt="Podio" style="height:460px;width:auto;display:block;">
+              <div id="label-first" class="podium-label label-first">
+                <span class="place-badge place-gold">🥇 1er Lugar</span>
+                <div class="podium-label-name" id="label-first-name">—</div>
+                <div class="podium-label-score" id="label-first-score">0</div>
+              </div>
+              <div id="label-second" class="podium-label label-second">
+                <span class="place-badge place-silver">🥈 2do Lugar</span>
+                <div class="podium-label-name" id="label-second-name">—</div>
+                <div class="podium-label-score" id="label-second-score">0</div>
+              </div>
+              <div id="label-third" class="podium-label label-third">
+                <span class="place-badge place-bronze">🥉 3er Lugar</span>
+                <div class="podium-label-name" id="label-third-name">—</div>
+                <div class="podium-label-score" id="label-third-score">0</div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -2097,14 +2214,14 @@
       </div><!-- /ranking-main-card -->
 
       <!-- Navegación de fecha -->
-      <div class="rank-date-nav">
+      <div class="rank-date-nav fsu">
         <button class="rank-nav-btn" id="rank-prev" aria-label="Mes anterior"><i class="fas fa-chevron-left"></i></button>
         <span id="rank-period-label">Ranking — …</span>
         <button class="rank-nav-btn" id="rank-next" aria-label="Mes siguiente"><i class="fas fa-chevron-right"></i></button>
       </div>
 
       <!-- Otros Participantes -->
-      <div class="ranking-panel">
+      <div class="ranking-panel fsu">
         <div class="ranking-content">
           <div class="other-ranks">
             <div class="other-ranks-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
@@ -2147,6 +2264,37 @@
   </div>
 
   <script src="/js/ranking-main.js" defer></script>
+  <script>
+    (function(){
+      function go(el, delay){ if(!el) return; setTimeout(function(){ el.classList.add('go'); }, delay||0); }
+      function runAnim(){ document.querySelectorAll('.fsu').forEach(function(el,i){ go(el, i*260); }); }
+      if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', runAnim); }
+      else { runAnim(); }
+    })();
+  </script>
+  <script>
+    // Sincroniza etiquetas visibles del podium cuando el JS actualice los elementos ocultos
+    document.addEventListener('DOMContentLoaded', function() {
+      const map = [
+        ['.first-pos .astronaut-name',  'label-first-name'],
+        ['.first-pos .astronaut-score', 'label-first-score'],
+        ['.second-pos .astronaut-name', 'label-second-name'],
+        ['.second-pos .astronaut-score','label-second-score'],
+        ['.third-pos .astronaut-name',  'label-third-name'],
+        ['.third-pos .astronaut-score', 'label-third-score'],
+      ];
+      map.forEach(function([srcSel, destId]) {
+        const src = document.querySelector(srcSel);
+        const dest = document.getElementById(destId);
+        if (!src || !dest) return;
+        new MutationObserver(function() {
+          if (src.textContent && src.textContent !== '—' && src.textContent !== '0') {
+            dest.textContent = src.textContent;
+          }
+        }).observe(src, { childList: true, characterData: true, subtree: true });
+      });
+    });
+  </script>
 
   <!-- Barra inferior: Roles y Avatares -->
   <style>

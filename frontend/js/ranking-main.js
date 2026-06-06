@@ -800,8 +800,20 @@
               const scoreEl=document.querySelector(`${sel} .astronaut-score`);
               if(nameEl) nameEl.textContent='—'; if(scoreEl) scoreEl.textContent='0';
             });
-            // set top3
+            // set top3 (elementos ocultos para compatibilidad)
             setSlot('.first-pos', top1); setSlot('.second-pos', top2); setSlot('.third-pos', top3);
+            // copiar datos de los elementos ocultos a los labels visibles
+            const _syncLabel = (hiddenSel, prefix) => {
+              const hiddenName  = document.querySelector(`${hiddenSel} .astronaut-name`);
+              const hiddenScore = document.querySelector(`${hiddenSel} .astronaut-score`);
+              const visName  = document.getElementById(`label-${prefix}-name`);
+              const visScore = document.getElementById(`label-${prefix}-score`);
+              if (visName  && hiddenName)  visName.textContent  = hiddenName.textContent;
+              if (visScore && hiddenScore) visScore.textContent = hiddenScore.textContent;
+            };
+            _syncLabel('.first-pos',  'first');
+            _syncLabel('.second-pos', 'second');
+            _syncLabel('.third-pos',  'third');
 
             // lista lateral
             const container=document.getElementById('rank-list-dynamic');

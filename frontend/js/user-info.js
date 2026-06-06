@@ -22,14 +22,14 @@
     const displayName = (user.name || user.username || '').trim() || 'Usuario';
     const roleLabel   = _roleMap[(user.role || '').toLowerCase()] || (user.role || 'Rol');
 
-    _setText('user-name',        displayName);
+    // Solo actualizar elementos fuera del sidebar (topbar, etc.)
     _setText('topbar-user-name', displayName);
-    _setText('user-role',        roleLabel);
     _setText('topbar-user-role', roleLabel);
 
-    const initials = displayName.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'U';
-    const avatarEl = document.querySelector('.user-avatar');
-    if (avatarEl && avatarEl.tagName !== 'IMG') avatarEl.textContent = initials;
+    // Ocultar user-info del sidebar si aún existe
+    document.querySelectorAll('.sidebar .user-info, .sidebar .user-details, .sidebar .user-name, .sidebar .user-role, .sidebar .avatar-wrapper').forEach(el => {
+      el.style.setProperty('display', 'none', 'important');
+    });
 
     if (stats) {
       if (stats.ventas !== undefined) _setText('sidebar-user-sales',  stats.ventas);

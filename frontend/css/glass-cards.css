@@ -1,0 +1,120 @@
+/* ══ GLASS CARDS — Transparencia global para todas las páginas ══ */
+
+/* Override de variables CSS (sin !important en el valor — gana por orden de carga) */
+:root {
+  --card:      rgba(5,15,35,0.38);
+  --bg:        transparent;
+  --bdr:       rgba(255,255,255,0.12);
+  --bdr-soft:  rgba(255,255,255,0.06);
+  --t1: #f1f5f9;
+  --t2: #cbd5e1;
+  --t3: #94a3b8;
+  --t4: #64748b;
+  --sh: 0 4px 20px rgba(0,0,0,0.35);
+}
+
+/* Fondo del body y layout */
+html, body { background: transparent !important; color: #fff !important; }
+.main-content, .layout, .content-wrap,
+.page-wrapper, .page-content, .app-content { background: transparent !important; }
+
+/* Forzar fondo del estadio en todas las páginas (sobrescribe grain overlay y opacity) */
+body::before {
+  content: '' !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 0 !important;
+  background: url('/images/ESTADIOOO.jpeg') center center / cover no-repeat !important;
+  pointer-events: none !important;
+  opacity: 1 !important;
+}
+
+/* ── Targeting directo de clases comunes ── */
+.rank-item, .rk-header, .rk-kpi, .rk-table-wrap, .rk-month,
+.card, .card-body, .card-header, .card-footer,
+.panel, .panel-body, .panel-heading, .panel-default > .panel-heading,
+.widget, .widget-body, .widget-header,
+.stat-card, .kpi-card, .kpi-box, .kpi-wrap,
+.box, .content-box, .info-box, .detail-box,
+.section-card, .content-card, .data-card,
+.table-card, .table-section,
+.filter-bar, .filter-row, .filters-wrap,
+.top-bar, .header-wrap, .header-section,
+.chart-card, .chart-section, .chart-box,
+.summary-card, .summary-box,
+.modal-content, .modal-body, .modal-header, .modal-footer,
+.dropdown-menu,
+.nav-pills, .nav-tabs,
+.list-group, .list-group-item,
+.alert,
+.jumbotron,
+.well {
+  background: rgba(5,15,35,0.38) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border-color: rgba(255,255,255,0.12) !important;
+  color: #fff !important;
+}
+
+/* Hover en cards */
+.rk-kpi:hover, .card:hover, .stat-card:hover, .kpi-card:hover {
+  background: rgba(5,15,35,0.55) !important;
+}
+
+/* Tablas */
+table, .table { background: transparent !important; color: #fff !important; }
+thead, thead tr, thead th {
+  background: rgba(5,15,35,0.55) !important;
+  border-color: rgba(255,255,255,0.10) !important;
+  color: rgba(255,255,255,0.65) !important;
+}
+tbody tr {
+  background: transparent !important;
+  border-color: rgba(255,255,255,0.06) !important;
+}
+tbody tr:hover { background: rgba(255,255,255,0.05) !important; }
+td, th { border-color: rgba(255,255,255,0.07) !important; color: #fff !important; }
+tfoot td, tfoot th { background: rgba(5,15,35,0.45) !important; }
+
+/* Tabs de navegación */
+.rk-tab, .tab-item, .nav-link,
+.btn-tab, [class*="-tab"]:not(.badge):not([class*="data"]) {
+  background: rgba(5,15,35,0.35) !important;
+  border-color: rgba(255,255,255,0.12) !important;
+  color: rgba(255,255,255,0.65) !important;
+}
+.rk-tab.active, .tab-item.active, .nav-link.active,
+.btn-tab.active {
+  background: rgba(37,99,235,0.60) !important;
+  border-color: rgba(37,99,235,0.70) !important;
+  color: #fff !important;
+}
+.rk-nav-btn {
+  background: rgba(5,15,35,0.35) !important;
+  border-color: rgba(255,255,255,0.12) !important;
+  color: #fff !important;
+}
+
+/* Inputs y selects */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+select, textarea,
+.form-control, .form-input, .search-input, .filter-select,
+.input-group-text {
+  background: rgba(5,15,35,0.55) !important;
+  border-color: rgba(255,255,255,0.18) !important;
+  color: #fff !important;
+}
+input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.35) !important; }
+select option { background: #0d1b2a; color: #fff; }
+
+/* Texto general */
+body * { color: #fff !important; }
+
+/* Excepciones — badges de colores propios se mantienen */
+.badge[style*="background"], .badge[class*="bg-"] { color: #fff !important; }
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.30); }

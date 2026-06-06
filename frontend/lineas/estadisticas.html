@@ -147,7 +147,15 @@
     @media (max-width: 1280px) {
       .content-container > div:first-of-type { grid-template-columns: repeat(2, 1fr) !important; }
     }
+  body { background: #000 !important; }
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background: url('/images/ESTADIOOO.jpeg') center center / cover no-repeat;
+    pointer-events: none;
+  }
   </style>
+  <link rel="stylesheet" href="/css/glass-cards.css?v=20260605">
 </head>
 <body>
   <div class="layout">
@@ -659,55 +667,33 @@
       { id: '17', nombre_cliente: 'Cliente Q', telefono_principal: '532-2008', supervisor: 'Luis G', nombre_agente: 'Agente 6', status: 'complete', dia_venta: '2026-02-15', cantidad_lineas: 2 },
     ];
 
-    // ── Caché stale-while-revalidate ──
-    const _BS_TTL = 2 * 60 * 1000;
-    function _cacheKey(m){ return 'lineas_stats_v1_' + m; }
-    function _cacheSave(m, data){ try{ localStorage.setItem(_cacheKey(m), JSON.stringify({ts: Date.now(), data})); }catch(_){} }
-    function _cacheLoad(m){ try{ const r = localStorage.getItem(_cacheKey(m)); if(!r) return null; const p = JSON.parse(r); return (Date.now()-p.ts < _BS_TTL) ? p.data : null; }catch(_){ return null; } }
-
-    async function _fetchLineasData(monthStr) {
-      const url = '/api/leads-lineas?month=' + encodeURIComponent(monthStr);
-      try {
-        const res = await fetch(url, {credentials: 'include'});
-        if (!res.ok) return null;
-        const result = await res.json();
-        return Array.isArray(result.data) ? result.data : (result.leads || []);
-      } catch(_) { return null; }
-    }
-
     async function loadEstadisticas() {
       try {
-        const monthStr = `${currentYear}-${String(currentMonth).padStart(2,'0')}`;
         let allLeads = [];
-
-        // 1. Mostrar caché al instante
-        const cached = _cacheLoad(monthStr);
-        if (cached && cached.length > 0) {
-          allLeads = cached;
-          processAndRender(allLeads);
-        }
-
-        // 2. Fetch fresco con filtro de mes en MySQL
-        const fresh = await _fetchLineasData(monthStr);
-        if (fresh && fresh.length > 0) {
-          _cacheSave(monthStr, fresh);
-          // Solo re-renderizar si cambió
-          if (!cached || fresh.length !== cached.length || (fresh[0]?.id !== cached[0]?.id)) {
-            allLeads = fresh;
-            processAndRender(allLeads);
+        
+        // Obtener datos reales de la API de Team Líneas (todos los datos)
+        try {
+          console.log('[loadEstadisticas] Obteniendo datos de /api/leads-lineas...');
+          const response = await fetch('/api/leads-lineas?allData=true');
+          if (response.ok) {
+            const result = await response.json();
+            allLeads = Array.isArray(result.data) ? result.data : (result.leads || []);
+            console.log('[loadEstadisticas] Datos reales obtenidos de TEAM_LINEAS:', allLeads.length, 'leads totales');
+            console.log('[loadEstadisticas] Metadata:', result.meta);
+          } else {
+            console.warn('[loadEstadisticas] Error en respuesta:', response.status);
+            allLeads = mockLeads;
           }
-        } else if (!cached) {
+        } catch (err) {
+          console.warn('[loadEstadisticas] No se pudieron obtener datos reales, usando mock:', err.message);
           allLeads = mockLeads;
-          processAndRender(allLeads);
         }
 
-      } catch(error) {
-        console.error('[loadEstadisticas] Error fatal:', error);
-      }
-    }
-
-    async function processAndRender(allLeads) {
-      try {
+        // Si aun así no hay datos, usar mock
+        if (!allLeads || allLeads.length === 0) {
+          console.log('[loadEstadisticas] Usando datos mock');
+          allLeads = mockLeads;
+        }
 
         // Mostrar distribución de supervisores ANTES del filtrado mensual
         const supervisoresAntes = {};

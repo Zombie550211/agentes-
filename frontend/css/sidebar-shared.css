@@ -7,13 +7,13 @@
   --sb-w:           260px;
   --sb-w-col:        72px;
 
-  /* Light */
-  --sb-bg:          #FFFFFF;
-  --sb-surface:     #F4F6FA;
-  --sb-border:      #E8ECF4;
-  --sb-ink-1:       #0D0F14;
-  --sb-ink-2:       #4B5675;
-  --sb-ink-3:       #8896B3;
+  /* Transparente global */
+  --sb-bg:          rgba(5,15,35,0.55);
+  --sb-surface:     rgba(255,255,255,0.06);
+  --sb-border:      rgba(255,255,255,0.10);
+  --sb-ink-1:       #ffffff;
+  --sb-ink-2:       rgba(255,255,255,0.75);
+  --sb-ink-3:       rgba(255,255,255,0.50);
   --sb-accent:      #2563EB;
   --sb-accent-h:    #1D4ED8;
   --sb-accent-soft: rgba(37,99,235,.10);
@@ -45,8 +45,10 @@ body.dark-theme {
   position: fixed;
   left: 0; top: 0;
   background: var(--sb-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border-right: 1px solid var(--sb-border);
-  box-shadow: 4px 0 24px rgba(0,0,0,.06);
+  box-shadow: 4px 0 24px rgba(0,0,0,.18);
   border-radius: 0 24px 24px 0;
   display: flex;
   flex-direction: column;
@@ -70,14 +72,14 @@ body.dark-theme {
    SECCIÓN USUARIO
 ═══════════════════════════════════════════════ */
 .sidebar.sidebar-inicio .user-info {
-  padding: 20px 16px 14px;
+  padding: 10px 12px 10px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   border-bottom: 1px solid var(--sb-border);
   flex-shrink: 0;
   position: relative;
-  background: var(--sb-bg);
+  background: transparent;
 }
 
 /* Avatar wrapper */
@@ -87,11 +89,11 @@ body.dark-theme {
 }
 
 .sidebar.sidebar-inicio .avatar {
-  width: 48px; height: 48px;
+  width: 34px; height: 34px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--sb-accent) 0%, #7C3AED 100%);
   display: flex; align-items: center; justify-content: center;
-  font-weight: 800; font-size: 1.1rem; color: #fff;
+  font-weight: 700; font-size: 0.78rem; color: #fff;
   overflow: hidden;
   flex-shrink: 0;
   box-shadow: 0 4px 14px rgba(37,99,235,.30);
@@ -158,7 +160,7 @@ body.dark-theme {
 }
 
 .sidebar.sidebar-inicio .user-name {
-  font-weight: 700; font-size: .88rem;
+  font-weight: 600; font-size: .80rem;
   color: var(--sb-ink-1);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   line-height: 1.2;
@@ -169,7 +171,7 @@ body.dark-theme {
 .sidebar.sidebar-inicio .user-role-badge,
 .sidebar.sidebar-inicio .user-role {
   display: inline-block;
-  font-size: .62rem; font-weight: 600;
+  font-size: .58rem; font-weight: 500;
   color: var(--sb-ink-3);
   letter-spacing: .02em;
 }
@@ -795,4 +797,78 @@ body.dark-theme .crm-loader-wrap .star::after,body.dark-theme .loader-wrap .star
   .sidebar.sidebar-inicio.is-open {
     transform: translateX(0);
   }
+}
+
+/* ═══ SIDEBAR TRANSPARENTE GLOBAL ═══ */
+.sidebar,
+.sidebar.sidebar-inicio,
+nav.sidebar {
+  background: rgba(5, 15, 35, 0.55) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  border-color: rgba(255,255,255,0.10) !important;
+}
+/* Solo texto — sin tocar iconos ni backgrounds de items */
+.sidebar .user-name,
+.sidebar .user-role,
+.sidebar .sb-section-label,
+.sidebar .sb-item-text,
+.sidebar .sb-label {
+  color: #fff !important;
+}
+.sidebar .sb-section-label {
+  color: rgba(255,255,255,0.50) !important;
+}
+.sidebar .sb-item.is-active {
+  background: rgba(255,255,255,0.12) !important;
+}
+.sidebar .sb-item:hover {
+  background: rgba(255,255,255,0.08) !important;
+}
+
+/* ═══ SIDEBAR — ESTILOS BASE INMEDIATOS (sin esperar JS) ═══ */
+.sidebar {
+  background: rgba(5,15,35,0.55) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+}
+.sidebar .user-info,
+.sidebar .user-details,
+.sidebar .avatar-wrapper,
+.sidebar .avatar,
+.sidebar .user-name,
+.sidebar .user-role,
+.sidebar .user-role-badge,
+.sidebar .user-role-container {
+  display: none !important;
+}
+.sidebar .nav-item,
+.sidebar .btn-sidebar {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* ═══ SIDEBAR BRAND IMAGE ═══ */
+.sidebar .sb-brand-img,
+.sidebar .sb-brand-img img {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* ═══ OCULTAR TOGGLE TEMA — solo punto verde ═══ */
+.sidebar .theme-switch,
+.sidebar .theme-switcher-wrap label,
+.sidebar #theme-switcher-label {
+  display: none !important;
+}
+.sidebar .theme-icon-collapsed {
+  display: flex !important;
+  width: 10px !important;
+  height: 10px !important;
+  background: #22C55E !important;
+  border-radius: 50% !important;
+  font-size: 0 !important;
+  color: transparent !important;
+  flex-shrink: 0 !important;
 }

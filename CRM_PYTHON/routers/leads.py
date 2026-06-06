@@ -11,6 +11,25 @@ from geocoder import geocode_and_save
 router = APIRouter(tags=["Leads"])
 
 
+async def _log_activity(activity_type: str, client_name: str, description: str, user: dict):
+    try:
+        async with AsyncSessionLocal() as s:
+            await s.execute(text("""
+                INSERT INTO activities (activity_type, lead_client_name, description, actor_username, actor_role, timestamp)
+                VALUES (:type, :client, :desc, :actor, :role, :ts)
+            """), {
+                "type":   activity_type,
+                "client": client_name or "Sin nombre",
+                "desc":   description,
+                "actor":  user.get("username") or "Sistema",
+                "role":   user.get("role") or "Usuario",
+                "ts":     datetime.utcnow(),
+            })
+            await s.commit()
+    except Exception:
+        pass
+
+
 def _normalize(s: str) -> str:
     return unicodedata.normalize("NFD", str(s or "")).encode("ascii", "ignore").decode().lower().strip()
 
@@ -422,6 +441,11 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
     if body.direccion and body.direccion.strip():
         asyncio.create_task(geocode_and_save(new_id, body.direccion))
 
+    asyncio.create_task(_log_activity(
+        "Lead creado", body.nombre_cliente,
+        f"Nuevo lead: {body.nombre_cliente} — {body.tipo_servicio or body.servicios or ''}",
+        user
+    ))
     return {"success": True, "message": "Lead guardado exitosamente", "id": str(new_id)}
 
 
@@ -838,6 +862,16 @@ async def update_lead_status(
         await s.commit()
         if r.rowcount == 0:
             raise HTTPException(404, "Lead no encontrado")
+        # Obtener nombre del cliente para el log
+        cr = await s.execute(text("SELECT nombre_cliente FROM leads WHERE id = :id OR mongo_id = :mid LIMIT 1"),
+                             {"id": mysql_id or 0, "mid": mongo_id or ""})
+        cn = (cr.first() or [None])[0] or "Sin nombre"
+
+    asyncio.create_task(_log_activity(
+        "Cambio de estado", cn,
+        f"Estado cambiado a: {body.status}",
+        user
+    ))
     return {"success": True, "message": "Status actualizado", "data": {"id": lead_id, "status": body.status}}
 
 
@@ -963,7 +997,22 @@ async def update_lead(
         await s.commit()
         if r.rowcount == 0:
             raise HTTPException(404, "Lead no encontrado")
+        cr = await s.execute(text("SELECT nombre_cliente FROM leads WHERE id = :id OR mongo_id = :mid LIMIT 1"),
+                             {"id": mysql_id or 0, "mid": mongo_id or ""})
+        cn = (cr.first() or [None])[0] or "Sin nombre"
 
+    # Determinar tipo de actividad según campos modificados
+    if "dia_venta" in data and data.get("dia_venta"):
+        act_type = "Venta ingresada"
+        act_desc = f"Venta registrada para {cn}"
+    elif "status" in data:
+        act_type = "Cambio de estado"
+        act_desc = f"Estado → {data['status']}"
+    else:
+        act_type = "Lead actualizado"
+        act_desc = f"Campos actualizados: {', '.join(data.keys())}"
+
+    asyncio.create_task(_log_activity(act_type, cn, act_desc, user))
     return {"success": True, "message": "Lead actualizado"}
 
 

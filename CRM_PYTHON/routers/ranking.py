@@ -276,3 +276,63 @@ async def get_ranking(
     }
     _cache[cache_key] = {"ts": time.time(), "response": response}
     return response
+
+
+@router.get("/init")
+async def ranking_init(
+    fechaInicio: Optional[str] = Query(None),
+    fechaFin:    Optional[str] = Query(None),
+    all:         Optional[str] = Query(None),
+    limit:       int           = Query(500),
+    user: dict = Depends(current_user),
+):
+    """Endpoint combinado: ranking + media en una sola llamada."""
+    from datetime import date as _date
+    # Fechas por defecto: mes actual
+    now = datetime.now()
+    fi = fechaInicio or f"{now.year}-{now.month:02d}-01"
+    last_day = (datetime(now.year, now.month % 12 + 1, 1) - __import__('datetime').timedelta(days=1)).day if now.month < 12 else 31
+    ff = fechaFin or f"{now.year}-{now.month:02d}-{last_day:02d}"
+
+    # Reutilizar el endpoint de ranking existente
+    ranking_resp = await get_ranking(
+        start_date=fi, end_date=ff,
+        statuses=None, agente=None,
+        hard_limit=limit, debug=None,
+        user=user
+    )
+
+    # Obtener última media de marketing
+    media_data = None
+    try:
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(text("""
+                SELECT id, filename, original_name, content_type, file_type, file_path, uploaded_at
+                FROM note_files
+                WHERE file_type IN ('image','video')
+                  AND (original_name LIKE '%marketing%' OR file_path LIKE '%marketing%'
+                       OR original_name LIKE '%promo%' OR file_path LIKE '%promo%')
+                ORDER BY uploaded_at DESC
+                LIMIT 1
+            """))
+            row = r.mappings().first()
+            if row:
+                fp = row["file_path"] or ""
+                url = fp if fp.startswith("/") else f"/{fp}"
+                media_data = {
+                    "id":           row["id"],
+                    "url":          url,
+                    "content_type": row["content_type"],
+                    "file_type":    row["file_type"],
+                    "filename":     row["original_name"] or row["filename"],
+                    "uploaded_at":  str(row["uploaded_at"]),
+                }
+    except Exception:
+        pass
+
+    return {
+        "success": True,
+        "ranking": ranking_resp.get("ranking", []),
+        "media":   media_data,
+        "meta":    ranking_resp.get("meta", {}),
+    }

@@ -9,8 +9,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<link rel="stylesheet" href="/css/sidebar-shared.css?v=20260529b">
-<link rel="stylesheet" href="/css/sidebar-modern.css?v=20260601b">
+<style>.sidebar,.sidebar.sidebar-inicio{background:rgba(5,15,35,0.55)!important;backdrop-filter:blur(14px)!important;-webkit-backdrop-filter:blur(14px)!important}.sidebar .user-info,.sidebar .user-details,.sidebar .avatar-wrapper,.sidebar .avatar,.sidebar .user-name,.sidebar .user-role{display:none!important}.sidebar .nav-item,.sidebar .btn-sidebar{background:transparent!important;box-shadow:none!important}</style>
+  <link rel="stylesheet" href="/css/sidebar-shared.css?v=20260606f">
+<link rel="stylesheet" href="/css/sidebar-modern.css?v=20260606e">
 <link rel="stylesheet" href="/css/responsive-sidebar.css">
 <link rel="stylesheet" href="/css/responsive-components.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
@@ -48,14 +49,37 @@ html { height: 100%; overflow: hidden; }
 body {
   height: 100%; overflow: hidden;
   font-family: 'Outfit', sans-serif;
-  color: var(--text);
-  background: var(--bg);
-  background-image:
-    radial-gradient(ellipse 80% 55% at 5%  -5%,  rgba(99,102,241,.22) 0%, transparent 60%),
-    radial-gradient(ellipse 55% 50% at 95%  8%,  rgba(16,185,129,.15) 0%, transparent 55%),
-    radial-gradient(ellipse 50% 65% at 85% 95%,  rgba(139,92,246,.18) 0%, transparent 58%),
-    radial-gradient(ellipse 55% 40% at 15% 92%,  rgba(59,130,246,.14) 0%, transparent 55%);
+  color: #fff;
+  background: #000;
 }
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  background: url('/images/ESTADIOOO.jpeg') center center / cover no-repeat;
+  pointer-events: none;
+}
+
+/* ── Cards y widgets transparentes ── */
+.main-content { position: relative; z-index: 1; }
+
+[style*="background: var(--glass)"],
+[style*="background:var(--glass)"],
+.page > *, .page > * > * {
+  background: rgba(5,15,35,0.30) !important;
+  border-color: rgba(255,255,255,0.12) !important;
+  backdrop-filter: blur(4px) !important;
+}
+.mgrid-item,
+.sitem,
+.rrow {
+  background: rgba(5,15,35,0.30) !important;
+  border-color: rgba(255,255,255,0.12) !important;
+}
+.mgrid-item:hover { background: rgba(5,15,35,0.50) !important; }
+.sitem:hover { background: rgba(5,15,35,0.50) !important; }
+
+/* ── Todo texto blanco ── */
+body, body * { color: #fff !important; }
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 4px; }
@@ -64,6 +88,7 @@ body {
 .main-content {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   overflow: hidden; display: flex; flex-direction: column;
+  background: transparent !important; z-index: 1;
 }
 .page {
   flex: 1; min-height: 0;
@@ -231,6 +256,8 @@ body {
 .map-wrap       { flex: 1; min-height: 0; position: relative; overflow: hidden; border-radius: 8px; border: 1.5px solid rgba(124,58,237,.25); box-shadow: 0 0 0 1px rgba(124,58,237,.08); }
 body.dark-theme .map-wrap { border-color: rgba(124,58,237,.55); box-shadow: 0 0 12px rgba(124,58,237,.20); }
 body.dark-theme .leaflet-tile-pane { filter: brightness(1.6) contrast(1.1) saturate(0.7); }
+#mapa-leaflet.leaflet-container  { background: transparent !important; }
+#mapa-leaflet .leaflet-tile-pane { filter: invert(1) brightness(2) !important; opacity: 0.90 !important; }
 #mapa-leaflet   { width: 100%; height: 100%; min-height: 140px; border-radius: 8px; }
 #mapa-empty     { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--t3); font-size: .78rem; text-align: center; background: rgba(238,242,255,.85); border-radius: 8px; pointer-events: none; z-index: 500; }
 .lf-pin { width: 12px; height: 12px; border-radius: 50%; background: #7c3aed; border: 2px solid #fff; box-shadow: 0 0 8px 3px rgba(124,58,237,.55); position: relative; }
@@ -323,6 +350,7 @@ body.dark-theme .tp-bar-wrap { background: rgba(255,255,255,.08) !important; }
   });
 })();
 </script>
+<link rel="stylesheet" href="/css/glass-cards.css?v=20260605">
 </head>
 <body>
 
@@ -362,6 +390,26 @@ body.dark-theme .tp-bar-wrap { background: rgba(255,255,255,.08) !important; }
     setTimeout(function(){ wt.style.opacity='0'; wt.style.transform='scale(1.03)'; setTimeout(function(){ wt.style.display='none'; },580); },1900);
   })();
 </script>
+
+<!-- ══ TROFEO DECORATIVO ══ -->
+<img src="/images/TROFEO.png" alt="Trofeo" id="trofeo-deco" style="
+  position: fixed;
+  bottom: 0;
+  left: 52px;
+  width: 200px;
+  height: auto;
+  z-index: 200;
+  pointer-events: none;
+  filter: drop-shadow(0 0 18px rgba(217,119,6,0.55));
+  transform-origin: bottom center;
+  animation: trofeoBounce 4s ease-in-out infinite;
+">
+<style>
+@keyframes trofeoBounce {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50%       { transform: translateY(-8px) rotate(1deg); }
+}
+</style>
 
 <!-- ══ PAGE ══ -->
 <div class="main-content">
@@ -496,9 +544,13 @@ body.dark-theme .tp-bar-wrap { background: rgba(255,255,255,.08) !important; }
             <div class="mgrid-lbl">Mejor vendedor</div>
             <div class="mgrid-val sm" id="kpi-seller">—</div>
           </div>
-          <div class="mgrid-item">
-            <div class="mgrid-lbl">Mejor team</div>
-            <div class="mgrid-val sm" id="kpi-team">—</div>
+          <div class="mgrid-item" style="position:relative;overflow:hidden;padding:0;">
+            <img src="/images/mejor requipo.png" alt="Mejor Team"
+              style="position:absolute;right:-4px;bottom:0;height:85%;width:auto;opacity:0.45;pointer-events:none;">
+            <div style="position:relative;z-index:1;padding:10px 12px;display:flex;flex-direction:column;gap:3px;height:100%;">
+              <div class="mgrid-lbl">Mejor team</div>
+              <div class="mgrid-val sm" id="kpi-team">—</div>
+            </div>
           </div>
         </div>
       </div>
@@ -834,6 +886,7 @@ let _leafletTile = null;
 
 const _TILE_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
 const _TILE_DARK  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+const _TILE_LINES = 'https://tiles.stadiamaps.com/tiles/stamen_toner_lines/{z}/{x}/{y}{r}.png';
 
 function _mapaSetTheme(dark) {
   if (!_leafletMap || !_leafletTile) return;
@@ -861,9 +914,9 @@ function _renderMapaClientes(dash) {
 
     if (!_leafletMap) {
       try {
-        _leafletMap = L.map('mapa-leaflet', { zoomControl: true, attributionControl: false })
-          .setView([39.5, -98.35], 4);
-        _leafletTile = L.tileLayer(isDark ? _TILE_DARK : _TILE_LIGHT, {
+        _leafletMap = L.map('mapa-leaflet', { zoomControl: false, attributionControl: false })
+          .setView([20, -30], 2);
+        _leafletTile = L.tileLayer(_TILE_LINES, {
           subdomains: 'abcd', maxZoom: 18,
         }).addTo(_leafletMap);
       } catch (e) {
@@ -904,7 +957,7 @@ function _renderMapaClientes(dash) {
 
     try {
       const bounds = L.latLngBounds(pins.map(p => [p.coordenadas.lat, p.coordenadas.lng]));
-      _leafletMap.fitBounds(bounds.pad(0.2), { maxZoom: 10 });
+      _leafletMap.fitBounds(bounds.pad(0.2), { maxZoom: 4 });
     } catch (_) {}
   }
 

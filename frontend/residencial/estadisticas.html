@@ -7,8 +7,9 @@
   <link rel="icon" type="image/png" href="/images/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Cinzel:wght@600;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/sidebar-shared.css?v=20260529b"/>
-  <link rel="stylesheet" href="/css/sidebar-modern.css?v=20260601b"/>
+  <style>.sidebar,.sidebar.sidebar-inicio{background:rgba(5,15,35,0.55)!important;backdrop-filter:blur(14px)!important;-webkit-backdrop-filter:blur(14px)!important}.sidebar .user-info,.sidebar .user-details,.sidebar .avatar-wrapper,.sidebar .avatar,.sidebar .user-name,.sidebar .user-role{display:none!important}.sidebar .nav-item,.sidebar .btn-sidebar{background:transparent!important;box-shadow:none!important}</style>
+  <link rel="stylesheet" href="/css/sidebar-shared.css?v=20260606f"/>
+  <link rel="stylesheet" href="/css/sidebar-modern.css?v=20260606e"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
@@ -45,11 +46,47 @@
 
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     html,body{height:100%;font-family:'Outfit',sans-serif;-webkit-font-smoothing:antialiased}
-    body{background:var(--bg);color:var(--t1);overflow:hidden;transition:background .25s,color .25s}
+    body{
+      background: url('/images/ESTADIOOO.jpeg') center center / cover no-repeat fixed;
+      color:#fff;overflow:hidden;transition:background .25s,color .25s;
+    }
 
-    .layout{display:flex;height:100vh;overflow:hidden}
+    /* ── Fondo estadio fijo detrás de todo ── */
+    body::before{
+      content:'';position:fixed;inset:0;z-index:0;
+      background:url('/images/ESTADIOOO.jpeg') center center / cover no-repeat;
+    }
+
+    /* ── Cards transparentes — captura TODOS los contenedores ── */
+    .glass, .kpi, .card, .tbl-wrap, .page > div,
+    [class*="glass"], [class*="card"],
+    div[style*="background:#fff"], div[style*="background: #fff"],
+    div[style*="background:white"], div[style*="background: white"],
+    #lineas-mes-body > *, #lineas-hoy-body > * {
+      background: rgba(5,15,35,0.28) !important;
+      border-color: rgba(255,255,255,0.12) !important;
+      backdrop-filter: blur(4px) !important;
+    }
+    .card-alt, .kpi-icon, .glass-header, .tbl thead tr,
+    .mbtn, .mpill-wrap {
+      background: rgba(255,255,255,0.06) !important;
+      border-color: rgba(255,255,255,0.10) !important;
+    }
+
+    /* ── Todo texto blanco ── */
+    body *, body *::before, body *::after {
+      color: #fff !important;
+      border-color: rgba(255,255,255,0.12) !important;
+    }
+    body input, body select, body textarea {
+      background: rgba(255,255,255,0.10) !important;
+      color: #fff !important;
+    }
+    body input::placeholder { color: rgba(255,255,255,0.4) !important; }
+
+    .layout{display:flex;height:100vh;overflow:hidden;position:relative;z-index:1}
     .sidebar{flex:0 0 auto}
-    .main-content{flex:1;overflow-y:auto;min-width:0;height:100vh}
+    .main-content{flex:1;overflow-y:auto;min-width:0;height:100vh;background:transparent !important;position:relative;z-index:1}
 
     /* ── Page Container ── */
     .page{padding:24px 32px;display:flex;flex-direction:column;gap:18px;min-height:100%}
@@ -114,7 +151,7 @@
     .tbl thead .th-hoy{color:var(--blue-t);background:var(--blue-s);text-align:center;font-weight:800}
     .tbl thead .th-mes {color:var(--purple-t);background:var(--purple-s);text-align:center;font-weight:800}
     .tbl tbody tr{border-bottom:1px solid var(--bdr-soft);transition:background .12s}
-    .tbl tbody tr:hover{background:var(--card-alt)}
+    .tbl tbody tr:hover{background:rgba(255,255,255,0.08)!important}
     .tbl tbody tr:last-child{border-bottom:none}
     .tbl tbody td{padding:11px 16px;color:var(--t2);font-weight:500;vertical-align:middle}
     .tbl tbody td.center{text-align:center}
@@ -125,7 +162,7 @@
     .tbl tbody td.val-pts {color:var(--amber-t);font-weight:700;text-align:center}
     .tbl tbody td.val-icon{color:var(--t3);text-align:center;font-family:monospace;font-size:.72rem}
     
-    .total-row td{font-weight:900!important;color:var(--t1)!important;background:var(--card-alt)!important;border-top:2px solid var(--bdr)!important;padding:14px 16px!important}
+    .total-row td{font-weight:900!important;color:#fff!important;background:rgba(255,255,255,0.08)!important;border-top:2px solid rgba(255,255,255,0.15)!important;padding:14px 16px!important}
     .t-avatar{display:inline-flex;align-items:center;justify-content:center;
       width:26px;height:26px;border-radius:8px;font-size:.62rem;font-weight:800;
       flex-shrink:0;letter-spacing:.02em}
@@ -198,6 +235,34 @@
     }
     @media(max-width:850px) {.kpi-grid{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:600px) {.summary{grid-template-columns:repeat(3,1fr); gap:1px; background:var(--bdr)} .sum-it{border-right:none}}
+  </style>
+  <link rel="stylesheet" href="/css/glass-cards.css?v=20260605">
+  <style>
+    /* ── Transparencia fondo estadio — refuerzo ── */
+    body, html { background: transparent !important; }
+    body * { color: #fff !important; }
+    .glass,
+    .kpi,
+    .summary,
+    .header {
+      background: rgba(5,15,35,0.40) !important;
+      backdrop-filter: blur(10px) !important;
+      -webkit-backdrop-filter: blur(10px) !important;
+      border-color: rgba(255,255,255,0.10) !important;
+    }
+    .glass-header,
+    .tbl-wrap,
+    .card-alt,
+    .kpi-icon,
+    .mbtn,
+    .month-ctrl,
+    .sum-it {
+      background: rgba(255,255,255,0.06) !important;
+      border-color: rgba(255,255,255,0.10) !important;
+    }
+    .tbl thead tr { background: rgba(5,15,35,0.50) !important; }
+    .tbl tbody tr:hover { background: rgba(255,255,255,0.08) !important; }
+    .lt-row { background: rgba(255,255,255,0.06) !important; border-color: rgba(255,255,255,0.10) !important; }
   </style>
 </head>
 <body>
