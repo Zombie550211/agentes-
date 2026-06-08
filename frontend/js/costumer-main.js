@@ -527,14 +527,6 @@
         }
       }
 
-      // Apply the "last 2 months" limit when no specific month is selected and
-      // the toggle is in 'Solo 2 meses' mode (onlyTwoMonths === false).
-      if(!month && !onlyTwoMonths){
-        const limit=new Date(d.getFullYear(),d.getMonth()-1,1);
-        const ref=lead._es_colchon_route?(lead.dia_instalacion||lead.dia_venta):(lead.dia_venta||lead.dia_instalacion);
-        if(ref&&new Date(ref)<limit) return false;
-      }
-
       if(from&&to){const ref=lead._es_colchon_route?(lead.dia_instalacion||lead.dia_venta):(lead.dia_venta||lead.dia_instalacion);if(!ref)return false;const ld=new Date(ref);if(ld<new Date(from))return false;if(ld>new Date(to+'T23:59:59'))return false;}
       return true;
     });
