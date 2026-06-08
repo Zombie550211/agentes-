@@ -70,7 +70,7 @@
     #rank-period-label{font-size:.78rem;font-weight:700;color:var(--t1)}
 
     /* KPIs */
-    .rk-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    .rk-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
     .rk-kpi{background:var(--card);border:1px solid var(--bdr);border-radius:16px;padding:16px 18px;display:flex;align-items:center;gap:14px;box-shadow:var(--sh);transition:transform .2s,box-shadow .2s}
     .rk-kpi:hover{transform:translateY(-2px);box-shadow:var(--sh-md)}
     .rk-kpi-icon{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
@@ -216,6 +216,10 @@
         <div class="rk-kpi-icon" style="background:#fffbeb"><i class="fas fa-bed" style="color:#d97706"></i></div>
         <div><div class="rk-kpi-label">Colchón Total</div><div class="rk-kpi-val" id="kpi-colchon" style="color:#d97706">—</div><div class="rk-kpi-sub">Disponibles</div></div>
       </div>
+      <div class="rk-kpi">
+        <div class="rk-kpi-icon" style="background:#fef3c7"><i class="fas fa-sigma" style="color:#dc2626"></i></div>
+        <div><div class="rk-kpi-label">Total de Ventas Activas</div><div class="rk-kpi-val" id="kpi-total-val" style="color:#dc2626">—</div><div class="rk-kpi-sub">Del período</div></div>
+      </div>
     </div>
 
     <div class="rk-table-card drop" style="animation-delay:.28s">
@@ -301,7 +305,10 @@
     var totalPts=_data.reduce(function(s,a){return s+Number(a.puntaje||a.puntos||a.sum_puntaje||a.score||0);},0);
     var totalV=_data.reduce(function(s,a){return s+Number(a.ventas||0);},0);
     var totalC=_data.reduce(function(s,a){return s+Number(a.colchon||a.colchón||0);},0);
+    var totalVActivas=_data.reduce(function(s,a){var st=String(a.status||'').toLowerCase();if(st==='active'||st==='completed')return s+Number(a.ventas||0);return s;},0);
+
     set('kpi-agentes',_data.length);set('kpi-puntos',totalPts.toFixed(2));set('kpi-ventas',totalV);set('kpi-colchon',totalC);
+    set('kpi-total-val',totalVActivas);
   }
 
   function renderList(){
