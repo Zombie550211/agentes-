@@ -271,6 +271,11 @@
 
   function getScoreFromItem(item) {
     if (!item) return 0;
+    // Si colchón NO está activo, usar solo puntos de ventas normales
+    if (!window.__sumarColchon) {
+      const pv = parseNumberLenient(item.puntos_ventas);
+      if (pv != null) return pv;
+    }
     const s = parseNumberLenient(item.sumPuntaje);
     if (s != null) return s;
     const p = parseNumberLenient(item.puntos);
@@ -497,9 +502,18 @@
         btn.style.borderColor = 'rgba(139,92,246,0.55)';
         btn.textContent = '🛏 Sumar Colchón';
       }
-      // Re-renderizar con la data ya en memoria
+      // Re-ordenar y re-renderizar con la data ya en memoria
       const list = window.__rankFullList || [];
-      if (list.length) renderRankList(list);
+      if (list.length) {
+        list.sort((a, b) => {
+          const sa = getScoreFromItem(a), sb = getScoreFromItem(b);
+          if (sb !== sa) return sb - sa;
+          const va = getSalesCount(a), vb = getSalesCount(b);
+          return vb - va;
+        });
+        list.forEach((a, i) => { a.position = i + 1; });
+        renderRankList(list);
+      }
     });
   });
 

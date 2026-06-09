@@ -200,17 +200,21 @@ async def get_ranking(
                 "colchon": 0,
                 "activas": 0,
                 "sumPuntaje": 0.0,
+                "sumPuntajeVentas": 0.0,
+                "sumPuntajeColchon": 0.0,
                 "sigs": set(),
             }
         entry = agg[key]
         if is_colchon:
             entry["colchon"] += 1
             entry["sumPuntaje"] += puntaje_val
+            entry["sumPuntajeColchon"] += puntaje_val
             if is_active_status:
                 entry["activas"] += 1
         elif not is_cancel:
             entry["ventas"] += 1
             entry["sumPuntaje"] += puntaje_val
+            entry["sumPuntajeVentas"] += puntaje_val
             if is_active_status:
                 entry["activas"] += 1
         # Preferir nombre de display más largo
@@ -270,11 +274,13 @@ async def get_ranking(
             or _humanize_name(raw_name)
             or "—"
         )
-        ventas  = int(item["ventas"])
-        colchon = int(item["colchon"])
-        activas = int(item["activas"])
-        puntos  = float(item["sumPuntaje"])
-        total   = ventas + colchon
+        ventas         = int(item["ventas"])
+        colchon        = int(item["colchon"])
+        activas        = int(item["activas"])
+        puntos         = float(item["sumPuntaje"])
+        puntos_ventas  = float(item["sumPuntajeVentas"])
+        puntos_colchon = float(item["sumPuntajeColchon"])
+        total          = ventas + colchon
 
         ranking_data.append({
             "nombre":           display_name,
@@ -291,6 +297,8 @@ async def get_ranking(
             "activas":          activas,
             "total":            total,
             "puntos":           puntos,
+            "puntos_ventas":    puntos_ventas,
+            "puntos_colchon":   puntos_colchon,
             "sumPuntaje":       puntos,
             "avgPuntaje":       puntos / total if total > 0 else 0,
             "promedio":         puntos / total if total > 0 else 0,
@@ -298,7 +306,8 @@ async def get_ranking(
             "signatures":       None,
         })
 
-    ranking_data.sort(key=lambda x: (-x["puntos"], -x["ventas"], x["nombre"]))
+    # Ordenar por puntos de ventas normales (sin colchón) — el frontend re-ordena si activa colchón
+    ranking_data.sort(key=lambda x: (-x["puntos_ventas"], -x["ventas"], x["nombre"]))
     for i, row in enumerate(ranking_data):
         row["position"] = i + 1
 
