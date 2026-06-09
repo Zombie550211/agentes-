@@ -898,7 +898,7 @@
     const principalItems = [
       { key: 'inicio',      icon: 'fa-home',      text: 'Inicio',      href: '/residencial/inicio.html' },
       { key: 'formulario',  icon: 'fa-user-plus',  text: 'Formulario',  href: '/residencial/formulario-registro.html' },
-      { key: 'costumer',    icon: 'fa-users',      text: 'Lista de Clientes', href: '/residencial/costumer.html', hasSubmenu: true }
+      { key: 'costumer',    icon: 'fa-users',      text: 'Lista de Clientes', href: '/residencial/costumer.html' }
     ];
     
     // Sección 2: Estadísticas
