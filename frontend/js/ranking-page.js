@@ -383,7 +383,7 @@
           const name = escapeHtml(resolveDisplayName(agent));
           const role = escapeHtml(agent.cargo || '');
           const pointsValue = formatScore(getScoreFromItem(agent));
-          const salesValue = Number(agent.ventas || 0);
+          const salesValue = Number(agent.total ?? agent.ventas ?? 0);
           const avatarMarkup = renderAvatarHtml(agent, resolveDisplayName(agent) || 'Avatar');
           li.innerHTML = `\n                  <span class="rank-number">${position}</span>\n                  <div class="agent-info">\n                    <div class="agent-avatar">${avatarMarkup}</div>\n                    <div class="agent-details">\n                      <h4>${name}</h4>\n                      <p>${role}</p>\n                    </div>\n                  </div>\n                  <div class="agent-stats">\n                    <span class="points">${escapeHtml(pointsValue)} pts</span>\n                    <span class="sales">${escapeHtml(salesValue.toString())} ventas</span>\n                  </div>`;
           container.appendChild(li);
@@ -397,7 +397,7 @@
         const dataForTable = (window.__rankViewAll ? list : list.slice(0,10));
         dataForTable.forEach((agent, idx) => {
           const tr = document.createElement('tr');
-          tr.innerHTML = `\n                  <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.position || agent.posicion || (idx + 1)}</td>\n                  <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${escapeHtml(resolveDisplayName(agent))}</td>\n                  <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">${agent.ventas ?? 0}</td>\n                  <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${formatScore((agent.sumPuntaje ?? agent.puntos ?? 0))}</td>\n                `;
+          tr.innerHTML = `\n                  <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.position || agent.posicion || (idx + 1)}</td>\n                  <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${escapeHtml(resolveDisplayName(agent))}</td>\n                  <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">${agent.total ?? agent.ventas ?? 0}</td>\n                  <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${formatScore((agent.sumPuntaje ?? agent.puntos ?? 0))}</td>\n                `;
           tbody.appendChild(tr);
         });
       }
@@ -475,7 +475,7 @@
               const name = escapeHtml(resolveDisplayName(agent));
               const role = escapeHtml(agent.cargo || '');
               const pointsValue = formatScore(getScoreFromItem(agent));
-              const salesValue = Number(agent.ventas || 0);
+              const salesValue = Number(agent.total ?? agent.ventas ?? 0);
               const avatarMarkup = renderAvatarHtml(agent, resolveDisplayName(agent) || 'Avatar');
               li.innerHTML = `\n                    <span class="rank-number">${position}</span>\n                    <div class="agent-info">\n                      <div class="agent-avatar">${avatarMarkup}</div>\n                      <div class="agent-details">\n                        <h4>${name}</h4>\n                        <p>${role}</p>\n                      </div>\n                    </div>\n                    <div class="agent-stats">\n                      <span class="points">${escapeHtml(pointsValue)} pts</span>\n                      <span class="sales">${escapeHtml(salesValue.toString())} ventas</span>\n                    </div>`;
               container2.appendChild(li);
@@ -487,7 +487,7 @@
             const data2 = window.__rankViewAll ? listSaved : listSaved.slice(0, 10);
             data2.forEach((agent, idx) => {
               const tr = document.createElement('tr');
-              tr.innerHTML = `\n                      <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.position || agent.posicion || (idx + 1)}</td>\n                      <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${escapeHtml(resolveDisplayName(agent))}</td>\n                      <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">${agent.ventas ?? 0}</td>\n                      <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${formatScore((agent.sumPuntaje ?? agent.puntos ?? 0))}</td>\n                    `;
+              tr.innerHTML = `\n                      <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.position || agent.posicion || (idx + 1)}</td>\n                      <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${escapeHtml(resolveDisplayName(agent))}</td>\n                      <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">${agent.total ?? agent.ventas ?? 0}</td>\n                      <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${formatScore((agent.sumPuntaje ?? agent.puntos ?? 0))}</td>\n                    `;
               tbody2.appendChild(tr);
             });
           }
@@ -623,7 +623,7 @@
           const name = escapeHtml(resolveDisplayName(agent));
           const role = escapeHtml(agent.cargo||'');
           const pointsValue = fmt(getScore(agent));
-          const salesValue = Number(agent.ventas||0);
+          const salesValue = Number(agent.total??agent.ventas??0);
           const avatarMarkup = renderAvatarHtml(agent, resolveDisplayName(agent) || 'Avatar');
           li.innerHTML=`\n                  <span class="rank-number">${position}</span>\n                  <div class="agent-info">\n                    <div class="agent-avatar">${avatarMarkup}</div>\n                    <div class="agent-details">\n                      <h4>${name}</h4>\n                      <p>${role}</p>\n                    </div>\n                  </div>\n                  <div class="agent-stats">\n                    <span class="points">${escapeHtml(pointsValue)} pts</span>\n                    <span class="sales">${escapeHtml(salesValue.toString())} ventas</span>\n                  </div>`;
           container.appendChild(li);
@@ -631,7 +631,7 @@
       }
       const table=document.getElementById('full-rank-table');
       if(table){
-        const tbody=table.querySelector('tbody'); if(tbody){ tbody.innerHTML=''; (safe.slice(0,10)).forEach((agent,idx)=>{ const tr=document.createElement('tr'); tr.innerHTML=`\n                    <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.position||agent.posicion||(idx+1)}</td>\n                    <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${escapeHtml(resolveDisplayName(agent))}</td>\n                    <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">${agent.ventas??0}</td>\n                    <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${fmt(getScore(agent))}</td>`; tbody.appendChild(tr); }); }
+        const tbody=table.querySelector('tbody'); if(tbody){ tbody.innerHTML=''; (safe.slice(0,10)).forEach((agent,idx)=>{ const tr=document.createElement('tr'); tr.innerHTML=`\n                    <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.position||agent.posicion||(idx+1)}</td>\n                    <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${escapeHtml(resolveDisplayName(agent))}</td>\n                    <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">${agent.total??agent.ventas??0}</td>\n                    <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${fmt(getScore(agent))}</td>`; tbody.appendChild(tr); }); }
       }
     }catch(e){ console.warn('[RANKING] update UI error', e); }
   }
