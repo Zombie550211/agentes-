@@ -95,10 +95,22 @@ async def get_ranking(
     _ny = _s_date.year if _s_date.month < 12 else _s_date.year + 1
     end_excl = f"{_ny}-{_nm:02d}-01"
 
-    params: dict = {"s": start_date, "e": end_date, "lim": hard_limit, "end_excl": end_excl}
+    params: dict = {
+        "s": start_date, "e": end_date, "lim": hard_limit, "end_excl": end_excl,
+        "s_ym": start_date[:7], "e_ym": end_excl[:7],
+    }
 
     where = [
-        "dia_venta >= :s AND dia_venta < :end_excl",
+        # Lead normal (dia_venta en el mes) O lead colchón (dia_instalacion en el mes, dia_venta anterior)
+        """(
+            (dia_venta >= :s AND dia_venta < :end_excl)
+            OR (
+                dia_instalacion IS NOT NULL
+                AND LEFT(dia_instalacion,7) >= :s_ym
+                AND LEFT(dia_instalacion,7) < :e_ym
+                AND (dia_venta IS NULL OR LEFT(dia_venta,7) < :s_ym)
+            )
+        )""",
         "(agente_nombre IS NOT NULL AND agente_nombre != '') OR (agente IS NOT NULL AND agente != '')",
         "excluir_de_reporte = FALSE OR excluir_de_reporte IS NULL",
         """UPPER(TRIM(COALESCE(status,''))) IN (
@@ -131,7 +143,8 @@ async def get_ranking(
                     COALESCE(agente_nombre, agente)                AS agente_fuente,
                     UPPER(TRIM(COALESCE(status, '')))              AS status_u,
                     COALESCE(puntaje, 0)                           AS puntaje,
-                    numero_cuenta, telefono_principal, nombre_cliente, dia_venta
+                    dia_venta, dia_instalacion,
+                    numero_cuenta, telefono_principal, nombre_cliente
                 FROM leads
                 WHERE {where_sql}
                 ORDER BY dia_venta DESC, created_at DESC
@@ -143,7 +156,9 @@ async def get_ranking(
         rows = []
 
     # ── Aggregate in Python ────────────────────────────────────────
-    # Agrupa por agente (username), usa agente_nombre solo para display
+    # Agrupa por agente (username), separa ventas normales de colchón
+    s_ym = start_date[:7]   # e.g. "2026-06"
+
     agg: dict = {}
     for row in rows:
         agente_key  = str(row["agente_key"] or "")
@@ -151,6 +166,13 @@ async def get_ranking(
         status_u    = str(row["status_u"] or "")
         puntaje_val = float(row["puntaje"] or 0)
         is_cancel   = "CANCEL" in status_u
+
+        dv   = str(row["dia_venta"] or "")[:7]
+        dinst = str(row["dia_instalacion"] or "")[:7]
+        # Lead colchón: dia_instalacion en el mes Y dia_venta en mes anterior
+        is_colchon = bool(dinst and dinst == s_ym and (not dv or dv < s_ym))
+        # Lead completed/active para "activas"
+        is_active_status = any(t in status_u for t in ("COMPLET", "ACTIV", "VENDIDO", "CERRADO"))
 
         # Usar agente (username) como clave de agrupación
         key = _norm_strip(agente_key) if agente_key else _norm_strip(agente_raw)
@@ -175,13 +197,22 @@ async def get_ranking(
                 "nombreNormalizado": key,
                 "agente_username": agente_key,
                 "ventas": 0,
+                "colchon": 0,
+                "activas": 0,
                 "sumPuntaje": 0.0,
                 "sigs": set(),
             }
         entry = agg[key]
-        if not is_cancel:
+        if is_colchon:
+            entry["colchon"] += 1
+            entry["sumPuntaje"] += puntaje_val
+            if is_active_status:
+                entry["activas"] += 1
+        elif not is_cancel:
             entry["ventas"] += 1
             entry["sumPuntaje"] += puntaje_val
+            if is_active_status:
+                entry["activas"] += 1
         # Preferir nombre de display más largo
         if len(agente_raw) > len(entry["nombreOriginal"]):
             entry["nombreOriginal"] = agente_raw
@@ -190,7 +221,8 @@ async def get_ranking(
     try:
         async with AsyncSessionLocal() as s:
             r = await s.execute(text("""
-                SELECT id, username, name, email, aliases, avatar_url, role
+                SELECT id, username, name, email, aliases, avatar_url, role,
+                       COALESCE(team, supervisor, '') AS team
                 FROM users
             """))
             users_rows = r.mappings().all()
@@ -239,7 +271,10 @@ async def get_ranking(
             or "—"
         )
         ventas  = int(item["ventas"])
+        colchon = int(item["colchon"])
+        activas = int(item["activas"])
         puntos  = float(item["sumPuntaje"])
+        total   = ventas + colchon
 
         ranking_data.append({
             "nombre":           display_name,
@@ -248,13 +283,17 @@ async def get_ranking(
             "nombreNormalizado": norm_key,
             "username":         (matched_user or {}).get("username"),
             "userId":           str(matched_user["id"]) if matched_user else None,
+            "team":             str((matched_user or {}).get("team") or ""),
             "avatarUrl":        avatar_info["url"],
             "imageUrl":         avatar_info["url"],
             "ventas":           ventas,
+            "colchon":          colchon,
+            "activas":          activas,
+            "total":            total,
             "puntos":           puntos,
             "sumPuntaje":       puntos,
-            "avgPuntaje":       puntos / ventas if ventas > 0 else 0,
-            "promedio":         puntos / ventas if ventas > 0 else 0,
+            "avgPuntaje":       puntos / total if total > 0 else 0,
+            "promedio":         puntos / total if total > 0 else 0,
             "position":         i + 1,
             "signatures":       None,
         })

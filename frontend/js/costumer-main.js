@@ -9,6 +9,8 @@
   let activeStatusTab = 'all';
   // ── FIX: onlyTwoMonths arranca en FALSE para supervisores ──
   let onlyTwoMonths   = false;
+  // Flag: true cuando __allLeadsData fue cargado con allData=true (sin límite de fechas)
+  let __allDataLoaded = false;
   let __socket        = null;
 
   const NOTES_STORE   = {};
@@ -135,7 +137,7 @@
       const di=String(lead.dia_instalacion||lead.diaInstalacion||'').slice(0,7);
       if(!dv||!di||dv===di)return false;
       if(refMonthStr){
-        // Instalado en ref mes, vendido en mes anterior (colchón que pertenece a este mes)
+        // Colchón de X: instalado EN X, vendido en mes anterior
         return dv!==refMonthStr&&di===refMonthStr;
       }
       // Sin filtro de mes: colchón si instalación posterior a la venta
@@ -315,23 +317,39 @@
     if(!__allLeadsData.length)return;
     const _ud=getUserData(),_role=String(_ud.role||'').toLowerCase();
     const _isAdm=isAdminOrBackoffice(_role),_isSup=isSupervisor(_role),_isAgt=isAgent(_role);
-    const equipos=new Set(),agentes=new Set(),mercados=new Set(),meses=new Set();
-    // Agentes de la API solo para admin (supervisor y agente ven solo su equipo)
-    if(_isAdm&&__usersFromAPI&&__usersFromAPI.length){
+    const mercados=new Set(),meses=new Set();
+
+    // ── TEAMS: fuente única = permisos (_teams del bootstrap) ──────────────
+    // Solo se muestran equipos registrados en el sistema de usuarios.
+    // Si un team se elimina/renombra en permisos, desaparece aquí automáticamente.
+    const equipos=new Set();
+    if(_teams&&_teams.length){
+      _teams.forEach(function(t){if(t)equipos.add(t);});
+    }
+
+    // ── AGENTES: solo los que tienen team asignado en el sistema ──────────
+    // Admin: todos los agentes con team. Supervisor/Agente: filtrado por su equipo.
+    const agentes=new Set();
+    if(__usersFromAPI&&__usersFromAPI.length){
       __usersFromAPI.forEach(function(u){
         var r=String(u.role||'').toLowerCase();
-        if(r.includes('agente')||r.includes('vendedor')||r.includes('agent')){
-          var n=_fmtName(u.name||u.fullName||u.nombre||u.username||'');
-          if(n)agentes.add(n);
+        var isAgentRole=r.includes('agente')||r.includes('vendedor')||r.includes('agent');
+        if(!isAgentRole)return;
+        var hasTeam=u.team&&String(u.team).trim()!=='';
+        if(!hasTeam)return;
+        // Supervisor: solo agentes de su team
+        if(_isSup){
+          var userTeam=String(_ud.team||_ud.supervisor||'').toUpperCase();
+          var agentTeam=String(u.team||'').toUpperCase();
+          if(!agentTeam.includes(userTeam)&&!userTeam.includes(agentTeam))return;
         }
+        var n=_fmtName(u.name||u.fullName||u.nombre||u.username||'');
+        if(n)agentes.add(n);
       });
     }
-    // Para supervisor/agente: poblar agentes solo desde leads ya filtrados (su equipo)
-    const _leadsParaAgentes=(_isSup||_isAgt)?(__filteredLeads.length?__filteredLeads:__allLeadsData):__allLeadsData;
-    _leadsParaAgentes.forEach(function(lead){if(lead.agente)agentes.add(_fmtName(lead.agente));});
+
+    // ── MERCADOS y MESES: siguen viniendo de los leads ────────────────────
     __allLeadsData.forEach(function(lead){
-      if(lead.supervisor) equipos.add(normalizeSupervisorName(lead.supervisor));
-      if(!_isSup&&!_isAgt&&lead.agente)agentes.add(_fmtName(lead.agente)); // admin: ya agregado arriba si no estaba
       if(lead.mercado)mercados.add(lead.mercado);
       var toYM=function(v){if(!v)return'';var s=String(v).trim();return s.length>=7?s.slice(0,7):'';};
       var fechas=[
@@ -360,6 +378,22 @@
   function applyFilters(){
     const search=getVal('costumer-search').toUpperCase();
     const svc=getVal('serviceFilter'),team=getVal('teamFilter'),agent=getVal('agentFilter'),mercado=getVal('mercadoFilter'),month=getVal('monthFilter'),from=getVal('dateFrom'),to=getVal('dateTo');
+
+    // Si hay búsqueda sin mes y aún no se cargaron todos los datos, recarga con allData
+    if(search && !month && !__allDataLoaded){
+      (async function(){
+        var res=await AUTH.secureFetch('/api/leads/bootstrap?allData=true');
+        if(!res||!res.ok)return;
+        try{
+          var data=await res.json();
+          __allDataLoaded=true;
+          _applyBootstrapFilters(data);
+          window.renderCostumerTable(data.leads||[]);
+        }catch(_){}
+      })();
+      return;
+    }
+
     const ud=getUserData(),role=String(ud.role||ud.rol||'').toLowerCase();
     const userName=String(ud.nombre||ud.name||ud.username||'').trim();
     const userUsername=String(ud.username||'').trim();
@@ -369,19 +403,13 @@
     const curMon=d.getFullYear()+'-'+padZ(d.getMonth()+1);
     // Mes de referencia para detectar colchón: el filtro activo, o null (sin filtro = comparar fechas del lead)
     const refMes=month||null;
-    // _es_colchon_route: solo ACTIVE/COMPLETED instalados en mes distinto al de venta
-    // leads PENDING con instalación futura se muestran por dia_venta, no son colchón
+    // _es_colchon_route: cualquier lead con dia_instalacion en mes distinto a dia_venta
     __allLeadsData.forEach(function(lead){
-      const st=normalizeStatus(lead.status);
-      const isActive=st==='completed'||st==='active';
       const isRoute=isColchonLead(lead,refMes);
-      lead._es_colchon_route=isRoute&&isActive;
-      lead._es_colchon=isRoute&&isActive;
+      lead._es_colchon_route=isRoute;
+      lead._es_colchon=isRoute;
     });
 
-    // ── DEBUG: log de datos del usuario logueado (solo en desarrollo) ──
-    if(isSup) {
-    }
 
     __filteredLeads=__allLeadsData.filter(function(lead){
       // Supervisores SÍ pueden ver leads de oficina de su equipo
@@ -503,7 +531,7 @@
           return s.slice(0,7);
         };
         if(activeStatusTab==='colchon'){
-          // Pestaña colchón: siempre filtrar por dia_instalacion
+          // Pestaña colchón de X: instalado en X (dia_instalacion)
           const diaInstYM=toYM(lead.dia_instalacion);
           if(!diaInstYM||diaInstYM!==month)return false;
         } else if(!onlyTwoMonths){
@@ -638,48 +666,75 @@
   }
 
   /* ── KPIs ── */
+  // KPIs respetan filtros activos (mes, team, agente, servicio, mercado)
+  // pero NO la pestaña de status activa
   function updateKPIs(){
     const d=new Date(),pad=function(n){return String(n).padStart(2,'0');};
     const today=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
-    // Use selected month filter if present, otherwise default to current month
-    const selectedMonth = (document.getElementById('monthFilter') && document.getElementById('monthFilter').value) ? document.getElementById('monthFilter').value : '';
-    const curMon = selectedMonth || (d.getFullYear()+'-'+pad(d.getMonth()+1));
+    const selectedMonth=(document.getElementById('monthFilter')&&document.getElementById('monthFilter').value)||'';
+    const curMon=selectedMonth||(d.getFullYear()+'-'+pad(d.getMonth()+1));
+    const refMon=curMon;
     const inclCol=document.getElementById('check-colchon-activas')&&document.getElementById('check-colchon-activas').checked;
     let kpi={hoy:0,mes:0,activas:0,colchon:0,pend:0,cancel:0,oficina:0,reserva:0,hold:0};
-    
-    // When a specific month is selected, count ALL leads in __filteredLeads (they're already filtered by month)
-    if(selectedMonth){
-      kpi.mes = __filteredLeads.length; // Count all filtered leads (already filtered by month in applyFilters)
-      // Also break down by status for the other KPIs
-      __filteredLeads.forEach(function(l){
-        if(!l)return;
-        const st=l.status;
+    const toYM=function(v){if(!v)return'';const s=String(v).trim();return/^\d{4}-\d{2}/.test(s)?s.slice(0,7):'';};
+
+    // Filtros activos (sin pestaña de status)
+    const fTeam=getVal('teamFilter');
+    const fAgent=getVal('agentFilter');
+    const fSvc=getVal('serviceFilter');
+    const fMercado=getVal('mercadoFilter');
+    const ud=getUserData(),role=String(ud.role||ud.rol||'').toLowerCase();
+    const userName=String(ud.nombre||ud.name||ud.username||'').trim();
+    const userUsername=String(ud.username||'').trim();
+    const isAdm=isAdminOrBackoffice(role),isAgt=isAgent(role),isSup=isSupervisor(role);
+    const normName=function(s){return String(s||'').replace(/[._]/g,' ').replace(/\s+/g,' ').trim().toLowerCase().split(' ').filter(Boolean).slice(0,2).join(' ');};
+
+    __allLeadsData.forEach(function(l){
+      if(!l)return;
+      // Filtro rol agente
+      if(isAgt){
+        const norm=function(s){return String(s||'').replace(/\./g,' ').trim().toLowerCase();};
+        if(norm(l.agente)!==norm(userName)&&norm(l.agente)!==norm(userUsername))return;
+      } else if(isSup){
+        const leadSup=String(l.supervisor||'').trim().toUpperCase();
+        const userNomUpper=userName.replace(/\./g,' ').trim().toUpperCase();
+        const kws=userNomUpper.split(/\s+/).filter(function(w){return w.length>=4;});
+        const teamKws=String(ud.team||'').trim().toUpperCase().replace(/\bTEAM\b/g,'').trim().split(/\s+/).filter(function(w){return w.length>=4;});
+        if(!kws.concat(teamKws).some(function(kw){return leadSup.includes(kw);}))return;
+      }
+      // Filtros de selects
+      if(fTeam&&String(l.supervisor||'').toUpperCase().indexOf(fTeam.toUpperCase())===-1)return;
+      if(fAgent&&normName(l.agente)!==normName(fAgent)&&normName(l.agenteNombre||'')!==normName(fAgent))return;
+      if(fMercado&&l.mercado!==fMercado)return;
+      if(fSvc){const su=fSvc.toUpperCase();if(String(l.servicios||'').toUpperCase().indexOf(su)===-1&&String(l.tipo_servicio||'').toUpperCase().indexOf(su)===-1)return;}
+
+      const dv=String(l.dia_venta||'').slice(0,10);
+      const st=l.status;
+      const dvYM=toYM(l.dia_venta);
+      const diYM=toYM(l.dia_instalacion);
+      if(st==='oficina'){kpi.oficina++;return;}
+      if(st==='reserva'){kpi.reserva++;return;}
+      // Colchón: instalado en refMon, vendido en mes anterior
+      const isColForMon=!!(dvYM&&diYM&&diYM===refMon&&dvYM!==refMon);
+      // Normal: dia_venta en el mes
+      const isNormalMon=(dvYM===refMon);
+      if(!isColForMon&&!isNormalMon)return;
+      if(isColForMon){
+        // Colchón: suma a colchon, y a activas si está completed/active
+        kpi.colchon++;
         if(st==='completed'||st==='active')kpi.activas++;
-        else if(st==='pending')kpi.pend++;
-        else if(st==='cancelled')kpi.cancel++;
-        else if(st==='oficina')kpi.oficina++;
-        else if(st==='reserva')kpi.reserva++;
-        else if(st==='hold')kpi.hold++;
-      });
-    } else {
-      // When no month is selected, use the original logic (count by status and month range)
-      __filteredLeads.forEach(function(l){
-        if(!l)return;
-        const dv=String(l.dia_venta||'').slice(0,10),st=l.status,isCol=!!l._es_colchon;
-        if(st==='oficina'){kpi.oficina++;return;}
-        if(st==='reserva'){kpi.reserva++;return;}
-        if(isCol){if(st==='completed'||st==='active')kpi.colchon++;return;}
-        if(!dv.startsWith(curMon))return;
-        if(dv===today)kpi.hoy++;
-        if(st==='completed'||st==='active'){kpi.mes++;kpi.activas++;}
-        else if(st==='pending'){kpi.mes++;kpi.pend++;}
-        else if(st==='cancelled'){kpi.cancel++;}
-      });
-    }
-    
+        return;
+      }
+      // Lead normal (dia_venta en el mes)
+      if(dv===today)kpi.hoy++;
+      if(st==='completed'||st==='active'){kpi.mes++;kpi.activas++;}
+      else if(st==='pending'){kpi.mes++;kpi.pend++;}
+      else if(st==='cancelled')kpi.cancel++;
+    });
+
     animateCount('costumer-ventas-hoy',kpi.hoy);
     animateCount('costumer-ventas-mes',kpi.mes);
-    animateCount('costumer-ventas-activas',inclCol?kpi.activas+kpi.colchon:kpi.activas);
+    animateCount('costumer-ventas-activas',kpi.activas);
     animateCount('costumer-pendientes',kpi.pend);
     animateCount('costumer-cancelados',kpi.cancel);
     animateCount('costumer-oficina',kpi.oficina);
@@ -1824,7 +1879,7 @@
 
     const searchEl=document.getElementById('costumer-search');if(searchEl)searchEl.addEventListener('input',applyFiltersDebounced);
     const refreshBtn=document.getElementById('refresh-table');
-    if(refreshBtn)refreshBtn.addEventListener('click',async function(){refreshBtn.disabled=true;refreshBtn.textContent='↻ Cargando…';const data=await fetchBootstrap();if(data){_applyBootstrapFilters(data);window.renderCostumerTable(data.leads||[]);}refreshBtn.disabled=false;refreshBtn.textContent='↻ Refrescar';});
+    if(refreshBtn)refreshBtn.addEventListener('click',async function(){refreshBtn.disabled=true;refreshBtn.textContent='↻ Cargando…';__allDataLoaded=false;const data=await fetchBootstrap();if(data){_applyBootstrapFilters(data);window.renderCostumerTable(data.leads||[]);}refreshBtn.disabled=false;refreshBtn.textContent='↻ Refrescar';});
     document.querySelectorAll('#quickStatusChips .stab').forEach(function(btn){btn.addEventListener('click',function(){document.querySelectorAll('#quickStatusChips .stab').forEach(function(b){b.classList.remove('is-active');});btn.classList.add('is-active');activeStatusTab=btn.dataset.status||'all';currentPage=1;applyFiltersDebounced();});});
     const pagePrev=document.getElementById('pagePrev'),pageNext=document.getElementById('pageNext');
     if(pagePrev)pagePrev.addEventListener('click',function(){if(currentPage>1){currentPage--;renderTableRows();}});
@@ -1838,10 +1893,11 @@
     const monthFilterEl=document.getElementById('monthFilter');
     if(monthFilterEl)monthFilterEl.addEventListener('change',async function(){
       const m=this.value;
-      // Cuando se elige "Todos", desactivar el límite de 2 meses para mostrar todo
+      // Todos → onlyTwoMonths=true (sin colchones); mes específico → false (incluye colchones)
       if(!m){onlyTwoMonths=true;if(tmBtn){tmBtn.textContent='Todos los meses';tmBtn.classList.add('active');}}
+      else{onlyTwoMonths=false;__allDataLoaded=false;if(tmBtn){tmBtn.textContent='Solo 2 meses';tmBtn.classList.remove('active');}}
       const data=await fetchBootstrap(m===''?'__all':m);
-      if(data){_applyBootstrapFilters(data);window.renderCostumerTable(data.leads||[]);}
+      if(data){if(!m)__allDataLoaded=true;_applyBootstrapFilters(data);window.renderCostumerTable(data.leads||[]);}
     });
     ['serviceFilter','teamFilter','agentFilter','mercadoFilter'].forEach(function(id){const el=document.getElementById(id);if(el)el.addEventListener('change',applyFiltersDebounced);});
     const compactBtn=document.getElementById('toggle-compact'),table=document.querySelector('.costumer-table');if(compactBtn&&table)compactBtn.addEventListener('click',function(){table.classList.toggle('compact-mode');});

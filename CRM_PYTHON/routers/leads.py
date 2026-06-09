@@ -138,18 +138,38 @@ async def leads_bootstrap(
             now = datetime.utcnow()
             if month and re.match(r"^\d{4}-\d{2}$", month):
                 yr, mo = map(int, month.split("-"))
+                has_month_filter = True
             else:
                 yr, mo = now.year, now.month
-            dts = f"{yr}-{mo:02d}-01"
+                has_month_filter = False
+
+            # Si NO hay mes específico, retorna últimos 3 meses para permitir búsquedas
+            if not has_month_filter:
+                _mo_back = mo - 3 if mo >= 3 else mo + 9
+                _yr_back = yr if mo >= 3 else yr - 1
+                params["dts"] = f"{_yr_back}-{_mo_back:02d}-01"
+            else:
+                params["dts"] = f"{yr}-{mo:02d}-01"
+
+            dts = params["dts"]
             _, last_day = calendar.monthrange(yr, mo)
             dte = f"{yr}-{mo:02d}-{last_day:02d}"
-            where.append("dia_venta >= :dts AND dia_venta < :dte_excl")
-            import calendar as _c2
             _nm2 = mo + 1 if mo < 12 else 1
             _ny2 = yr if mo < 12 else yr + 1
             params["dte_excl"] = f"{_ny2}-{_nm2:02d}-01"
-            params["dts"] = dts
             params["dte"] = dte
+            # YYYY-MM para comparaciones con LEFT() — mismo patrón que otros endpoints
+            params["dts_ym"]      = params["dts"][:7]       # e.g. '2026-06'
+            params["dte_excl_ym"] = params["dte_excl"][:7]  # e.g. '2026-07'
+
+            where.append("""(
+                (dia_venta >= :dts AND dia_venta < :dte_excl)
+                OR (dia_instalacion IS NOT NULL
+                    AND LEFT(dia_instalacion,7) >= :dts_ym
+                    AND LEFT(dia_instalacion,7) < :dte_excl_ym
+                    AND (dia_venta IS NULL OR LEFT(dia_venta,7) < LEFT(dia_instalacion,7)))
+                OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at >= :dts AND created_at < :dte_excl)
+            )""")
         params["_lim"] = min(int(limit), 20000)
         where_sql = " AND ".join(where)
         count_params = {k: v for k, v in params.items() if k != "_lim"}
@@ -511,10 +531,11 @@ async def list_leads(
             where.append("(agente_nombre = :u OR agente = :u OR created_by = :u)")
             params["u"] = username
 
-    # Date filter
+    # Date filter - skip if there's an active search
+    has_search = bool(tel_val or nombre_cliente or direccion)
     disable_auto = str(noAutoMonth or "").lower() in ("1", "true")
     is_global = any(str(v or "").lower() in ("true", "1") for v in [allData, noFilter, skipDate])
-    if not is_global and not disable_auto and not fechaInicio and not fechaFin:
+    if not is_global and not disable_auto and not fechaInicio and not fechaFin and not has_search:
         now = datetime.utcnow()
         if month and re.match(r"^\d{4}-\d{2}$", month):
             yr, mo = map(int, month.split("-"))

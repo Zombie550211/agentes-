@@ -125,6 +125,26 @@
     .rk-spinner{width:18px;height:18px;border:2px solid var(--bdr);border-top-color:var(--blue-d);border-radius:50%;animation:spin .7s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
 
+    /* ── Team cards grid ── */
+    .team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;padding:18px 22px}
+    .team-card{background:var(--bdr-soft);border:1.5px solid var(--bdr);border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:10px;transition:transform .18s,box-shadow .18s;cursor:default}
+    .team-card:hover{transform:translateY(-3px);box-shadow:0 6px 20px rgba(0,0,0,.10)}
+    .team-card-header{display:flex;align-items:center;gap:10px}
+    .team-card-avatar{width:40px;height:40px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;color:#fff}
+    .team-card-name{font-size:.8rem;font-weight:700;color:var(--t1);line-height:1.2}
+    .team-card-agents{font-size:.62rem;color:var(--t3);margin-top:1px}
+    .team-card-pos{margin-left:auto;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:800;border:1.5px solid var(--bdr);color:var(--t3);flex-shrink:0}
+    .team-card-pos.pos-1{background:rgba(234,88,12,.12);color:#ea580c;border-color:rgba(234,88,12,.3)}
+    .team-card-pos.pos-2{background:rgba(100,116,139,.10);color:#64748b;border-color:rgba(100,116,139,.25)}
+    .team-card-pos.pos-3{background:rgba(22,163,74,.10);color:#16a34a;border-color:rgba(22,163,74,.25)}
+    .team-card-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+    .team-stat{display:flex;flex-direction:column;align-items:center;background:var(--card);border:1px solid var(--bdr);border-radius:10px;padding:6px 4px}
+    .team-stat-val{font-size:.95rem;font-weight:800;color:var(--t1);line-height:1}
+    .team-stat-lbl{font-size:.55rem;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-top:3px}
+    .team-card-bar-wrap{height:4px;background:var(--bdr);border-radius:99px;overflow:hidden}
+    .team-card-bar{height:100%;border-radius:99px;background:linear-gradient(90deg,#2563eb,#3b82f6);transition:width .8s cubic-bezier(.34,1.56,.64,1)}
+    .team-card-pts{font-size:.75rem;font-weight:700;color:var(--blue-d);text-align:right}
+
     body.dark-theme .rk-header,body.dark-theme .rk-kpi,body.dark-theme .rk-table-card{background:var(--card);border-color:var(--bdr)}
     body.dark-theme .rk-toggle-btn.active{box-shadow:0 1px 4px rgba(0,0,0,.25)}
 
@@ -169,6 +189,14 @@
     .rk-nav-btn { border-color: rgba(255,255,255,0.10) !important; }
     .rk-kpi-icon { background: rgba(255,255,255,0.08) !important; }
     .main-content { background: transparent !important; }
+    /* Barras de progreso visibles en tema oscuro */
+    .rk-bar-wrap { background: rgba(255,255,255,0.10) !important; }
+    .rk-bar { background: rgba(59,130,246,0.45) !important; }
+    .rk-bar.top { background: linear-gradient(90deg,#2563eb,#3b82f6) !important; }
+    /* Team cards */
+    .team-card { background: rgba(5,15,35,0.45) !important; border-color: rgba(255,255,255,0.10) !important; }
+    .team-stat { background: rgba(5,15,35,0.55) !important; border-color: rgba(255,255,255,0.08) !important; }
+    .team-card-bar-wrap { background: rgba(255,255,255,0.10) !important; }
   </style>
 </head>
 <body>
@@ -186,7 +214,6 @@
       </div>
       <div class="rk-tabs">
         <button class="rk-tab active" data-mode="puntaje"><i class="fas fa-bolt"></i> Ranking de Activación</button>
-        <button class="rk-tab" data-mode="ventas"><i class="fas fa-chart-line"></i> Ranking de Ventas</button>
         <button class="rk-tab" data-mode="att"><i class="fas fa-signal"></i> Ranking AT&T / Frontier</button>
       </div>
       <div class="rk-month">
@@ -210,7 +237,7 @@
       </div>
       <div class="rk-kpi">
         <div class="rk-kpi-icon" style="background:#faf5ff"><i class="fas fa-arrow-trend-up" style="color:#9333ea"></i></div>
-        <div><div class="rk-kpi-label">Ventas Totales</div><div class="rk-kpi-val" id="kpi-ventas" style="color:#9333ea">—</div><div class="rk-kpi-sub">Este mes</div></div>
+        <div><div class="rk-kpi-label">Ventas Totales Activas</div><div class="rk-kpi-val" id="kpi-ventas" style="color:#9333ea">—</div><div class="rk-kpi-sub">Del mes actual</div></div>
       </div>
       <div class="rk-kpi">
         <div class="rk-kpi-icon" style="background:#fffbeb"><i class="fas fa-bed" style="color:#d97706"></i></div>
@@ -273,13 +300,13 @@
   function initials(n){return(n||'').split(/\s+/).filter(Boolean).map(function(w){return w[0];}).join('').toUpperCase().slice(0,2)||'??';}
   function set(id,v){var e=document.getElementById(id);if(e)e.textContent=v;}
   function updateLabel(){var el=document.getElementById('rank-period-label');if(el)el.textContent=MONTHS[curM]+' '+curY;}
-  function getScore(a){if(_mode==='ventas')return Number(a.ventas||0);if(_mode==='att')return Number(a.ventas_att||a.att||a.ventas||0);return Number(a.puntaje||a.puntos||a.sum_puntaje||a.score||0);}
+  function getScore(a){if(_mode==='att')return Number(a.ventas_att||a.att||a.ventas||0);return Number(a.puntaje||a.puntos||a.sum_puntaje||a.score||0);}
 
   async function load(){
     var lastDay=new Date(curY,curM+1,0).getDate();
     var dts=curY+'-'+String(curM+1).padStart(2,'0')+'-01';
     var dte=curY+'-'+String(curM+1).padStart(2,'0')+'-'+String(lastDay).padStart(2,'0');
-    var base='/api/ranking?fechaInicio='+dts+'&fechaFin='+dte+'&limit=200';
+    var base='/api/ranking?fechaInicio='+dts+'&fechaFin='+dte+'&limit=200&statuses=COMPLETED';
     try{
       if(_mode==='att'){
         var [r1,r2]=await Promise.all([fetch(base+'&servicio=AT%26T',{credentials:'include'}),fetch(base+'&servicio=FRONTIER',{credentials:'include'})]);
@@ -305,10 +332,11 @@
     var totalPts=_data.reduce(function(s,a){return s+Number(a.puntaje||a.puntos||a.sum_puntaje||a.score||0);},0);
     var totalV=_data.reduce(function(s,a){return s+Number(a.ventas||0);},0);
     var totalC=_data.reduce(function(s,a){return s+Number(a.colchon||a.colchón||0);},0);
-    var totalVActivas=_data.reduce(function(s,a){var st=String(a.status||'').toLowerCase();if(st==='active'||st==='completed')return s+Number(a.ventas||0);return s;},0);
+    var totalA=_data.reduce(function(s,a){return s+Number(a.activas||0);},0);
 
     set('kpi-agentes',_data.length);set('kpi-puntos',totalPts.toFixed(2));set('kpi-ventas',totalV);set('kpi-colchon',totalC);
-    set('kpi-total-val',totalVActivas);
+    // "Total Ventas Activas" = activas del período (completed normales + completed colchón)
+    set('kpi-total-val', totalA || (totalV + totalC));
   }
 
   function renderList(){
@@ -317,8 +345,16 @@
     var items;
     if(_view==='team'){
       var teams={};
-      _data.forEach(function(a){var t=(a.team||a.equipo||a.supervisor||'Sin equipo').trim();if(!teams[t])teams[t]={name:t,ventas:0,pts:0,colchon:0,agents:0};teams[t].ventas+=Number(a.ventas||0);teams[t].pts+=Number(a.puntaje||a.puntos||a.sum_puntaje||a.score||0);teams[t].colchon+=Number(a.colchon||a.colchón||0);teams[t].agents++;});
-      items=Object.values(teams).sort(function(a,b){return b.pts-a.pts;});
+      _data.forEach(function(a){
+        var t=String(a.team||a.equipo||'').trim()||'Sin equipo';
+        if(!teams[t])teams[t]={name:t,ventas:0,colchon:0,activas:0,pts:0,agents:0};
+        teams[t].ventas+=Number(a.ventas||0);
+        teams[t].colchon+=Number(a.colchon||a.colchón||0);
+        teams[t].activas+=Number(a.activas||0);
+        teams[t].pts+=Number(a.puntaje||a.puntos||a.sum_puntaje||a.score||0);
+        teams[t].agents++;
+      });
+      items=Object.values(teams).filter(function(t){return t.name!=='Sin equipo';}).sort(function(a,b){return b.pts-a.pts;});
     }else{items=_data.slice().sort(function(a,b){return getScore(b)-getScore(a);});}
     if(!items.length){container.innerHTML='<div class="rk-loading"><i class="fas fa-inbox" style="font-size:1.5rem;opacity:.25"></i><span style="margin-left:8px">Sin datos para este período</span></div>';return;}
     var maxScore=_view==='team'?items[0].pts:getScore(items[0])||1;
@@ -329,7 +365,8 @@
       var sup=_view==='team'?(a.agents+' agentes'):(esc(a.supervisor||a.cargo||a.team||''));
       var ventas=_view==='team'?a.ventas:Number(a.ventas||0);
       var colchon=_view==='team'?a.colchon:Number(a.colchon||a.colchón||0);
-      var total=ventas+(colchon||0);
+      var activas=_view==='team'?a.activas:Number(a.activas||0);
+      var total=_view==='team'?(activas||ventas+colchon):Number(a.total||ventas+colchon);
       var score=_view==='team'?a.pts:getScore(a);
       var barW=Math.round((score/maxScore)*100);
       var color=avatarColor(name);var ini=initials(name);
