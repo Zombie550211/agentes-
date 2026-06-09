@@ -488,7 +488,13 @@
         }
       }
       if(svc){const svcUp=svc.toUpperCase();const inSvc=String(lead.servicios||'').toUpperCase().indexOf(svcUp)!==-1;const inTipo=String(lead.tipo_servicio||'').toUpperCase().indexOf(svcUp)!==-1;if(!inSvc&&!inTipo)return false;}
-      if(team&&String(lead.supervisor||'').toUpperCase().indexOf(team.toUpperCase())===-1)return false;
+      if(team){
+        // Quitar prefijo "Team " para comparar sin importar si el lead lo trae o no
+        const normTeamStr=function(s){return String(s||'').toUpperCase().replace(/^TEAM\s+/,'').trim();};
+        const tNorm=normTeamStr(team);
+        const sNorm=normTeamStr(lead.supervisor);
+        if(tNorm&&sNorm.indexOf(tNorm)===-1&&tNorm.indexOf(sNorm)===-1)return false;
+      }
       if(agent){
         const normA=function(s){return String(s||'').replace(/[._]/g,' ').replace(/\s+/g,' ').trim().toLowerCase().split(' ').filter(Boolean).slice(0,2).join(' ');};
         const agentOk=normA(lead.agente)===normA(agent)||normA(lead.agenteNombre||'')===normA(agent)||normA(lead.createdBy||'')===normA(agent);
