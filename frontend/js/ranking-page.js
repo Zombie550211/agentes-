@@ -370,37 +370,7 @@
         _label('first', top1); _label('second', top2); _label('third', top3);
       } catch(e) { console.warn('[RANKING] label sync error', e); }
       window.__rankFullList = list;
-
-      const container = document.getElementById('rank-list-dynamic');
-      if (container) {
-        const viewAll = !!window.__rankViewAll;
-        const topN = viewAll ? list : list.slice(0, 10);
-        const rest = topN.length > 3 ? topN.slice(3) : topN;
-        container.innerHTML = '';
-        rest.forEach((agent, idx) => {
-          const li = document.createElement('div'); li.className = 'rank-item';
-          const position = agent.position || agent.posicion || (idx + 4);
-          const name = escapeHtml(resolveDisplayName(agent));
-          const role = escapeHtml(agent.cargo || '');
-          const pointsValue = formatScore(getScoreFromItem(agent));
-          const salesValue = Number(agent.total ?? agent.ventas ?? 0);
-          const avatarMarkup = renderAvatarHtml(agent, resolveDisplayName(agent) || 'Avatar');
-          li.innerHTML = `\n                  <span class="rank-number">${position}</span>\n                  <div class="agent-info">\n                    <div class="agent-avatar">${avatarMarkup}</div>\n                    <div class="agent-details">\n                      <h4>${name}</h4>\n                      <p>${role}</p>\n                    </div>\n                  </div>\n                  <div class="agent-stats">\n                    <span class="points">${escapeHtml(pointsValue)} pts</span>\n                    <span class="sales">${escapeHtml(salesValue.toString())} ventas</span>\n                  </div>`;
-          container.appendChild(li);
-        });
-      }
-
-      const table = document.getElementById('full-rank-table');
-      if (table) {
-        const tbody = table.querySelector('tbody');
-        tbody.innerHTML = '';
-        const dataForTable = (window.__rankViewAll ? list : list.slice(0,10));
-        dataForTable.forEach((agent, idx) => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `\n                  <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.position || agent.posicion || (idx + 1)}</td>\n                  <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${escapeHtml(resolveDisplayName(agent))}</td>\n                  <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">${agent.total ?? agent.ventas ?? 0}</td>\n                  <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${formatScore((agent.sumPuntaje ?? agent.puntos ?? 0))}</td>\n                `;
-          tbody.appendChild(tr);
-        });
-      }
+      renderRankList(list);
 
       // Configure 'Ver todos' button
       const btn = document.getElementById('btn-open-full-ranking');
@@ -475,7 +445,7 @@
               const name = escapeHtml(resolveDisplayName(agent));
               const role = escapeHtml(agent.cargo || '');
               const pointsValue = formatScore(getScoreFromItem(agent));
-              const salesValue = Number(agent.total ?? agent.ventas ?? 0);
+              const salesValue = getSalesCount(agent);
               const avatarMarkup = renderAvatarHtml(agent, resolveDisplayName(agent) || 'Avatar');
               li.innerHTML = `\n                    <span class="rank-number">${position}</span>\n                    <div class="agent-info">\n                      <div class="agent-avatar">${avatarMarkup}</div>\n                      <div class="agent-details">\n                        <h4>${name}</h4>\n                        <p>${role}</p>\n                      </div>\n                    </div>\n                    <div class="agent-stats">\n                      <span class="points">${escapeHtml(pointsValue)} pts</span>\n                      <span class="sales">${escapeHtml(salesValue.toString())} ventas</span>\n                    </div>`;
               container2.appendChild(li);
@@ -487,7 +457,7 @@
             const data2 = window.__rankViewAll ? listSaved : listSaved.slice(0, 10);
             data2.forEach((agent, idx) => {
               const tr = document.createElement('tr');
-              tr.innerHTML = `\n                      <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.position || agent.posicion || (idx + 1)}</td>\n                      <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${escapeHtml(resolveDisplayName(agent))}</td>\n                      <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">${agent.total ?? agent.ventas ?? 0}</td>\n                      <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${formatScore((agent.sumPuntaje ?? agent.puntos ?? 0))}</td>\n                    `;
+              tr.innerHTML = `\n                      <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.position || agent.posicion || (idx + 1)}</td>\n                      <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${escapeHtml(resolveDisplayName(agent))}</td>\n                      <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">${getSalesCount(agent)}</td>\n                      <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${formatScore((agent.sumPuntaje ?? agent.puntos ?? 0))}</td>\n                    `;
               tbody2.appendChild(tr);
             });
           }
@@ -500,17 +470,36 @@
   // Exponer la función para usar desde la consola o desde el botón UI
   try { window.loadRankingTop3 = loadRankingTop3; } catch(e) {}
 
-  // Registrar botón de forzar ranking completo si existe en la página
+  // Helper: devuelve el contador de ventas según si colchón está activo
+  function getSalesCount(agent) {
+    return Number(window.__sumarColchon ? (agent.total ?? agent.ventas ?? 0) : (agent.ventas ?? 0));
+  }
+
+  // Renderiza la lista con la data en memoria (llama a updateRankingUI)
+  function renderRankList(list) {
+    if (typeof updateRankingUI === 'function') updateRankingUI(list);
+  }
+  window.renderRankList = renderRankList;
+
+  // Botón "Sumar Colchón" — re-renderiza sin re-fetch
   document.addEventListener('DOMContentLoaded', () => {
-    const btn = document.getElementById('btn-toggle-force-all');
+    const btn = document.getElementById('btn-sumar-colchon');
     if (!btn) return;
-    btn.style.display = 'inline-block';
-    btn.textContent = window.__forceAllRanking ? 'Forzar: ON' : 'Forzar: OFF';
+    window.__sumarColchon = false;
     btn.addEventListener('click', () => {
-      window.__forceAllRanking = !window.__forceAllRanking;
-      btn.textContent = window.__forceAllRanking ? 'Forzar: ON' : 'Forzar: OFF';
-      // Recargar ranking con la nueva configuración
-      loadRankingTop3().catch(e => console.warn('loadRankingTop3 error', e));
+      window.__sumarColchon = !window.__sumarColchon;
+      if (window.__sumarColchon) {
+        btn.style.background = 'rgba(139,92,246,0.70)';
+        btn.style.borderColor = 'rgba(139,92,246,0.90)';
+        btn.textContent = '🛏 Colchón: ON';
+      } else {
+        btn.style.background = 'rgba(139,92,246,0.25)';
+        btn.style.borderColor = 'rgba(139,92,246,0.55)';
+        btn.textContent = '🛏 Sumar Colchón';
+      }
+      // Re-renderizar con la data ya en memoria
+      const list = window.__rankFullList || [];
+      if (list.length) renderRankList(list);
     });
   });
 
@@ -623,7 +612,7 @@
           const name = escapeHtml(resolveDisplayName(agent));
           const role = escapeHtml(agent.cargo||'');
           const pointsValue = fmt(getScore(agent));
-          const salesValue = Number(agent.total??agent.ventas??0);
+          const salesValue = getSalesCount(agent);
           const avatarMarkup = renderAvatarHtml(agent, resolveDisplayName(agent) || 'Avatar');
           li.innerHTML=`\n                  <span class="rank-number">${position}</span>\n                  <div class="agent-info">\n                    <div class="agent-avatar">${avatarMarkup}</div>\n                    <div class="agent-details">\n                      <h4>${name}</h4>\n                      <p>${role}</p>\n                    </div>\n                  </div>\n                  <div class="agent-stats">\n                    <span class="points">${escapeHtml(pointsValue)} pts</span>\n                    <span class="sales">${escapeHtml(salesValue.toString())} ventas</span>\n                  </div>`;
           container.appendChild(li);
@@ -631,7 +620,7 @@
       }
       const table=document.getElementById('full-rank-table');
       if(table){
-        const tbody=table.querySelector('tbody'); if(tbody){ tbody.innerHTML=''; (safe.slice(0,10)).forEach((agent,idx)=>{ const tr=document.createElement('tr'); tr.innerHTML=`\n                    <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.position||agent.posicion||(idx+1)}</td>\n                    <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${escapeHtml(resolveDisplayName(agent))}</td>\n                    <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">${agent.total??agent.ventas??0}</td>\n                    <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${fmt(getScore(agent))}</td>`; tbody.appendChild(tr); }); }
+        const tbody=table.querySelector('tbody'); if(tbody){ tbody.innerHTML=''; (safe.slice(0,10)).forEach((agent,idx)=>{ const tr=document.createElement('tr'); tr.innerHTML=`\n                    <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${agent.position||agent.posicion||(idx+1)}</td>\n                    <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${escapeHtml(resolveDisplayName(agent))}</td>\n                    <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right;">${getSalesCount(agent)}</td>\n                    <td style="padding:8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${fmt(getScore(agent))}</td>`; tbody.appendChild(tr); }); }
       }
     }catch(e){ console.warn('[RANKING] update UI error', e); }
   }
