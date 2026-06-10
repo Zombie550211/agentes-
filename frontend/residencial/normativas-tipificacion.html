@@ -18,271 +18,183 @@
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     html,body{height:100%;font-family:'Outfit',sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
-
     body{background:#070b14;color:#f1f5f9;}
     body::before{content:'';position:fixed;inset:0;z-index:0;background:url('/images/ESTADIOOO.jpeg') center/cover no-repeat;}
-    body::after{content:'';position:fixed;inset:0;z-index:1;background:rgba(3,6,18,0.88);}
+    body::after{content:'';position:fixed;inset:0;z-index:1;background:rgba(3,6,18,0.93);}
     body *,body *::before,body *::after{color:#f1f5f9 !important;}
 
-    /* ── Estructura raíz ── */
     #app-container{height:100vh;position:relative;z-index:2;}
 
-    /* ── Panel derecho de contenido ── */
+    /* Layout raiz */
     .tipo-page{
-      display:flex;flex-direction:column;overflow:hidden;
+      display:flex;flex-direction:column;
       height:100vh;
       margin-left:var(--sidebar-width,260px);
+      overflow:hidden;
     }
 
-    /* ── Grid interior: nav-tipo | main | errores ── */
-    .tipo-wrap{
-      flex:1;display:grid;
-      grid-template-columns:162px 1fr 262px;
-      overflow:hidden;min-height:0;
-    }
+    /* Dos columnas */
+    .norma-wrap{flex:1;display:flex;overflow:hidden;min-height:0;}
 
-    /* ════════════════════════════════════════
-       NAVEGACIÓN IZQUIERDA TIPIFICACIÓN
-    ════════════════════════════════════════ */
-    .tipo-nav{
-      background:rgba(4,9,24,0.75);
-      border-right:1px solid rgba(255,255,255,.07);
-      display:flex;flex-direction:column;overflow-y:auto;
+    .col-criterios{
+      flex:1;overflow-y:auto;
+      border-right:1px solid rgba(255,255,255,.09);
+      display:flex;flex-direction:column;
     }
-    .tipo-brand{
-      padding:16px 14px 14px;
+    .col-inbound{
+      flex:1;overflow-y:auto;
+      display:flex;flex-direction:column;
+    }
+    .col-criterios::-webkit-scrollbar,.col-inbound::-webkit-scrollbar{width:3px;}
+    .col-criterios::-webkit-scrollbar-thumb,.col-inbound::-webkit-scrollbar-thumb{background:rgba(255,255,255,.10);border-radius:3px;}
+
+    /* Cabeceras de columna */
+    .col-header{
+      display:flex;align-items:center;gap:14px;
+      padding:14px 18px 12px;
+      background:rgba(4,9,28,0.85);
       border-bottom:1px solid rgba(255,255,255,.07);
+      flex-shrink:0;position:sticky;top:0;z-index:5;
     }
-    .brand-icon{
-      width:38px;height:38px;border-radius:50%;
+    .col-num{
+      width:38px;height:38px;border-radius:50%;flex-shrink:0;
       background:linear-gradient(135deg,#1d4ed8,#3b82f6);
       display:flex;align-items:center;justify-content:center;
-      font-size:.95rem;margin-bottom:8px;
+      font-size:1.10rem;font-weight:800;color:#fff !important;
     }
-    .brand-name{font-size:.72rem;font-weight:800;letter-spacing:.06em;line-height:1.3;color:#60a5fa !important;}
+    .col-title{font-size:.96rem;font-weight:800;letter-spacing:.02em;line-height:1.25;color:#f1f5f9 !important;}
 
-    .tipo-nav-list{flex:1;padding:10px 8px;display:flex;flex-direction:column;gap:2px;}
-    .tipo-nav-item{
-      display:flex;align-items:center;gap:10px;
-      padding:9px 10px;border-radius:8px;
-      font-size:.80rem;font-weight:500;cursor:pointer;
-      transition:background .15s;color:rgba(255,255,255,.80) !important;
-      text-decoration:none;
+    /* Banner advertencia */
+    .warn-banner{
+      margin:10px 14px 4px;padding:10px 14px;
+      background:rgba(180,25,25,.18);border:1px solid rgba(220,38,38,.40);
+      border-radius:8px;display:flex;align-items:center;gap:10px;
+      font-size:.77rem;line-height:1.45;flex-shrink:0;
     }
-    .tipo-nav-item:hover{background:rgba(255,255,255,.06);}
-    .tipo-nav-item.active{background:rgba(29,78,216,.25);border:1px solid rgba(59,130,246,.25);color:#93c5fd !important;}
-    .tipo-nav-item i{width:16px;text-align:center;font-size:.82rem;}
-    .tipo-nav-item.active i{color:#60a5fa !important;}
+    .warn-banner i{color:#f87171 !important;font-size:.92rem;flex-shrink:0;}
+    .warn-red{color:#f87171 !important;font-weight:700;}
 
-    .nav-ayuda{margin-top:auto;padding:8px;}
-    .nav-ayuda a{
-      display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:8px;
-      background:rgba(29,78,216,.15);border:1px solid rgba(59,130,246,.20);
-      font-size:.78rem;font-weight:600;color:#60a5fa !important;text-decoration:none;
+    /* Items criterios */
+    .crit-list{padding:8px 14px 14px;display:flex;flex-direction:column;gap:7px;}
+    .crit-item{
+      display:flex;align-items:flex-start;gap:12px;
+      background:rgba(8,18,50,0.70);
+      border:1px solid rgba(255,255,255,.07);
+      border-radius:10px;padding:10px 12px;
     }
-
-    .recuerda-box{
-      margin:8px;padding:12px;border-radius:10px;
-      background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.20);
+    .crit-icon{
+      width:40px;height:40px;border-radius:50%;flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;font-size:1rem;
     }
-    .recuerda-box .rec-title{font-size:.68rem;font-weight:800;letter-spacing:.08em;color:#fde047 !important;margin-bottom:6px;}
-    .recuerda-box p{font-size:.72rem;line-height:1.5;color:rgba(255,255,255,.82) !important;}
+    .crit-text{font-size:.755rem;line-height:1.58;color:rgba(255,255,255,.92) !important;flex:1;padding-top:2px;}
+    .crit-text strong{color:#fff !important;font-weight:700;}
 
-    /* ════════════════════════════════════════
-       ÁREA CENTRAL PRINCIPAL
-    ════════════════════════════════════════ */
-    .tipo-main{overflow-y:auto;padding:18px 16px 12px;display:flex;flex-direction:column;gap:14px;}
-    .tipo-main::-webkit-scrollbar{width:4px;}
-    .tipo-main::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:4px;}
+    /* Colores iconos */
+    .ic-green{background:rgba(22,163,74,.28);}
+    .ic-green i{color:#4ade80 !important;}
+    .ic-yellow{background:rgba(202,138,4,.28);}
+    .ic-yellow i{color:#fbbf24 !important;}
+    .ic-red{background:rgba(220,38,38,.28);}
+    .ic-red i{color:#f87171 !important;}
+    .ic-blue{background:rgba(37,99,235,.28);}
+    .ic-blue i{color:#60a5fa !important;}
+    .ic-orange{background:rgba(234,88,12,.28);}
+    .ic-orange i{color:#fb923c !important;}
 
-    /* Cabecera */
-    .tipo-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
-    .tipo-header-left h1{font-size:1.40rem;font-weight:700;line-height:1.15;}
-    .tipo-header-left h1 span{color:#3b82f6 !important;display:block;}
-    .tipo-header-left p{font-size:.78rem;color:rgba(255,255,255,.82) !important;margin-top:4px;}
-
-    .help-box{
-      flex-shrink:0;background:rgba(8,18,45,0.80);
-      border:1px solid rgba(255,255,255,.10);border-radius:10px;
-      padding:12px 14px;min-width:170px;max-width:200px;
-      display:flex;gap:10px;align-items:flex-start;
+    /* Secciones inbound */
+    .inb-list-wrap{padding:10px 14px 14px;display:flex;flex-direction:column;gap:10px;}
+    .inb-section{border-radius:10px;overflow:hidden;}
+    .inb-header{display:flex;align-items:center;gap:10px;padding:10px 14px;}
+    .inb-num{
+      width:26px;height:26px;border-radius:50%;flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;
+      font-size:.80rem;font-weight:800;color:#fff !important;
     }
-    .help-box .hb-icon{
-      width:30px;height:30px;border-radius:50%;border:2px solid #3b82f6;
-      display:flex;align-items:center;justify-content:center;flex-shrink:0;
-      font-size:.85rem;font-weight:700;color:#3b82f6 !important;
+    .inb-icon-wrap{
+      width:38px;height:38px;border-radius:9px;flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;font-size:1.05rem;
     }
-    .help-box .hb-title{font-size:.78rem;font-weight:700;color:#f1f5f9 !important;margin-bottom:3px;}
-    .help-box .hb-text{font-size:.70rem;line-height:1.45;color:rgba(255,255,255,.82) !important;}
-
-    /* Tabla de categorías */
-    .cat-table{border:1px solid rgba(255,255,255,.08);border-radius:12px;overflow:hidden;}
-    .cat-table-head{
-      display:grid;grid-template-columns:180px 1fr;
-      background:rgba(4,9,24,0.90);padding:8px 16px;
-      border-bottom:1px solid rgba(255,255,255,.08);
+    .inb-title{font-size:.82rem;font-weight:800;letter-spacing:.04em;}
+    .inb-body{padding:8px 14px 12px;}
+    .inb-bullets{display:flex;flex-direction:column;gap:5px;padding-left:2px;}
+    .inb-bullets li{
+      display:flex;align-items:flex-start;gap:8px;
+      font-size:.74rem;line-height:1.56;
+      color:rgba(255,255,255,.90) !important;list-style:none;
     }
-    .cat-table-head span{font-size:.68rem;font-weight:700;letter-spacing:.10em;color:rgba(255,255,255,.82) !important;}
-
-    /* Fila de categoría */
-    .cat-row{display:grid;grid-template-columns:180px 1fr;border-bottom:1px solid rgba(255,255,255,.06);}
-    .cat-row:last-child{border-bottom:none;}
-
-    /* Celda izquierda */
-    .cat-label{
-      padding:14px 12px;display:flex;flex-direction:column;align-items:flex-start;gap:8px;
-      border-right:1px solid rgba(255,255,255,.06);
+    .inb-bullets li::before{content:'•';flex-shrink:0;font-size:.85rem;margin-top:.5px;}
+    .inb-sub-list{margin-top:4px;margin-left:16px;display:flex;flex-direction:column;gap:3px;}
+    .inb-sub-list li{
+      font-size:.73rem;color:rgba(255,255,255,.85) !important;
+      list-style:none;display:flex;align-items:flex-start;gap:6px;
     }
-    .cat-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;}
-    .cat-title{font-size:.82rem;font-weight:800;letter-spacing:.04em;line-height:1.2;}
-    .cat-desc{font-size:.70rem;line-height:1.4;color:rgba(255,255,255,.82) !important;}
+    .inb-sub-list li::before{content:'✗';color:#f87171 !important;font-weight:700;}
 
-    /* Colores por categoría */
-    .row-sancion .cat-label{background:rgba(220,38,38,.06);border-left:3px solid #dc2626;}
-    .row-sancion .cat-icon{background:rgba(220,38,38,.18);}
-    .row-sancion .cat-title{color:#f87171 !important;}
-    .row-sancion .cat-icon i{color:#f87171 !important;}
+    /* Variantes de color */
+    .inb-blue{border:1px solid rgba(59,130,246,.22);border-left:3px solid #3b82f6;}
+    .inb-blue .inb-header{background:rgba(29,78,216,.20);border-bottom:1px solid rgba(59,130,246,.18);}
+    .inb-blue .inb-num{background:#2563eb;}
+    .inb-blue .inb-icon-wrap{background:rgba(59,130,246,.22);}
+    .inb-blue .inb-icon-wrap i{color:#60a5fa !important;}
+    .inb-blue .inb-title{color:#60a5fa !important;}
+    .inb-blue .inb-bullets li::before{color:#60a5fa !important;}
+    .inb-blue .inb-body{background:rgba(29,78,216,.06);}
 
-    .row-registro .cat-label{background:rgba(22,163,74,.06);border-left:3px solid #16a34a;}
-    .row-registro .cat-icon{background:rgba(22,163,74,.18);}
-    .row-registro .cat-title{color:#4ade80 !important;}
-    .row-registro .cat-icon i{color:#4ade80 !important;}
+    .inb-yellow{border:1px solid rgba(202,138,4,.22);border-left:3px solid #d97706;}
+    .inb-yellow .inb-header{background:rgba(161,98,7,.20);border-bottom:1px solid rgba(202,138,4,.18);}
+    .inb-yellow .inb-num{background:#b45309;}
+    .inb-yellow .inb-icon-wrap{background:rgba(202,138,4,.22);}
+    .inb-yellow .inb-icon-wrap i{color:#fbbf24 !important;}
+    .inb-yellow .inb-title{color:#fbbf24 !important;}
+    .inb-yellow .inb-bullets li::before{color:#fbbf24 !important;}
+    .inb-yellow .inb-body{background:rgba(161,98,7,.06);}
 
-    .row-casuistica .cat-label{background:rgba(217,119,6,.06);border-left:3px solid #d97706;}
-    .row-casuistica .cat-icon{background:rgba(217,119,6,.18);}
-    .row-casuistica .cat-title{color:#fbbf24 !important;}
-    .row-casuistica .cat-icon i{color:#fbbf24 !important;}
+    .inb-red{border:1px solid rgba(220,38,38,.22);border-left:3px solid #dc2626;}
+    .inb-red .inb-header{background:rgba(185,28,28,.20);border-bottom:1px solid rgba(220,38,38,.18);}
+    .inb-red .inb-num{background:#b91c1c;}
+    .inb-red .inb-icon-wrap{background:rgba(220,38,38,.22);}
+    .inb-red .inb-icon-wrap i{color:#f87171 !important;}
+    .inb-red .inb-title{color:#f87171 !important;}
+    .inb-red .inb-bullets li::before{color:#f87171 !important;}
+    .inb-red .inb-body{background:rgba(185,28,28,.06);}
 
-    .row-proceso .cat-label{background:rgba(37,99,235,.06);border-left:3px solid #2563eb;}
-    .row-proceso .cat-icon{background:rgba(37,99,235,.18);}
-    .row-proceso .cat-title{color:#60a5fa !important;}
-    .row-proceso .cat-icon i{color:#60a5fa !important;}
+    .inb-green{border:1px solid rgba(22,163,74,.22);border-left:3px solid #16a34a;}
+    .inb-green .inb-header{background:rgba(21,128,61,.20);border-bottom:1px solid rgba(34,197,94,.18);}
+    .inb-green .inb-num{background:#15803d;}
+    .inb-green .inb-icon-wrap{background:rgba(22,163,74,.22);}
+    .inb-green .inb-icon-wrap i{color:#4ade80 !important;}
+    .inb-green .inb-title{color:#4ade80 !important;}
+    .inb-green .inb-bullets li::before{color:#4ade80 !important;}
+    .inb-green .inb-body{background:rgba(21,128,61,.06);}
 
-    .row-precaucion .cat-label{background:rgba(202,138,4,.06);border-left:3px solid #ca8a04;}
-    .row-precaucion .cat-icon{background:rgba(202,138,4,.18);}
-    .row-precaucion .cat-title{color:#facc15 !important;}
-    .row-precaucion .cat-icon i{color:#facc15 !important;}
-
-    /* Celda de contenido */
-    .cat-content{padding:12px 14px;display:flex;flex-direction:column;gap:6px;justify-content:center;}
-
-    /* Items genéricos */
-    .ci-item{display:flex;align-items:flex-start;gap:8px;font-size:.78rem;line-height:1.5;color:rgba(255,255,255,.80) !important;}
-    .ci-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:5px;}
-    .dot-red{background:#f87171;}
-    .dot-green{background:#4ade80;}
-    .dot-amber{background:#fbbf24;}
-    .dot-blue{background:#60a5fa;}
-    .ci-check{color:#4ade80 !important;font-size:.75rem;flex-shrink:0;margin-top:2px;}
-
-    /* Caja consecuencia (sanciones) */
-    .conseq-box{
-      margin-top:4px;padding:7px 10px;
-      background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.30);
-      border-radius:6px;font-size:.76rem;font-weight:500;
-      color:#fca5a5 !important;display:flex;align-items:center;gap:6px;
+    /* Barra inferior */
+    .norma-bottom{
+      height:50px;flex-shrink:0;
+      background:rgba(3,6,18,0.96);
+      border-top:1px solid rgba(255,255,255,.08);
+      display:flex;align-items:stretch;
     }
-    .conseq-box i{color:#f87171 !important;font-size:.75rem;}
-
-    /* Registro: flex row con checklist */
-    .registro-flex{display:flex;gap:12px;align-items:flex-start;}
-    .registro-items{flex:1;display:flex;flex-direction:column;gap:5px;}
-    .checklist-box{
-      flex-shrink:0;width:150px;padding:10px 12px;
-      background:rgba(22,163,74,.10);border:1px solid rgba(34,197,94,.30);
-      border-radius:8px;text-align:center;
+    .nb-left{
+      flex:1;display:flex;align-items:center;gap:12px;
+      padding:0 22px;
+      border-right:1px solid rgba(255,255,255,.08);
     }
-    .checklist-box .cl-icon{font-size:1.1rem;color:#4ade80 !important;margin-bottom:4px;}
-    .checklist-box .cl-title{font-size:.68rem;font-weight:800;letter-spacing:.08em;color:#4ade80 !important;margin-bottom:5px;}
-    .checklist-box p{font-size:.68rem;line-height:1.4;color:rgba(255,255,255,.80) !important;}
-
-    /* Casuística: items con sub-label */
-    .ca-item{display:flex;align-items:flex-start;gap:8px;font-size:.77rem;line-height:1.5;}
-    .ca-label{font-weight:600;color:#fbbf24 !important;}
-
-    /* Proceso de venta */
-    .proc-rule-box{
-      background:rgba(8,18,45,0.70);border:1px solid rgba(255,255,255,.10);
-      border-radius:8px;padding:10px 12px;
+    .nb-icon-info{
+      width:30px;height:30px;border-radius:50%;flex-shrink:0;
+      background:#1d4ed8;display:flex;align-items:center;justify-content:center;
+      font-size:.82rem;font-weight:800;color:#fff !important;
     }
-    .proc-rule-title{display:flex;align-items:center;gap:6px;font-size:.78rem;font-weight:700;color:#f1f5f9 !important;margin-bottom:5px;}
-    .proc-rule-title i{color:#ef4444 !important;font-size:.9rem;}
-    .proc-rule-sub{font-size:.76rem;color:rgba(255,255,255,.82) !important;margin-bottom:7px;}
-    .proc-badge{
-      display:inline-block;padding:4px 12px;border-radius:20px;
-      background:rgba(59,130,246,.25);border:1px solid rgba(59,130,246,.45);
-      font-size:.76rem;font-weight:700;color:#93c5fd !important;
+    .nb-left-text{font-size:.73rem;line-height:1.4;color:rgba(255,255,255,.88) !important;}
+    .nb-right{
+      display:flex;align-items:center;gap:12px;
+      padding:0 22px;min-width:240px;
     }
-    .proc-note{font-size:.72rem;color:rgba(255,255,255,.82) !important;margin-top:7px;display:flex;align-items:center;gap:5px;}
-    .proc-note i{color:#60a5fa !important;}
-
-    /* ════════════════════════════════════════
-       PANEL DERECHO — ERRORES COMUNES
-    ════════════════════════════════════════ */
-    .tipo-right{
-      background:rgba(4,9,24,0.75);
-      border-left:1px solid rgba(255,255,255,.07);
-      overflow-y:auto;display:flex;flex-direction:column;
+    .nb-icon-warn{
+      width:30px;height:30px;border-radius:50%;flex-shrink:0;
+      background:#b45309;display:flex;align-items:center;justify-content:center;
+      font-size:.80rem;color:#fff !important;
     }
-    .tipo-right::-webkit-scrollbar{width:4px;}
-    .tipo-right::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:4px;}
-
-    .err-hd{
-      background:rgba(220,38,38,.12);border-bottom:1px solid rgba(220,38,38,.20);
-      padding:12px 14px;display:flex;align-items:center;gap:10px;
-    }
-    .err-hd-icon{
-      width:30px;height:30px;border-radius:50%;
-      background:#dc2626;display:flex;align-items:center;justify-content:center;
-      font-size:.80rem;font-weight:700;flex-shrink:0;color:#fff !important;
-    }
-    .err-hd-title{font-size:.82rem;font-weight:700;color:#f1f5f9 !important;}
-    .err-hd-sub{font-size:.70rem;color:rgba(255,255,255,.40) !important;}
-
-    .err-list{padding:10px 12px;display:flex;flex-direction:column;gap:12px;}
-
-    .err-item{}
-    .err-item-title{
-      display:flex;align-items:center;gap:6px;
-      font-size:.78rem;font-weight:700;color:#f1f5f9 !important;margin-bottom:4px;
-    }
-    .err-item-title i{color:#f87171 !important;font-size:.78rem;}
-    .err-item-desc{font-size:.72rem;line-height:1.45;color:rgba(255,255,255,.82) !important;margin-bottom:6px;}
-    .err-badges{display:flex;flex-direction:column;gap:4px;}
-    .err-badge-row{display:flex;align-items:center;gap:6px;}
-    .err-badge-label{font-size:.66rem;font-weight:600;width:60px;flex-shrink:0;color:rgba(255,255,255,.82) !important;}
-    .err-badge{padding:3px 10px;border-radius:4px;font-size:.70rem;font-weight:600;}
-    .badge-wrong{background:rgba(220,38,38,.18);border:1px solid rgba(220,38,38,.30);color:#fca5a5 !important;}
-    .badge-right{background:rgba(22,163,74,.18);border:1px solid rgba(34,197,94,.30);color:#86efac !important;}
-
-    .err-divider{border:none;border-top:1px solid rgba(255,255,255,.06);margin:0;}
-
-    /* ════════════════════════════════════════
-       BARRA INFERIOR
-    ════════════════════════════════════════ */
-    .tipo-bottom{
-      height:50px;background:rgba(3,6,18,0.92);
-      border-top:1px solid rgba(255,255,255,.07);
-      display:flex;align-items:center;justify-content:space-between;
-      padding:0 20px;gap:16px;flex-shrink:0;
-    }
-    .tip-pro{display:flex;align-items:center;gap:10px;min-width:0;}
-    .tip-pro-label{
-      font-size:.68rem;font-weight:800;letter-spacing:.08em;white-space:nowrap;
-      color:#fbbf24 !important;display:flex;align-items:center;gap:6px;
-    }
-    .tip-pro-label i{color:#fbbf24 !important;}
-    .tip-divider{width:1px;height:20px;background:rgba(255,255,255,.12);flex-shrink:0;}
-    .tip-text{font-size:.73rem;color:rgba(255,255,255,.82) !important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .guia-btn{
-      flex-shrink:0;display:flex;align-items:center;gap:7px;
-      background:linear-gradient(135deg,#2563eb,#1d4ed8);
-      border:none;border-radius:20px;padding:7px 16px;cursor:pointer;
-      font-size:.74rem;font-weight:700;color:#fff !important;white-space:nowrap;
-      transition:opacity .15s;
-    }
-    .guia-btn:hover{opacity:.85;}
-    .guia-btn i{font-size:.78rem;color:#fff !important;}
+    .nb-right-text{font-size:.80rem;font-weight:700;color:rgba(255,255,255,.92) !important;}
   </style>
 </head>
 <body>
@@ -291,268 +203,168 @@
 
     <div class="tipo-page">
 
-      <!-- ── Grid 3 columnas ── -->
-      <div class="tipo-wrap">
+      <div class="norma-wrap">
 
-        <!-- ════ NAV IZQUIERDO TIPIFICACIÓN ════ -->
-        <aside class="tipo-nav">
-          <div class="tipo-brand">
-            <div class="brand-icon"><i class="fas fa-headset" style="color:#fff!important"></i></div>
-            <div class="brand-name">TIPIFICACIÓN<br>INTELIGENTE</div>
+        <!-- COLUMNA 1: CRITERIOS -->
+        <div class="col-criterios">
+
+          <div class="col-header">
+            <div class="col-num">1</div>
+            <div class="col-title">CRITERIOS DE TIPIFICACIÓN<br>Y LLENADO DE FICHAS</div>
           </div>
 
-          <div class="tipo-nav-list">
-            <a class="tipo-nav-item active" href="#resumen">
-              <i class="fas fa-border-all"></i><span>Resumen</span>
-            </a>
-            <a class="tipo-nav-item" href="#registro">
-              <i class="fas fa-clipboard-list"></i><span>Registro</span>
-            </a>
-            <a class="tipo-nav-item" href="#casuistica">
-              <i class="fas fa-search"></i><span>Casuística</span>
-            </a>
-            <a class="tipo-nav-item" href="#errores">
-              <i class="fas fa-times-circle"></i><span>Errores Comunes</span>
-            </a>
-            <a class="tipo-nav-item" href="#sanciones">
-              <i class="fas fa-exclamation-triangle"></i><span>Sanciones</span>
-            </a>
+          <div class="warn-banner">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>Si no se cumplen ninguna de estas reglas el agente quedará <span class="warn-red">1 día fuera de Inbound.</span></span>
           </div>
 
-          <div class="nav-ayuda">
-            <a href="#" onclick="return false;">
-              <i class="fas fa-question-circle" style="color:#60a5fa!important"></i>
-              <span style="color:#60a5fa!important">Ayuda</span>
-            </a>
-          </div>
+          <div class="crit-list">
 
-          <div class="recuerda-box">
-            <div class="rec-title">💡 RECUERDA</div>
-            <p>Una buena tipificación asegura datos precisos, mejores resultados y clientes satisfechos.</p>
-          </div>
-        </aside>
-
-        <!-- ════ ÁREA CENTRAL ════ -->
-        <main class="tipo-main" id="resumen">
-
-          <!-- Cabecera -->
-          <div class="tipo-header">
-            <div class="tipo-header-left">
-              <h1>Dashboard de<span>Tipificación Inteligente</span></h1>
-              <p>Guía rápida para una tipificación correcta y eficiente.</p>
-            </div>
-            <div class="help-box">
-              <div class="hb-icon">?</div>
-              <div>
-                <div class="hb-title">¿Necesitas ayuda?</div>
-                <div class="hb-text">Pasa el cursor sobre un campo o haz clic en "Ayuda" para ver la regla aplicable.</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Tabla de categorías -->
-          <div class="cat-table">
-
-            <div class="cat-table-head">
-              <span>CATEGORÍA</span>
-              <span>ACCIÓN REQUERIDA</span>
+            <div class="crit-item">
+              <div class="crit-icon ic-green"><i class="fas fa-clipboard-check"></i></div>
+              <div class="crit-text">El agente debe registrar correctamente la información en la ficha sin alterar datos como direcciones, números telefónicos, compañías actuales del cliente o cualquier otro dato importante proporcionado durante la llamada.</div>
             </div>
 
-            <!-- ── SANCIONES ── -->
-            <div class="cat-row row-sancion" id="sanciones">
-              <div class="cat-label">
-                <div class="cat-icon"><i class="fas fa-exclamation-triangle"></i></div>
-                <div class="cat-title">SANCIONES</div>
-                <div class="cat-desc">¿Cuándo quedo fuera de Inbound?</div>
-              </div>
-              <div class="cat-content">
-                <div class="ci-item"><div class="ci-dot dot-red"></div><span>3 advertencias en el período vigente por mala tipificación.</span></div>
-                <div class="ci-item"><div class="ci-dot dot-red"></div><span>No loguearse o cerrar sesión sin justificación.</span></div>
-                <div class="ci-item"><div class="ci-dot dot-red"></div><span>Manipulación de información o datos falsos.</span></div>
-                <div class="ci-item"><div class="ci-dot dot-red"></div><span>Incumplimiento de procesos de tipificación.</span></div>
-                <div class="conseq-box">
-                  <i class="fas fa-exclamation-triangle"></i>
-                  <span><strong style="color:#fca5a5!important">Consecuencia:</strong> El agente será retirado de la campaña Inbound.</span>
-                </div>
-              </div>
+            <div class="crit-item">
+              <div class="crit-icon ic-green"><i class="fas fa-check-circle"></i></div>
+              <div class="crit-text">El Agente debe Tipificar las llamadas de inbound: casos que se omiten como clientes que ya son venta no se deben tipificar.</div>
             </div>
 
-            <!-- ── REGISTRO ── -->
-            <div class="cat-row row-registro" id="registro">
-              <div class="cat-label">
-                <div class="cat-icon"><i class="fas fa-clipboard-list"></i></div>
-                <div class="cat-title">REGISTRO</div>
-                <div class="cat-desc">Datos obligatorios en cada llamada.</div>
-              </div>
-              <div class="cat-content">
-                <div class="registro-flex">
-                  <div class="registro-items">
-                    <div class="ci-item"><i class="fas fa-check-circle ci-check"></i><span>Dirección completa del cliente.</span></div>
-                    <div class="ci-item"><i class="fas fa-check-circle ci-check"></i><span>Número telefónico de contacto.</span></div>
-                    <div class="ci-item"><i class="fas fa-check-circle ci-check"></i><span>Compañía de servicios actual.</span></div>
-                    <div class="ci-item"><i class="fas fa-check-circle ci-check"></i><span>Nombre completo del titular del servicio.</span></div>
-                    <div class="ci-item"><i class="fas fa-check-circle ci-check"></i><span>Correo electrónico (si está disponible).</span></div>
-                  </div>
-                  <div class="checklist-box">
-                    <div class="cl-icon"><i class="fas fa-check-circle"></i></div>
-                    <div class="cl-title">CHECKLIST</div>
-                    <p>Verifica que toda la información esté completa antes de finalizar la llamada.</p>
-                  </div>
-                </div>
-              </div>
+            <div class="crit-item">
+              <div class="crit-icon ic-yellow"><i class="fas fa-chart-bar"></i></div>
+              <div class="crit-text">Si no existe cobertura principal, pero hay cobertura de proveedores misceláneos como Zypli Fiber, AltaFiber, WOW, EarthLink o Consolidated, estos deben colocarse al final de la tipificación en el apartado <strong>"Cobertura Disponible"</strong>. Ejemplo: WOW.</div>
             </div>
 
-            <!-- ── CASUÍSTICA ── -->
-            <div class="cat-row row-casuistica" id="casuistica">
-              <div class="cat-label">
-                <div class="cat-icon"><i class="fas fa-search"></i></div>
-                <div class="cat-title">CASUÍSTICA</div>
-                <div class="cat-desc">¿Qué hacer en situaciones específicas?</div>
-              </div>
-              <div class="cat-content">
-                <div class="ca-item">
-                  <div class="ci-dot dot-amber" style="margin-top:5px"></div>
-                  <span><span class="ca-label">Cobertura Miscelánea (Zypli, WOW, etc.):</span> Seleccionar en apartado "Cobertura Disponible" si no hay cobertura principal.</span>
-                </div>
-                <div class="ca-item">
-                  <div class="ci-dot dot-amber" style="margin-top:5px"></div>
-                  <span><span class="ca-label">Cliente anterior:</span> Seleccionar "Cliente Anterior" en el apartado correspondiente.</span>
-                </div>
-                <div class="ca-item">
-                  <div class="ci-dot dot-amber" style="margin-top:5px"></div>
-                  <span><span class="ca-label">Otra compañía de luz / gas / internet:</span> Registrar en "Compañía de servicios actual".</span>
-                </div>
-              </div>
+            <div class="crit-item">
+              <div class="crit-icon ic-red"><i class="fas fa-phone-slash"></i></div>
+              <div class="crit-text">Si la llamada finaliza normalmente con el cliente y el agente la tipifica como Call Back, la llamada será considerada como mal tipificada.</div>
             </div>
 
-            <!-- ── PROCESO DE VENTA ── -->
-            <div class="cat-row row-proceso">
-              <div class="cat-label">
-                <div class="cat-icon"><i class="fas fa-user-tie"></i></div>
-                <div class="cat-title">PROCESO DE VENTA</div>
-                <div class="cat-desc">Reglas clave para una venta correcta.</div>
-              </div>
-              <div class="cat-content">
-                <div class="proc-rule-box">
-                  <div class="proc-rule-title"><i class="fas fa-ban"></i> Regla de Venta</div>
-                  <div class="proc-rule-sub">Si no realizaste oferta, marca obligatoriamente:</div>
-                  <div class="proc-badge">"No realizó labor de venta"</div>
-                  <div class="proc-note"><i class="fas fa-info-circle"></i> Nota: Registrar oferta falsa = Mala tipificación.</div>
-                </div>
-              </div>
+            <div class="crit-item">
+              <div class="crit-icon ic-red"><i class="fas fa-volume-mute"></i></div>
+              <div class="crit-text">Si el agente no realiza una oferta al cliente, debe seleccionar la opción <strong>"No realizó labor de venta"</strong>. Si se registra que se ofreció un servicio cuando en realidad no se realizó ninguna oferta, la llamada se considerará mal tipificada.</div>
             </div>
 
-            <!-- ── PRECAUCIONES ── -->
-            <div class="cat-row row-precaucion">
-              <div class="cat-label">
-                <div class="cat-icon"><i class="fas fa-exclamation-triangle"></i></div>
-                <div class="cat-title">PRECAUCIONES</div>
-                <div class="cat-desc">Para una tipificación precisa y confiable.</div>
-              </div>
-              <div class="cat-content">
-                <div class="ci-item"><div class="ci-dot dot-amber"></div><span>Lee cuidadosamente cada opción antes de seleccionar.</span></div>
-                <div class="ci-item"><div class="ci-dot dot-amber"></div><span>No adivines ni supongas información.</span></div>
-                <div class="ci-item"><div class="ci-dot dot-amber"></div><span>Si tienes dudas, consulta la guía o pide apoyo a tu supervisor.</span></div>
-                <div class="ci-item"><div class="ci-dot dot-amber"></div><span>La calidad de la tipificación impacta nuestros resultados.</span></div>
-              </div>
+            <div class="crit-item">
+              <div class="crit-icon ic-green"><i class="fas fa-check-double"></i></div>
+              <div class="crit-text">Cuando exista cobertura disponible de AT&amp;T Fiber, Xfinity, AT&amp;T Air o Frontier, estas deben tipificarse de manera correcta según corresponda.</div>
             </div>
 
-          </div><!-- /cat-table -->
-        </main>
-
-        <!-- ════ PANEL ERRORES COMUNES ════ -->
-        <aside class="tipo-right" id="errores">
-          <div class="err-hd">
-            <div class="err-hd-icon"><i class="fas fa-times" style="color:#fff!important"></i></div>
-            <div>
-              <div class="err-hd-title">ERRORES COMUNES</div>
-              <div class="err-hd-sub">Ejemplos de Mala Tipificación</div>
-            </div>
-          </div>
-
-          <div class="err-list">
-
-            <div class="err-item">
-              <div class="err-item-title"><i class="fas fa-times-circle"></i> Marcar "Call Back" Incorrectamente</div>
-              <div class="err-item-desc">No marcar "Call Back" cuando el cliente solicita que lo contacten después.</div>
-              <div class="err-badges">
-                <div class="err-badge-row">
-                  <span class="err-badge-label">Incorrecto:</span>
-                  <span class="err-badge badge-wrong">No marcó Call Back</span>
-                </div>
-                <div class="err-badge-row">
-                  <span class="err-badge-label">Correcto:</span>
-                  <span class="err-badge badge-right">Marcar Call Back</span>
-                </div>
-              </div>
+            <div class="crit-item">
+              <div class="crit-icon ic-blue"><i class="fas fa-user-check"></i></div>
+              <div class="crit-text">Si existe una ficha previa porque el cliente llamó anteriormente, el agente debe confirmar si continúa residiendo en la misma dirección y realizar preguntas de descubrimiento. <strong>Copiar la información de una ficha anterior sin validarla con el cliente será considerado una mala tipificación.</strong></div>
             </div>
 
-            <hr class="err-divider">
-
-            <div class="err-item">
-              <div class="err-item-title"><i class="fas fa-times-circle"></i> Registrar Oferta Falsa</div>
-              <div class="err-item-desc">Se registra que se ofreció un servicio cuando en realidad no se hizo.</div>
-              <div class="err-badges">
-                <div class="err-badge-row">
-                  <span class="err-badge-label">Incorrecto:</span>
-                  <span class="err-badge badge-wrong">Se registró oferta</span>
-                </div>
-                <div class="err-badge-row">
-                  <span class="err-badge-label">Correcto:</span>
-                  <span class="err-badge badge-right">No realizó labor de venta</span>
-                </div>
-              </div>
-            </div>
-
-            <hr class="err-divider">
-
-            <div class="err-item">
-              <div class="err-item-title"><i class="fas fa-times-circle"></i> Seleccionar Cobertura Incorrecta</div>
-              <div class="err-item-desc">Marcar cobertura principal cuando solo existe cobertura miscelánea.</div>
-              <div class="err-badges">
-                <div class="err-badge-row">
-                  <span class="err-badge-label">Incorrecto:</span>
-                  <span class="err-badge badge-wrong">Cobertura Principal</span>
-                </div>
-                <div class="err-badge-row">
-                  <span class="err-badge-label">Correcto:</span>
-                  <span class="err-badge badge-right">Cobertura Miscelánea</span>
-                </div>
-              </div>
-            </div>
-
-            <hr class="err-divider">
-
-            <div class="err-item">
-              <div class="err-item-title"><i class="fas fa-times-circle"></i> Datos Incompletos</div>
-              <div class="err-item-desc">Omitir información obligatoria del cliente.</div>
-              <div class="err-badges">
-                <div class="err-badge-row">
-                  <span class="err-badge-label">Incorrecto:</span>
-                  <span class="err-badge badge-wrong">Datos incompletos</span>
-                </div>
-                <div class="err-badge-row">
-                  <span class="err-badge-label">Correcto:</span>
-                  <span class="err-badge badge-right">Todos los datos obligatorios</span>
-                </div>
-              </div>
+            <div class="crit-item">
+              <div class="crit-icon ic-orange"><i class="fas fa-exclamation-triangle"></i></div>
+              <div class="crit-text">Todo agente que acumule tres advertencias por registrar llamadas como <strong>"Cobertura No Aceptó"</strong> sin haber realizado una oferta de servicio al cliente durante la llamada se dejará fuera de INBOUND.</div>
             </div>
 
           </div>
-        </aside>
-
-      </div><!-- /tipo-wrap -->
-
-      <!-- ════ BARRA INFERIOR ════ -->
-      <div class="tipo-bottom">
-        <div class="tip-pro">
-          <span class="tip-pro-label"><i class="fas fa-lightbulb"></i> TIP PROFESIONAL</span>
-          <div class="tip-divider"></div>
-          <span class="tip-text">Una tipificación correcta desde la primera llamada evita retrabajos y mejora la experiencia del cliente.</span>
         </div>
-        <button class="guia-btn" onclick="document.querySelector('.tipo-main').scrollTo({top:0,behavior:'smooth'})">
-          <i class="fas fa-book-open"></i> VER GUÍA COMPLETA
-        </button>
+
+        <!-- COLUMNA 2: REGLAS INBOUND -->
+        <div class="col-inbound">
+
+          <div class="col-header">
+            <div class="col-num">2</div>
+            <div class="col-title">REGLAS DE INBOUND</div>
+          </div>
+
+          <div class="inb-list-wrap">
+
+            <!-- 1: Llamadas no logueadas -->
+            <div class="inb-section inb-blue">
+              <div class="inb-header">
+                <div class="inb-num">1</div>
+                <div class="inb-icon-wrap"><i class="fas fa-phone"></i></div>
+                <div class="inb-title">LLAMADAS NO LOGUEADAS</div>
+              </div>
+              <div class="inb-body">
+                <ul class="inb-bullets">
+                  <li>Toda llamada no logueada será motivo para permanecer 1 día fuera de Inbound.</li>
+                  <li>Si el agente permanece más de 10 minutos sin registrar la gestión después de finalizar la llamada, también quedará 1 día fuera de Inbound.</li>
+                  <li>Esta regla aplica incluso para llamadas nuevas que hayan sonado únicamente 4 segundos y se registren como llamadas perdidas.</li>
+                  <li>Si el cliente llama varias veces el mismo día y otro agente atiende una de las llamadas posteriores, la gestión debe registrarse correctamente, aunque la llamada haya durado solo unos segundos. De lo contrario, aplicará la misma sanción.</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- 2: Motivo y dirección -->
+            <div class="inb-section inb-yellow">
+              <div class="inb-header">
+                <div class="inb-num">2</div>
+                <div class="inb-icon-wrap"><i class="fas fa-clipboard-list"></i></div>
+                <div class="inb-title">MOTIVO Y DIRECCIÓN DEL CLIENTE</div>
+              </div>
+              <div class="inb-body">
+                <ul class="inb-bullets">
+                  <li>Si la llamada será transferida a otro agente del mismo equipo, se debe dejar toda la información correspondiente en las notas.</li>
+                  <li>Toda llamada debe incluir el motivo de contacto; de lo contrario, se considerará incumplimiento y el agente quedará fuera de Inbound.</li>
+                  <li>Esta regla aplica tanto para clientes nuevos como para clientes existentes.</li>
+                  <li>En llamadas de seguimiento (callback), es obligatorio registrar el motivo de la llamada y toda la información relevante, incluida la dirección del cliente.</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- 3: Cliente no aceptó -->
+            <div class="inb-section inb-red">
+              <div class="inb-header">
+                <div class="inb-num">3</div>
+                <div class="inb-icon-wrap"><i class="fas fa-wifi"></i></div>
+                <div class="inb-title">CLIENTE NO ACEPTÓ AIR O FIBRA</div>
+              </div>
+              <div class="inb-body">
+                <ul class="inb-bullets">
+                  <li>Si un cliente tiene disponibilidad de Fibra AT&amp;T y no acepta el servicio, pero la llamada se tipifica como "Cober no aceptó AT&amp;T Air", el agente quedará 1 día fuera de Inbound por falsedad en la tipificación.</li>
+                  <li>Toda tipificación incorrecta relacionada con cobertura o aceptación del servicio será motivo de suspensión de 1 día fuera de Inbound.</li>
+                  <li>Esta medida se implementa para medir con precisión las llamadas que realmente no cuentan con cobertura de fibra.</li>
+                  <li>Si el cliente sí tiene cobertura y la llamada se tipifica como:
+                    <ul class="inb-sub-list">
+                      <li>"CX no contesta"</li>
+                      <li>"Ninguna cobertura"</li>
+                    </ul>
+                    El agente quedará 1 día fuera de Inbound.
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- 4: Convenios -->
+            <div class="inb-section inb-green">
+              <div class="inb-header">
+                <div class="inb-num">4</div>
+                <div class="inb-icon-wrap"><i class="fas fa-handshake"></i></div>
+                <div class="inb-title">CONVENIOS Y JUSTIFICACIONES</div>
+              </div>
+              <div class="inb-body">
+                <ul class="inb-bullets">
+                  <li>Que un cliente tenga convenio no exime (obliga) al agente de registrar y tipificar correctamente la llamada.</li>
+                  <li>En estos casos, la llamada debe registrarse como "Cober no aceptó".</li>
+                  <li>Problemas como cortes de energía eléctrica o de internet no justifican la falta de registro de llamadas o información incompleta. La única excepción válida es cuando no exista acceso al sistema.</li>
+                  <li>Si el cliente llama, proporciona la dirección y luego cuelga, pero si cuenta con cobertura, la llamada debe tipificarse como: "Cobertura no aceptó [nombre de la compañía]".</li>
+                  <li>Tipificar este escenario como "No contesta" será motivo para permanecer 1 día fuera de Inbound.</li>
+                  <li>Si el cliente cuelga antes de recibir la respuesta de procesamiento, el agente debe esperar el resultado y tipificar la llamada como "No aceptó", ya que la acción de colgar se considera un rechazo del servicio.</li>
+                  <li>Únicamente cuando no exista cobertura en ambos mercados se debe tipificar como "Ninguna cobertura".</li>
+                </ul>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div><!-- /norma-wrap -->
+
+      <!-- BARRA INFERIOR -->
+      <div class="norma-bottom">
+        <div class="nb-left">
+          <div class="nb-icon-info">i</div>
+          <div class="nb-left-text">Tipificar correctamente no es solo seguir reglas, es brindar información precisa y de calidad para nuestros clientes.</div>
+        </div>
+        <div class="nb-right">
+          <div class="nb-icon-warn"><i class="fas fa-exclamation-triangle" style="color:#fff!important"></i></div>
+          <div class="nb-right-text">¡La calidad es responsabilidad de todos!</div>
+        </div>
       </div>
 
     </div><!-- /tipo-page -->
@@ -561,15 +373,5 @@
   <script src="/js/crm-config.js" defer></script>
   <script src="/js/inactivity-manager.js" defer></script>
   <script src="/js/crm-init.js" defer></script>
-  <script>
-    // Navegación suave entre secciones
-    document.querySelectorAll('.tipo-nav-item').forEach(function(link){
-      link.addEventListener('click', function(e){
-        e.preventDefault();
-        document.querySelectorAll('.tipo-nav-item').forEach(function(i){ i.classList.remove('active'); });
-        link.classList.add('active');
-      });
-    });
-  </script>
 </body>
 </html>
