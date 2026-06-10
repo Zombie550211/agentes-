@@ -625,13 +625,16 @@
       return String(l.dia_venta||'').slice(0,7)===ms;
     });
 
-    var total=(totalMes!=null)?totalMes:filtered.length;
+    var total=filtered.length;
     var totalPts=filtered.reduce(function(a,l){return a+(parseFloat(l.puntaje||0)||0);},0);
     var iconPts=filtered.filter(function(l){return String(l.mercado||'').toUpperCase().includes('ICON');})
                         .reduce(function(a,l){return a+(parseFloat(l.puntaje||0)||0);},0);
     var hoy=filtered.filter(function(l){return String(l.dia_venta||'').slice(0,10)===today;}).length;
     var active=filtered.filter(function(l){var s=String(l.status||'').toLowerCase();return s==='active'||s==='activa'||s.includes('activ')||s==='completed'||s.includes('complet');}).length;
-    var actRate=total>0?((active/total)*100).toFixed(1)+'%':'0%';
+    var colchonLeads=leads.filter(function(l){var dinst=String(l.dia_instalacion||'').slice(0,7);var dv=String(l.dia_venta||'').slice(0,7);return dinst===ms&&(!dv||dv<ms);});
+    var activeColchon=colchonLeads.filter(function(l){var s=String(l.status||'').toLowerCase();return s==='completed'||s.includes('complet');}).length;
+    var totalParaActivacion=total+colchonLeads.length;
+    var actRate=totalParaActivacion>0?(((active+activeColchon)/totalParaActivacion)*100).toFixed(1)+'%':'0%';
 
     document.getElementById('kv-ventas').textContent=total;
     document.getElementById('kv-icon').textContent=iconPts.toFixed(2);
