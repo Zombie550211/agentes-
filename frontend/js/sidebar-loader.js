@@ -823,6 +823,7 @@
       { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: '/residencial/facturacion.html', roles: adminBackofficeRoles },
       { key: 'crm-dashboard', icon: 'fa-chart-pie', text: 'CRM Dashboard', href: '/residencial/inicio.html', roles: allRoles },
       { key: 'empleado', icon: 'fa-medal', text: 'Empleado del Mes', href: '/residencial/empleado-mes.html', roles: allRoles },
+      { key: 'normativas', icon: 'fa-clipboard-list', text: 'Tipificación', href: '/residencial/normativas-tipificacion.html', roles: allRoles },
       { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de puntaje', href: '/residencial/tabla-puntaje.html', roles: allRoles },
       { key: 'multimedia', icon: 'fa-folder-open', text: 'Archivos', href: '/residencial/multimedia.html', roles: allRoles },
       { key: 'reglas', icon: 'fa-book', text: 'Reglas y Puntajes', href: '/residencial/reglas.html', roles: allRoles },
