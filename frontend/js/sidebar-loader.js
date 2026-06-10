@@ -209,6 +209,7 @@
       if (/tabla/.test(path) && /puntaje/.test(path)) return 'tabla-puntaje';
       if (/empleado/.test(path)) return 'empleado';
       if (/multimedia/.test(path)) return 'multimedia';
+      if (/normativas/.test(path)) return 'normativas';
       if (/regla/.test(path)) return 'reglas';
       if (/costumer/.test(path) || /cliente/.test(path)) return 'costumer';
       if (/nuevo-lead/.test(path)) return 'nuevo-lead';
@@ -907,6 +908,7 @@
       { key: 'rankings', icon: 'fa-chart-line', text: 'Ranking', href: '/residencial/ranking-agente.html' },
       { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: '/residencial/ranking.html' },
       { key: 'reglas', icon: 'fa-book', text: 'Reglas y Puntajes', href: '/residencial/reglas.html' },
+      { key: 'normativas', icon: 'fa-clipboard-list', text: 'Normativas de Tipificación', href: '/residencial/normativas-tipificacion.html' },
       { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: '/residencial/facturacion.html' },
       { key: 'comisiones', icon: 'fa-coins', text: 'Comisión', href: '/residencial/comisiones.html' },
       { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: '/residencial/semaforo.html' }
