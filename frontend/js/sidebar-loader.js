@@ -896,31 +896,31 @@
   function getModernMenuBlocks(normalizedRole, normalizedActive, ctx = {}) {
     const isLineas = ctx.isLineas || false;
     
-    // Sección 1: Principal (sin título) - Inicio, Formulario, Lead, Nuevo Lead, Lista de Clientes
+    // Sección 1: Principal (sin título)
     const principalItems = [
-      { key: 'inicio',      icon: 'fa-home',      text: 'Inicio',      href: '/residencial/inicio.html' },
-      { key: 'formulario',  icon: 'fa-user-plus',  text: 'Formulario',  href: '/residencial/formulario-registro.html' },
-      { key: 'costumer',    icon: 'fa-users',      text: 'Lista de Clientes', href: '/residencial/costumer.html' }
+      { key: 'inicio',      icon: 'fa-home',           text: 'Inicio',            href: '/residencial/inicio.html' },
+      { key: 'formulario',  icon: 'fa-user-plus',      text: 'Formulario',        href: '/residencial/formulario-registro.html' },
+      { key: 'costumer',    icon: 'fa-users',          text: 'Lista de Clientes', href: '/residencial/costumer.html' },
+      { key: 'normativas',  icon: 'fa-clipboard-list', text: 'Tipificación',      href: '/residencial/normativas-tipificacion.html' }
     ];
-    
+
     // Sección 2: Estadísticas
     const estadisticasItems = [
-      { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: '/residencial/estadisticas.html' },
-      { key: 'rankings', icon: 'fa-chart-line', text: 'Ranking', href: '/residencial/ranking-agente.html' },
-      { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: '/residencial/ranking.html' },
-      { key: 'reglas', icon: 'fa-book', text: 'Reglas y Puntajes', href: '/residencial/reglas.html' },
-      { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: '/residencial/facturacion.html' },
-      { key: 'comisiones', icon: 'fa-coins', text: 'Comisión', href: '/residencial/comisiones.html' },
-      { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: '/residencial/semaforo.html' }
+      { key: 'estadisticas', icon: 'fa-chart-bar',          text: 'Estadísticas',       href: '/residencial/estadisticas.html' },
+      { key: 'rankings',     icon: 'fa-chart-line',         text: 'Ranking',            href: '/residencial/ranking-agente.html' },
+      { key: 'ranking',      icon: 'fa-trophy',             text: 'Ranking y Promociones', href: '/residencial/ranking.html' },
+      { key: 'reglas',       icon: 'fa-book',               text: 'Reglas y Puntajes',  href: '/residencial/reglas.html' },
+      { key: 'facturacion',  icon: 'fa-file-invoice-dollar', text: 'Facturación',       href: '/residencial/facturacion.html' },
+      { key: 'comisiones',   icon: 'fa-coins',              text: 'Comisión',           href: '/residencial/comisiones.html' },
+      { key: 'semaforo',     icon: 'fa-traffic-light',      text: 'El Semáforo',        href: '/residencial/semaforo.html' }
     ];
-    
+
     // Sección 3: Administración
     const administracionItems = [
-      { key: 'empleado', icon: 'fa-star', text: 'Empleado del Mes', href: '/residencial/empleado-mes.html' },
-      { key: 'normativas', icon: 'fa-clipboard-list', text: 'Tipificación', href: '/residencial/normativas-tipificacion.html' },
-      { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de Puntaje', href: '/residencial/tabla-puntaje.html' },
-      { key: 'crearcuenta', icon: 'fa-shield-alt', text: 'Permisos', href: '/crear-cuenta.html', adminOnly: true },
-      { key: 'chat', icon: 'fa-comments', text: 'Chat', href: '/chat.html' }
+      { key: 'empleado',     icon: 'fa-star',       text: 'Empleado del Mes',  href: '/residencial/empleado-mes.html' },
+      { key: 'tabla-puntaje', icon: 'fa-list',      text: 'Tabla de Puntaje',  href: '/residencial/tabla-puntaje.html' },
+      { key: 'crearcuenta',  icon: 'fa-shield-alt', text: 'Permisos',          href: '/crear-cuenta.html', adminOnly: true },
+      { key: 'chat',         icon: 'fa-comments',   text: 'Chat',              href: '/chat.html' }
     ];
 
     // Sección 4: Servicios Móviles
