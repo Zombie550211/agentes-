@@ -614,7 +614,9 @@
     const total=__filteredLeads.length,ps=pageSize===99999?total:pageSize,start=(currentPage-1)*ps,paged=__filteredLeads.slice(start,start+ps);
     if(!paged.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--ink-4);font-size:.82rem;">Sin resultados para los filtros aplicados</td></tr>';}
     else{tbody.innerHTML=paged.map(function(lead,_ri){
-      const lid=String(lead._id),isCol=!!lead._es_colchon_route,rowClass=isCol?' class="row-colchon"':'';
+      const _dv7=String(lead.dia_venta||'').slice(0,7),_di7=String(lead.dia_instalacion||'').slice(0,7);
+      const isCol=!!lead._es_colchon_route||(_dv7&&_di7&&_dv7!==_di7);
+      const rowClass=isCol?' class="row-colchon"':'';
       const rowAnim='animation:rowFall .75s cubic-bezier(.16,1,.3,1) both;animation-delay:'+(_ri*0.06)+'s;';
       const pts=lead.puntaje!==''&&lead.puntaje!==null&&lead.puntaje!==undefined?parseFloat(String(lead.puntaje).replace(',','.')):null;
       const ptsColor=pts===null?'var(--ink-4)':pts>=1?'var(--go)':pts>=0.5?'var(--warn)':'var(--stop)';

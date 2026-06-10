@@ -497,8 +497,15 @@ async def list_leads(
     # Text search filters
     tel_val = str(telefono_principal or telefono or "").strip()
     if tel_val:
-        where.append("(telefono_principal LIKE :tel OR telefono LIKE :tel)")
-        params["tel"] = f"%{tel_val}%"
+        # Buscar tanto con formato como sin él (strips paréntesis, guiones, espacios)
+        tel_digits = re.sub(r'\D', '', tel_val)
+        where.append("""(
+            telefono_principal LIKE :tel OR telefono LIKE :tel
+            OR REPLACE(REPLACE(REPLACE(REPLACE(telefono_principal,'(',''),')',''),'-',''),' ','') LIKE :teld
+            OR REPLACE(REPLACE(REPLACE(REPLACE(telefono,'(',''),')',''),'-',''),' ','') LIKE :teld
+        )""")
+        params["tel"]  = f"%{tel_val}%"
+        params["teld"] = f"%{tel_digits}%"
 
     if nombre_cliente:
         where.append("nombre_cliente LIKE :nc")
