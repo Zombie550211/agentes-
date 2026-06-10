@@ -712,9 +712,9 @@
 
       // Ranking
       const rankList = initData?.ranking || [];
-      setCachedRanking(`top3-${fi}`, { ranking: rankList });
+      if (rankList.length > 0) setCachedRanking(`top3-${fi}`, { ranking: rankList });
       window.__rankFullList = rankList;
-      updateRankingUI(rankList);
+      if (rankList.length > 0) updateRankingUI(rankList);
       // Poblar también el slot top3 vía loadRankingTop3 compatible
       try { window.loadRankingTop3 && await window.loadRankingTop3(); } catch(_){}
 

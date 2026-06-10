@@ -344,9 +344,9 @@ async def ranking_init(
 
     # Reutilizar el endpoint de ranking existente
     ranking_resp = await get_ranking(
-        start_date=fi, end_date=ff,
+        fechaInicio=fi, fechaFin=ff,
         statuses=None, agente=None,
-        hard_limit=limit, debug=None,
+        limit=limit, debug=None,
         user=user
     )
 
