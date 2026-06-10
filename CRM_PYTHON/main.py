@@ -289,11 +289,13 @@ async def root():
 async def root_head():
     return Response(status_code=200)
 
+_NO_CACHE = {"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache"}
+
 @app.get("/inicio")
 async def inicio():
     f = find_html("residencial/inicio")
     if f:
-        return FileResponse(str(f))
+        return FileResponse(str(f), headers=_NO_CACHE)
     return RedirectResponse(url="/login.html")
 
 # ── Mapa de rutas antiguas → nuevas (redirects 301) ─────────────
@@ -343,16 +345,16 @@ async def serve_page(page: str):
     for d in HTML_DIRS:
         candidate = d / page
         if candidate.is_file():
-            return FileResponse(str(candidate))
+            return FileResponse(str(candidate), headers=_NO_CACHE)
 
     # 2. Intentar añadiendo .html
     f = find_html(page)
     if f:
-        return FileResponse(str(f))
+        return FileResponse(str(f), headers=_NO_CACHE)
 
     # 3. Fallback — 404
     not_found = FRONTEND_DIR / "public" / "404.html"
     if not_found.is_file():
-        return FileResponse(str(not_found), status_code=404)
+        return FileResponse(str(not_found), status_code=404, headers=_NO_CACHE)
 
     return Response(content="404 — Página no encontrada", status_code=404)

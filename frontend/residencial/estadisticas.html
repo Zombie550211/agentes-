@@ -621,9 +621,9 @@
     var prevMo=cM===1?12:cM-1, prevYr=cM===1?cY-1:cY;
     var pmStr=mStr(prevYr,prevMo);
 
-    // Ventas del mes: solo leads con dia_venta en el mes actual, todos los statuses
+    // Ventas del mes: solo leads con dia_venta en el mes actual, excluye canceladas
     var filtered=leads.filter(function(l){
-      return String(l.dia_venta||'').slice(0,7)===ms;
+      return String(l.dia_venta||'').slice(0,7)===ms&&String(l.status||'').toLowerCase()!=='cancelled';
     });
 
     var total=filtered.length;

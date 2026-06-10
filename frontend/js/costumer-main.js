@@ -379,17 +379,21 @@
     const search=getVal('costumer-search').toUpperCase();
     const svc=getVal('serviceFilter'),team=getVal('teamFilter'),agent=getVal('agentFilter'),mercado=getVal('mercadoFilter'),month=getVal('monthFilter'),from=getVal('dateFrom'),to=getVal('dateTo');
 
-    // Si hay búsqueda sin mes y aún no se cargaron todos los datos, recarga con allData
+    // Búsqueda: llamada directa al servidor con el término, no descarga todo
     if(search && !month && !__allDataLoaded){
       (async function(){
-        var res=await AUTH.secureFetch('/api/leads/bootstrap?allData=true');
+        var digits=search.replace(/\D/g,'');
+        var qs=digits.length>=7
+          ?'telefono='+encodeURIComponent(digits)
+          :'nombre_cliente='+encodeURIComponent(search);
+        var res=await AUTH.secureFetch('/api/leads?'+qs+'&limit=100');
         if(!res||!res.ok)return;
         try{
           var data=await res.json();
-          __allDataLoaded=true;
-          _applyBootstrapFilters(data);
-          window.renderCostumerTable(data.leads||[]);
-        }catch(_){}
+          __allDataLoaded=true;   // evita re-entrada cuando renderCostumerTable llame a applyFilters
+          window.renderCostumerTable(data.data||[]);
+          __allDataLoaded=false;  // reset para que el próximo cambio vuelva a buscar en servidor
+        }catch(_){__allDataLoaded=false;}
       })();
       return;
     }
