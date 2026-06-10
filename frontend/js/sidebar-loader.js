@@ -908,7 +908,6 @@
       { key: 'rankings', icon: 'fa-chart-line', text: 'Ranking', href: '/residencial/ranking-agente.html' },
       { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: '/residencial/ranking.html' },
       { key: 'reglas', icon: 'fa-book', text: 'Reglas y Puntajes', href: '/residencial/reglas.html' },
-      { key: 'normativas', icon: 'fa-clipboard-list', text: 'Normativas de Tipificación', href: '/residencial/normativas-tipificacion.html' },
       { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: '/residencial/facturacion.html' },
       { key: 'comisiones', icon: 'fa-coins', text: 'Comisión', href: '/residencial/comisiones.html' },
       { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: '/residencial/semaforo.html' }
@@ -917,6 +916,7 @@
     // Sección 3: Administración
     const administracionItems = [
       { key: 'empleado', icon: 'fa-star', text: 'Empleado del Mes', href: '/residencial/empleado-mes.html' },
+      { key: 'normativas', icon: 'fa-clipboard-list', text: 'Tipificación', href: '/residencial/normativas-tipificacion.html' },
       { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de Puntaje', href: '/residencial/tabla-puntaje.html' },
       { key: 'crearcuenta', icon: 'fa-shield-alt', text: 'Permisos', href: '/crear-cuenta.html', adminOnly: true },
       { key: 'chat', icon: 'fa-comments', text: 'Chat', href: '/chat.html' }
