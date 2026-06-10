@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Normativas de Tipificación</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>.sidebar,.sidebar.sidebar-inicio{background:rgba(5,15,35,0.55)!important;backdrop-filter:blur(14px)!important;-webkit-backdrop-filter:blur(14px)!important}.sidebar .user-info,.sidebar .user-details,.sidebar .avatar-wrapper,.sidebar .avatar,.sidebar .user-name,.sidebar .user-role{display:none!important}.sidebar .nav-item,.sidebar .btn-sidebar{background:transparent!important;box-shadow:none!important}</style>
+  <link rel="stylesheet" href="/css/sidebar-shared.css?v=20260606f"/>
+  <link rel="stylesheet" href="/css/sidebar-modern.css?v=20260606e"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="/agentes/js/auth-check.js"></script>
+  <script src="/js/logout-handler.js"></script>
+  <script src="/js/user-info.js"></script>
+  <script src="/js/sidebar-loader.js"></script>
+  <style>
+    :root {
+      --t1:#f1f5f9;--t2:#cbd5e1;--t3:#94a3b8;--t4:#64748b;
+      --blue:#3b82f6;--blue-t:#60a5fa;
+      --red:#ef4444;--red-t:#f87171;
+      --purple:#8b5cf6;--purple-t:#c084fc;
+      --amber:#f59e0b;--amber-t:#fbbf24;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;font-family:'Outfit',sans-serif;-webkit-font-smoothing:antialiased}
+    body{background:#0b0f19;color:#fff;overflow-x:hidden;}
+    body::before{
+      content:'';position:fixed;inset:0;z-index:0;
+      background:url('/images/ESTADIOOO.jpeg') center center / cover no-repeat;
+    }
+    body::after{
+      content:'';position:fixed;inset:0;z-index:1;
+      background:rgba(2,6,23,0.72);
+    }
+    body *,body *::before,body *::after{color:#fff !important;}
+
+    .container{display:flex;min-height:100vh;position:relative;z-index:2}
+
+    .main-content{
+      flex:1;padding:32px 28px;
+      overflow-y:auto;max-height:100vh;
+    }
+    .main-content::-webkit-scrollbar{width:5px;}
+    .main-content::-webkit-scrollbar-track{background:transparent;}
+    .main-content::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px;}
+
+    /* Page header */
+    .page-header{margin-bottom:28px;}
+    .page-title{
+      font-size:1.65rem;font-weight:700;letter-spacing:.02em;
+      background:linear-gradient(135deg,#60a5fa,#a78bfa);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+      margin-bottom:5px;
+    }
+    .page-title i{-webkit-text-fill-color:rgba(96,165,250,0.80);margin-right:10px;}
+    .page-subtitle{font-size:.80rem;font-weight:400;color:rgba(255,255,255,.45)!important;}
+
+    /* Glass card */
+    .glass-card{
+      background:rgba(5,15,35,0.45);
+      border:1px solid rgba(255,255,255,0.09);
+      border-radius:16px;
+      backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+      margin-bottom:22px;overflow:hidden;
+    }
+    .glass-card-header{
+      background:rgba(255,255,255,0.055);
+      border-bottom:1px solid rgba(255,255,255,0.09);
+      padding:15px 22px;display:flex;align-items:center;gap:11px;
+    }
+    .hdr-icon{
+      width:34px;height:34px;border-radius:9px;
+      display:flex;align-items:center;justify-content:center;
+      font-size:.85rem;flex-shrink:0;
+    }
+    .hdr-icon.blue{background:rgba(59,130,246,0.22);border:1px solid rgba(59,130,246,0.30);}
+    .hdr-icon.purple{background:rgba(139,92,246,0.22);border:1px solid rgba(139,92,246,0.30);}
+    .glass-card-header h2{
+      font-size:.95rem;font-weight:700;letter-spacing:.045em;text-transform:uppercase;
+      color:#e2e8f0!important;
+    }
+    .glass-card-body{padding:22px;}
+
+    /* Alert banner */
+    .alert-banner{
+      background:rgba(239,68,68,0.13);
+      border:1px solid rgba(239,68,68,0.28);
+      border-radius:10px;padding:13px 16px;
+      margin-bottom:18px;display:flex;align-items:flex-start;gap:10px;
+    }
+    .alert-banner .a-icon{font-size:1rem;flex-shrink:0;margin-top:2px;color:#f87171!important;}
+    .alert-banner p{font-size:.86rem;line-height:1.65;color:#fca5a5!important;font-weight:500;}
+    .alert-banner p b{color:#fca5a5!important;font-weight:700;}
+
+    /* Rule items */
+    .rule-list{display:flex;flex-direction:column;gap:9px;}
+    .rule-item{
+      background:rgba(255,255,255,0.035);
+      border:1px solid rgba(255,255,255,0.06);
+      border-left:3px solid rgba(59,130,246,0.55);
+      border-radius:0 8px 8px 0;
+      padding:12px 16px;
+      font-size:.875rem;line-height:1.7;
+      color:rgba(255,255,255,.82)!important;
+      transition:background .2s,transform .15s;
+    }
+    .rule-item:hover{background:rgba(255,255,255,0.065);transform:translateX(3px);}
+    .rule-item b{color:#93c5fd!important;font-weight:600;}
+
+    /* Sub-sections */
+    .sub-section{margin-bottom:22px;}
+    .sub-section:last-child{margin-bottom:0;}
+    .sub-section-header{
+      display:flex;align-items:center;gap:10px;
+      margin-bottom:11px;padding-bottom:9px;
+      border-bottom:1px solid rgba(255,255,255,0.07);
+    }
+    .sub-num{
+      width:27px;height:27px;border-radius:7px;
+      background:rgba(139,92,246,0.22);border:1px solid rgba(139,92,246,0.38);
+      display:flex;align-items:center;justify-content:center;
+      font-size:.78rem;font-weight:700;color:#c084fc!important;flex-shrink:0;
+    }
+    .sub-section-header h3{
+      font-size:.83rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+      color:#e2e8f0!important;
+    }
+
+    @media(max-width:768px){
+      .main-content{padding:20px 14px;}
+      .page-title{font-size:1.25rem;}
+      .glass-card-header h2{font-size:.82rem;}
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="app-container">
+    <div id="sidebar-container"></div>
+    <main class="main-content">
+
+      <div class="page-header">
+        <div class="page-title">
+          <i class="fas fa-clipboard-list"></i>Normativas de Tipificación
+        </div>
+        <div class="page-subtitle">Criterios, reglas y lineamientos para la correcta tipificación de llamadas Inbound</div>
+      </div>
+
+      <!-- SECCIÓN 1 -->
+      <div class="glass-card">
+        <div class="glass-card-header">
+          <div class="hdr-icon blue"><i class="fas fa-clipboard-check"></i></div>
+          <h2>Criterios de Tipificación y Llenado de Fichas</h2>
+        </div>
+        <div class="glass-card-body">
+
+          <div class="alert-banner">
+            <i class="fas fa-exclamation-triangle a-icon"></i>
+            <p><b>IMPORTANTE:</b> Si no se cumplen ninguna de estas reglas el agente quedará <b>1 día fuera de Inbound.</b></p>
+          </div>
+
+          <div class="rule-list">
+            <div class="rule-item">
+              El agente debe registrar correctamente la información en la ficha sin alterar datos como <b>direcciones, números telefónicos, compañías actuales</b> del cliente o cualquier otro dato importante proporcionado durante la llamada.
+            </div>
+            <div class="rule-item">
+              El agente debe tipificar las llamadas de Inbound. Los casos que se omiten —como <b>clientes que ya son venta</b>— no se deben tipificar.
+            </div>
+            <div class="rule-item">
+              Si <b>no existe cobertura principal</b>, pero hay cobertura de proveedores misceláneos como <b>Zypli Fiber, AltaFiber, WOW, EarthLink</b> o <b>Consolidated</b>, estos deben colocarse al final de la tipificación en el apartado <b>"Cobertura Disponible"</b>. Ejemplo: <b>WOW.</b>
+            </div>
+            <div class="rule-item">
+              Si la llamada finaliza normalmente con el cliente y el agente la tipifica como <b>Call Back</b>, la llamada será considerada como <b>mal tipificada.</b>
+            </div>
+            <div class="rule-item">
+              Si el agente no realiza una oferta al cliente, debe seleccionar la opción <b>"No realizó labor de venta"</b>. Si se registra que se ofreció un servicio cuando en realidad no se realizó ninguna oferta, la llamada se considerará <b>mal tipificada.</b>
+            </div>
+            <div class="rule-item">
+              Cuando exista cobertura disponible de <b>AT&amp;T Fiber, Xfinity, AT&amp;T Air</b> o <b>Frontier</b>, estas deben tipificarse de manera correcta según corresponda.
+            </div>
+            <div class="rule-item">
+              Si existe una ficha previa porque el cliente llamó anteriormente, el agente debe <b>confirmar si continúa residiendo en la misma dirección</b> y realizar preguntas de descubrimiento. Copiar la información de una ficha anterior sin validarla con el cliente será considerado una <b>mala tipificación.</b>
+            </div>
+            <div class="rule-item">
+              Todo agente que acumule <b>tres advertencias</b> por registrar llamadas como <b>"Cobertura No Aceptó"</b> sin haber realizado una oferta de servicio al cliente durante la llamada <b>se dejará fuera de INBOUND.</b>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- SECCIÓN 2 -->
+      <div class="glass-card">
+        <div class="glass-card-header">
+          <div class="hdr-icon purple"><i class="fas fa-headset"></i></div>
+          <h2>Reglas de Inbound</h2>
+        </div>
+        <div class="glass-card-body">
+
+          <!-- 1 -->
+          <div class="sub-section">
+            <div class="sub-section-header">
+              <div class="sub-num">1</div>
+              <h3>Llamadas No Logueadas</h3>
+            </div>
+            <div class="rule-list">
+              <div class="rule-item">
+                Toda llamada <b>no logueada</b> será motivo para permanecer <b>1 día fuera de Inbound.</b>
+              </div>
+              <div class="rule-item">
+                Si el agente permanece más de <b>10 minutos</b> sin registrar la gestión después de finalizar la llamada, también quedará <b>1 día fuera de Inbound.</b>
+              </div>
+              <div class="rule-item">
+                Esta regla aplica incluso para llamadas nuevas que hayan sonado únicamente <b>4 segundos</b> y se registren como llamadas perdidas.
+              </div>
+              <div class="rule-item">
+                Si un cliente llama varias veces el mismo día y otro agente atiende una de las llamadas posteriores, la gestión debe registrarse correctamente aunque la llamada haya durado solo unos segundos. De lo contrario, <b>aplicará la misma sanción.</b>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2 -->
+          <div class="sub-section">
+            <div class="sub-section-header">
+              <div class="sub-num">2</div>
+              <h3>Motivo y Dirección del Cliente</h3>
+            </div>
+            <div class="rule-list">
+              <div class="rule-item">
+                Si la llamada será <b>transferida a otro agente</b> del mismo equipo, se debe dejar toda la información correspondiente en las notas.
+              </div>
+              <div class="rule-item">
+                Toda llamada debe incluir el <b>motivo de contacto</b>; de lo contrario, se considerará incumplimiento y el agente quedará <b>fuera de Inbound.</b>
+              </div>
+              <div class="rule-item">
+                Esta regla aplica tanto para <b>clientes nuevos</b> como para <b>clientes existentes.</b>
+              </div>
+              <div class="rule-item">
+                En llamadas de seguimiento (callback), es obligatorio registrar el <b>motivo de la llamada</b> y toda la información relevante, incluida la <b>dirección del cliente.</b>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3 -->
+          <div class="sub-section">
+            <div class="sub-section-header">
+              <div class="sub-num">3</div>
+              <h3>Cliente No Aceptó Air o Fibra</h3>
+            </div>
+            <div class="rule-list">
+              <div class="rule-item">
+                Si un cliente tiene disponibilidad de <b>Fibra AT&amp;T</b> y no acepta el servicio, pero la llamada se tipifica como <b>"Cober no aceptó AT&amp;T Air"</b>, el agente quedará <b>1 día fuera de Inbound</b> por falsedad en la tipificación.
+              </div>
+              <div class="rule-item">
+                Toda tipificación incorrecta relacionada con cobertura o aceptación del servicio será motivo de <b>suspensión de 1 día fuera de Inbound.</b>
+              </div>
+              <div class="rule-item">
+                Esta medida se implementa para medir con precisión las llamadas que realmente <b>no cuentan con cobertura de fibra.</b>
+              </div>
+              <div class="rule-item">
+                Si el cliente sí tiene cobertura y la llamada se tipifica como <b>"CX no contesta"</b> o <b>"Ninguna cobertura"</b>, el agente quedará <b>1 día fuera de Inbound.</b>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4 -->
+          <div class="sub-section">
+            <div class="sub-section-header">
+              <div class="sub-num">4</div>
+              <h3>Convenios y Justificaciones</h3>
+            </div>
+            <div class="rule-list">
+              <div class="rule-item">
+                Que un cliente tenga convenio <b>no exime</b> al agente de registrar y tipificar correctamente la llamada. En estos casos, la llamada debe registrarse como <b>"Cober no aceptó".</b>
+              </div>
+              <div class="rule-item">
+                Problemas como <b>cortes de energía eléctrica o de internet</b> no justifican la falta de registro de llamadas o información incompleta. La única excepción válida es cuando <b>no exista acceso al sistema.</b>
+              </div>
+              <div class="rule-item">
+                Si el cliente llama, proporciona la dirección y luego cuelga, pero sí cuenta con cobertura, la llamada debe tipificarse como <b>"Cobertura no aceptó [nombre de la compañía]"</b>. Tipificar este escenario como <b>"No contesta"</b> será motivo para permanecer <b>1 día fuera de Inbound.</b>
+              </div>
+              <div class="rule-item">
+                Si el cliente cuelga antes de recibir la respuesta de procesamiento, el agente debe esperar el resultado y tipificar la llamada como <b>"No aceptó"</b>, ya que la acción de colgar se considera un <b>rechazo del servicio.</b>
+              </div>
+              <div class="rule-item">
+                Únicamente cuando <b>no exista cobertura en ambos mercados</b> se debe tipificar como <b>"Ninguna cobertura".</b>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </main>
+  </div>
+  <script src="/js/crm-config.js" defer></script>
+  <script src="/js/inactivity-manager.js" defer></script>
+  <script src="/js/crm-init.js" defer></script>
+</body>
+</html>
