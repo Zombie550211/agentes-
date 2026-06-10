@@ -11,6 +11,8 @@
   let onlyTwoMonths   = false;
   // Flag: true cuando __allLeadsData fue cargado con allData=true (sin límite de fechas)
   let __allDataLoaded = false;
+  // Flag: true cuando __allLeadsData contiene solo resultados de búsqueda (no el mes completo)
+  let __searchResultsOnly = false;
   let __socket        = null;
 
   const NOTES_STORE   = {};
@@ -379,6 +381,16 @@
     const search=getVal('costumer-search').toUpperCase();
     const svc=getVal('serviceFilter'),team=getVal('teamFilter'),agent=getVal('agentFilter'),mercado=getVal('mercadoFilter'),month=getVal('monthFilter'),from=getVal('dateFrom'),to=getVal('dateTo');
 
+    // Si se borró el buscador y teníamos resultados de búsqueda, recargar el mes completo
+    if(!search && __searchResultsOnly){
+      __searchResultsOnly=false;
+      (async function(){
+        var data=await fetchBootstrap();
+        if(data){_applyBootstrapFilters(data);window.renderCostumerTable(data.leads||[]);}
+      })();
+      return;
+    }
+
     // Búsqueda: llamada directa al servidor con el término, no descarga todo
     if(search && !month && !__allDataLoaded){
       (async function(){
@@ -390,9 +402,10 @@
         if(!res||!res.ok)return;
         try{
           var data=await res.json();
-          __allDataLoaded=true;   // evita re-entrada cuando renderCostumerTable llame a applyFilters
+          __allDataLoaded=true;
+          __searchResultsOnly=true;
           window.renderCostumerTable(data.data||[]);
-          __allDataLoaded=false;  // reset para que el próximo cambio vuelva a buscar en servidor
+          __allDataLoaded=false;
         }catch(_){__allDataLoaded=false;}
       })();
       return;
