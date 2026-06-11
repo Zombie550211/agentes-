@@ -110,6 +110,22 @@ _MIGRATIONS = [
         created_by VARCHAR(200) NULL,
         INDEX idx_tr_old (old_name(100))
     )""",
+    # ── Llamadas de verificación/seguimiento (bloqueo de agentes) ──
+    "ALTER TABLE leads ADD COLUMN fecha_completed DATETIME NULL",
+    "ALTER TABLE leads ADD COLUMN llamada_cliente VARCHAR(20) NULL",
+    "ALTER TABLE leads ADD COLUMN llamadas_realizadas TINYINT NOT NULL DEFAULT 0",
+    "ALTER TABLE leads ADD COLUMN fecha_ultima_llamada DATETIME NULL",
+    """CREATE TABLE IF NOT EXISTS lead_llamadas (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        lead_id VARCHAR(100) NOT NULL,
+        numero_llamada TINYINT NOT NULL,
+        tipo VARCHAR(30) NOT NULL DEFAULT 'verificacion',
+        imagen_url VARCHAR(500) NOT NULL,
+        nota TEXT NOT NULL,
+        created_by VARCHAR(200),
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_ll_lead (lead_id)
+    )""",
 ]
 
 async def _fix_api_file_urls():

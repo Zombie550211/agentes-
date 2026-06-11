@@ -395,8 +395,24 @@ def _parse_date_str(s: str) -> Optional[str]:
     return None
 
 
+async def _count_llamadas_vencidas(user: dict) -> int:
+    """Cuántos leads del usuario tienen llamada vencida (para bloqueo server-side)."""
+    if _is_admin_or_bo(user):
+        return 0
+    try:
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(text(
+                f"SELECT COUNT(*) FROM leads WHERE {_owner_where()} AND {_LLAMADAS_DUE_SQL}"
+            ), _owner_params(user))
+            return int(r.scalar() or 0)
+    except Exception:
+        return 0  # si la tabla/columnas aún no existen, no bloquear
+
+
 @router.post("/api/leads")
 async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
+    if await _count_llamadas_vencidas(user) > 0:
+        raise HTTPException(423, "Tienes clientes completados por llamar. Registra las llamadas pendientes para continuar.")
     now = datetime.utcnow()
     # Auto-asignar supervisor/team desde el perfil del agente si no viene en el body
     if not body.supervisor:
@@ -848,6 +864,191 @@ async def leads_lineas(
             "meta": {"total": len(leads), "returned": min(len(leads), cap), "month": target_month}}
 
 
+# ── LLAMADAS DE VERIFICACIÓN / SEGUIMIENTO (bloqueo) ──────────────
+# Condiciones de llamada vencida:
+#  - cancelled: 1 sola llamada, inmediata (llamadas_realizadas = 0)
+#  - completed: hasta 3 llamadas, cada una 7 días después de la anterior
+#    (la 1ª cuenta desde fecha_completed)
+_LLAMADAS_DUE_SQL = """(
+    (LOWER(COALESCE(status,'')) LIKE '%cancel%'
+     AND COALESCE(llamada_cliente,'') = 'Pendiente'
+     AND COALESCE(llamadas_realizadas,0) = 0)
+    OR
+    (LOWER(COALESCE(status,'')) LIKE '%complet%'
+     AND fecha_completed IS NOT NULL
+     AND COALESCE(llamadas_realizadas,0) < 3
+     AND COALESCE(fecha_ultima_llamada, fecha_completed) <= (UTC_TIMESTAMP() - INTERVAL 7 DAY))
+)"""
+
+
+def _owner_where() -> str:
+    return "(agente_nombre = :own_u OR agente = :own_u OR created_by = :own_u OR agente_nombre = :own_n OR agente = :own_n OR created_by = :own_n)"
+
+
+def _owner_params(user: dict) -> dict:
+    return {
+        "own_u": (user.get("username") or "").strip(),
+        "own_n": (user.get("name") or "").strip() or (user.get("username") or "").strip(),
+    }
+
+
+@router.get("/api/leads/llamadas-pendientes")
+async def llamadas_pendientes(
+    full: Optional[str] = Query(None),
+    user: dict = Depends(current_user),
+):
+    """Leads del usuario actual con llamada de verificación/seguimiento vencida.
+    Si hay alguno, el frontend bloquea el CRM hasta que registre todas las llamadas.
+    Con full=1 devuelve los leads completos (para la lista de costumer)."""
+    if _is_admin_or_bo(user):
+        return {"success": True, "blocked": False, "total": 0, "leads": []}
+
+    want_full = str(full or "").lower() in ("1", "true")
+    cols = "*" if want_full else (
+        "id, nombre_cliente, telefono_principal, telefono, status, "
+        "COALESCE(llamadas_realizadas,0) AS llamadas_realizadas, "
+        "fecha_completed, fecha_ultima_llamada"
+    )
+    try:
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(text(f"""
+                SELECT {cols}
+                FROM leads
+                WHERE {_owner_where()} AND {_LLAMADAS_DUE_SQL}
+                ORDER BY COALESCE(fecha_ultima_llamada, fecha_completed, created_at) ASC
+            """), _owner_params(user))
+            rows = r.mappings().all()
+    except Exception:
+        return {"success": True, "blocked": False, "total": 0, "leads": []}
+
+    leads = []
+    for row in rows:
+        d = dict(row)
+        n = int(d.get("llamadas_realizadas") or 0)
+        if want_full:
+            doc = _serialize_lead(row)
+            doc["llamadas_realizadas"] = n
+            doc["numero_llamada"] = n + 1
+            doc["tipo_llamada"] = "verificacion" if n == 0 else "seguimiento"
+            leads.append(doc)
+        else:
+            leads.append({
+                "_id":              str(d.get("id", "")),
+                "id":               str(d.get("id", "")),
+                "nombre_cliente":   d.get("nombre_cliente") or "",
+                "telefono":         d.get("telefono_principal") or d.get("telefono") or "",
+                "status":           d.get("status") or "",
+                "llamadas_realizadas": n,
+                "numero_llamada":   n + 1,
+                "tipo_llamada":     "verificacion" if n == 0 else "seguimiento",
+            })
+    return {"success": True, "blocked": len(leads) > 0, "total": len(leads), "leads": leads}
+
+
+@router.get("/api/leads/{lead_id}/llamadas")
+async def get_llamadas_lead(lead_id: str, user: dict = Depends(current_user)):
+    """Historial de llamadas registradas de un lead (imágenes + notas)."""
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            SELECT id, lead_id, numero_llamada, tipo, imagen_url, nota, created_by, created_at
+            FROM lead_llamadas WHERE lead_id = :lid ORDER BY numero_llamada ASC
+        """), {"lid": str(lead_id)})
+        rows = [dict(row) for row in r.mappings().all()]
+    for d in rows:
+        if d.get("created_at"):
+            d["created_at"] = str(d["created_at"])
+    return {"success": True, "data": rows, "total": len(rows)}
+
+
+class LlamadaBody(BaseModel):
+    imagen_url: str = ""
+    nota:       str = ""
+
+
+@router.post("/api/leads/{lead_id}/llamada")
+async def registrar_llamada(
+    lead_id: str,
+    body: LlamadaBody,
+    user: dict = Depends(current_user),
+):
+    """Registra una llamada de verificación/seguimiento: requiere imagen Y nota."""
+    imagen = (body.imagen_url or "").strip()
+    nota   = (body.nota or "").strip()
+    if not imagen:
+        raise HTTPException(400, "La captura de la llamada (imagen) es obligatoria")
+    if not nota:
+        raise HTTPException(400, "La nota de la llamada es obligatoria")
+
+    mysql_id, mongo_id = _find_id(lead_id)
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text(
+            "SELECT id, nombre_cliente, agente_nombre, agente, created_by, status, COALESCE(llamadas_realizadas,0) AS lr, notas "
+            "FROM leads WHERE id = :id OR mongo_id = :mid LIMIT 1"
+        ), {"id": mysql_id or 0, "mid": mongo_id or ""})
+        row = r.mappings().first()
+        if not row:
+            raise HTTPException(404, "Lead no encontrado")
+
+        # Solo el dueño del lead o un admin pueden registrar la llamada
+        if not _is_admin_or_bo(user):
+            own = {str(row["agente_nombre"] or "").strip().lower(),
+                   str(row["agente"] or "").strip().lower(),
+                   str(row["created_by"] or "").strip().lower()}
+            me = {str(user.get("username") or "").strip().lower(),
+                  str(user.get("name") or "").strip().lower()}
+            if not (own & me):
+                raise HTTPException(403, "Solo el dueño del lead puede registrar la llamada")
+
+        n_actual = int(row["lr"] or 0)
+        if n_actual >= 3:
+            raise HTTPException(400, "Este lead ya tiene las 3 llamadas registradas")
+
+        numero = n_actual + 1
+        tipo   = "verificacion" if n_actual == 0 else "seguimiento"
+        now    = datetime.utcnow()
+        autor  = user.get("name") or user.get("username") or "system"
+
+        await s.execute(text("""
+            INSERT INTO lead_llamadas (lead_id, numero_llamada, tipo, imagen_url, nota, created_by, created_at)
+            VALUES (:lid, :num, :tipo, :img, :nota, :by, :now)
+        """), {"lid": str(row["id"]), "num": numero, "tipo": tipo,
+               "img": imagen, "nota": nota, "by": autor, "now": now})
+
+        # Añadir la nota también al historial de notas del lead (visible en el modal)
+        try:
+            notas = json.loads(row["notas"]) if row["notas"] else []
+            if not isinstance(notas, list):
+                notas = []
+        except Exception:
+            notas = []
+        notas.append({
+            "tipo": "llamada",
+            "texto": f"[Llamada {numero}/3 — {tipo}] {nota}",
+            "autor": autor,
+            "fecha": now.isoformat(),
+        })
+
+        await s.execute(text("""
+            UPDATE leads SET
+              llamadas_realizadas = :num,
+              fecha_ultima_llamada = :now,
+              llamada_cliente = 'Completada',
+              notas = :notas,
+              updated_at = :now
+            WHERE id = :id
+        """), {"num": numero, "now": now,
+               "notas": json.dumps(notas, ensure_ascii=False), "id": row["id"]})
+        await s.commit()
+
+    asyncio.create_task(_log_activity(
+        "Llamada registrada", str(row["nombre_cliente"] or ""),
+        f"Llamada {numero}/3 ({tipo}) registrada con captura y nota",
+        user
+    ))
+    return {"success": True, "message": f"Llamada {numero}/3 registrada",
+            "data": {"numero_llamada": numero, "tipo": tipo, "restantes": 3 - numero}}
+
+
 # ── SINGLE LEAD CRUD ───────────────────────────────────────────────
 @router.get("/api/leads/{lead_id}")
 async def get_lead(lead_id: str, user: dict = Depends(current_user)):
@@ -868,6 +1069,23 @@ class UpdateStatusBody(BaseModel):
     status: str
 
 
+def _llamada_sets_on_status_change(old_status: str, new_status: str) -> str:
+    """SQL extra cuando el status cambia: dispara el ciclo de llamadas de verificación.
+
+    - → completed: fecha_completed=now, llamada pendiente (1ª llamada a los 7 días)
+    - → cancelled: llamada pendiente inmediata
+    """
+    old_n = str(old_status or "").lower()
+    new_n = str(new_status or "").lower()
+    if old_n == new_n:
+        return ""
+    if "complet" in new_n:
+        return ", fecha_completed = UTC_TIMESTAMP(), llamada_cliente = 'Pendiente'"
+    if "cancel" in new_n:
+        return ", llamada_cliente = 'Pendiente'"
+    return ""
+
+
 @router.put("/api/leads/{lead_id}/status")
 async def update_lead_status(
     lead_id: str,
@@ -880,13 +1098,17 @@ async def update_lead_status(
         raise HTTPException(400, "status requerido")
     mysql_id, mongo_id = _find_id(lead_id)
     async with AsyncSessionLocal() as s:
+        pr = await s.execute(text("SELECT status FROM leads WHERE id = :id OR mongo_id = :mid LIMIT 1"),
+                             {"id": mysql_id or 0, "mid": mongo_id or ""})
+        prev_status = (pr.first() or [""])[0] or ""
+        extra = _llamada_sets_on_status_change(prev_status, body.status)
         if mysql_id:
             r = await s.execute(text(
-                "UPDATE leads SET status = :st WHERE id = :id"
+                f"UPDATE leads SET status = :st{extra} WHERE id = :id"
             ), {"st": body.status, "id": mysql_id})
         else:
             r = await s.execute(text(
-                "UPDATE leads SET status = :st WHERE mongo_id = :mid"
+                f"UPDATE leads SET status = :st{extra} WHERE mongo_id = :mid"
             ), {"st": body.status, "mid": mongo_id})
         await s.commit()
         if r.rowcount == 0:
@@ -1022,7 +1244,13 @@ async def update_lead(
         where = "mongo_id = :mid"
 
     async with AsyncSessionLocal() as s:
-        r = await s.execute(text(f"UPDATE leads SET {', '.join(sets)} WHERE {where}"), params)
+        extra_llamada = ""
+        if "status" in data:
+            pr = await s.execute(text("SELECT status FROM leads WHERE id = :id OR mongo_id = :mid LIMIT 1"),
+                                 {"id": mysql_id or 0, "mid": mongo_id or ""})
+            prev_status = (pr.first() or [""])[0] or ""
+            extra_llamada = _llamada_sets_on_status_change(prev_status, data["status"])
+        r = await s.execute(text(f"UPDATE leads SET {', '.join(sets)}{extra_llamada} WHERE {where}"), params)
         await s.commit()
         if r.rowcount == 0:
             raise HTTPException(404, "Lead no encontrado")

@@ -11,6 +11,12 @@ import io
 
 router = APIRouter(tags=["Files"])
 
+_ADMIN_ROLES = {"admin", "administrador", "administrator", "backoffice", "bo"}
+
+
+def _is_admin(user: dict) -> bool:
+    return any(r in str(user.get("role", "")).lower() for r in _ADMIN_ROLES)
+
 _FILES_DIR = Path(__file__).resolve().parent.parent.parent / "uploads" / "files"
 _FILES_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -300,9 +306,11 @@ async def download_file(file_id: str):
     )
 
 
-# ── DELETE /api/files/:id ─────────────────────────────────────
+# ── DELETE /api/files/:id — solo administradores ─────────────
 @router.delete("/api/files/{file_id}")
 async def delete_file(file_id: str, user: dict = Depends(current_user)):
+    if not _is_admin(user):
+        raise HTTPException(403, "Solo administradores pueden eliminar archivos")
     try:
         fid = int(file_id)
     except ValueError:

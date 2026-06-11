@@ -207,7 +207,7 @@
           var n=parseFloat(String(v).replace(',','.'));
           return isNaN(n)?'':n;
         })(),
-        imagen_url:      (function(){var v=pick(['imagen_url','imagen','foto','image_url']);if(!v)return '';var s=String(v);if(/^\/api\/files\/\d+$/.test(s))return '';return(s.startsWith('/uploads/')||s.startsWith('http'))?s:'';}()),
+        imagen_url:      (function(){var v=pick(['imagen_url','imagen','foto','image_url']);if(!v)return '';var s=String(v);if(/^\/api\/files\/\d+$/.test(s))return '';return(s.startsWith('/uploads/')||s.startsWith('http')||/^\/api\/files\/\d+\/image$/.test(s))?s:'';}()),
         notas:           it&&(it.notas||it.notas_cliente||it.notes)||[],
         was_reserva:     !!(it&&(it.was_reserva===true||it.was_reserva==='true'||it.was_reserva===1)),
       };
@@ -1169,6 +1169,10 @@
               (imgSrc?'<span style="font-size:.68rem;font-weight:700;background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;border-radius:var(--rf);padding:3px 10px;">Verificado</span>':'')+
             '</div>'+
             imgDisplayHtml+
+            // Capturas de llamadas de verificación/seguimiento (fila, scroll invisible)
+            '<div id="ile-caps-row-'+lid+'" style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;margin-top:10px;"></div>'+
+            // Formulario registrar llamada (solo si el lead tiene llamada vencida)
+            '<div id="ile-llamada-reg-'+lid+'"></div>'+
           '</div>'+
         '</div>'+
       '</div>';
@@ -1211,6 +1215,7 @@
     })();
 
     renderNotesPanel(lid);
+    _loadLlamadasUI(lid);
     var _noteTA=document.getElementById('new-note-input');
     if(_noteTA){_noteTA.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();window.addNoteToLead();}});}
   };
@@ -1409,6 +1414,106 @@
   window.switchBulkTab=_switchBulkTab;
   function _updateBulkCount(){const execBtn=document.getElementById('btnExecuteBulkStatus');const selSt=document.getElementById('bulkNewStatus');const countEl=document.getElementById('phoneCount');if(_bulkMode==='phone'){const ta=document.getElementById('bulkPhoneNumbers');const nums=ta?(ta.value.split('\n').map(function(s){const d=String(s||'').replace(/\D/g,'');return d.length>=10?d.slice(-10):'';}).filter(function(s){return s.length===10;})):[];if(countEl)countEl.textContent=nums.length+' números';if(execBtn&&selSt)execBtn.disabled=!(nums.length>0&&selSt.value);}else{const ta=document.getElementById('bulkNamesList');const names=ta?(ta.value.split('\n').map(function(s){return s.trim();}).filter(function(s){return s.length>=3;})):[];if(countEl)countEl.textContent=names.length+' nombres';if(execBtn&&selSt)execBtn.disabled=!(names.length>0&&selSt.value);}}
   window.executeBulkStatus=async function(){if(!canUseBulkStatus()){showToast('No tienes permisos','error');return;}const newStatus=document.getElementById('bulkNewStatus')&&document.getElementById('bulkNewStatus').value;if(!newStatus){showToast('Selecciona un status','error');return;}const btn=document.getElementById('btnExecuteBulkStatus');const preview=document.getElementById('bulkStatusPreview');const content=document.getElementById('bulkStatusPreviewContent');if(btn){btn.disabled=true;btn.textContent='⏳ Actualizando…';}if(preview)preview.style.display='block';if(content)content.textContent='Procesando…';try{let res,data,normalizedStatus=normalizeStatus(newStatus);if(_bulkMode==='phone'){const ta=document.getElementById('bulkPhoneNumbers');const nums=(ta?ta.value:'').split('\n').map(function(s){const d=String(s||'').replace(/\D/g,'');return d.length>=10?d.slice(-10):'';}).filter(function(s){return s.length===10;});if(!nums.length){showToast('Sin números válidos','error');return;}res=await AUTH.secureFetch('/api/leads/bulk-status-by-phone',{method:'POST',body:JSON.stringify({phones:nums,newStatus:normalizeStatus(newStatus)})});if(!res)throw new Error('Sin conexión');data=await res.json().catch(function(){return{};});if(!res.ok||!data.success){showToast((data&&data.message)||('Error: '+res.status),'error');if(content)content.textContent=(data&&data.message)||'Error';return;}const src=(Array.isArray(data.updatedLeads)&&data.updatedLeads.length)?data.updatedLeads.map(function(x){return x&&x.telefono;}):(Array.isArray(data.foundPhones)?data.foundPhones:[]);const fSet=new Set((src||[]).map(function(p){const d=String(p||'').replace(/\D/g,'');return d.length>=10?d.slice(-10):d;}).filter(Boolean));__allLeadsData.forEach(function(l){const d=String(l.telefono||'').replace(/\D/g,'');const c=d.length>=10?d.slice(-10):d;if(fSet.has(c))l.status=normalizedStatus;});}else{const ta=document.getElementById('bulkNamesList');const names=(ta?ta.value:'').split('\n').map(function(s){return s.trim();}).filter(function(s){return s.length>=3;});if(!names.length){showToast('Sin nombres válidos','error');return;}res=await AUTH.secureFetch('/api/leads/bulk-status-by-name',{method:'POST',body:JSON.stringify({names:names,newStatus:normalizeStatus(newStatus)})});if(!res)throw new Error('Sin conexión');data=await res.json().catch(function(){return{};});if(!res.ok||!data.success){showToast((data&&data.message)||('Error: '+res.status),'error');if(content)content.textContent=(data&&data.message)||'Error';return;}const updatedLeads=Array.isArray(data.updatedLeads)?data.updatedLeads:[];const nameSet=new Set(updatedLeads.map(function(x){return String(x&&x.nombre_cliente||'').trim().toLowerCase();}).filter(Boolean));__allLeadsData.forEach(function(l){if(nameSet.has(String(l.nombre_cliente||'').trim().toLowerCase()))l.status=normalizedStatus;});}applyFilters();if(content)content.innerHTML='<div style="color:var(--go);font-weight:700;">✅ Actualizado: '+(data.updated||0)+' leads</div>';showToast('Status masivo aplicado ✓','ok');}catch(e){if(content)content.textContent=e&&e.message?e.message:'Error inesperado';showToast(e&&e.message?e.message:'Error inesperado','error');}finally{if(btn){btn.disabled=false;btn.textContent='🔄 Actualizar status';}}};
+
+  /* ── LLAMADAS DE VERIFICACIÓN / SEGUIMIENTO ── */
+  var _llamadaFiles={};
+
+  async function _loadLlamadasUI(lid){
+    var row=document.getElementById('ile-caps-row-'+lid);
+    var regWrap=document.getElementById('ile-llamada-reg-'+lid);
+    if(!row&&!regWrap)return;
+    if(!document.getElementById('ile-caps-style')){
+      var st=document.createElement('style');st.id='ile-caps-style';
+      st.textContent='[id^="ile-caps-row-"]::-webkit-scrollbar{display:none}';
+      document.head.appendChild(st);
+    }
+    var llamadas=[];
+    try{
+      var res=await AUTH.secureFetch('/api/leads/'+lid+'/llamadas');
+      if(res&&res.ok){var d=await res.json();llamadas=d.data||[];}
+    }catch(_){}
+    if(row){
+      row.innerHTML=llamadas.map(function(c){
+        var tipo=c.tipo==='seguimiento'?'Seguimiento':'Verificación';
+        return '<div style="flex-shrink:0;width:84px;">'+
+          '<div style="width:84px;height:64px;border:1px solid var(--line-1);border-radius:8px;overflow:hidden;cursor:zoom-in;background:var(--sheet-2);" onclick="_openCostumerImgLightbox(\''+escHTML(c.imagen_url)+'\')" title="Llamada '+c.numero_llamada+'/3 — click para ampliar">'+
+            '<img src="'+escHTML(c.imagen_url)+'" style="width:100%;height:100%;object-fit:cover;">'+
+          '</div>'+
+          '<div style="font-size:.58rem;font-weight:700;color:var(--ink-3);text-align:center;margin-top:3px;white-space:nowrap;">📞 '+c.numero_llamada+'/3 · '+tipo+'</div>'+
+        '</div>';
+      }).join('');
+    }
+    // Formulario solo si este lead tiene llamada vencida (lista del bloqueo)
+    var pend=(window.__llamadasPendientes&&window.__llamadasPendientes.leads)||[];
+    var isDue=pend.some(function(p){return String(p._id||p.id)===String(lid);});
+    var nDone=llamadas.length;
+    if(regWrap&&isDue&&nDone<3){
+      var nNext=nDone+1;
+      var tipoNext=nDone===0?'verificación':'seguimiento';
+      regWrap.innerHTML=
+        '<div style="margin-top:12px;border:1.5px solid rgba(239,68,68,.4);border-radius:10px;padding:12px;background:rgba(239,68,68,.05);">'+
+          '<div style="font-size:.72rem;font-weight:800;color:#ef4444;margin-bottom:8px;">📞 Llamada '+nNext+'/3 ('+tipoNext+') pendiente — sube la captura de Xencall y la nota</div>'+
+          '<div id="ile-ll-imgname-'+lid+'" style="font-size:.7rem;color:var(--ink-3);margin-bottom:6px;display:none;"></div>'+
+          '<div style="display:flex;gap:7px;margin-bottom:8px;">'+
+            '<button type="button" onclick="document.getElementById(\'ile-ll-file-'+lid+'\').click()" style="flex-shrink:0;padding:7px 12px;border:1px solid var(--line-1);border-radius:7px;background:var(--sheet);font-size:.74rem;font-weight:700;cursor:pointer;color:var(--ink-2);">📷 Captura</button>'+
+            '<input type="file" id="ile-ll-file-'+lid+'" accept="image/*" style="display:none" onchange="_llamadaFileSelect(event,\''+lid+'\')">'+
+            '<textarea id="ile-ll-nota-'+lid+'" rows="2" placeholder="La llamada se realizó. Respuesta del cliente…" style="flex:1;padding:7px 9px;border:1px solid var(--line-1);border-radius:7px;font-size:.76rem;resize:none;font-family:var(--f);color:var(--ink-1);background:var(--sheet-2);"></textarea>'+
+          '</div>'+
+          '<button type="button" id="ile-ll-btn-'+lid+'" onclick="_registrarLlamada(\''+lid+'\')" style="width:100%;padding:9px;border:none;border-radius:8px;background:#ef4444;color:#fff;font-size:.78rem;font-weight:800;cursor:pointer;">Registrar llamada '+nNext+'/3</button>'+
+        '</div>';
+    } else if(regWrap){
+      regWrap.innerHTML='';
+    }
+  }
+
+  window._llamadaFileSelect=function(ev,lid){
+    var f=ev.target.files[0];if(!f)return;
+    _llamadaFiles[lid]=f;
+    var lbl=document.getElementById('ile-ll-imgname-'+lid);
+    if(lbl){lbl.style.display='block';lbl.textContent='📎 '+f.name;}
+  };
+
+  window._registrarLlamada=async function(lid){
+    var f=_llamadaFiles[lid];
+    var notaEl=document.getElementById('ile-ll-nota-'+lid);
+    var nota=(notaEl&&notaEl.value||'').trim();
+    if(!f){showToast('Sube la captura de Xencall','error');return;}
+    if(!nota){showToast('Escribe la nota de la llamada','error');return;}
+    var btn=document.getElementById('ile-ll-btn-'+lid);
+    if(btn){btn.disabled=true;btn.textContent='Registrando…';}
+    try{
+      var fd=new FormData();fd.append('file',f);fd.append('leadId',lid);
+      var up=await fetch('/api/files/upload',{method:'POST',credentials:'include',body:fd});
+      if(!up.ok)throw new Error('No se pudo subir la imagen');
+      var upd=await up.json();
+      var url=(upd.data&&upd.data.url)||'';
+      if(!url)throw new Error('No se obtuvo URL de la imagen');
+      var res=await AUTH.secureFetch('/api/leads/'+lid+'/llamada',{method:'POST',body:JSON.stringify({imagen_url:url,nota:nota})});
+      if(!res||!res.ok){
+        var msg='No se pudo registrar la llamada';
+        try{var j=await res.json();msg=j.detail||j.message||msg;}catch(_){}
+        throw new Error(msg);
+      }
+      delete _llamadaFiles[lid];
+      showToast('Llamada registrada ✓','ok');
+      // Refrescar pendientes: si ya no queda ninguna, levantar el bloqueo
+      try{
+        var pres=await fetch('/api/leads/llamadas-pendientes',{credentials:'include'});
+        var pd=pres.ok?await pres.json():null;
+        if(pd)window.__llamadasPendientes=pd;
+        if(pd&&!pd.blocked){
+          showToast('✅ Todas las llamadas registradas. Bloqueo levantado.','ok');
+          setTimeout(function(){window.location.href='/residencial/costumer.html';},1400);
+          return;
+        }
+      }catch(_){}
+      _loadLlamadasUI(lid);
+    }catch(e){
+      showToast(e.message||'Error registrando la llamada','error');
+    }finally{
+      if(btn&&!btn.dataset.done){btn.disabled=false;btn.textContent='Registrar llamada';}
+    }
+  };
 
   /* ── NOTES ENGINE ── */
   function getCurrentUserName(){
@@ -1713,8 +1818,23 @@
   }
 
   /* ── INIT ── */
+  // Modo llamadas pendientes: ?llamadas=1 → solo los leads que el usuario debe llamar
+  const __llamadasMode=/[?&]llamadas=1/.test(window.location.search||'');
+
   async function loadInitialData(){
     if(!AUTH.check())return;
+
+    if(__llamadasMode){
+      var resLl=await AUTH.secureFetch('/api/leads/llamadas-pendientes?full=1');
+      if(resLl&&resLl.ok){
+        try{
+          var dLl=await resLl.json();
+          __allDataLoaded=true; // evita que el buscador dispare fetch de búsqueda
+          window.renderCostumerTable(dLl.leads||[]);
+        }catch(_){}
+      }
+      return;
+    }
 
     // ── Paso 1: mostrar caché al instante (0 ms) ──
     var cached=_bsLoad();
