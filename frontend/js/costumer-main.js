@@ -2,6 +2,7 @@
   'use strict';
 
   let __allLeadsData      = [];
+  let __kpiLeadsData      = []; // siempre datos reales del mes, no resultados de búsqueda
   let __filteredLeads     = [];
   let __allAvailableMonths = new Set(); // acumulador — nunca se encoge
   let currentPage     = 1;
@@ -194,7 +195,7 @@
         dia_instalacion: String(pick(['dia_instalacion','installDate','fecha_instalacion','fechaInstalacion','diaInstalacion'])).slice(0,10),
         status:          normalizeStatus(pick(['status','Status','estado','state'])),
         servicios:       pick(['servicios','servicios_texto','producto_contratado','serviceDescription']),
-        tipo_servicio:   pick(['tipo_servicio','serviceType','tipoServicio','tipo_servicios','servicios_texto']),
+        tipo_servicio:   pick(['tipo_servicio','serviceType','tipoServicio','tipo_servicios']),
         mercado:         pick(['mercado','market']),
         supervisor:      pick(['supervisor','SUPERVISOR','team','Team','equipo']),
         agente:          pick(['agenteNombre','agente','createdBy','creadoPor'])||pickField(raw,['agenteNombre','agente','createdBy','creadoPor'],''),
@@ -309,7 +310,7 @@
   async function fetchMonthsForFilters(){if(!AUTH.check())return null;const res=await AUTH.secureFetch('/api/leads/months?limit=120');if(!res||!res.ok)return null;try{const data=await res.json();return data.months||data.data||[];}catch(_){return null;}}
 
   /* ── RENDER ── */
-  window.renderCostumerTable=function(items){__allLeadsData=normalizeLeads(items||[]);window.__allLeadsData=__allLeadsData;currentPage=1;applyFilters();setTimeout(refreshFilterOptions,0);};
+  window.renderCostumerTable=function(items){__allLeadsData=normalizeLeads(items||[]);window.__allLeadsData=__allLeadsData;if(!__searchResultsOnly)__kpiLeadsData=__allLeadsData;currentPage=1;applyFilters();setTimeout(refreshFilterOptions,0);};
 
   function _fmtName(s){
     var parts=String(s||'').replace(/[._]/g,' ').replace(/\s+/g,' ').trim().split(' ').filter(Boolean);
@@ -391,8 +392,8 @@
       return;
     }
 
-    // Búsqueda: llamada directa al servidor con el término, no descarga todo
-    if(search && !month && !__allDataLoaded){
+    // Búsqueda: llamada directa al servidor con el término, ignora filtro de mes
+    if(search && !__allDataLoaded){
       (async function(){
         var digits=search.replace(/\D/g,'');
         var qs=digits.length>=7
@@ -526,7 +527,7 @@
         else{if(lead.status!==activeStatusTab)return false;}
       }
 
-      if(month){
+      if(month && !__searchResultsOnly){
         // Convert any date format to YYYY-MM
         const toYM=function(v){
           if(!v)return'';
@@ -621,7 +622,8 @@
       const rowAnim='animation:rowFall .75s cubic-bezier(.16,1,.3,1) both;animation-delay:'+(_ri*0.06)+'s;';
       const pts=lead.puntaje!==''&&lead.puntaje!==null&&lead.puntaje!==undefined?parseFloat(String(lead.puntaje).replace(',','.')):null;
       const ptsColor=pts===null?'var(--ink-4)':pts>=1?'var(--go)':pts>=0.5?'var(--warn)':'var(--stop)';
-      const svcBadge=lead.tipo_servicio?'<span style="display:inline-block;font-size:.67rem;font-weight:700;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:var(--rf);padding:2px 9px;color:var(--ink-2);white-space:nowrap;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);">'+escHTML(lead.tipo_servicio)+'</span>':'';
+      const _svcArr=(function(){var s=lead.servicios;if(Array.isArray(s))return s.map(function(x){return String(x||'').trim();}).filter(Boolean);var str=String(s||'').trim();return str?[str]:[];})();
+      const svcBadge=_svcArr.map(function(sv){return'<span style="display:inline-block;font-size:.67rem;font-weight:700;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:var(--rf);padding:2px 9px;color:var(--ink-2);white-space:nowrap;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);">'+escHTML(sv)+'</span>';}).join('');
       const sisBadge=lead.sistema&&lead.sistema!=='N/A'?'<span style="display:inline-block;font-size:.67rem;font-weight:700;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.2);border-radius:var(--rf);padding:2px 9px;color:var(--info);white-space:nowrap;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);">'+escHTML(lead.sistema)+(lead.riesgo&&lead.riesgo!=='N/A'&&lead.riesgo!==''?' ('+escHTML(lead.riesgo)+')':'')+'</span>':'';
       return'<tr data-id="'+escHTML(lid)+'"'+rowClass+' style="'+rowAnim+'">'+
         // Col 1: Agente / Cliente
@@ -715,7 +717,8 @@
     const isAdm=isAdminOrBackoffice(role),isAgt=isAgent(role),isSup=isSupervisor(role);
     const normName=function(s){return String(s||'').replace(/[._]/g,' ').replace(/\s+/g,' ').trim().toLowerCase().split(' ').filter(Boolean).slice(0,2).join(' ');};
 
-    __allLeadsData.forEach(function(l){
+    const _kpiSrc=__kpiLeadsData.length?__kpiLeadsData:__allLeadsData;
+    _kpiSrc.forEach(function(l){
       if(!l)return;
       // Filtro rol agente
       if(isAgt){
@@ -729,7 +732,7 @@
         if(!kws.concat(teamKws).some(function(kw){return leadSup.includes(kw);}))return;
       }
       // Filtros de selects
-      if(fTeam&&String(l.supervisor||'').toUpperCase().indexOf(fTeam.toUpperCase())===-1)return;
+      if(fTeam){const normTS=function(s){return String(s||'').toUpperCase().replace(/^TEAM\s+/,'').trim();};const tN=normTS(fTeam),sN=normTS(l.supervisor);if(tN&&sN.indexOf(tN)===-1&&tN.indexOf(sN)===-1)return;}
       if(fAgent&&normName(l.agente)!==normName(fAgent)&&normName(l.agenteNombre||'')!==normName(fAgent))return;
       if(fMercado&&l.mercado!==fMercado)return;
       if(fSvc){const su=fSvc.toUpperCase();if(String(l.servicios||'').toUpperCase().indexOf(su)===-1&&String(l.tipo_servicio||'').toUpperCase().indexOf(su)===-1)return;}
