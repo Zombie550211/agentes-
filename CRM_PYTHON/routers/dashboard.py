@@ -104,13 +104,13 @@ async def dashboard_home(user: dict = Depends(current_user)):
 
             # ── 4. Top productos (servicios) del mes ─────────────────────────
             r4 = await s.execute(text("""
-                SELECT tipo_servicio
+                SELECT servicios
                 FROM leads
                 WHERE (dia_venta BETWEEN :s AND :e
                        OR (dia_venta IS NULL AND created_at BETWEEN :s AND :e))
                   AND UPPER(TRIM(COALESCE(status,''))) NOT IN ('CANCELLED','CANCELADO','CANCELADA','CANCEL','HOLD','RESERVA','RESCHEDULED','REAGENDADO')
-                  AND tipo_servicio IS NOT NULL
-                  AND TRIM(tipo_servicio) != ''
+                  AND servicios IS NOT NULL
+                  AND TRIM(servicios) NOT IN ('', '[]', 'null')
             """), {"s": start, "e": end})
             servs_rows = r4.mappings().all()
 
@@ -226,16 +226,28 @@ async def dashboard_home(user: dict = Depends(current_user)):
             })
         return pins
 
-    # ── Top productos (tipo_servicio — campo directo) ─────────────────────────
+    # ── Top productos (servicios — JSON array) ────────────────────────────────
     prod_map: dict = {}
     for row in servs_rows:
-        key = str(row["tipo_servicio"] or "").strip().upper()
-        if key and key not in ('', 'NULL'):
-            prod_map[key] = prod_map.get(key, 0) + 1
+        raw = row["servicios"]
+        items: list = []
+        if isinstance(raw, list):
+            items = raw
+        elif isinstance(raw, str):
+            try:
+                parsed = _json.loads(raw)
+                items = parsed if isinstance(parsed, list) else [parsed]
+            except Exception:
+                if raw.strip():
+                    items = [raw.strip()]
+        for svc in items:
+            key = str(svc or "").strip().upper()
+            if key and key not in ('', 'NULL', 'NONE'):
+                prod_map[key] = prod_map.get(key, 0) + 1
     top_productos = sorted(
         [{"servicio": k, "count": v} for k, v in prod_map.items()],
         key=lambda x: -x["count"]
-    )[:5]
+    )
 
     # ── Actividades recientes ──────────────────────────────────────────────────
     def _tiempo_relativo(created_at):

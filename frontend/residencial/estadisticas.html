@@ -176,7 +176,8 @@
     .donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
     .donut-val{font-size:1.6rem;font-weight:900;color:var(--t1);line-height:1;letter-spacing:-.02em}
     .donut-sub{font-size:.60rem;color:var(--t4);margin-top:3px;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
-    .leg{display:flex;flex-direction:column;gap:8px}
+    .leg{display:flex;flex-direction:column;gap:8px;max-height:160px;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;-ms-overflow-style:none}
+    .leg::-webkit-scrollbar{display:none}
     .leg-row{display:flex;align-items:center;gap:8px;font-size:.72rem}
     .leg-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
     .leg-name{flex:1;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -740,22 +741,26 @@
     // Donut Chart Processing
     var svc={};
     filtered.forEach(function(l){
-      var s=l.tipo_servicio||l.servicios;
+      var s=l.servicios||l.tipo_servicio;
       if(Array.isArray(s))s=s[0]||'Otro';
       s=String(s||'Otro').trim()||'Otro';
       svc[s]=(svc[s]||0)+1;
     });
     var svcS=Object.keys(svc).sort(function(a,b){return svc[b]-svc[a];});
-    var top=svcS.slice(0,5),otros=svcS.slice(5).reduce(function(a,k){return a+svc[k];},0);
-    var lbls=top.slice(),vals=top.map(function(k){return svc[k];});
-    if(otros>0){lbls.push('Otros');vals.push(otros);}
-    var cols=lbls.map(function(_,i){return PAL[i%PAL.length];});
-    renderDonut(lbls,vals,cols,total);
-    document.getElementById('service-legend').innerHTML=lbls.map(function(l,i){
-      var pct=total>0?((vals[i]/total)*100).toFixed(1):0;
-      return '<div class="leg-row"><span class="leg-dot" style="background:'+cols[i]+'"></span>'+
+    // Donut: top 5 + Otros
+    var top=svcS.slice(0,5),otrosVal=svcS.slice(5).reduce(function(a,k){return a+svc[k];},0);
+    var dLbls=top.slice(),dVals=top.map(function(k){return svc[k];});
+    if(otrosVal>0){dLbls.push('Otros');dVals.push(otrosVal);}
+    var cols=dLbls.map(function(_,i){return PAL[i%PAL.length];});
+    renderDonut(dLbls,dVals,cols,total);
+    // Leyenda: todos los servicios con scroll invisible
+    var colMap={};dLbls.forEach(function(l,i){colMap[l]=cols[i];});
+    document.getElementById('service-legend').innerHTML=svcS.map(function(l,i){
+      var col=colMap[l]||PAL[i%PAL.length];
+      var pct=total>0?((svc[l]/total)*100).toFixed(1):0;
+      return '<div class="leg-row"><span class="leg-dot" style="background:'+col+'"></span>'+
         '<span class="leg-name">'+l+'</span>'+
-        '<span class="leg-n">'+vals[i]+'</span>'+
+        '<span class="leg-n">'+svc[l]+'</span>'+
         '<span class="leg-p">'+pct+'%</span></div>';
     }).join('');
 

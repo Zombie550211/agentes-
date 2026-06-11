@@ -500,9 +500,10 @@ async def list_leads(
         # Buscar tanto con formato como sin él (strips paréntesis, guiones, espacios)
         tel_digits = re.sub(r'\D', '', tel_val)
         where.append("""(
-            telefono_principal LIKE :tel OR telefono LIKE :tel
+            telefono_principal LIKE :tel OR telefono LIKE :tel OR telefono_alterno LIKE :tel
             OR REPLACE(REPLACE(REPLACE(REPLACE(telefono_principal,'(',''),')',''),'-',''),' ','') LIKE :teld
             OR REPLACE(REPLACE(REPLACE(REPLACE(telefono,'(',''),')',''),'-',''),' ','') LIKE :teld
+            OR REPLACE(REPLACE(REPLACE(REPLACE(telefono_alterno,'(',''),')',''),'-',''),' ','') LIKE :teld
         )""")
         params["tel"]  = f"%{tel_val}%"
         params["teld"] = f"%{tel_digits}%"
