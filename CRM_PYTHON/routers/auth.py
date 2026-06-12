@@ -170,13 +170,20 @@ def _set_token_cookie(response: Response, token: str):
     )
 
 
-async def current_user(request: Request) -> dict:
+async def current_user(request: Request, response: Response) -> dict:
     token = _get_token(request)
     if not token:
         raise HTTPException(status_code=401, detail="No autenticado")
     decoded = _decode_token(token)
     if not decoded:
         raise HTTPException(status_code=401, detail="Token inválido")
+    # Sliding session: renovar si queda menos de la mitad de vida
+    try:
+        exp = int(decoded.get("exp") or 0)
+        if exp - time.time() < JWT_EXPIRES / 2:
+            _set_token_cookie(response, _make_token(decoded))
+    except Exception:
+        pass
     return decoded
 
 def require_roles(*roles):
@@ -245,7 +252,7 @@ async def me(user: dict = Depends(current_user)):
 
 
 @router.get("/verify-server")
-async def verify_server(request: Request):
+async def verify_server(request: Request, response: Response):
     token = _get_token(request)
     if not token:
         return {"success": False, "authenticated": False, "role": None, "username": None}
@@ -253,6 +260,13 @@ async def verify_server(request: Request):
     decoded = _decode_token(token)
     if not decoded:
         return {"success": False, "authenticated": False, "role": None, "username": None}
+
+    # Sliding session: renovar el token si queda menos de la mitad de vida
+    try:
+        if int(decoded.get("exp") or 0) - time.time() < JWT_EXPIRES / 2:
+            _set_token_cookie(response, _make_token(decoded))
+    except Exception:
+        pass
 
     maint = _load_maintenance()
     if maint.get("active") and maint.get("activeSince") and decoded.get("iat", 0) < maint["activeSince"]:
