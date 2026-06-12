@@ -930,6 +930,7 @@ async def llamadas_pendientes(
             doc["llamadas_realizadas"] = n
             doc["numero_llamada"] = n + 1
             doc["tipo_llamada"] = "verificacion" if n == 0 else "seguimiento"
+            doc["source"] = "leads"
             leads.append(doc)
         else:
             leads.append({
@@ -941,7 +942,41 @@ async def llamadas_pendientes(
                 "llamadas_realizadas": n,
                 "numero_llamada":   n + 1,
                 "tipo_llamada":     "verificacion" if n == 0 else "seguimiento",
+                "source":           "leads",
             })
+
+    # ── También clientes de líneas con llamada vencida ──
+    # (solo en formato ligero; full=1 es para la tabla de costumer residencial)
+    if want_full:
+        return {"success": True, "blocked": len(leads) > 0, "total": len(leads), "leads": leads}
+    try:
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(text(f"""
+                SELECT id, nombre_cliente, telefono_principal, status,
+                       COALESCE(llamadas_realizadas,0) AS llamadas_realizadas
+                FROM lineas_clientes
+                WHERE (agente = :own_u OR agente_nombre = :own_u OR agente_asignado = :own_u
+                       OR agente = :own_n OR agente_nombre = :own_n OR agente_asignado = :own_n)
+                  AND {_LLAMADAS_DUE_SQL}
+                ORDER BY COALESCE(fecha_ultima_llamada, fecha_completed, created_at) ASC
+            """), _owner_params(user))
+            for row in r.mappings().all():
+                d = dict(row)
+                n = int(d.get("llamadas_realizadas") or 0)
+                leads.append({
+                    "_id":              str(d.get("id", "")),
+                    "id":               str(d.get("id", "")),
+                    "nombre_cliente":   d.get("nombre_cliente") or "",
+                    "telefono":         d.get("telefono_principal") or "",
+                    "status":           d.get("status") or "",
+                    "llamadas_realizadas": n,
+                    "numero_llamada":   n + 1,
+                    "tipo_llamada":     "verificacion" if n == 0 else "seguimiento",
+                    "source":           "lineas",
+                })
+    except Exception:
+        pass  # si las columnas aún no existen en lineas_clientes, ignorar
+
     return {"success": True, "blocked": len(leads) > 0, "total": len(leads), "leads": leads}
 
 

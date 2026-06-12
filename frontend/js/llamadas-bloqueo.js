@@ -27,14 +27,23 @@
     var leads = data.leads || [];
     var rows = leads.map(function (l) {
       var tipo = l.tipo_llamada === 'seguimiento' ? 'Seguimiento' : 'Verificación';
+      var srcBadge = l.source === 'lineas'
+        ? '<span style="font-size:.58rem;font-weight:700;padding:1px 7px;border-radius:20px;background:rgba(56,189,248,.15);border:1px solid rgba(56,189,248,.3);color:#38bdf8;margin-left:6px;">LÍNEAS</span>'
+        : '';
       return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:10px;">' +
         '<div style="min-width:0;">' +
-          '<div style="font-weight:700;font-size:.85rem;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (l.nombre_cliente || '—') + '</div>' +
+          '<div style="font-weight:700;font-size:.85rem;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (l.nombre_cliente || '—') + srcBadge + '</div>' +
           '<div style="font-size:.78rem;color:rgba(255,255,255,.65);font-family:monospace;">' + fmtPhone(l.telefono) + '</div>' +
         '</div>' +
         '<span style="flex-shrink:0;font-size:.62rem;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#f87171;white-space:nowrap;">Llamada ' + (l.numero_llamada || 1) + '/3 · ' + tipo + '</span>' +
       '</div>';
     }).join('');
+
+    var hasLeads  = leads.some(function (l) { return l.source !== 'lineas'; });
+    var hasLineas = leads.some(function (l) { return l.source === 'lineas'; });
+    var btns = '';
+    if (hasLeads)  btns += '<button id="llb-go-btn" style="width:100%;padding:13px;border:none;border-radius:12px;background:#2563eb;color:#fff;font-size:.88rem;font-weight:800;cursor:pointer;font-family:inherit;">Ir a Lista de clientes</button>';
+    if (hasLineas) btns += '<button id="llb-go-lineas-btn" style="width:100%;padding:13px;border:none;border-radius:12px;background:#0ea5e9;color:#fff;font-size:.88rem;font-weight:800;cursor:pointer;font-family:inherit;' + (hasLeads ? 'margin-top:8px;' : '') + '">Ir a Lista de clientes (Líneas)</button>';
 
     var overlay = document.createElement('div');
     overlay.id = 'llamadas-bloqueo-overlay';
@@ -55,7 +64,7 @@
           'Debes llamar a cada cliente y, en <strong style="color:#fff;">editar cliente</strong>, subir la <strong style="color:#fff;">captura de Xencall</strong> y agregar una <strong style="color:#fff;">nota</strong> indicando que la llamada se realizó y cuál fue la respuesta del cliente. ' +
           'Si no lo haces, el bloqueo no se quitará y no podrás seguir ingresando tus leads.' +
         '</div>' +
-        '<button id="llb-go-btn" style="width:100%;padding:13px;border:none;border-radius:12px;background:#2563eb;color:#fff;font-size:.88rem;font-weight:800;cursor:pointer;font-family:inherit;">Ir a Lista de clientes</button>' +
+        btns +
       '</div>';
 
     document.body.appendChild(overlay);
@@ -64,8 +73,13 @@
     st.textContent = '#llamadas-bloqueo-overlay .llb-list::-webkit-scrollbar{display:none}';
     document.head.appendChild(st);
 
-    document.getElementById('llb-go-btn').addEventListener('click', function () {
+    var goBtn = document.getElementById('llb-go-btn');
+    if (goBtn) goBtn.addEventListener('click', function () {
       window.location.href = '/residencial/costumer.html?llamadas=1';
+    });
+    var goLineasBtn = document.getElementById('llb-go-lineas-btn');
+    if (goLineasBtn) goLineasBtn.addEventListener('click', function () {
+      window.location.href = '/lineas/costumer.html?llamadas=1';
     });
 
     // Bloquear teclado fuera del modal (tab-trap básico)

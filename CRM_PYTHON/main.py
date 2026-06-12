@@ -126,6 +126,12 @@ _MIGRATIONS = [
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_ll_lead (lead_id)
     )""",
+    # Llamadas de verificación también para la sección de líneas
+    "ALTER TABLE lead_llamadas ADD COLUMN source VARCHAR(20) NOT NULL DEFAULT 'leads'",
+    "ALTER TABLE lineas_clientes ADD COLUMN fecha_completed DATETIME NULL",
+    "ALTER TABLE lineas_clientes ADD COLUMN llamada_cliente VARCHAR(20) NULL",
+    "ALTER TABLE lineas_clientes ADD COLUMN llamadas_realizadas TINYINT NOT NULL DEFAULT 0",
+    "ALTER TABLE lineas_clientes ADD COLUMN fecha_ultima_llamada DATETIME NULL",
 ]
 
 async def _fix_api_file_urls():

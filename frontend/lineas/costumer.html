@@ -1689,6 +1689,12 @@
                         </button>
                         <span class="ile-save-msg" data-row="${idx}" style="font-size:11px;color:#64748b;text-align:center;display:block;"></span>` : ''}
                       </div>
+                      <!-- Llamadas de verificación / seguimiento -->
+                      <div class="ile-llamadas-wrap" data-lead="${docId}" onclick="event.stopPropagation();" style="width:250px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;">
+                        <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;">📞 Llamadas verificación</label>
+                        <div class="ile-caps-row-lineas" data-lead="${docId}" style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;"></div>
+                        <div class="ile-llamada-reg-lineas" data-lead="${docId}"></div>
+                      </div>
                       <!-- Notas existentes (se cargan dinámicamente) -->
                       <div class="ile-notes-container" data-lead="${docId}" style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
                         <span style="font-size:11px;color:#CBD5E1;padding:10px 0;"><i class="fas fa-spinner" style="animation:spin 1s linear infinite;"></i></span>
@@ -1918,6 +1924,7 @@
                 const leadId = this.getAttribute('data-id');
                 const notesContainer = detailsRow.querySelector(`.ile-notes-container[data-lead="${leadId}"]`);
                 if (notesContainer) loadLeadNotes(leadId, notesContainer);
+                if (typeof _loadLlamadasLineas === 'function') _loadLlamadasLineas(leadId, detailsRow);
               }
             }
           });
@@ -3488,10 +3495,29 @@
         } catch(_) {}
       }
 
+      const __llamadasModeLineas = /[?&]llamadas=1/.test(window.location.search || '');
+
       async function load(){
         allItems = await fetchData();
         sortNewToOld(allItems);
         _restrictTeamToggle(allItems);
+        // Modo llamadas pendientes: mostrar solo los clientes por llamar (sin filtro de fechas)
+        if (__llamadasModeLineas) {
+          try {
+            const pr = await fetch('/api/leads/llamadas-pendientes', { credentials: 'include' });
+            const pd = pr.ok ? await pr.json() : null;
+            if (pd) window.__llamadasPendientes = pd;
+            const ids = ((pd && pd.leads) || []).filter(l => l.source === 'lineas').map(l => String(l.id));
+            allItems = allItems.filter(it => ids.includes(String(it.id || it._id)));
+          } catch (_) {}
+          populateAgentFilterFromItems(allItems);
+          const fl = applyFilters(allItems);
+          renderTable(fl);
+          updateLeadCounter(fl.length);
+          if (!statusChart || !agentChart) initCharts();
+          updateKPIs(fl);
+          return;
+        }
         // Establecer mes actual como filtro por defecto si no hay fechas seleccionadas
         const dfEl = $('#dateFrom');
         const dtEl = $('#dateTo');
@@ -3915,6 +3941,116 @@
         container.innerHTML = '';
       }
     }
+
+    /* ── Llamadas de verificación / seguimiento (líneas) ── */
+    var _llamadaFilesLineas = {};
+
+    window._loadLlamadasLineas = async function(leadId, detailsRow) {
+      var row = detailsRow.querySelector('.ile-caps-row-lineas[data-lead="' + leadId + '"]');
+      var regWrap = detailsRow.querySelector('.ile-llamada-reg-lineas[data-lead="' + leadId + '"]');
+      if (!row && !regWrap) return;
+      if (!document.getElementById('ile-caps-lineas-style')) {
+        var st = document.createElement('style');
+        st.id = 'ile-caps-lineas-style';
+        st.textContent = '.ile-caps-row-lineas::-webkit-scrollbar{display:none}';
+        document.head.appendChild(st);
+      }
+      var llamadas = [];
+      try {
+        var res = await fetch('/api/lineas-team/' + leadId + '/llamadas', { credentials: 'include' });
+        if (res.ok) { var d = await res.json(); llamadas = d.data || []; }
+      } catch (_) {}
+      if (row) {
+        row.innerHTML = llamadas.length ? llamadas.map(function(c) {
+          var tipo = c.tipo === 'seguimiento' ? 'Seguim.' : 'Verif.';
+          return '<div style="flex-shrink:0;width:72px;">' +
+            '<div style="width:72px;height:54px;border:1px solid #dde3f0;border-radius:8px;overflow:hidden;cursor:zoom-in;background:#f8fafc;" onclick="_clImgLightbox(\'' + String(c.imagen_url || '').replace(/'/g, "\\'") + '\')" title="Llamada ' + c.numero_llamada + '/3">' +
+              '<img src="' + String(c.imagen_url || '').replace(/"/g, '&quot;') + '" style="width:100%;height:100%;object-fit:cover;">' +
+            '</div>' +
+            '<div style="font-size:9px;font-weight:700;color:#64748b;text-align:center;margin-top:2px;white-space:nowrap;">📞 ' + c.numero_llamada + '/3 ' + tipo + '</div>' +
+          '</div>';
+        }).join('') : '<span style="font-size:10px;color:#94a3b8;">Sin llamadas registradas</span>';
+      }
+      var pend = (window.__llamadasPendientes && window.__llamadasPendientes.leads) || [];
+      var isDue = pend.some(function(p) { return p.source === 'lineas' && String(p.id || p._id) === String(leadId); });
+      var nDone = llamadas.length;
+      if (regWrap && isDue && nDone < 3) {
+        var nNext = nDone + 1;
+        var tipoNext = nDone === 0 ? 'verificación' : 'seguimiento';
+        regWrap.innerHTML =
+          '<div style="border:1.5px solid #fca5a5;border-radius:10px;padding:9px;background:#fef2f2;">' +
+            '<div style="font-size:10px;font-weight:800;color:#dc2626;margin-bottom:6px;">Llamada ' + nNext + '/3 (' + tipoNext + ') pendiente — captura + nota</div>' +
+            '<div class="ile-ll-imgname" style="font-size:10px;color:#64748b;margin-bottom:4px;display:none;"></div>' +
+            '<button type="button" onclick="this.nextElementSibling.click()" style="width:100%;padding:6px;border:1px solid #dde3f0;border-radius:7px;background:#fff;font-size:11px;font-weight:700;cursor:pointer;color:#334155;margin-bottom:5px;">📷 Subir captura Xencall</button>' +
+            '<input type="file" accept="image/*" style="display:none" onchange="_llamadaLineasFileSelect(event,\'' + leadId + '\')">' +
+            '<textarea class="ile-ll-nota" rows="2" placeholder="La llamada se realizó. Respuesta del cliente…" style="width:100%;padding:6px 8px;border:1px solid #dde3f0;border-radius:7px;font-size:11px;resize:none;box-sizing:border-box;color:#1e293b;background:#fff;margin-bottom:5px;"></textarea>' +
+            '<button type="button" class="ile-ll-btn" onclick="_registrarLlamadaLineas(\'' + leadId + '\')" style="width:100%;padding:7px;border:none;border-radius:7px;background:#dc2626;color:#fff;font-size:11px;font-weight:800;cursor:pointer;">Registrar llamada ' + nNext + '/3</button>' +
+            '<div class="ile-ll-msg" style="font-size:10px;margin-top:4px;text-align:center;"></div>' +
+          '</div>';
+      } else if (regWrap) {
+        regWrap.innerHTML = '';
+      }
+    };
+
+    window._llamadaLineasFileSelect = function(ev, leadId) {
+      var f = ev.target.files[0];
+      if (!f) return;
+      _llamadaFilesLineas[leadId] = f;
+      var wrap = ev.target.closest('.ile-llamada-reg-lineas');
+      var lbl = wrap && wrap.querySelector('.ile-ll-imgname');
+      if (lbl) { lbl.style.display = 'block'; lbl.textContent = '📎 ' + f.name; }
+    };
+
+    window._registrarLlamadaLineas = async function(leadId) {
+      var wrap = document.querySelector('.ile-llamada-reg-lineas[data-lead="' + leadId + '"]');
+      if (!wrap) return;
+      var msg = wrap.querySelector('.ile-ll-msg');
+      var btn = wrap.querySelector('.ile-ll-btn');
+      var notaEl = wrap.querySelector('.ile-ll-nota');
+      var nota = (notaEl && notaEl.value || '').trim();
+      var f = _llamadaFilesLineas[leadId];
+      function setMsg(t, ok) { if (msg) { msg.textContent = t; msg.style.color = ok ? '#16a34a' : '#dc2626'; } }
+      if (!f) { setMsg('Sube la captura de Xencall', false); return; }
+      if (!nota) { setMsg('Escribe la nota de la llamada', false); return; }
+      if (btn) { btn.disabled = true; btn.textContent = 'Registrando…'; }
+      try {
+        var fd = new FormData();
+        fd.append('file', f);
+        fd.append('leadId', leadId);
+        var up = await fetch('/api/files/upload', { method: 'POST', credentials: 'include', body: fd });
+        if (!up.ok) throw new Error('No se pudo subir la imagen');
+        var upd = await up.json();
+        var url = (upd.data && upd.data.url) || '';
+        if (!url) throw new Error('Sin URL de imagen');
+        var res = await fetch('/api/lineas-team/' + leadId + '/llamada', {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imagen_url: url, nota: nota }),
+        });
+        if (!res.ok) {
+          var j = null; try { j = await res.json(); } catch (_) {}
+          throw new Error((j && (j.detail || j.message)) || 'No se pudo registrar la llamada');
+        }
+        delete _llamadaFilesLineas[leadId];
+        setMsg('✓ Llamada registrada', true);
+        // Refrescar pendientes; si no queda ninguna, levantar bloqueo
+        try {
+          var pres = await fetch('/api/leads/llamadas-pendientes', { credentials: 'include' });
+          var pd = pres.ok ? await pres.json() : null;
+          if (pd) window.__llamadasPendientes = pd;
+          if (pd && !pd.blocked) {
+            setMsg('✅ Todas las llamadas registradas. Bloqueo levantado.', true);
+            setTimeout(function() { window.location.href = '/lineas/costumer.html'; }, 1400);
+            return;
+          }
+        } catch (_) {}
+        var dr = wrap.closest('.details-row');
+        if (dr) window._loadLlamadasLineas(leadId, dr);
+      } catch (e) {
+        setMsg(e.message || 'Error registrando la llamada', false);
+        if (btn) { btn.disabled = false; btn.textContent = 'Registrar llamada'; }
+      }
+    };
 
     function _fmtNoteDate(str) {
       if (!str) return '';
