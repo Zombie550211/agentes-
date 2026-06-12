@@ -94,6 +94,21 @@ def _is_privileged(role: str) -> bool:
     return any(v in r for v in ["admin", "administrador", "backoffice", "back office", "back_office", "bo", "b.o", "supervisor"])
 
 
+def _llamada_sets_lineas(old_status: str, new_status: str) -> str:
+    """SQL extra al cambiar status: dispara el ciclo de llamadas de verificación.
+    → COMPLETED: fecha_completed=now, llamada Pendiente (1ª a los 7 días).
+    → CANCELLED: llamada Pendiente inmediata."""
+    old_n = str(old_status or "").lower()
+    new_n = str(new_status or "").lower()
+    if old_n == new_n:
+        return ""
+    if "complet" in new_n:
+        return ", fecha_completed = UTC_TIMESTAMP(), llamada_cliente = 'Pendiente'"
+    if "cancel" in new_n:
+        return ", llamada_cliente = 'Pendiente'"
+    return ""
+
+
 def _fmt_lc(row) -> dict:
     d = dict(row)
     d["_id"] = str(d.get("id", ""))
@@ -565,8 +580,13 @@ async def lineas_team_update(body: LineasTeamUpdateBody, user: dict = Depends(cu
             sets.append("lines_data = JSON_SET(COALESCE(lines_data, JSON_ARRAY()), :lserv_path, :lserv)")
 
     async with AsyncSessionLocal() as s:
+        extra_llamada = ""
+        if body.status:
+            pr = await s.execute(text("SELECT status FROM lineas_clientes WHERE id = :id LIMIT 1"), {"id": mid})
+            prev_status = (pr.first() or [""])[0] or ""
+            extra_llamada = _llamada_sets_lineas(prev_status, body.status)
         r = await s.execute(
-            text(f"UPDATE lineas_clientes SET {', '.join(sets)} WHERE id = :id"), params
+            text(f"UPDATE lineas_clientes SET {', '.join(sets)}{extra_llamada} WHERE id = :id"), params
         )
         await s.commit()
         if r.rowcount == 0:
@@ -798,9 +818,12 @@ async def lineas_team_status(body: LineasTeamStatusBody, user: dict = Depends(cu
         raise HTTPException(400, "ID inválido")
 
     async with AsyncSessionLocal() as s:
-        r = await s.execute(text("""
+        pr = await s.execute(text("SELECT status FROM lineas_clientes WHERE id = :id LIMIT 1"), {"id": mid})
+        prev_status = (pr.first() or [""])[0] or ""
+        extra = _llamada_sets_lineas(prev_status, body.status)
+        r = await s.execute(text(f"""
             UPDATE lineas_clientes
-            SET status = :st, updated_at = :now
+            SET status = :st, updated_at = :now{extra}
             WHERE id = :id
         """), {"st": body.status.upper(), "now": datetime.utcnow(), "id": mid})
         await s.commit()
@@ -848,6 +871,111 @@ async def lineas_team_line_status(body: LineStatusBody, user: dict = Depends(cur
     _cache_invalidate()
     return {"success": True, "message": "Estado de línea actualizado",
             "lineIndex": idx, "status": new_status}
+
+
+# ── LLAMADAS DE VERIFICACIÓN / SEGUIMIENTO (líneas) ─────────────────
+
+def _is_admin_bo_lineas(user: dict) -> bool:
+    r = str(user.get("role", "")).lower()
+    return any(v in r for v in ("admin", "administrador", "administrator", "backoffice", "bo"))
+
+
+@router.get("/api/lineas-team/{client_id}/llamadas")
+async def lineas_get_llamadas(client_id: str, user: dict = Depends(current_user)):
+    """Historial de llamadas registradas de un cliente de líneas."""
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            SELECT id, lead_id, numero_llamada, tipo, imagen_url, nota, created_by, created_at
+            FROM lead_llamadas
+            WHERE lead_id = :lid AND source = 'lineas'
+            ORDER BY numero_llamada ASC
+        """), {"lid": str(client_id)})
+        rows = [dict(row) for row in r.mappings().all()]
+    for d in rows:
+        if d.get("created_at"):
+            d["created_at"] = str(d["created_at"])
+    return {"success": True, "data": rows, "total": len(rows)}
+
+
+class LlamadaLineasBody(BaseModel):
+    imagen_url: str = ""
+    nota:       str = ""
+
+
+@router.post("/api/lineas-team/{client_id}/llamada")
+async def lineas_registrar_llamada(
+    client_id: str,
+    body: LlamadaLineasBody,
+    user: dict = Depends(current_user),
+):
+    """Registra una llamada de verificación/seguimiento de líneas: imagen + nota obligatorias."""
+    imagen = (body.imagen_url or "").strip()
+    nota   = (body.nota or "").strip()
+    if not imagen:
+        raise HTTPException(400, "La captura de la llamada (imagen) es obligatoria")
+    if not nota:
+        raise HTTPException(400, "La nota de la llamada es obligatoria")
+    try:
+        mid = int(client_id)
+    except ValueError:
+        raise HTTPException(400, "ID inválido")
+
+    now   = datetime.utcnow()
+    autor = user.get("name") or user.get("username") or "system"
+
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            SELECT id, nombre_cliente, agente, agente_nombre, agente_asignado, status,
+                   COALESCE(llamadas_realizadas,0) AS lr
+            FROM lineas_clientes WHERE id = :id LIMIT 1
+        """), {"id": mid})
+        row = r.mappings().first()
+        if not row:
+            raise HTTPException(404, "Cliente no encontrado")
+
+        if not _is_admin_bo_lineas(user):
+            own = {str(row["agente"] or "").strip().lower(),
+                   str(row["agente_nombre"] or "").strip().lower(),
+                   str(row["agente_asignado"] or "").strip().lower()}
+            me = {str(user.get("username") or "").strip().lower(),
+                  str(user.get("name") or "").strip().lower()}
+            if not (own & me):
+                raise HTTPException(403, "Solo el dueño del cliente puede registrar la llamada")
+
+        n_actual = int(row["lr"] or 0)
+        if n_actual >= 3:
+            raise HTTPException(400, "Este cliente ya tiene las 3 llamadas registradas")
+
+        numero = n_actual + 1
+        tipo   = "verificacion" if n_actual == 0 else "seguimiento"
+
+        await s.execute(text("""
+            INSERT INTO lead_llamadas (lead_id, numero_llamada, tipo, imagen_url, nota, created_by, created_at, source)
+            VALUES (:lid, :num, :tipo, :img, :nota, :by, :now, 'lineas')
+        """), {"lid": str(mid), "num": numero, "tipo": tipo,
+               "img": imagen, "nota": nota, "by": autor, "now": now})
+
+        # Nota también en el historial de notas de líneas
+        await s.execute(text("""
+            INSERT INTO lineas_notes (lead_id, texto, type, autor, created_at, updated_at)
+            VALUES (:lid, :txt, 'llamada', :autor, :now, :now)
+        """), {"lid": str(mid),
+               "txt": f"[Llamada {numero}/3 — {tipo}] {nota}",
+               "autor": autor, "now": now})
+
+        await s.execute(text("""
+            UPDATE lineas_clientes SET
+              llamadas_realizadas = :num,
+              fecha_ultima_llamada = :now,
+              llamada_cliente = 'Completada',
+              updated_at = :now
+            WHERE id = :id
+        """), {"num": numero, "now": now, "id": mid})
+        await s.commit()
+
+    _cache_invalidate()
+    return {"success": True, "message": f"Llamada {numero}/3 registrada",
+            "data": {"numero_llamada": numero, "tipo": tipo, "restantes": 3 - numero}}
 
 
 # ── GET /api/lineas/team-stats ─────────────────────────────────────────────

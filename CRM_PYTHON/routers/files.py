@@ -32,6 +32,31 @@ def _classify(mimetype: str) -> str:
     return "document"
 
 
+def _to_webp(data: bytes, mimetype: str) -> tuple[bytes, str, bool]:
+    """Convierte una imagen a WebP (ahorra ~60-80% vs PNG).
+    Devuelve (data, mimetype, converted). Si falla o no reduce, deja la original."""
+    if mimetype == "image/webp":
+        return data, mimetype, False
+    try:
+        from PIL import Image
+        img = Image.open(io.BytesIO(data))
+        out = io.BytesIO()
+        if getattr(img, "is_animated", False):
+            img.save(out, format="WEBP", save_all=True, quality=80, method=4)
+        else:
+            if img.mode in ("P", "LA"):
+                img = img.convert("RGBA")
+            elif img.mode not in ("RGB", "RGBA"):
+                img = img.convert("RGB")
+            img.save(out, format="WEBP", quality=82, method=4)
+        webp = out.getvalue()
+        if webp and len(webp) < len(data):
+            return webp, "image/webp", True
+        return data, mimetype, False
+    except Exception:
+        return data, mimetype, False
+
+
 # ── POST /api/files/upload ────────────────────────────────────
 @router.post("/api/files/upload")
 async def upload_file(
@@ -52,6 +77,10 @@ async def upload_file(
         now       = _dt.datetime.utcnow()
 
         if file_type == "image":
+            # Convertir a WebP antes de guardar (reduce tamaño en BD)
+            data, mimetype, _converted = _to_webp(data, mimetype)
+            if _converted:
+                orig = (orig.rsplit(".", 1)[0] if "." in orig else orig) + ".webp"
             if len(data) > _MAX_IMAGE_BYTES:
                 raise HTTPException(413, "Imagen demasiado grande (max 10 MB)")
 

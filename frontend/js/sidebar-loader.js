@@ -1817,7 +1817,7 @@
     if (window.__LLAMADAS_BLOQUEO_LOADED__) return;
     window.__LLAMADAS_BLOQUEO_LOADED__ = true;
     var s = document.createElement('script');
-    s.src = '/js/llamadas-bloqueo.js?v=20260611b';
+    s.src = '/js/llamadas-bloqueo.js?v=20260611c';
     s.async = true;
     document.head.appendChild(s);
   })();
