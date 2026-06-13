@@ -460,25 +460,25 @@
             window.toggleMovilesSubmenu && window.toggleMovilesSubmenu();
             return false;
           }, true);
-          
+
           // Abrir automáticamente si estamos en una página de Servicios Móviles
-          const currentPath = window.location.pathname.toLowerCase();
-          const isMovilesPage = currentPath.includes('team lineas') || 
-                                currentPath.includes('lineas') ||
-                                currentPath.includes('costumer-lineas') ||
-                                currentPath.includes('estadisticas-lineas') ||
-                                currentPath.includes('ranking-lineas') ||
-                                currentPath.includes('comisiones-lineas') ||
-                                currentPath.includes('facturacion-lineas') ||
-                                currentPath.includes('llamadas-ventas-lineas') ||
-                                currentPath.includes('inicio-lineas') ||
-                                currentPath.includes('lead-lineas');
-          
+          const movilesPath = window.location.pathname.toLowerCase();
+          const isMovilesPage = movilesPath.includes('team lineas') ||
+                                movilesPath.includes('lineas') ||
+                                movilesPath.includes('costumer-lineas') ||
+                                movilesPath.includes('estadisticas-lineas') ||
+                                movilesPath.includes('ranking-lineas') ||
+                                movilesPath.includes('comisiones-lineas') ||
+                                movilesPath.includes('facturacion-lineas') ||
+                                movilesPath.includes('llamadas-ventas-lineas') ||
+                                movilesPath.includes('inicio-lineas') ||
+                                movilesPath.includes('lead-lineas');
+
           if (isMovilesPage) {
             movilesSubmenu.classList.add('open');
             movilesToggle.classList.add('open');
           }
-          
+
         }
       } catch (e) {
         console.warn('Error inicializando submenu moviles:', e);
