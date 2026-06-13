@@ -145,7 +145,6 @@ function renderRankList(ranking) {
       </div>
       <div class="agent-stats">
         <div class="sales">${score}</div>
-        <div class="points">${agent.ventas}</div>
       </div>
     `;
     listContainer.appendChild(item);
@@ -168,7 +167,6 @@ function renderFullTable(ranking) {
       <td style="text-align:right; padding:10px;">${lineasTotal}</td>
       <td style="text-align:right; padding:10px; color:#22c55e;">${agent.lineasWireless}</td>
       <td style="text-align:right; padding:10px; color:#f97316;">${agent.lineasNoWireless}</td>
-      <td style="text-align:right; padding:10px;"><strong>${agent.ventas}</strong></td>
     `;
     tbody.appendChild(row);
   });
