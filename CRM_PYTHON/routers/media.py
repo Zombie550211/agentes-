@@ -38,7 +38,9 @@ def _is_admin(user: dict) -> bool:
 
 
 def _ext(filename: str) -> str:
-    return Path(filename).suffix.lower() if filename else ""
+    """Extensión del archivo, solo si es alfanumérica (el filename viene del cliente)."""
+    ext = Path(str(filename).replace("\\", "/")).suffix.lower() if filename else ""
+    return ext if re.fullmatch(r"\.[a-z0-9]{1,10}", ext) else ""
 
 
 # ── GET /api/media/proxy ──────────────────────────────────────
@@ -114,6 +116,9 @@ async def upload_media(
         url = f"/api/files/{new_id}/image"
         filename = origname
     else:
+        from routers.files import ALLOWED_DISK_EXTENSIONS
+        if ext not in ALLOWED_DISK_EXTENSIONS:
+            raise HTTPException(415, f"Tipo de archivo no permitido ({ext or 'sin extensión'})")
         dest = _UPLOADS_DIR / filename
         with open(dest, "wb") as f:
             f.write(data)

@@ -432,26 +432,15 @@
       const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
       const endDate = hasRange ? __rangeTo : `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
       
-      // Calcular rango del mes anterior para el "colchón"
-      const prevMonthIndex = currentMonth === 1 ? 12 : currentMonth - 1;
-      const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
-      const prevStartDate = `${prevYear}-${String(prevMonthIndex).padStart(2, '0')}-01`;
-      const prevDaysInMonth = new Date(prevYear, prevMonthIndex, 0).getDate();
-      const prevEndDate = `${prevYear}-${String(prevMonthIndex).padStart(2, '0')}-${String(prevDaysInMonth).padStart(2, '0')}`;
-      
       console.log(`[filterLeadsByMonth] Filtrando por rango: ${startDate} a ${endDate}`);
-      console.log(`[filterLeadsByMonth] Rango COLCHÓN (mes anterior): ${prevStartDate} a ${prevEndDate}`);
       console.log(`[filterLeadsByMonth] Total de leads a filtrar: ${leads.length}`);
-      console.log(`[filterLeadsByMonth] LÓGICA: ${hasRange ? 'RANGO EXPLÍCITO (sin colchón)' : 'Incluir ventas del mes anterior con instalación en mes actual'}`);
       
       let sinFecha = 0;
       let fueraRango = 0;
       let dentroRango = 0;
-      let colchonCount = 0;
       
       const filtered = leads.filter(lead => {
         const diaVenta = lead.dia_venta || lead.fecha_venta || '';
-        const diaInstalacion = lead.dia_instalacion || lead.fecha_instalacion || '';
         
         // Si no tiene dia_venta, excluir
         if (!diaVenta) {
@@ -459,19 +448,11 @@
           return false;
         }
         
-        // Caso 1: Venta del mes actual (normal)
+        // Filtrar SOLO por dia_venta dentro del mes (sin colchón)
         const ventaMesActual = diaVenta >= startDate && diaVenta <= endDate;
-        
-        // Caso 2: COLCHÓN - Venta del mes anterior CON instalación en mes actual
-        const ventaMesAnterior = diaVenta >= prevStartDate && diaVenta <= prevEndDate;
-        const instalacionMesActual = diaInstalacion && diaInstalacion >= startDate && diaInstalacion <= endDate;
-        const esColchon = !hasRange && ventaMesAnterior && instalacionMesActual;
         
         if (ventaMesActual) {
           dentroRango++;
-          return true;
-        } else if (esColchon) {
-          colchonCount++;
           return true;
         } else {
           fueraRango++;
@@ -479,7 +460,7 @@
         }
       });
       
-      console.log(`[filterLeadsByMonth] Resultados: ${dentroRango} ventas del mes actual, ${colchonCount} ventas colchón (mes anterior con instalación actual), ${fueraRango} fuera del rango, ${sinFecha} sin fecha`);
+      console.log(`[filterLeadsByMonth] Resultados: ${dentroRango} ventas del mes actual, ${fueraRango} fuera del rango, ${sinFecha} sin fecha`);
 
       try {
         const normalizeSupervisor = (sup) => {
@@ -507,11 +488,6 @@
           const dv = l.dia_venta || l.fecha_venta || '';
           return dv >= startDate && dv <= endDate;
         });
-        const colchonLeads = filtered.filter(l => {
-          const dv = l.dia_venta || l.fecha_venta || '';
-          const di = l.dia_instalacion || l.fecha_instalacion || '';
-          return dv >= prevStartDate && dv <= prevEndDate && di >= startDate && di <= endDate;
-        });
 
         const toRow = (l) => ({
           id: l?._id || l?.id || l?.ID || l?.id_cliente || l?.idCliente,
@@ -534,7 +510,6 @@
         };
 
         const monthByTeam = splitByTeam(monthLeads);
-        const colchonByTeam = splitByTeam(colchonLeads);
 
         console.groupCollapsed(`[filterLeadsByMonth] LISTADO MES ACTUAL (${monthLeads.length})`);
         console.log('[MES ACTUAL] Conteo por team:', {
@@ -559,32 +534,8 @@
           console.groupEnd();
         }
         console.groupEnd();
-
-        console.groupCollapsed(`[filterLeadsByMonth] LISTADO COLCHÓN (${colchonLeads.length})`);
-        console.log('[COLCHÓN] Conteo por team:', {
-          'JONATHAN F': colchonByTeam['JONATHAN F'].length,
-          'LUIS G': colchonByTeam['LUIS G'].length,
-          'OTROS': colchonByTeam['OTROS'].length
-        });
-        console.log('[COLCHÓN] Líneas por team:', {
-          'JONATHAN F': sumLines(colchonByTeam['JONATHAN F']),
-          'LUIS G': sumLines(colchonByTeam['LUIS G']),
-          'OTROS': sumLines(colchonByTeam['OTROS'])
-        });
-        console.groupCollapsed(`[filterLeadsByMonth] COLCHÓN - JONATHAN F (${colchonByTeam['JONATHAN F'].length})`);
-        console.table(colchonByTeam['JONATHAN F'].map(toRow));
-        console.groupEnd();
-        console.groupCollapsed(`[filterLeadsByMonth] COLCHÓN - LUIS G (${colchonByTeam['LUIS G'].length})`);
-        console.table(colchonByTeam['LUIS G'].map(toRow));
-        console.groupEnd();
-        if (colchonByTeam['OTROS'].length) {
-          console.groupCollapsed(`[filterLeadsByMonth] COLCHÓN - OTROS (${colchonByTeam['OTROS'].length})`);
-          console.table(colchonByTeam['OTROS'].map(toRow));
-          console.groupEnd();
-        }
-        console.groupEnd();
       } catch (e) {
-        console.warn('[filterLeadsByMonth] No se pudo imprimir listado mes/colchón:', e?.message);
+        console.warn('[filterLeadsByMonth] Error al imprimir logs:', e?.message);
       }
       
       // Log específico para KARLA_RODRIGUEZ
@@ -603,21 +554,6 @@
           dia_venta: l.dia_venta,
           dia_instalacion: l.dia_instalacion,
           supervisor: l.supervisor
-        })));
-      }
-      
-      // Mostrar leads del colchón si hay
-      if (colchonCount > 0) {
-        const colchonLeads = filtered.filter(l => {
-          const dv = l.dia_venta || l.fecha_venta || '';
-          const di = l.dia_instalacion || l.fecha_instalacion || '';
-          return dv >= prevStartDate && dv <= prevEndDate && di >= startDate && di <= endDate;
-        });
-        console.log(`[filterLeadsByMonth] Muestra de leads COLCHÓN (primeros 3):`, colchonLeads.slice(0, 3).map(l => ({
-          dia_venta: l.dia_venta,
-          dia_instalacion: l.dia_instalacion,
-          supervisor: l.supervisor,
-          agente: l.agenteAsignado || l._collection
         })));
       }
       
@@ -677,10 +613,11 @@
       try {
         let allLeads = [];
         
-        // Obtener datos reales de la API de Team Líneas (todos los datos)
+        // Obtener datos reales de la API de Team Líneas (todos los datos o mes seleccionado)
         try {
-          console.log('[loadEstadisticas] Obteniendo datos de /api/leads-lineas...');
-          const response = await fetch('/api/leads-lineas?allData=true');
+          const endpoint = `/api/leads-lineas?allData=true&month=${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+          console.log('[loadEstadisticas] Obteniendo datos de', endpoint);
+          const response = await fetch(endpoint);
           if (response.ok) {
             const result = await response.json();
             allLeads = Array.isArray(result.data) ? result.data : (result.leads || []);
@@ -740,7 +677,7 @@
           if (!agentesDespues[sup]) {
             agentesDespues[sup] = {};
           }
-          agentesDespues[sup][agente] = (agentesDespues[sup][agente] || 0) + 1;
+          agentesDespues[sup][agente] = (agentesDespues[sup][agente] || 0) + 1;   
         });
         
         console.log(`[loadEstadisticas] Distribución de leads por supervisor en ${getMonthName(currentMonth)} ${currentYear}:`, supervisoresDespues);
@@ -794,28 +731,18 @@
           const startDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
           const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
           const endDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
-          const prevMonthIndex = currentMonth === 1 ? 12 : currentMonth - 1;
-          const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
-          const prevStartDate = `${prevYear}-${String(prevMonthIndex).padStart(2, '0')}-01`;
-          const prevDaysInMonth = new Date(prevYear, prevMonthIndex, 0).getDate();
-          const prevEndDate = `${prevYear}-${String(prevMonthIndex).padStart(2, '0')}-${String(prevDaysInMonth).padStart(2, '0')}`;
 
           const getId = (l) => String(l?._id || l?.id || l?.ID || l?.id_cliente || l?.idCliente || '').trim();
           const bucketMonth = (l) => {
             const dv = l.dia_venta || l.fecha_venta || '';
             return dv >= startDate && dv <= endDate;
           };
-          const bucketColchon = (l) => {
-            const dv = l.dia_venta || l.fecha_venta || '';
-            const di = l.dia_instalacion || l.fecha_instalacion || '';
-            return dv >= prevStartDate && dv <= prevEndDate && di >= startDate && di <= endDate;
-          };
 
-          const inBuckets = (l) => bucketMonth(l) || bucketColchon(l);
+          const inBuckets = (l) => bucketMonth(l);
           const jonExtra = team1Leads.filter(l => !inBuckets(l));
           const luisExtra = team2Leads.filter(l => !inBuckets(l));
           if (jonExtra.length || luisExtra.length) {
-            console.warn('[loadEstadisticas][diagnostico] Leads en team pero fuera de buckets mes/colchón (revisar formato de fechas):', {
+            console.warn('[loadEstadisticas][diagnostico] Leads en team pero fuera del mes (revisar formato de fechas):', {
               jonExtra: jonExtra.length,
               luisExtra: luisExtra.length
             });
@@ -907,10 +834,20 @@
     }
 
     function __getLineCount(lead) {
-      const fromField = Number(lead?.cantidad_lineas || 0) || 0;
-      const fromLines = Array.isArray(lead?.lines) ? lead.lines.length : (Array.isArray(lead?.lineas) ? lead.lineas.length : 0);
-      const fromPhones = Array.isArray(lead?.telefonos) ? lead.telefonos.length : 0;
-      return Math.max(fromField, fromLines, fromPhones, 1);
+      // Preferir cantidad_lineas del campo principal
+      const fromField = Number(lead?.cantidad_lineas || 0);
+      if (fromField > 0) return fromField;
+      
+      // Si no hay cantidad_lineas, intentar contar desde lines_data
+      const fromLinesData = Array.isArray(lead?.lines_data) ? lead.lines_data.length : 0;
+      if (fromLinesData > 0) return fromLinesData;
+      
+      // Fallback: contar desde lineas_status (JSON keys)
+      const fromStatusMap = lead?.lineas_status && typeof lead.lineas_status === 'object' ? Object.keys(lead.lineas_status).length : 0;
+      if (fromStatusMap > 0) return fromStatusMap;
+      
+      // Último recurso: retornar 1 por defecto
+      return 1;
     }
 
     function __getLineStatus(lead, idx) {
@@ -1072,8 +1009,8 @@
         // Contar TODOS los leads como ventas (sin importar status)
         agentData[agente].ventas++;
 
-        // Sumar líneas
-        agentData[agente].lineas += (lead.cantidad_lineas || 1);
+        // Sumar líneas usando la misma lógica que los KPI
+        agentData[agente].lineas += __getLineCount(lead);
       });
       
       console.log(`[renderTeamData] Agentes procesados para ${teamName}:`, Object.keys(agentData));
@@ -1097,7 +1034,7 @@
         ventasPorAgente[agente].push({
           cliente: lead.nombre_cliente || 'Sin nombre',
           telefono: lead.telefono_principal || 'Sin teléfono',
-          lineas: lead.cantidad_lineas || 1,
+          lineas: __getLineCount(lead),
           status: lead.status || 'Sin status'
         });
       });

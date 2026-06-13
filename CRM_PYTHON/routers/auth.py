@@ -22,6 +22,9 @@ if not JWT_SECRET:
 JWT_ALGO    = "HS256"
 JWT_EXPIRES = 30 * 60  # 30 minutos — sesión expira por inactividad
 IS_PROD     = os.getenv("NODE_ENV") == "production"
+# "none" es necesario solo si frontend y API viven en dominios distintos
+# (Netlify + Render). Si se sirve todo desde FastAPI, poner COOKIE_SAMESITE=lax.
+COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "none" if IS_PROD else "lax").lower()
 
 def _hash_pwd(plain: str) -> str:
     return _bcrypt.hashpw(plain[:72].encode(), _bcrypt.gensalt(rounds=10)).decode()
@@ -164,7 +167,7 @@ def _set_token_cookie(response: Response, token: str):
         key="token", value=token,
         httponly=True,
         secure=IS_PROD,
-        samesite="none" if IS_PROD else "lax",
+        samesite=COOKIE_SAMESITE,
         max_age=JWT_EXPIRES,
         path="/",
     )
@@ -237,7 +240,7 @@ async def logout(request: Request, response: Response):
         if decoded:
             ip = request.client.host if request.client else "unknown"
             log_logout(decoded.get("username", ""), ip)
-    response.delete_cookie("token", path="/", samesite="none" if IS_PROD else "lax")
+    response.delete_cookie("token", path="/", samesite=COOKIE_SAMESITE)
     return {"success": True, "message": "Sesión cerrada exitosamente"}
 
 
@@ -294,8 +297,8 @@ async def verify_server(request: Request, response: Response):
 
 
 @router.get("/verify")
-async def verify(request: Request):
-    return await verify_server(request)
+async def verify(request: Request, response: Response):
+    return await verify_server(request, response)
 
 
 @router.get("/maintenance")
@@ -442,7 +445,7 @@ async def register(body: RegisterBody, user: dict = Depends(require_roles(*ADMIN
 
 
 # ── Password reset helpers ────────────────────────────────────────
-_RESET_EXPIRY_MS   = int(os.getenv("RESET_CODE_EXPIRY_MINUTES", "10")) * 60
+_RESET_EXPIRY_SECS = int(os.getenv("RESET_CODE_EXPIRY_MINUTES", "10")) * 60
 _MAX_ATTEMPTS      = 5
 _RESET_TOKEN_SECS  = 15 * 60
 _hash_code   = _hash_pwd
@@ -482,8 +485,8 @@ async def forgot_password(request: Request, body: ForgotPasswordBody):
 
     code       = _gen_code()
     code_hash  = _hash_code(code)
-    expires_at = _dt.datetime.utcnow() + _dt.timedelta(seconds=_RESET_EXPIRY_MS)
-    expiry_min = _RESET_EXPIRY_MS // 60
+    expires_at = _dt.datetime.utcnow() + _dt.timedelta(seconds=_RESET_EXPIRY_SECS)
+    expiry_min = _RESET_EXPIRY_SECS // 60
 
     async with AsyncSessionLocal() as s:
         await s.execute(text("""

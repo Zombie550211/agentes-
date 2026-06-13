@@ -98,10 +98,21 @@ async def _process_avatar(data: bytes, mimetype: str) -> tuple[bytes, str, str, 
 # ── GET /uploads/avatars/:filename — con fallback SVG ─────────
 # Esta ruta se registra ANTES que el mount estático /uploads en main.py,
 # así que toma prioridad y devuelve SVG si el archivo no existe en disco.
+def _avatar_path(name: str) -> Path | None:
+    """Resuelve el nombre dentro de _AVATAR_DIR; None si intenta escapar (../, \\)."""
+    p = (_AVATAR_DIR / str(name)).resolve()
+    try:
+        if not p.is_relative_to(_AVATAR_DIR.resolve()):
+            return None
+    except Exception:
+        return None
+    return p
+
+
 @router.get("/uploads/avatars/{filename}")
 async def serve_avatar_upload(filename: str):
-    path = _AVATAR_DIR / filename
-    if path.is_file():
+    path = _avatar_path(filename)
+    if path and path.is_file():
         ext  = path.suffix.lower().lstrip(".")
         mime = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
                 "webp": "image/webp", "gif": "image/gif"}.get(ext, "image/png")
@@ -171,8 +182,8 @@ async def serve_avatar(file_ref: str):
         )
 
     # New refs are filenames stored in uploads/avatars/
-    disk_path = _AVATAR_DIR / file_ref
-    if not disk_path.exists():
+    disk_path = _avatar_path(file_ref)
+    if not disk_path or not disk_path.exists():
         return Response(
             content=_SVG_FALLBACK.encode(),
             media_type="image/svg+xml",

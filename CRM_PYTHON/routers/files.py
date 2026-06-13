@@ -8,6 +8,7 @@ from typing import Optional
 import datetime as _dt
 import traceback
 import io
+import re
 
 router = APIRouter(tags=["Files"])
 
@@ -22,6 +23,23 @@ _FILES_DIR.mkdir(parents=True, exist_ok=True)
 
 _MAX_IMAGE_BYTES   = 10 * 1024 * 1024   # 10 MB para imágenes en BD
 _MAX_UPLOAD_BYTES  = 50 * 1024 * 1024   # 50 MB para archivos generales
+
+# Extensiones permitidas para archivos guardados en disco (servidos desde /uploads).
+# Sin html/svg/js/xml: servidos desde el mismo origen permitirían XSS almacenado.
+ALLOWED_DISK_EXTENSIONS = {
+    ".pdf", ".txt", ".csv",
+    ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+    ".mp3", ".wav", ".ogg", ".m4a", ".aac", ".opus",
+    ".mp4", ".webm", ".mov", ".avi", ".mkv", ".3gp",
+    ".zip", ".rar", ".7z",
+}
+
+
+def safe_filename(name: str) -> str:
+    """Neutraliza path traversal y caracteres peligrosos en nombres de archivo."""
+    name = Path(str(name or "").replace("\\", "/")).name
+    name = re.sub(r"[^A-Za-z0-9._\- ]", "_", name).strip(". ")
+    return name[:200] or "file"
 
 
 def _classify(mimetype: str) -> str:
@@ -72,7 +90,7 @@ async def upload_file(
         mimetype  = file.content_type or "application/octet-stream"
         file_type = _classify(mimetype)
         ts        = int(_dt.datetime.utcnow().timestamp() * 1000)
-        orig      = file.filename or "file"
+        orig      = safe_filename(file.filename or "file")
         upby      = user.get("username") or "unknown"
         now       = _dt.datetime.utcnow()
 
@@ -110,6 +128,9 @@ async def upload_file(
 
         else:
             # PDFs, audio, video → disco local
+            ext = Path(orig).suffix.lower()
+            if ext not in ALLOWED_DISK_EXTENSIONS:
+                raise HTTPException(415, f"Tipo de archivo no permitido ({ext or 'sin extensión'})")
             filename = f"{ts}-{orig}"
             dest     = _FILES_DIR / filename
             dest.parent.mkdir(parents=True, exist_ok=True)
