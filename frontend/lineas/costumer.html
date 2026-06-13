@@ -652,6 +652,243 @@
   }
   </style>
   <link rel="stylesheet" href="/css/glass-cards.css?v=20260605">
+  <style>
+    /* ═══ TEMA OSCURO — overrides sobre el diseño claro original ═══
+       Va al final de la cascada (después de glass-cards.css) para ganar. */
+
+    /* KPI strip: de blanco → glass oscuro */
+    .kpi-strip{
+      background:rgba(8,18,48,.72)!important;
+      border:1px solid rgba(0,180,255,.12)!important;
+      backdrop-filter:blur(20px)!important;
+      box-shadow:0 4px 18px rgba(0,0,0,.30)!important;
+    }
+    .kpi-val{color:#fff!important}
+    .kpi-lbl{color:#94a3b8!important}
+    .kpi-sep{background:rgba(148,163,184,.18)!important}
+
+    /* Panel de filtros (tenía background:#fff inline) */
+    div[style*="background:#fff"][style*="border-radius:16px"]{
+      background:rgba(8,18,48,.72)!important;
+      border-color:rgba(0,180,255,.12)!important;
+      backdrop-filter:blur(20px);
+      box-shadow:0 4px 18px rgba(0,0,0,.30)!important;
+    }
+    .filter-label{color:#94a3b8!important}
+
+    /* Inputs y selects de filtros */
+    .search-input-field,.filter-select,.filter-input{
+      background:rgba(10,20,45,.65)!important;
+      border-color:rgba(148,163,184,.25)!important;
+      color:#e2e8f0!important;
+      color-scheme:dark;
+    }
+    .search-input-field:focus,.filter-select:focus,.filter-input:focus{
+      background:rgba(10,20,45,.85)!important;
+      border-color:#60a5fa!important;
+    }
+    .search-input-field::placeholder{color:#64748b!important}
+    .search-input-icon{color:#64748b!important}
+
+    /* Toggle de team */
+    .team-toggle{background:rgba(255,255,255,.06)!important}
+    .tt-btn{color:#94a3b8!important}
+    .tt-btn:hover:not(.tt-active){background:rgba(255,255,255,.10)!important;color:#e2e8f0!important}
+
+    /* Título "Lista de Clientes" + contador */
+    h2[style*="font-size: 18px"]{color:#e2e8f0!important}
+    .lead-counter-badge{background:rgba(37,99,235,.20)!important;color:#93c5fd!important;border:1px solid rgba(59,130,246,.35)!important}
+    div[style*="border-bottom: 1px solid #F1F5F9"]{border-bottom-color:rgba(148,163,184,.14)!important}
+
+    /* Pills de estado (antes blancas con texto invisible) */
+    .stab{
+      background:rgba(10,20,45,.60)!important;
+      border-color:rgba(148,163,184,.25)!important;
+      color:#cbd5e1!important;
+    }
+    .stab:hover{background:rgba(59,130,246,.16)!important;border-color:#60a5fa!important;color:#bfdbfe!important}
+    .stab.is-active{background:rgba(59,130,246,.20)!important;color:#bfdbfe!important}
+    .stab.all.is-active{background:rgba(59,130,246,.20)!important;color:#bfdbfe!important}
+    .stab.pending.is-active{background:rgba(245,158,11,.18)!important;color:#fcd34d!important}
+    .stab.active.is-active,.stab.completed.is-active{background:rgba(16,185,129,.18)!important;color:#6ee7b7!important}
+    .stab.colchon.is-active{background:rgba(139,92,246,.18)!important;color:#c4b5fd!important}
+    .stab.cancelled.is-active{background:rgba(239,68,68,.18)!important;color:#fca5a5!important}
+    .stab.hold.is-active{background:rgba(148,163,184,.18)!important;color:#cbd5e1!important}
+
+    /* Tarjetas de cliente: fuera el degradado blanco de la cabecera */
+    .client-card-header{background:none!important}
+    .client-card-name{color:#fff!important}
+    .client-card-divider{background:rgba(148,163,184,.14)!important}
+    .client-card-field{border-right-color:rgba(148,163,184,.14)!important}
+    .ccf-icon-wrap{background:rgba(255,255,255,.08)!important}
+    .ccf-icon-wrap i{color:#94a3b8!important}
+    .ccf-label{color:#64748b!important}
+    .ccf-value{color:#e2e8f0!important}
+    .row-arrow{color:#64748b!important}
+    .client-card:hover{box-shadow:0 8px 24px rgba(0,0,0,.35)!important}
+
+    /* Select de estado dentro de la tarjeta (era blanco) */
+    select.ile-status,select.ile-cant{
+      background-color:rgba(10,20,45,.70)!important;
+      border-color:rgba(148,163,184,.30)!important;
+      color:#e2e8f0!important;
+      color-scheme:dark;
+    }
+
+    /* Botón eliminar de la tarjeta (era rosa muy claro) */
+    .card-delete-btn{background:rgba(239,68,68,.14)!important;border-color:rgba(239,68,68,.35)!important;color:#fca5a5!important}
+
+    /* Barra de acciones inferior */
+    .quick-action-bar{background:rgba(8,18,48,.55)!important;border-top-color:rgba(148,163,184,.14)!important}
+
+    /* ── Lista de clientes: el wrapper tiene altura fija pero no tenía overflow,
+       las filas sobrantes se pintaban fuera del panel (se veían "transparentes") ── */
+    .table-wrapper{
+      overflow-y:auto!important;overflow-x:hidden!important;
+      scrollbar-width:thin;scrollbar-color:rgba(129,140,248,.35) transparent;
+    }
+    /* Fondo del panel contenedor de la lista */
+    .bg-white[style*="border-radius: 16px"]{
+      background:rgba(8,18,48,.72)!important;
+      border-color:rgba(0,180,255,.12)!important;
+      backdrop-filter:blur(20px);
+    }
+
+    /* ══ BARRA KPI COMPACTA (estilo pills) ══ */
+    .kpix-bar{
+      display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;
+      background:rgba(8,18,48,.72);border:1px solid rgba(0,180,255,.12);
+      backdrop-filter:blur(20px);border-radius:14px;
+      padding:10px 16px;margin-bottom:14px;
+      box-shadow:0 4px 18px rgba(0,0,0,.30);
+    }
+    .kpix-pills{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center}
+    .kpix-item{
+      display:inline-flex;align-items:center;gap:6px;
+      background:rgba(10,20,45,.65);border:1px solid rgba(148,163,184,.18);
+      border-radius:10px;padding:6px 12px;
+      font-size:11.5px;color:#94a3b8;white-space:nowrap;
+    }
+    .kpix-item b{color:#fff;font-size:13px;font-weight:800}
+    .kpix-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+    .kpix-refresh{
+      display:inline-flex;align-items:center;gap:7px;
+      background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;
+      border:none;border-radius:10px;padding:8px 16px;
+      font-size:12px;font-weight:700;cursor:pointer;
+      box-shadow:0 3px 12px rgba(37,99,235,.35);transition:filter .15s;
+    }
+    .kpix-refresh:hover{filter:brightness(1.12)}
+
+    /* ══ BARRA DE FILTROS COMPACTA ══ */
+    .fbar{
+      display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+      background:rgba(8,18,48,.72);border:1px solid rgba(0,180,255,.12);
+      backdrop-filter:blur(20px);border-radius:14px;
+      padding:10px 16px;margin-bottom:14px;
+      box-shadow:0 4px 18px rgba(0,0,0,.30);
+    }
+    .fbar-search{flex:1.5;min-width:200px}
+    .fbar .search-input-field{border-radius:50px!important}
+    .fbar-dd{
+      display:flex;align-items:center;gap:6px;
+      background:rgba(10,20,45,.65);border:1px solid rgba(148,163,184,.20);
+      border-radius:50px;padding:2px 4px 2px 12px;min-width:150px;
+    }
+    .fbar-dd-lbl{font-size:11px;font-weight:700;color:#64748b;white-space:nowrap;flex-shrink:0}
+    .fbar-dd .cs-wrap{flex:1;min-width:90px}
+    .fbar-dd .cs-trigger{
+      background:transparent!important;border:none!important;
+      padding:7px 8px!important;box-shadow:none!important;
+    }
+    .team-toggle{border-radius:50px!important}
+    .lead-counter-badge{border-radius:50px!important;padding:7px 16px!important;white-space:nowrap}
+
+    /* El custom select pinta el valor seleccionado en azul oscuro inline — forzar claro */
+    .cs-trigger .cs-label{color:#e2e8f0!important}
+
+    /* Pestañas de estado tipo pill (como la referencia) */
+    .stab{border-radius:50px!important;padding:7px 16px!important}
+    .stab.all.is-active{background:linear-gradient(135deg,#4f46e5,#6366f1)!important;border-color:#6366f1!important;color:#fff!important}
+
+    /* ── Custom select (Estado/Agente/Línea — JS reemplaza el <select> nativo) ── */
+    .cs-trigger{
+      background:rgba(10,20,45,.65)!important;
+      border-color:rgba(148,163,184,.25)!important;
+      color:#e2e8f0!important;
+      box-shadow:none!important;
+    }
+    .cs-trigger:hover{background:rgba(10,20,45,.85)!important;border-color:#60a5fa!important}
+    .cs-wrap.cs-open .cs-trigger{background:rgba(10,20,45,.90)!important;border-color:#60a5fa!important}
+    .cs-arrow{color:#60a5fa!important}
+    /* Menú desplegable: oscuro pero SÓLIDO (debe tapar lo de abajo) */
+    .cs-dropdown{background:#0f1e3d!important;border-color:rgba(96,165,250,.35)!important;box-shadow:0 10px 36px rgba(0,0,0,.55)!important}
+    .cs-option{color:#cbd5e1!important}
+    .cs-option:hover{background:rgba(59,130,246,.18)!important;color:#bfdbfe!important}
+    .cs-dropdown::-webkit-scrollbar-thumb{background:rgba(148,163,184,.35)!important}
+
+    /* Badge "N líneas" (era celeste con texto invisible) */
+    .card-lines-badge{
+      background:rgba(37,99,235,.22)!important;
+      color:#93c5fd!important;
+      border:1px solid rgba(59,130,246,.40)!important;
+    }
+
+    /* Badge "Colchón" (era lila claro con texto invisible) */
+    .badge-colchon{
+      background:rgba(139,92,246,.20)!important;
+      color:#c4b5fd!important;
+      border-color:rgba(139,92,246,.45)!important;
+    }
+    /* Fila colchón: tinte violeta oscuro en vez de lila claro */
+    .costumer-table tbody tr.row-colchon{background:rgba(139,92,246,.08)!important}
+
+    /* ── Editor expandido del cliente (details-row, generado por JS con fondos claros inline) ── */
+    .details-row td>div{background:rgba(8,18,48,.60)!important;border-color:rgba(148,163,184,.14)!important}
+    .details-row h4{color:#e2e8f0!important}
+    .details-row label{color:#94a3b8!important}
+    .details-row span[style*="color:#1e293b"]{color:#e2e8f0!important}
+    .details-row span[style*="background:#f1f5f9"]{background:rgba(255,255,255,.08)!important;color:#94a3b8!important}
+    .details-row input,.details-row select,.details-row textarea{
+      background:rgba(10,20,45,.70)!important;
+      border-color:rgba(148,163,184,.30)!important;
+      color:#e2e8f0!important;
+      color-scheme:dark;
+    }
+    .details-row input:disabled,.details-row select:disabled{opacity:.55}
+    /* Divs/botones generados con background blanco/claro inline */
+    .details-row div[style*="background:#fff"],.details-row div[style*="background: white"],
+    .details-row div[style*="background:white"],.details-row div[style*="background:#f8fafc"],
+    .details-row div[style*="background:#f8f9fa"],.details-row div[style*="background:#f0f4ff"]{
+      background:rgba(10,20,45,.55)!important;border-color:rgba(148,163,184,.25)!important;
+    }
+    .details-row button[style*="background:#fff"]{
+      background:rgba(10,20,45,.70)!important;color:#cbd5e1!important;border-color:rgba(148,163,184,.30)!important;
+    }
+    /* Tarjeta "Información general" (gradiente lila claro) */
+    .details-row .bg-gradient-to-r{background:rgba(124,58,237,.12)!important;border:1px solid rgba(139,92,246,.22)!important}
+    .details-row .text-gray-600{color:#94a3b8!important}
+    .details-row .text-gray-800{color:#e2e8f0!important}
+    /* Tarjetas de línea (Línea 1, 2…) dentro del editor — eran bg-white/gray-50 */
+    .details-row .line-card{background:rgba(10,20,45,.55)!important;border-color:rgba(148,163,184,.22)!important}
+    .details-row .line-card:hover{border-color:rgba(139,92,246,.45)!important}
+    .details-row .bg-gray-50{background:rgba(255,255,255,.05)!important}
+    .details-row .bg-blue-100{background:rgba(59,130,246,.18)!important}
+    .details-row .bg-gray-200{background:rgba(148,163,184,.25)!important;color:#cbd5e1!important}
+    .details-row .text-gray-500{color:#94a3b8!important}
+    .details-row .text-gray-700{color:#cbd5e1!important}
+    .details-row .note-text{color:#e2e8f0!important}
+    .details-row span[style*="color:#64748b"]{color:#94a3b8!important}
+
+    /* Notas y zona de imagen */
+    .ile-note-card{background:rgba(10,20,45,.70)!important;border-color:rgba(148,163,184,.25)!important}
+    .ile-note-card::after{background:linear-gradient(transparent,rgba(10,20,45,.95))!important}
+    .ile-note-texto{color:#cbd5e1!important}
+    .ile-note-form-box{background:rgba(10,20,45,.85)!important;border-color:#60a5fa!important}
+    .ile-add-note-btn-main{background:rgba(255,255,255,.05)!important;border-color:rgba(148,163,184,.30)!important;color:#94a3b8!important}
+    .ile-add-note-btn-main:hover{background:rgba(59,130,246,.12)!important;border-color:#60a5fa!important;color:#93c5fd!important}
+    .ile-img-zone{background:rgba(10,20,45,.55)!important;border-color:rgba(148,163,184,.30)!important}
+  </style>
 </head>
 <body style="background: #EEF2F7;">
   <div class="layout">
@@ -685,122 +922,67 @@
 
       <div class="max-w-full px-6 py-4">
         <!-- KPI Strip -->
-        <div class="kpi-strip">
-          <div class="kpi-item">
-            <div class="kpi-icon" style="background:linear-gradient(135deg,#1E3A8A,#2563EB);"><i class="fas fa-users"></i></div>
-            <div class="kpi-data">
-              <span class="kpi-val" id="kpi-cantidad-ventas">0</span>
-              <span class="kpi-lbl">Ventas Clientes<span class="kpi-dot"></span></span>
-            </div>
+        <div class="kpix-bar">
+          <div class="kpix-pills">
+            <span class="kpix-item"><span class="kpix-dot" style="background:#3b82f6"></span><b id="kpi-cantidad-ventas">0</b> ventas</span>
+            <span class="kpix-item"><span class="kpix-dot" style="background:#0ea5e9"></span><b id="kpi-cantidad-lineas">0</b> líneas</span>
+            <span class="kpix-item"><span class="kpix-dot" style="background:#10b981"></span><b id="kpi-activas-clientes">0</b> activas</span>
+            <span class="kpix-item"><span class="kpix-dot" style="background:#34d399"></span><b id="kpi-lineas-activas">0</b> act. líneas</span>
+            <span class="kpix-item"><span class="kpix-dot" style="background:#ef4444"></span><b id="kpi-canceladas-clientes">0</b> cancel.</span>
+            <span class="kpix-item"><span class="kpix-dot" style="background:#f43f5e"></span><b id="kpi-canceladas-lineas">0</b> cancel. líneas</span>
+            <span class="kpix-item"><span class="kpix-dot" style="background:#8b5cf6"></span><b id="kpi-colchon">0</b> colchón</span>
           </div>
-          <div class="kpi-sep"></div>
-          <div class="kpi-item">
-            <div class="kpi-icon" style="background:linear-gradient(135deg,#0369A1,#0EA5E9);"><i class="fas fa-layer-group"></i></div>
-            <div class="kpi-data">
-              <span class="kpi-val" id="kpi-cantidad-lineas">0</span>
-              <span class="kpi-lbl">Ventas Líneas</span>
-            </div>
-          </div>
-          <div class="kpi-sep"></div>
-          <div class="kpi-item">
-            <div class="kpi-icon" style="background:linear-gradient(135deg,#059669,#10B981);"><i class="fas fa-user-check"></i></div>
-            <div class="kpi-data">
-              <span class="kpi-val" id="kpi-activas-clientes">0</span>
-              <span class="kpi-lbl">Activas Clientes</span>
-            </div>
-          </div>
-          <div class="kpi-sep"></div>
-          <div class="kpi-item">
-            <div class="kpi-icon" style="background:linear-gradient(135deg,#047857,#34D399);"><i class="fas fa-check-double"></i></div>
-            <div class="kpi-data">
-              <span class="kpi-val" id="kpi-lineas-activas">0</span>
-              <span class="kpi-lbl">Activas Líneas</span>
-            </div>
-          </div>
-          <div class="kpi-sep"></div>
-          <div class="kpi-item">
-            <div class="kpi-icon" style="background:linear-gradient(135deg,#B91C1C,#EF4444);"><i class="fas fa-user-times"></i></div>
-            <div class="kpi-data">
-              <span class="kpi-val" id="kpi-canceladas-clientes">0</span>
-              <span class="kpi-lbl">Canceladas Clientes</span>
-            </div>
-          </div>
-          <div class="kpi-sep"></div>
-          <div class="kpi-item">
-            <div class="kpi-icon" style="background:linear-gradient(135deg,#9F1239,#F43F5E);"><i class="fas fa-times-circle"></i></div>
-            <div class="kpi-data">
-              <span class="kpi-val" id="kpi-canceladas-lineas">0</span>
-              <span class="kpi-lbl">Canceladas Líneas</span>
-            </div>
-          </div>
-          <div class="kpi-sep"></div>
-          <div class="kpi-item">
-            <div class="kpi-icon" style="background:linear-gradient(135deg,#6D28D9,#8B5CF6);"><i class="fas fa-bed"></i></div>
-            <div class="kpi-data">
-              <span class="kpi-val" id="kpi-colchon">0</span>
-              <span class="kpi-lbl">Colchón</span>
-            </div>
-          </div>
+          <button id="btnRefrescar" class="kpix-refresh" type="button"><i class="fas fa-sync-alt"></i> Refrescar</button>
         </div>
 
-        <!-- Filtros -->
-        <div style="background:#fff; border-radius:16px; border:1px solid #E0E8F5; box-shadow:0 2px 8px rgba(30,58,138,.06); padding:20px 24px; margin-bottom:20px;">
-          <div style="display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap;">
-            <!-- Buscar -->
-            <div style="flex:2; min-width:200px;">
-              <label class="filter-label"><i class="fas fa-search"></i> Buscar</label>
-              <div class="search-input-wrap">
-                <i class="fas fa-search search-input-icon"></i>
-                <input type="text" id="q" placeholder="Nombre, teléfono, cuenta..." class="search-input-field">
-              </div>
-            </div>
-            <!-- Estado -->
-            <div id="status-filter-container" style="flex:1; min-width:120px;">
-              <label class="filter-label"><i class="fas fa-filter"></i> Estado</label>
-              <select id="qs" class="filter-select">
-                <option value="">Todos</option>
-                <option value="pending">PENDING</option>
-                <option value="repro">REPRO</option>
-              </select>
-            </div>
-            <!-- Agente -->
-            <div id="agent-filter-container" style="flex:1; min-width:120px;">
-              <label class="filter-label"><i class="fas fa-user-tie"></i> Agente</label>
-              <select id="agentFilter" class="filter-select">
-                <option value="">Todos</option>
-              </select>
-            </div>
-            <!-- Status Línea -->
-            <div id="line-status-filter-container" style="flex:1; min-width:120px;">
-              <label class="filter-label"><i class="fas fa-signal"></i> Línea</label>
-              <select id="lineStatusFilter" class="filter-select">
-                <option value="">Todos</option>
-                <option value="ACTIVA">ACTIVA</option>
-                <option value="PENDING">PENDING</option>
-                <option value="CANCELADA">CANCELADA</option>
-                <option value="SUSPENDIDA">SUSPENDIDA</option>
-              </select>
-            </div>
-            <!-- Fechas -->
-            <div style="flex:1; min-width:130px;">
-              <label class="filter-label"><i class="fas fa-calendar-alt"></i> Desde</label>
-              <input type="date" id="dateFrom" class="filter-input">
-            </div>
-            <div style="flex:1; min-width:130px;">
-              <label class="filter-label"><i class="fas fa-calendar-alt"></i> Hasta</label>
-              <input type="date" id="dateTo" class="filter-input">
-            </div>
-            <!-- Team Toggle -->
-            <div style="flex:0;">
-              <label class="filter-label"><i class="fas fa-users"></i> Team</label>
-              <div class="team-toggle" id="teamToggle">
-                <button class="tt-btn tt-active" data-team="">Todos</button>
-                <button class="tt-btn" data-team="JONATHAN F">Jonathan</button>
-                <button class="tt-btn" data-team="LUIS G">Luis G</button>
-              </div>
-            </div>
+        <!-- Filtros (barra compacta de píldoras) -->
+        <div class="fbar">
+          <!-- Buscar -->
+          <div class="search-input-wrap fbar-search">
+            <i class="fas fa-search search-input-icon"></i>
+            <input type="text" id="q" placeholder="Buscar cliente, tel., cuenta..." class="search-input-field">
           </div>
+          <!-- Agente -->
+          <div class="fbar-dd" id="agent-filter-container">
+            <span class="fbar-dd-lbl">Agente</span>
+            <select id="agentFilter" class="filter-select">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <!-- Status Línea -->
+          <div class="fbar-dd" id="line-status-filter-container">
+            <span class="fbar-dd-lbl">Línea</span>
+            <select id="lineStatusFilter" class="filter-select">
+              <option value="">Todos</option>
+              <option value="ACTIVA">ACTIVA</option>
+              <option value="PENDING">PENDING</option>
+              <option value="CANCELADA">CANCELADA</option>
+              <option value="SUSPENDIDA">SUSPENDIDA</option>
+            </select>
+          </div>
+          <!-- Mes (reemplaza el rango de fechas) -->
+          <div class="fbar-dd" id="mes-filter-container">
+            <span class="fbar-dd-lbl">Mes</span>
+            <select id="mesFilter" class="filter-select"></select>
+          </div>
+          <!-- Team Toggle -->
+          <div class="team-toggle" id="teamToggle">
+            <button class="tt-btn tt-active" data-team="">Todos</button>
+            <button class="tt-btn" data-team="JONATHAN F">Jonathan</button>
+            <button class="tt-btn" data-team="LUIS G">Luis G</button>
+          </div>
+          <!-- Contador de registros -->
+          <span id="leadCounter" class="lead-counter-badge">0 Registros Totales</span>
           <!-- Elementos ocultos para compatibilidad con JS existente -->
+          <div id="status-filter-container" style="display:none;">
+            <select id="qs">
+              <option value="">Todos</option>
+              <option value="pending">PENDING</option>
+              <option value="repro">REPRO</option>
+            </select>
+          </div>
+          <input type="date" id="dateFrom" style="display:none;">
+          <input type="date" id="dateTo" style="display:none;">
           <select id="teamFilter" style="display:none;">
             <option value="">Todos los Teams</option>
             <option value="JONATHAN F">Team Jonathan</option>
@@ -815,22 +997,21 @@
         <!-- Tabla principal con diseño moderno -->
         <div class="bg-white" style="border-radius: 16px; border: 1px solid #F1F5F9; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);">
           <div class="p-6" style="border-bottom: 1px solid #F1F5F9;">
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;">
               <h2 style="font-size: 18px; font-weight: 600; color: #1E293B; margin: 0;">
                 <i class="fas fa-table mr-2" style="color: #4F46E5;"></i>
                 Lista de Clientes
-                <span id="leadCounter" class="lead-counter-badge">0 leads</span>
               </h2>
-            </div>
-            <!-- Status Tabs -->
-            <div class="status-tabs-bar" id="statusTabsBar" role="group" aria-label="Filtro por estado">
-              <button type="button" class="stab all is-active" data-status="all">Todos</button>
-              <button type="button" class="stab pending"       data-status="pending">Pending</button>
-              <button type="button" class="stab active"        data-status="active">Active</button>
-              <button type="button" class="stab completed"     data-status="completed">Completed</button>
-              <button type="button" class="stab colchon"       data-status="colchon">🛏 Colchón</button>
-              <button type="button" class="stab cancelled"     data-status="cancelled">Cancelled</button>
-              <button type="button" class="stab hold"          data-status="hold">Hold</button>
+              <!-- Status Tabs -->
+              <div class="status-tabs-bar" id="statusTabsBar" role="group" aria-label="Filtro por estado" style="margin:0;">
+                <button type="button" class="stab all is-active" data-status="all">Todos</button>
+                <button type="button" class="stab pending"       data-status="pending">Pending</button>
+                <button type="button" class="stab active"        data-status="active">Active</button>
+                <button type="button" class="stab completed"     data-status="completed">Completed</button>
+                <button type="button" class="stab colchon"       data-status="colchon">🛏 Colchón</button>
+                <button type="button" class="stab cancelled"     data-status="cancelled">Cancelled</button>
+                <button type="button" class="stab hold"          data-status="hold">Hold</button>
+              </div>
             </div>
           </div>
           
@@ -1392,7 +1573,12 @@
           </tr>`;
       }
 
-      function applyFilters(items){
+      /* opts.ventaStricta: el rango de fechas se evalúa SOLO contra dia_venta
+         (sin la regla pending→instalación ni la excepción de colchones).
+         Se usa para los KPIs de "Ventas", que deben cuadrar con las ventas
+         reales del mes como en el widget de Team Líneas (ej. junio: 90/139). */
+      function applyFilters(items, opts){
+        const _ventaStricta = !!(opts && opts.ventaStricta);
         _markColchon(items);
         const query = ($('#q')?.value || '').trim().toUpperCase();
         const qDigits = normalizeDigits(query);
@@ -1485,7 +1671,8 @@
             const _stForDate = String(it.status || '').toLowerCase();
             const _isPending  = _stForDate === 'pending';
             const _isActive   = _stForDate === 'active' || _stForDate === 'completed';
-            const _rawDate    = (_isPending && it.dia_instalacion) ? it.dia_instalacion : (it.dia_venta || '');
+            const _rawDate    = _ventaStricta ? (it.dia_venta || '')
+                                : ((_isPending && it.dia_instalacion) ? it.dia_instalacion : (it.dia_venta || ''));
             const _normalize  = (d) => {
               let s = String(d || '');
               if (s.includes('/')) { const p = s.split('/'); if (p.length === 3) s = `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`; }
@@ -1494,7 +1681,7 @@
             let diaRef  = _normalize(_rawDate);
             let diaInst = _normalize(it.dia_instalacion || '');
             // Colchón: lead ACTIVE/COMPLETED con dia_instalacion en rango aunque dia_venta esté fuera
-            const instInRange = _isActive && diaInst && (!dateFrom || diaInst >= dateFrom) && (!dateTo || diaInst <= dateTo);
+            const instInRange = !_ventaStricta && _isActive && diaInst && (!dateFrom || diaInst >= dateFrom) && (!dateTo || diaInst <= dateTo);
             if (dateFrom && diaRef && diaRef < dateFrom && !instInRange) return false;
             if (dateTo   && diaRef && diaRef > dateTo   && !instInRange) return false;
           }
@@ -2459,14 +2646,14 @@
         const filtered = applyFilters(allItems);
         renderTable(filtered);
         updateLeadCounter(filtered.length);
-        updateKPIs(filtered);
+        updateKPIs(filtered, applyFilters(allItems, {ventaStricta:true}));
       }
       
       // Función para actualizar el contador de leads
       function updateLeadCounter(count) {
         const counter = document.getElementById('leadCounter');
         if (counter) {
-          counter.textContent = `${count} lead${count !== 1 ? 's' : ''}`;
+          counter.textContent = `${count} Registros Totales`;
           counter.className = 'lead-counter-badge';
         }
       }
@@ -3040,10 +3227,19 @@
         console.log('Gráfica 3D de agentes creada exitosamente');
       }
       
-      function updateKPIs(items) {
+      function updateKPIs(items, ventaItems) {
         // Calcular KPIs según lógica de ESTADISTICAS-LINEAS
-        // 1. Cantidad de Ventas = Total de leads/clientes
-        const cantidadVentas = items.length;
+        // 1. Ventas Clientes/Líneas: desde ventaItems (rango por dia_venta estricto)
+        //    para cuadrar con las ventas reales del mes. Fallback: items.
+        const _ventaSrc = Array.isArray(ventaItems) ? ventaItems : items;
+        const cantidadVentas = _ventaSrc.length;
+        let cantidadLineasVenta = 0;
+        _ventaSrc.forEach(item => {
+          const cf = Number(item.cantidad_lineas || 0) || 0;
+          const cl = Array.isArray(item.lines) ? item.lines.length : 0;
+          const cp = Array.isArray(item.telefonos) ? item.telefonos.length : 0;
+          cantidadLineasVenta += Math.max(cf, cl, cp, 1);
+        });
 
         // 2. Contar líneas activas, pendientes, canceladas y total de líneas
         let lineasActivas = 0;
@@ -3377,7 +3573,7 @@
 
         // Actualizar KPIs en el DOM
         document.getElementById('kpi-cantidad-ventas').textContent     = cantidadVentas;
-        document.getElementById('kpi-cantidad-lineas').textContent     = cantidadLineas;
+        document.getElementById('kpi-cantidad-lineas').textContent     = cantidadLineasVenta;
         document.getElementById('kpi-activas-clientes').textContent    = clientesActivos;
         document.getElementById('kpi-lineas-activas').textContent      = lineasActivas;
         document.getElementById('kpi-canceladas-clientes').textContent = clientesCancelados;
@@ -3452,7 +3648,7 @@
           if (Array.isArray(j?.data) && j.data.length > 0) {
             allItems = j.data;
           }
-          updateKPIs(applyFilters(allItems));
+          updateKPIs(applyFilters(allItems), applyFilters(allItems, {ventaStricta:true}));
         } catch (e) {
           console.warn('[KPI refresh]', e.message);
         }
@@ -3515,7 +3711,7 @@
           renderTable(fl);
           updateLeadCounter(fl.length);
           if (!statusChart || !agentChart) initCharts();
-          updateKPIs(fl);
+          updateKPIs(fl, applyFilters(allItems, {ventaStricta:true}));
           return;
         }
         // Establecer mes actual como filtro por defecto si no hay fechas seleccionadas
@@ -3533,9 +3729,47 @@
         renderTable(filteredItems);
         updateLeadCounter(filteredItems.length);
         if (!statusChart || !agentChart) initCharts();
-        updateKPIs(filteredItems);
+        updateKPIs(filteredItems, applyFilters(allItems, {ventaStricta:true}));
         setInterval(refreshMonthlyKPIs, 30000);
       }
+
+      // ── Selector de Mes (reemplaza el rango de fechas) ──
+      // Llena opciones: Todos + meses del año en curso hasta el actual.
+      // Al cambiar, ajusta los #dateFrom/#dateTo ocultos que usa applyFilters.
+      (function initMesFilter(){
+        const mes = $('#mesFilter');
+        if (!mes) return;
+        const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+        const now = new Date();
+        const y = now.getFullYear();
+        let html = '<option value="">Todos</option>';
+        for (let m = 0; m <= now.getMonth(); m++) {
+          const val = `${y}-${String(m+1).padStart(2,'0')}`;
+          html += `<option value="${val}" ${m===now.getMonth()?'selected':''}>${MESES[m]} ${y}</option>`;
+        }
+        mes.innerHTML = html;
+        mes.addEventListener('change', ()=>{
+          const v = mes.value;
+          const df = $('#dateFrom'), dt = $('#dateTo');
+          if (v) {
+            const [yy, mm] = v.split('-').map(Number);
+            if (df) df.value = `${v}-01`;
+            if (dt) dt.value = `${v}-${String(new Date(yy, mm, 0).getDate()).padStart(2,'0')}`;
+          } else {
+            if (df) df.value = '';
+            if (dt) dt.value = '';
+          }
+          applyAndRender();
+        });
+      })();
+
+      const btnRefrescar = document.getElementById('btnRefrescar');
+      if (btnRefrescar) btnRefrescar.addEventListener('click', async ()=>{
+        const icon = btnRefrescar.querySelector('i');
+        if (icon) icon.classList.add('fa-spin');
+        try { await refreshMonthlyKPIs(); applyAndRender(); } catch(_) {}
+        if (icon) icon.classList.remove('fa-spin');
+      });
 
       const btnBuscar = document.getElementById('btnBuscar');
       if (btnBuscar) btnBuscar.addEventListener('click', ()=>{ applyAndRender(); });

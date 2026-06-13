@@ -9,6 +9,8 @@ if not JWT_SECRET:
 JWT_ALGO    = "HS256"
 JWT_EXPIRES = 30 * 60  # 30 min — se renueva con cada petición (expira solo por inactividad)
 IS_PROD     = os.getenv("NODE_ENV") == "production"
+# Debe coincidir con routers/auth.py — "none" solo para frontend en otro dominio
+COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "none" if IS_PROD else "lax").lower()
 
 def _get_token(request: Request) -> str | None:
     token = request.cookies.get("token")
@@ -29,7 +31,7 @@ def _renew_token_cookie(response: Response, payload: dict):
         key="token", value=new_token,
         httponly=True,
         secure=IS_PROD,
-        samesite="none" if IS_PROD else "lax",
+        samesite=COOKIE_SAMESITE,
         max_age=JWT_EXPIRES,
         path="/",
     )

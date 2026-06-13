@@ -67,13 +67,6 @@ _MIGRATIONS = [
     "ALTER TABLE leads ADD COLUMN notas JSON NULL",
     "ALTER TABLE users ADD COLUMN active TINYINT(1) NOT NULL DEFAULT 1",
     "ALTER TABLE note_files ADD COLUMN content LONGBLOB NULL",
-    # Índices para acelerar queries del dashboard
-    "CREATE INDEX idx_leads_dia_venta  ON leads (dia_venta)",
-    "CREATE INDEX idx_leads_status     ON leads (status(50))",
-    "CREATE INDEX idx_leads_agente     ON leads (agente_nombre(100))",
-    "CREATE INDEX idx_leads_venta_stat ON leads (dia_venta, status(50))",
-    "CREATE INDEX idx_lc_supervisor    ON lineas_clientes (supervisor(100))",
-    "CREATE INDEX idx_lc_status        ON lineas_clientes (status(50))",
     # Índices para consultas frecuentes en leads
     "CREATE INDEX idx_leads_dia_venta   ON leads (dia_venta)",
     "CREATE INDEX idx_leads_dia_inst    ON leads (dia_instalacion)",
@@ -269,8 +262,22 @@ for _name, _rel in _static_dirs.items():
     if _d.exists():
         app.mount(f"/{_name}", StaticFiles(directory=str(_d)), name=_name)
 
+class _UploadsStaticFiles(StaticFiles):
+    """Sirve /uploads con nosniff; contenido activo (html/svg/js/xml) se fuerza
+    como descarga para que un archivo subido no pueda ejecutar scripts (XSS)."""
+    _ACTIVE_TYPES = ("html", "svg", "javascript", "xml")
+
+    async def get_response(self, path, scope):
+        resp = await super().get_response(path, scope)
+        resp.headers["X-Content-Type-Options"] = "nosniff"
+        ctype = resp.headers.get("content-type", "")
+        if any(t in ctype for t in self._ACTIVE_TYPES):
+            resp.headers["Content-Disposition"] = "attachment"
+            resp.headers["Content-Type"] = "application/octet-stream"
+        return resp
+
 if UPLOADS_DIR.exists():
-    app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
+    app.mount("/uploads", _UploadsStaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
 if COMPONENTS.exists():
     app.mount("/components", StaticFiles(directory=str(COMPONENTS)), name="components")

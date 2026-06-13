@@ -63,6 +63,11 @@ html,body{height:100%;overflow:hidden}
 
 /* sidebar-shared.css ya aplica margin-left a .main-content en auto-hide */
 
+/* glass-cards.css fuerza position:relative !important sobre .main-content y
+   rompe el anclaje a pantalla (la página crece con el contenido en vez de
+   hacer scroll interno). Mayor especificidad para restaurar el fixed. */
+body .main-content{position:fixed!important;top:0;left:0;right:0;bottom:0}
+
 /* ── TOPBAR ── */
 .topbar{
   flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
@@ -95,14 +100,15 @@ html,body{height:100%;overflow:hidden}
 .page{
   flex:1;min-height:0;overflow:hidden;
   display:grid;
-  grid-template-rows:1fr 1fr;
+  /* minmax(0,1fr): el contenido no puede estirar las filas (1fr = minmax(auto,1fr)) */
+  grid-template-rows:minmax(0,1fr) minmax(0,1fr);
   grid-template-columns:1fr;
   gap:10px;padding:10px 14px 10px;
 }
 
 
 /* ── ROW 2: Welcome + Chart + Mini stats ── */
-.row2{display:grid;grid-template-columns:260px 1fr 220px;gap:10px;min-height:0}
+.row2{display:grid;grid-template-columns:260px 1fr 220px;grid-template-rows:minmax(0,1fr);gap:10px;min-height:0}
 
 /* Welcome card */
 .welcome-card{
@@ -115,7 +121,7 @@ html,body{height:100%;overflow:hidden}
   background:linear-gradient(160deg,rgba(0,80,200,.25) 0%,rgba(124,58,237,.15) 50%,transparent 100%);
   pointer-events:none;
 }
-.wc-body{position:relative;z-index:1;padding:18px;flex:1;display:flex;flex-direction:column;gap:12px}
+.wc-body{position:relative;z-index:1;padding:18px;flex:1;min-height:0;display:flex;flex-direction:column;gap:12px}
 .wc-tag{font-size:.58rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
   color:var(--neon);opacity:.8}
 .wc-name{font-family:'Space Grotesk',sans-serif;font-size:1.2rem;font-weight:700;
@@ -178,7 +184,7 @@ html,body{height:100%;overflow:hidden}
 .mp-bar-fill{height:100%;border-radius:4px;transition:width .8s cubic-bezier(.34,1.56,.64,1)}
 
 /* ── ROW 3: Ranking + Recientes ── */
-.row3{display:grid;grid-template-columns:1fr 1fr;gap:10px;min-height:0}
+.row3{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr);gap:10px;min-height:0}
 
 .table-panel{
   background:var(--glass);border:1px solid var(--glass-b);border-radius:16px;
@@ -251,9 +257,11 @@ html,body{height:100%;overflow:hidden}
 }
 @media(max-width:1000px){
   html,body{overflow:auto;height:auto}
-  .main-content{position:static!important;height:auto!important;overflow-y:auto!important}
+  body .main-content{position:static!important;height:auto!important;overflow-y:auto!important;top:auto!important;left:auto!important;right:auto!important;bottom:auto!important}
   .page{grid-template-rows:auto auto auto;overflow:visible;height:auto}
-  .row2{grid-template-columns:1fr;grid-template-rows:auto 260px auto}
+  .row2{grid-template-columns:1fr;grid-template-rows:auto 260px auto;grid-auto-rows:auto}
+  /* En layout apilado las filas son auto — tope para que la lista haga scroll */
+  .welcome-card{max-height:420px}
   .row3{grid-template-columns:1fr}
   .kpi-row{grid-template-columns:repeat(2,1fr)}
 }
@@ -316,7 +324,7 @@ body::before {
             <div style="font-size:.58rem;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--neon);opacity:.8;margin-bottom:6px">
               <i class="fas fa-signal" style="margin-right:4px"></i>Top por Líneas · mes actual
             </div>
-            <div id="wc-top-lineas" style="display:flex;flex-direction:column;gap:5px;flex:1;overflow:hidden">
+            <div id="wc-top-lineas" style="display:flex;flex-direction:column;gap:5px;flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:rgba(129,140,248,.35) transparent;padding-right:2px">
               <div class="skel" style="height:28px;border-radius:8px"></div>
               <div class="skel" style="height:28px;border-radius:8px"></div>
               <div class="skel" style="height:28px;border-radius:8px"></div>
@@ -337,7 +345,7 @@ body::before {
             </div>
             <div class="cp-legend">
               <div class="cp-leg-item">
-                <div class="cp-leg-dot" style="background:var(--neon);box-shadow:0 0 6px var(--neon)"></div>
+                <div class="cp-leg-dot" style="background:#818cf8;box-shadow:0 0 6px #818cf8"></div>
                 <span>Ventas</span>
               </div>
             </div>
@@ -351,7 +359,7 @@ body::before {
           <div class="mp-big" id="mp-total-agents">—</div>
           <div class="mp-sub" id="mp-week-label">ventas esta semana</div>
           <div class="mp-divider"></div>
-          <div id="mp-agents-list">
+          <div id="mp-agents-list" style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:rgba(129,140,248,.35) transparent;padding-right:2px">
             <div class="skel" style="height:32px;margin-top:6px;border-radius:10px"></div>
             <div class="skel" style="height:32px;margin-top:6px;border-radius:10px"></div>
             <div class="skel" style="height:32px;margin-top:6px;border-radius:10px"></div>
@@ -417,6 +425,9 @@ let _user = null;
 try{ _user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'null'); }catch(_){}
 const _role    = String(_user?.role||'').toLowerCase();
 const _isSup   = _role.includes('supervisor');
+/* Admin/Backoffice ven datos globales — el backend ya limita por rol,
+   este filtro extra solo aplica a agentes (sus propias ventas) */
+const _seesAll = _isSup || /admin|administra|backoffice|back_office/.test(_role);
 const _myUname = String(_user?.username||'').toLowerCase();
 
 /* ── Topbar ── */
@@ -441,6 +452,18 @@ const _myUname = String(_user?.username||'').toLowerCase();
   $('wc-role').textContent  = (_user?.role||'Team Líneas')+' · '+(_user?.team||'');
 })();
 
+/* ── Fecha local ──
+   new Date('2026-06-01') se interpreta como medianoche UTC y en zona UTC-6
+   cae en el 31 de mayo — las ventas del día 1 se contaban en el mes anterior.
+   Parsear Y/M/D a mano crea la fecha en hora local, sin desfase. */
+function parseLocalDate(raw){
+  if(!raw) return null;
+  const m=String(raw).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return new Date(+m[1],+m[2]-1,+m[3]);
+  const d=new Date(raw);
+  return isNaN(d)?null:d;
+}
+
 /* ── Fetch ── */
 async function fetchLineas(url){
   try{
@@ -453,7 +476,7 @@ async function fetchLineas(url){
 
 /* ── Filtro rol ── */
 function filterForUser(leads){
-  if(_isSup) return leads;
+  if(_seesAll) return leads;
   const disp = _myUname.replace(/\./g,' ').replace(/_/g,' ').toUpperCase();
   return leads.filter(l=>{
     const ag = String(l.agente||l.agenteNombre||'').toLowerCase();
@@ -471,48 +494,43 @@ const _allFetch = fetchLineas('/api/lineas-team');
 
 /* ═══════ APEX CHART ══════ */
 let _apexChart = null;
-let _animFrame = null;
 
-function _ease(t){ return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2; }
-
+/* Mismo estilo que la gráfica de Ventas Mensuales de inicio residencial
+   (paleta de su modo oscuro — esta página es oscura fija) */
 function _apexOpts(cats,data){
+  const textColor='#cbd5e1', gridColor='rgba(148,163,184,.10)';
+  const tooltipBg='#1e293b', tooltipTxt='#e2e8f0';
+  const lineColor='#818cf8', dotColor='#c7d2fe', gradHex='#818cf8';
   return{
     series:[{name:'Ventas',data}],
     chart:{type:'area',height:'100%',background:'transparent',toolbar:{show:false},animations:{enabled:false}},
-    stroke:{curve:'smooth',width:2.5,colors:['#00e5ff']},
-    fill:{type:'gradient',gradient:{
-      shadeIntensity:1,
-      colorStops:[
-        {offset:0,  color:'#00e5ff',opacity:0.40},
-        {offset:60, color:'#0066ff',opacity:0.10},
-        {offset:100,color:'#060c1e',opacity:0.00}
-      ]
-    }},
-    colors:['#00e5ff'],
-    markers:{size:5,colors:['#00e5ff'],strokeColors:'#060c1e',strokeWidth:2,hover:{size:7}},
+    stroke:{curve:'smooth',width:3,colors:[lineColor]},
+    fill:{type:'gradient',gradient:{shadeIntensity:1,opacityFrom:0.55,opacityTo:0.02,stops:[0,95]}},
+    colors:[gradHex],
+    markers:{size:4,colors:[dotColor],strokeColors:tooltipBg,strokeWidth:2,hover:{size:7}},
     xaxis:{
       categories:cats,
-      labels:{style:{colors:'#475569',fontSize:'10px',fontFamily:'Outfit,sans-serif'}},
+      labels:{style:{colors:textColor,fontSize:'11px',fontFamily:'Outfit,sans-serif',fontWeight:600}},
       axisBorder:{show:false},axisTicks:{show:false}
     },
     yaxis:{
       min:0,forceNiceScale:true,
-      labels:{style:{colors:'#475569',fontSize:'10px',fontFamily:'Outfit,sans-serif'},formatter:v=>Math.round(v)}
+      labels:{style:{colors:textColor,fontSize:'11px',fontFamily:'Outfit,sans-serif',fontWeight:600},formatter:v=>Math.round(v)}
     },
     grid:{
-      borderColor:'rgba(0,200,255,.06)',strokeDashArray:4,
+      borderColor:gridColor,strokeDashArray:4,
       xaxis:{lines:{show:false}},yaxis:{lines:{show:true}},
       padding:{top:0,right:8,bottom:0,left:4}
     },
     tooltip:{
-      theme:'dark',
+      theme:'dark',style:{fontSize:'12px'},
       custom({series,seriesIndex,dataPointIndex,w}){
         const val=series[seriesIndex][dataPointIndex];
         const cat=w.globals.labels[dataPointIndex];
-        return '<div style="background:#0f1e3d;color:#e2e8f0;padding:8px 13px;border-radius:10px;'
-          +'border:1px solid rgba(0,229,255,.25);box-shadow:0 0 20px rgba(0,229,255,.15);font-family:Outfit,sans-serif;font-size:12px">'
-          +'<div style="font-size:10px;font-weight:600;color:#00e5ff;letter-spacing:.05em;margin-bottom:2px">'+cat+'</div>'
-          +'<div style="font-size:16px;font-weight:800">'+val+' <span style="font-size:10px;opacity:.6">ventas</span></div>'
+        return '<div style="background:'+tooltipBg+';color:'+tooltipTxt+';padding:8px 13px;border-radius:10px;'
+          +'border:1px solid rgba(99,102,241,.25);box-shadow:0 8px 24px rgba(0,0,0,.18);font-family:Outfit,sans-serif;font-size:12px">'
+          +'<div style="font-size:10px;font-weight:600;color:'+lineColor+';margin-bottom:2px">'+cat+'</div>'
+          +'<div style="font-size:16px;font-weight:800">'+val+' <span style="font-size:10px;opacity:.7">ventas</span></div>'
           +'</div>';
       }
     },
@@ -520,117 +538,51 @@ function _apexOpts(cats,data){
   };
 }
 
-function _startSvgAnim(container){
-  if(_animFrame){cancelAnimationFrame(_animFrame);_animFrame=null;}
+/* Animación de dibujo del trazo — portada de inicio residencial */
+function _animateChartDraw(container){
   const svg=container.querySelector('svg');
   if(!svg) return;
-  const strokePath=Array.from(svg.querySelectorAll('.apexcharts-series path'))
-    .find(p=>{const s=p.getAttribute('stroke');return s&&s!=='transparent'&&s!=='none';});
-  if(!strokePath) return;
-  const pathLen=strokePath.getTotalLength();
-  if(!pathLen) return;
 
-  /* Glow filter */
-  let defs=svg.querySelector('defs');
-  if(!defs){defs=document.createElementNS('http://www.w3.org/2000/svg','defs');svg.prepend(defs);}
-  if(!defs.querySelector('#lg2-glow')){
-    defs.insertAdjacentHTML('beforeend',`
-      <filter id="lg2-glow" x="-40%" y="-100%" width="180%" height="300%">
-        <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="b1"/>
-        <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b2"/>
-        <feColorMatrix in="b1" type="matrix" values="0 0 0 0 0 0 0 0 0 0.9 0 0 0 0 1 0 0 0 2.5 0" result="g1"/>
-        <feColorMatrix in="b2" type="matrix" values="0 0 0 0 0 0 0 0 0 0.9 0 0 0 0 1 0 0 0 1.5 0" result="g2"/>
-        <feMerge><feMergeNode in="g1"/><feMergeNode in="g2"/><feMergeNode in="SourceGraphic"/></feMerge>
-      </filter>
-      <filter id="lg2-orb" x="-300%" y="-300%" width="700%" height="700%">
-        <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="big"/>
-        <feGaussianBlur in="SourceGraphic" stdDeviation="4"  result="small"/>
-        <feMerge><feMergeNode in="big"/><feMergeNode in="small"/><feMergeNode in="SourceGraphic"/></feMerge>
-      </filter>`);
+  /* El trazo principal está en .apexcharts-line o .apexcharts-area-series path con stroke */
+  let paths=svg.querySelectorAll('.apexcharts-line, .apexcharts-area path[stroke]:not([stroke="none"])');
+  if(!paths.length){
+    paths=svg.querySelectorAll('path[stroke]:not([stroke="none"]):not([stroke="transparent"])');
   }
 
-  /* Glow layers */
-  let gp1=svg.querySelector('.lg2-gp1');
-  let gp2=svg.querySelector('.lg2-gp2');
-  if(!gp1){
-    gp1=strokePath.cloneNode(false); gp1.classList.add('lg2-gp1');
-    gp1.setAttribute('fill','none');gp1.setAttribute('stroke','#00e5ff');
-    gp1.setAttribute('stroke-width','14');gp1.style.filter='url(#lg2-glow)';
-    gp1.style.opacity='0.45';gp1.style.pointerEvents='none';
-    strokePath.parentNode.insertBefore(gp1,strokePath);
-    gp2=strokePath.cloneNode(false); gp2.classList.add('lg2-gp2');
-    gp2.setAttribute('fill','none');gp2.setAttribute('stroke','#0ea5e9');
-    gp2.setAttribute('stroke-width','6');gp2.style.filter='url(#lg2-glow)';
-    gp2.style.opacity='0.70';gp2.style.pointerEvents='none';
-    strokePath.parentNode.insertBefore(gp2,strokePath);
-  } else {
-    gp1.setAttribute('d',strokePath.getAttribute('d'));
-    gp2.setAttribute('d',strokePath.getAttribute('d'));
-  }
-
-  strokePath.style.filter='url(#lg2-glow)';
-
-  /* Orbe */
-  let orbG=svg.querySelector('.lg2-orb');
-  if(!orbG){
-    orbG=document.createElementNS('http://www.w3.org/2000/svg','g');
-    orbG.classList.add('lg2-orb');orbG.style.pointerEvents='none';
-    const a1=document.createElementNS('http://www.w3.org/2000/svg','circle');
-    a1.setAttribute('r','22');a1.setAttribute('fill','rgba(0,229,255,0.08)');a1.classList.add('o-a1');
-    const a2=document.createElementNS('http://www.w3.org/2000/svg','circle');
-    a2.setAttribute('r','10');a2.setAttribute('fill','rgba(0,229,255,0.20)');a2.classList.add('o-a2');
-    const core=document.createElementNS('http://www.w3.org/2000/svg','circle');
-    core.setAttribute('r','5');core.setAttribute('fill','#00e5ff');
-    core.style.filter='url(#lg2-orb)';core.classList.add('o-core');
-    orbG.appendChild(a1);orbG.appendChild(a2);orbG.appendChild(core);
-    strokePath.parentNode.appendChild(orbG);
-  }
-  const a1=orbG.querySelector('.o-a1');
-  const a2=orbG.querySelector('.o-a2');
-  const core=orbG.querySelector('.o-core');
-
-  /* Animate once */
-  const DRAW_MS=8000;
-  [strokePath,gp1,gp2].forEach(p=>{
-    p.style.strokeDasharray=pathLen;
-    p.style.strokeDashoffset=pathLen;
+  paths.forEach(function(path){
+    const len=path.getTotalLength?path.getTotalLength():0;
+    if(!len) return;
+    path.style.strokeDasharray=len;
+    path.style.strokeDashoffset=len;
+    path.style.transition='none';
+    path.getBoundingClientRect();
+    path.style.transition='stroke-dashoffset 5s cubic-bezier(.4,0,.2,1)';
+    path.style.strokeDashoffset='0';
   });
-  orbG.style.opacity='0';orbG.style.transition='';
 
-  const t0=performance.now();
-  function tick(now){
-    const t=Math.min((now-t0)/DRAW_MS,1);
-    const e=_ease(t);
-    const off=pathLen*(1-e);
-    strokePath.style.strokeDashoffset=off;
-    gp1.style.strokeDashoffset=off;
-    gp2.style.strokeDashoffset=off;
-    try{
-      const pt=strokePath.getPointAtLength(pathLen*e);
-      [a1,a2,core].forEach(el=>{el.setAttribute('cx',pt.x);el.setAttribute('cy',pt.y);});
-      orbG.style.opacity=t>.01?'1':'0';
-      const pulse=1+0.25*Math.sin(now/180);
-      a1.setAttribute('r',22*pulse); a2.setAttribute('r',10*pulse);
-    }catch(_){}
-    if(t<1){ _animFrame=requestAnimationFrame(tick); }
-    else{
-      orbG.style.transition='opacity 1000ms';
-      setTimeout(()=>{orbG.style.opacity='0';},800);
-    }
-  }
-  _animFrame=requestAnimationFrame(tick);
+  /* El área rellena aparece con fade después de un pequeño delay */
+  svg.querySelectorAll('.apexcharts-area').forEach(function(fill){
+    fill.style.opacity='0';
+    fill.style.transition='opacity 2s ease 1.5s';
+    fill.getBoundingClientRect();
+    fill.style.opacity='1';
+  });
 }
 
 function renderChart(data,cats){
   const el=$('apex-monthly-sales');
   if(!el||typeof ApexCharts==='undefined') return;
+  if(!document.getElementById('apex-glow-style')){
+    const s=document.createElement('style'); s.id='apex-glow-style';
+    s.textContent='#apex-monthly-sales .apexcharts-area-series .apexcharts-series path{filter:drop-shadow(0 0 6px rgba(99,102,241,.60))} #apex-monthly-sales .apexcharts-marker{filter:drop-shadow(0 0 4px rgba(99,102,241,.80))}';
+    document.head.appendChild(s);
+  }
   if(_apexChart){
     _apexChart.updateOptions(_apexOpts(cats,data),true,true);
-    setTimeout(()=>_startSvgAnim(el),150);
     return;
   }
   _apexChart=new ApexCharts(el,_apexOpts(cats,data));
-  _apexChart.render().then(()=>setTimeout(()=>_startSvgAnim(el),150));
+  _apexChart.render().then(()=>_animateChartDraw(el));
 }
 
 /* ═══════ RENDER HELPERS ══════ */
@@ -657,7 +609,8 @@ function renderTopLineas(leads){
 
   const medals = ['🥇','🥈','🥉'];
   const max = sorted[0].lineas;
-  el.innerHTML = sorted.slice(0, 5).map((ag, i) => {
+  /* Todos los usuarios con ventas en el mes (con scroll si no caben) */
+  el.innerHTML = sorted.map((ag, i) => {
     const col = colorFor(ag.name);
     const pct = Math.round((ag.lineas / max) * 100);
     return `<div class="tl-row">
@@ -687,7 +640,8 @@ function renderWeeklyAgents(sorted, weekTotal){
     list.innerHTML='<div style="padding:14px 0;text-align:center;color:#475569;font-size:.72rem">Sin ventas esta semana</div>';
     return;
   }
-  list.innerHTML=sorted.slice(0,5).map((ag,i)=>{
+  /* Todos los agentes con ventas en la semana (el contenedor hace scroll) */
+  list.innerHTML=sorted.map((ag,i)=>{
     const col=colorFor(ag.name);
     const pct=Math.round((ag.ventas/max)*100);
     const medals=['🥇','🥈','🥉'];
@@ -709,7 +663,8 @@ function renderRankingList(sorted){
   if(!list) return;
   const max=sorted.length?sorted[0].ventas:1;
   const medals=['🥇','🥈','🥉'];
-  list.innerHTML=sorted.slice(0,8).map((ag,i)=>{
+  /* Todos los agentes con ventas del mes, de mayor a menor (scroll en .tp-body) */
+  list.innerHTML=sorted.map((ag,i)=>{
     const col=colorFor(ag.name);
     const pct=Math.round((ag.ventas/max)*100);
     return `<div class="tp-row">
@@ -728,7 +683,14 @@ function renderRankingList(sorted){
 function renderRecent(leads){
   const list=$('recent-list');
   if(!list) return;
-  const recent=leads.slice(0,8);
+  /* Todos los registros de los últimos 30 días, del más nuevo al más viejo
+     (la API ya los entrega ordenados por created_at DESC; la lista hace scroll) */
+  const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-30); cutoff.setHours(0,0,0,0);
+  let recent=leads.filter(l=>{
+    const d=parseLocalDate(l.created_at||l.creadoEn||l.dia_venta);
+    return d&&d>=cutoff;
+  });
+  if(!recent.length) recent=leads.slice(0,20);
   const statusTag=s=>{
     const sl=(s||'').toLowerCase();
     if(sl==='cali'||sl==='instalado'||sl==='completado') return 'tag-ok';
@@ -758,10 +720,8 @@ async function loadDashboard(){
 
   /* Mes actual */
   const allMonth=allData.filter(l=>{
-    const raw=l.dia_venta||l.created_at||l.creadoEn||'';
-    if(!raw) return false;
-    const d=new Date(raw);
-    return !isNaN(d)&&d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth();
+    const d=parseLocalDate(l.dia_venta||l.created_at||l.creadoEn);
+    return d&&d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth();
   });
   const myMonth=filterForUser(allMonth);
 
@@ -793,10 +753,8 @@ async function loadDashboard(){
   weekEnd.setHours(23,59,59,999);
 
   const weekLeads = allData.filter(l => {
-    const raw = l.dia_venta || l.created_at || l.creadoEn || '';
-    if (!raw) return false;
-    const d = new Date(raw);
-    return !isNaN(d) && d >= weekStart && d <= weekEnd;
+    const d = parseLocalDate(l.dia_venta || l.created_at || l.creadoEn);
+    return d && d >= weekStart && d <= weekEnd;
   });
 
   const weekMap = {};
@@ -816,30 +774,26 @@ async function loadDashboard(){
 
   /* Gráfico anual */
   const allYear=allData.filter(l=>{
-    const raw=l.dia_venta||l.created_at||l.creadoEn||'';
-    if(!raw) return false;
-    const d=new Date(raw);
-    return !isNaN(d)&&d.getFullYear()===now.getFullYear();
+    const d=parseLocalDate(l.dia_venta||l.created_at||l.creadoEn);
+    return d&&d.getFullYear()===now.getFullYear();
   });
   const myYear=filterForUser(allYear);
   const counts=new Array(12).fill(0);
   myYear.forEach(l=>{
-    const raw=l.dia_venta||l.created_at||l.creadoEn||'';
-    if(!raw) return;
-    const d=new Date(raw);
-    if(!isNaN(d)) counts[d.getMonth()]++;
+    const d=parseLocalDate(l.dia_venta||l.created_at||l.creadoEn);
+    if(d) counts[d.getMonth()]++;
   });
 
   const totalYear=myYear.length;
   $('cp-total').textContent=totalYear;
   $('cp-delta').textContent=`ventas en ${now.getFullYear()}`;
 
-  const cm=now.getMonth();
   if(counts.every(v=>v===0)){
     const el=$('apex-monthly-sales');
     if(el) el.innerHTML='<div style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:#475569"><i class="fas fa-chart-area" style="font-size:2rem;opacity:.3"></i><span style="font-size:.75rem">Sin ventas este año</span></div>';
   } else {
-    renderChart(counts.slice(0,cm+1),MONTHS.slice(0,cm+1));
+    /* Año completo (Ene-Dic), igual que la gráfica de inicio residencial */
+    renderChart(counts,MONTHS);
   }
 }
 

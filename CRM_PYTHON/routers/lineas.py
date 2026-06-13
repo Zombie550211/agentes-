@@ -789,7 +789,8 @@ async def lineas_team_list(
             SELECT id, team, supervisor, agente, agente_nombre,
                    cantidad_lineas, dia_venta, dia_instalacion, status, mercado, nombre_cliente,
                    telefono_principal, numero_cuenta, pin_seguridad, direccion,
-                   telefonos, lineas_status, lines_data, servicios, imagen_url, autopago
+                   telefonos, lineas_status, lines_data, servicios, imagen_url, autopago,
+                   created_at
             FROM lineas_clientes
             {where_sql}
             ORDER BY created_at DESC
