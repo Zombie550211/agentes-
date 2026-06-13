@@ -56,7 +56,13 @@
     'registro': 'crearcuenta',
     'chat': 'chat',
     'mensajes': 'chat',
-    'messages': 'chat'
+    'messages': 'chat',
+    'inicio-lineas': 'inicio-lineas',
+    'lead-lineas': 'lead-lineas',
+    'costumer-lineas': 'costumer-lineas',
+    'estadisticas-lineas': 'estadisticas-lineas',
+    'estadísticas-lineas': 'estadisticas-lineas',
+    'ranking-lineas': 'ranking-lineas'
   };
 
   const AVATAR_FIELD_CANDIDATES = [
@@ -205,6 +211,11 @@
       if (/llamadas/.test(path) && /ventas/.test(path)) return 'llamadas-team';
       if (/estadistic/.test(path)) return 'estadisticas';
       if (/factur/.test(path)) return 'facturacion';
+      if (/\/lineas\/rank/.test(path)) return 'ranking-lineas';
+      if (/\/lineas\/costumer/.test(path)) return 'costumer-lineas';
+      if (/\/lineas\/estadistic/.test(path)) return 'estadisticas-lineas';
+      if (/\/lineas\/lead/.test(path)) return 'lead-lineas';
+      if (/\/lineas\/inicio/.test(path)) return 'inicio-lineas';
       if (/rank/.test(path)) return 'ranking';
       if (/tabla/.test(path) && /puntaje/.test(path)) return 'tabla-puntaje';
       if (/empleado/.test(path)) return 'empleado';
@@ -219,7 +230,6 @@
       if (/register/.test(path)) return 'crearcuenta';
       if (/chat\.html?$/.test(path)) return 'chat';
       if (/reset-password/.test(path)) return 'inicio';
-      if (/\/lineas\/inicio/.test(path)) return 'inicio-lineas';
       if (/inicio/.test(path) || /index\.html?$/.test(path)) return 'inicio';
     } catch (e) {
       console.warn('No se pudo inferir data-active automáticamente', e);
@@ -550,6 +560,41 @@
         ensureStaticSidebarLayout();
       }
     } catch (e) { console.warn('Auto-hide sidebar setup error:', e); }
+
+    try {
+      // Agregar clase al body cuando se está en líneas para aplicar CSS
+      const currentPath = window.location.pathname.toLowerCase();
+      const isOnLineasPage = currentPath.includes('/lineas/');
+
+      if (isOnLineasPage) {
+        document.body.classList.add('in-lineas-section');
+
+        // Agregar CSS muy específico
+        const styleEl = document.createElement('style');
+        styleEl.textContent = `
+          body.in-lineas-section .sidebar .nav-block.principal { display: none !important; }
+          body.in-lineas-section .sidebar .nav-block.estadisticas { display: none !important; }
+          body.in-lineas-section .sidebar .nav-block.administracion { display: none !important; }
+          body.in-lineas-section .sidebar .nav-block.mov { display: block !important; }
+          body.in-lineas-section .sidebar .moviles-submenu { display: block !important; max-height: none !important; }
+          body.in-lineas-section .sidebar .moviles-submenu.open { display: block !important; }
+        `;
+        document.head.appendChild(styleEl);
+
+        // También remover los elementos del DOM directamente
+        setTimeout(() => {
+          const sidebar = document.querySelector('.sidebar');
+          if (sidebar) {
+            const principalBlock = sidebar.querySelector('.nav-block.principal');
+            const estadisticasBlock = sidebar.querySelector('.nav-block.estadisticas');
+            const administracionBlock = sidebar.querySelector('.nav-block.administracion');
+            if (principalBlock) principalBlock.style.display = 'none';
+            if (estadisticasBlock) estadisticasBlock.style.display = 'none';
+            if (administracionBlock) administracionBlock.style.display = 'none';
+          }
+        }, 100);
+      }
+    } catch (_) { /* ignore */ }
 
     try {
       window.__SIDEBAR_LOADING = false;
@@ -895,7 +940,30 @@
   // Generador de menú moderno con bloques separados
   function getModernMenuBlocks(normalizedRole, normalizedActive, ctx = {}) {
     const isLineas = ctx.isLineas || false;
-    
+
+    // Detectar si estamos en una página de líneas ANTES DE TODO
+    const currentPath = (window.location?.pathname || '').toLowerCase();
+    const isOnLineasPage = currentPath.includes('/lineas/');
+
+    // Si estamos en líneas, SOLO mostrar servicios móviles
+    if (isOnLineasPage) {
+      const movilesItems = [
+        { key: 'inicio-lineas', icon: 'fa-home', text: 'Inicio', href: '/lineas/inicio.html' },
+        { key: 'lead-lineas', icon: 'fa-user-plus', text: 'Nuevo Lead', href: '/lineas/lead.html' },
+        { key: 'costumer-lineas', icon: 'fa-users', text: 'Costumer Líneas', href: '/lineas/costumer.html' },
+        { key: 'estadisticas-lineas', icon: 'fa-chart-bar', text: 'Estadísticas Líneas', href: '/lineas/estadisticas.html' },
+        { key: 'ranking-lineas', icon: 'fa-chart-line', text: 'Ranking Líneas', href: '/lineas/ranking.html' }
+      ];
+
+      let html = '<div class="nav-block mov"><div class="block-header"><span class="block-label">Servicios Móviles</span></div>';
+      movilesItems.forEach(item => {
+        const isActive = item.key === normalizedActive ? 'active-res' : '';
+        html += `<a href="${safeHref(item.href)}" class="nav-item mov-item ${isActive}"><i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span></a>`;
+      });
+      html += '</div>';
+      return html;
+    }
+
     // Sección 1: Principal (sin título)
     const principalItems = [
       { key: 'inicio',      icon: 'fa-home',           text: 'Inicio',            href: '/residencial/inicio.html' },
@@ -946,10 +1014,14 @@
     const isSupervisor = normalizedRole === 'supervisor' || normalizedRole.includes('supervisor');
     const isAgente = normalizedRole === 'agente' || normalizedRole === 'vendedor' || normalizedRole === 'agent' || normalizedRole === 'seller';
     
-    // Mostrar secciones residenciales si: Admin, BackOffice, o (Supervisor/Agente que NO es de Líneas)
-    const showResidencial = isAdmin || ((isSupervisor || isAgente) && !isLineas) || (!isSupervisor && !isAgente && !isLineas);
-    // Mostrar bloque móviles si: Admin, BackOffice, o (Supervisor/Agente que SÍ es de Líneas)
-    const showMoviles = isAdmin || ((isSupervisor || isAgente) && isLineas) || isLineas;
+    // Detectar si estamos en una página de líneas
+    const currentPath = window.location.pathname.toLowerCase();
+    const isOnLineasPage = currentPath.includes('/lineas/');
+
+    // Mostrar secciones residenciales si: Admin/BackOffice (NO en página de líneas) o (Supervisor/Agente que NO es de Líneas)
+    const showResidencial = (!isOnLineasPage && isAdmin) || ((isSupervisor || isAgente) && !isLineas && !isOnLineasPage) || (!isSupervisor && !isAgente && !isLineas && !isOnLineasPage);
+    // Mostrar bloque móviles si: Admin/BackOffice (cuando está EN página de líneas) o (Supervisor/Agente que SÍ es de Líneas) o cuando se detecta página de líneas
+    const showMoviles = (isAdmin && isOnLineasPage) || ((isSupervisor || isAgente) && isLineas) || isLineas || isOnLineasPage;
     
     let html = '';
 
