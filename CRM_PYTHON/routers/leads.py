@@ -798,10 +798,7 @@ async def leads_lineas(
 ):
     role     = str(user.get("role", "")).lower()
     username = user.get("username", "")
-    is_privileged = (
-        any(r in role for r in ["admin", "backoffice", "supervisor"])
-        or "lineas" in role
-    )
+    is_privileged = any(r in role for r in ["admin", "backoffice", "supervisor"])
     full_export   = allData in ("true", "1", "yes") and is_privileged
 
     # Mes por defecto: mes actual si no se especifica
@@ -823,15 +820,14 @@ async def leads_lineas(
         params["u"] = username
         params["d"] = display
 
-    # Filtro de mes en MySQL — solo mes actual (por defecto) o mes actual + anterior (para colchón)
+    # Filtro de mes en MySQL — incluye mes actual + mes anterior (para colchón)
     if not full_export and target_month and re.match(r"^\d{4}-\d{2}$", target_month):
         yr, mo = map(int, target_month.split("-"))
         _, last_day = calendar.monthrange(yr, mo)
-
-        # Para ranking de líneas (sin colchón): solo mes actual
-        dts = f"{yr}-{mo:02d}-01"   # inicio del mes actual
+        prev_mo = mo - 1 if mo > 1 else 12
+        prev_yr = yr if mo > 1 else yr - 1
+        dts = f"{prev_yr}-{prev_mo:02d}-01"   # inicio del mes anterior
         dte = f"{yr}-{mo:02d}-{last_day:02d}"  # fin del mes actual
-
         where.append("""(
             (dia_venta IS NOT NULL AND dia_venta BETWEEN :dts AND :dte)
             OR (dia_venta IS NULL AND dia_instalacion IS NOT NULL AND dia_instalacion BETWEEN :dts AND :dte)
