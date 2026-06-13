@@ -472,7 +472,8 @@
                                 movilesPath.includes('facturacion-lineas') ||
                                 movilesPath.includes('llamadas-ventas-lineas') ||
                                 movilesPath.includes('inicio-lineas') ||
-                                movilesPath.includes('lead-lineas');
+                                movilesPath.includes('lead-lineas') ||
+                                movilesPath.includes('concurso-junio');
 
           if (isMovilesPage) {
             movilesSubmenu.classList.add('open');
@@ -929,7 +930,8 @@
       { key: 'lead-lineas', icon: 'fa-user-plus', text: 'Nuevo Lead', href: '/lineas/lead.html' },
       { key: 'costumer-lineas', icon: 'fa-users', text: 'Costumer Líneas', href: '/lineas/costumer.html' },
       { key: 'estadisticas-lineas', icon: 'fa-chart-bar', text: 'Estadísticas Líneas', href: '/lineas/estadisticas.html' },
-      { key: 'ranking-lineas', icon: 'fa-chart-line', text: 'Ranking Líneas', href: '/lineas/ranking.html' }
+      { key: 'ranking-lineas', icon: 'fa-chart-line', text: 'Ranking Líneas', href: '/lineas/ranking.html' },
+      { key: 'concurso-junio', icon: 'fa-trophy', text: 'Concurso Junio', href: '/lineas/concurso-junio.html' }
     ];
 
     const teams = [
