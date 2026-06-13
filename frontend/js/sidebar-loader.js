@@ -931,7 +931,7 @@
       { key: 'costumer-lineas', icon: 'fa-users', text: 'Costumer Líneas', href: '/lineas/costumer.html' },
       { key: 'estadisticas-lineas', icon: 'fa-chart-bar', text: 'Estadísticas Líneas', href: '/lineas/estadisticas.html' },
       { key: 'ranking-lineas', icon: 'fa-chart-line', text: 'Ranking Líneas', href: '/lineas/ranking.html' },
-      { key: 'concurso-junio', icon: 'fa-trophy', text: 'Concurso Junio', href: '/lineas/concurso-junio.html' }
+      { key: 'concurso-junio', icon: 'fa-trophy', text: 'Concurso de Líneas Mes de Junio', href: '/lineas/concurso-junio.html' }
     ];
 
     const teams = [

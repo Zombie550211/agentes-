@@ -186,6 +186,9 @@
             <button id="btn-current-month" style="background: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">
               Mes Actual
             </button>
+            <button id="btn-sumar-colchon" style="background: #f59e0b; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">
+              Sumar Colchón
+            </button>
           </div>
         </div>
 
@@ -362,7 +365,7 @@
   <script src="/js/fetch-interceptor.js"></script>
   <script src="/js/logout-handler.js"></script>
   <script src="/js/user-info.js"></script>
-  <script src="/js/sidebar-loader.js?v=20260611b"></script>
+  <script src="/js/sidebar-loader.js?v=20260612f"></script>
   <script>
     // Variables para instancias de Highcharts
     let chartJonathanInstance = null;
@@ -371,6 +374,7 @@
     // Estado global del mes seleccionado
     let currentYear = new Date().getFullYear();
     let currentMonth = new Date().getMonth() + 1; // 1-12
+    let sumarColchonActivo = false;
 
     // Funciones de utilidad para manejo de fechas
     const __urlParams = (() => {
@@ -424,6 +428,34 @@
       currentMonth = now.getMonth() + 1;
       updateMonthDisplay();
       loadEstadisticas();
+    }
+
+    function toggleSumarColchon() {
+      sumarColchonActivo = !sumarColchonActivo;
+      const btn = document.getElementById('btn-sumar-colchon');
+      if (sumarColchonActivo) {
+        btn.style.background = '#ec4899';
+        btn.textContent = '✓ Colchón Sumado';
+      } else {
+        btn.style.background = '#f59e0b';
+        btn.textContent = 'Sumar Colchón';
+      }
+      loadEstadisticas();
+    }
+
+    function getLineCount(lead) {
+      try {
+        const fromField = Number(lead?.cantidad_lineas || 0) || 0;
+        const fromLines = Array.isArray(lead?.lines) ? lead.lines.length : (Array.isArray(lead?.lineas) ? lead.lineas.length : 0);
+        const fromPhones = Array.isArray(lead?.telefonos) ? lead.telefonos.length : 0;
+        const base = Math.max(fromField, fromLines, fromPhones, 1);
+        if (sumarColchonActivo && lead?.colchon_lineas) {
+          return base + Number(lead.colchon_lineas);
+        }
+        return base;
+      } catch (_) {
+        return 1;
+      }
     }
 
     function filterLeadsByMonth(leads) {
@@ -896,20 +928,26 @@
 
     function updateGlobalKPIs(allLeads) {
       console.log('[updateGlobalKPIs] Calculando KPIs globales con', allLeads.length, 'leads totales');
-      
-      const totalVentas = allLeads.length;
+
+      let totalVentas = allLeads.length;
       let totalLineasActivas = 0;
       let totalLineasPendientes = 0;
       let totalLineasCanceladas = 0;
       let totalVentasPendientes = 0; // Leads con status pending
       let totalVentasLineas = 0; // Total de líneas sin importar status
-      
+
       allLeads.forEach(lead => {
         const cantidadLineas = __getLineCount(lead);
         const statusGlobal = (lead.status || '').toLowerCase();
-        
+
         totalVentasLineas += cantidadLineas;
-        
+
+        // Sumar colchón si está activo
+        if (sumarColchonActivo) {
+          totalVentas += (lead.colchon_ventas || 0);
+          totalVentasLineas += (lead.colchon_lineas || 0);
+        }
+
         // Contar ventas pendientes (leads con status pending)
         if (statusGlobal.includes('pending')) {
           totalVentasPendientes++;
@@ -1056,17 +1094,23 @@
       console.log(`\n${'='.repeat(80)}\n`);
 
       // Calcular KPIs globales - TODOS los leads cuentan como ventas
-      const ventas = leads.length; // Contar TODOS los leads
-      
+      let ventas = leads.length; // Contar TODOS los leads
+
       // Contar líneas activas, pendientes y canceladas: sumar líneas individuales por status
       let lineasActivas = 0;
       let lineasPendientes = 0;
       let lineasCanceladas = 0;
       let ventasLineas = 0;
-      
+
       leads.forEach(lead => {
         const cantidadLineas = __getLineCount(lead);
         ventasLineas += cantidadLineas;
+
+        // Sumar colchón si está activo
+        if (sumarColchonActivo) {
+          ventas += (lead.colchon_ventas || 0);
+          ventasLineas += (lead.colchon_lineas || 0);
+        }
 
         for (let i = 0; i < cantidadLineas; i++) {
           const lineStatus = __getLineStatus(lead, i);
@@ -1219,6 +1263,7 @@
       document.getElementById('btn-prev-month').addEventListener('click', goToPreviousMonth);
       document.getElementById('btn-next-month').addEventListener('click', goToNextMonth);
       document.getElementById('btn-current-month').addEventListener('click', goToCurrentMonth);
+      document.getElementById('btn-sumar-colchon').addEventListener('click', toggleSumarColchon);
       
       // Cargar estadísticas del mes actual
       loadEstadisticas();
