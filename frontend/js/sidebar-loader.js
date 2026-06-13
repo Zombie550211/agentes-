@@ -942,7 +942,7 @@
     const isLineas = ctx.isLineas || false;
 
     // Detectar si estamos en una página de líneas ANTES DE TODO
-    const currentPath = (window.location?.pathname || '').toLowerCase();
+    const currentPath = (window.location && window.location.pathname ? window.location.pathname : '').toLowerCase();
     const isOnLineasPage = currentPath.includes('/lineas/');
 
     // Si estamos en líneas, SOLO mostrar servicios móviles
