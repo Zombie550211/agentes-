@@ -34,7 +34,7 @@ def _fmt(row) -> dict:
     imgs = d.get("images")
     if isinstance(imgs, str):
         try: d["images"] = json.loads(imgs)
-        except: d["images"] = []
+        except (ValueError, TypeError): d["images"] = []
     elif imgs is None:
         d["images"] = []
     # Normalize dates to strings
@@ -243,7 +243,7 @@ async def upload_pre_lead_image(
         imgs = r.get("images")
         if isinstance(imgs, str):
             try: imgs = json.loads(imgs)
-            except: imgs = []
+            except (ValueError, TypeError): imgs = []
         imgs = imgs or []
         imgs.append(new_img)
         await s.execute(text("""

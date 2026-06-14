@@ -197,7 +197,7 @@ async def rankings_leads(
         v = d.get("servicios")
         if isinstance(v, str):
             try: d["servicios"] = json.loads(v)
-            except: d["servicios"] = None
+            except (ValueError, TypeError): d["servicios"] = None
         if d.get("dia_venta"):     d["dia_venta"] = str(d["dia_venta"])
         if d.get("dia_instalacion"): d["dia_instalacion"] = str(d["dia_instalacion"])
         if _is_colchon(d, ref_date):
@@ -287,7 +287,7 @@ async def get_customers(
                 v = d.get(col)
                 if isinstance(v, str):
                     try: d[col] = json.loads(v)
-                    except: d[col] = None
+                    except (ValueError, TypeError): d[col] = None
             if d.get("dia_venta"):       d["dia_venta"] = str(d["dia_venta"])
             if d.get("dia_instalacion"): d["dia_instalacion"] = str(d["dia_instalacion"])
             customers.append(d)

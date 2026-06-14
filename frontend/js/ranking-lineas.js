@@ -9,6 +9,11 @@ let currentMonth = new Date().getMonth() + 1;
 let currentYear = new Date().getFullYear();
 let includeColchon = false;
 
+// Escapa HTML para interpolar datos del servidor en innerHTML sin riesgo de XSS.
+const escH = s => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
 async function loadRankingData() {
   try {
     // Obtener datos de líneas del endpoint
@@ -139,7 +144,7 @@ function renderRankList(ranking) {
           <i class="fas fa-user"></i>
         </div>
         <div class="agent-details">
-          <h4>${agent.name}</h4>
+          <h4>${escH(agent.name)}</h4>
           <p></p>
         </div>
       </div>
@@ -163,7 +168,7 @@ function renderFullTable(ranking) {
     const lineasTotal = includeColchon ? agent.lineasTotal + agent.colchonVentas : agent.lineasTotal;
     row.innerHTML = `
       <td style="text-align:left; padding:10px;">${idx + 1}</td>
-      <td style="text-align:left; padding:10px;"><strong>${agent.name}</strong></td>
+      <td style="text-align:left; padding:10px;"><strong>${escH(agent.name)}</strong></td>
       <td style="text-align:right; padding:10px;">${lineasTotal}</td>
       <td style="text-align:right; padding:10px; color:#22c55e;">${agent.lineasWireless}</td>
       <td style="text-align:right; padding:10px; color:#f97316;">${agent.lineasNoWireless}</td>

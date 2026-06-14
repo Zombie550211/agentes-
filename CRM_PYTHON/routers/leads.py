@@ -67,7 +67,7 @@ def _serialize_lead(row) -> dict:
         v = d.get(col)
         if isinstance(v, str):
             try: d[col] = json.loads(v)
-            except: d[col] = [] if col == "notas" else None
+            except (ValueError, TypeError): d[col] = [] if col == "notas" else None
         elif v is None and col == "notas":
             d[col] = []
     if d.get("dia_venta"):        d["dia_venta"]        = str(d["dia_venta"])
@@ -858,7 +858,7 @@ async def leads_lineas(
                 v = d.get(col)
                 if isinstance(v, str):
                     try: d[col] = json.loads(v)
-                    except: d[col] = None
+                    except (ValueError, TypeError): d[col] = None
             if d.get("dia_venta"): d["dia_venta"] = str(d["dia_venta"])
             leads.append(d)
 
@@ -1261,7 +1261,7 @@ async def update_lead(
         params["di_parsed"] = _parse_date_str(data["dia_instalacion"])
     if "puntaje" in data:
         try: params["puntaje_val"] = float(data["puntaje"])
-        except: params["puntaje_val"] = 0.0
+        except (ValueError, TypeError): params["puntaje_val"] = 0.0
         sets.append("puntaje = :puntaje_val")
     if "notas" in data:
         v = data["notas"]
@@ -1385,7 +1385,7 @@ async def get_lineas_team(
                 v = d.get(col)
                 if isinstance(v, str):
                     try: d[col] = json.loads(v)
-                    except: d[col] = None
+                    except (ValueError, TypeError): d[col] = None
             if d.get("dia_venta"): d["dia_venta"] = str(d["dia_venta"])
             leads.append(d)
 

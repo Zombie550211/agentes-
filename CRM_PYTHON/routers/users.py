@@ -59,7 +59,7 @@ def _row_to_user(row) -> dict:
     perms = u.get("permissions")
     if isinstance(perms, str):
         try: u["permissions"] = json.loads(perms)
-        except: u["permissions"] = []
+        except (ValueError, TypeError): u["permissions"] = []
     elif perms is None:
         u["permissions"] = []
     u["_id"] = str(u["id"])

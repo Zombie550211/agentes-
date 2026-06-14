@@ -17,7 +17,7 @@ def _doc(row) -> dict:
     equipos = r.get("equipos")
     if isinstance(equipos, str):
         try: r["equipos"] = json.loads(equipos)
-        except: r["equipos"] = {}
+        except (ValueError, TypeError): r["equipos"] = {}
     r["_id"] = str(r.get("id", ""))
     return r
 

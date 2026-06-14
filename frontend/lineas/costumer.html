@@ -20,6 +20,17 @@
         if(!ok){ window.location.replace('/login.html'); }
       }catch(e){ window.location.replace('/login.html'); }
     })();
+
+    // Escapa HTML para prevenir XSS al interpolar datos del servidor en innerHTML.
+    // Válido tanto para contenido entre tags como para atributos con comillas dobles.
+    window.escH = function (s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    };
   </script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/css/theme.css?v=20251124f"/>
@@ -1501,9 +1512,7 @@
       }
 
       async function fetchData(){
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         const headers = {};
-        if (token) headers['Authorization'] = `Bearer ${token}`;
         const resp = await fetch(`/api/lineas-team`, {
           credentials: 'include',
           headers: headers
@@ -1764,7 +1773,7 @@
               <div class="client-card ${_ccClass}">
                 <div class="client-card-header">
                   <div class="client-card-avatar ${_avClass}">${_initials}</div>
-                  <span class="client-card-name">${it.nombre_cliente||''}</span>
+                  <span class="client-card-name">${escH(it.nombre_cliente||'')}</span>
                   ${_statusDisplay}
                   ${_colchonBadge}
                   <span class="row-arrow">▼</span>
@@ -1772,14 +1781,14 @@
                 </div>
                 <div class="client-card-divider"></div>
                 <div class="client-card-body">
-                  ${it.telefono_principal ? _field('fa-phone','Teléfono', it.telefono_principal) : ''}
-                  ${it.numero_cuenta ? _field('fa-id-card','Cuenta', it.numero_cuenta) : ''}
+                  ${it.telefono_principal ? _field('fa-phone','Teléfono', escH(it.telefono_principal)) : ''}
+                  ${it.numero_cuenta ? _field('fa-id-card','Cuenta', escH(it.numero_cuenta)) : ''}
                   ${_field('fa-layer-group','Líneas', cant ? `<span class="card-lines-badge">${cant} línea${cant>1?'s':''}</span>` : '—')}
-                  ${it.dia_venta ? _field('fa-calendar-check','Venta', it.dia_venta) : ''}
-                  ${it.dia_instalacion ? _field('fa-tools','Instalación', it.dia_instalacion) : ''}
-                  ${it.mercado ? _field('fa-map-marker-alt','Mercado', it.mercado) : ''}
-                  ${it.supervisor ? _field('fa-user-tie','Supervisor', it.supervisor) : ''}
-                  ${(it.ID||it.id||it._id) ? `<div class="client-card-field"><div class="ccf-icon-wrap"><i class="fas fa-hashtag"></i></div><div class="ccf-wrap"><span class="ccf-label">ID</span><span class="ccf-value" style="color:#94A3B8;font-size:11px;">${it.ID||it.id||it._id}</span></div></div>` : ''}
+                  ${it.dia_venta ? _field('fa-calendar-check','Venta', escH(it.dia_venta)) : ''}
+                  ${it.dia_instalacion ? _field('fa-tools','Instalación', escH(it.dia_instalacion)) : ''}
+                  ${it.mercado ? _field('fa-map-marker-alt','Mercado', escH(it.mercado)) : ''}
+                  ${it.supervisor ? _field('fa-user-tie','Supervisor', escH(it.supervisor)) : ''}
+                  ${(it.ID||it.id||it._id) ? `<div class="client-card-field"><div class="ccf-icon-wrap"><i class="fas fa-hashtag"></i></div><div class="ccf-wrap"><span class="ccf-label">ID</span><span class="ccf-value" style="color:#94A3B8;font-size:11px;">${escH(it.ID||it.id||it._id)}</span></div></div>` : ''}
                 </div>
               </div>
             </td>
@@ -1792,7 +1801,7 @@
                 <div style="padding:14px 20px; background:#F8FAFC; border-bottom:1px solid #E2E8F0;">
                   <h4 style="color:#0F172A; font-size:16px; font-weight:700; margin:0; display:flex; align-items:center; gap:10px;">
                     <i class="fas fa-user-edit" style="color:#4F46E5;"></i>
-                    ${it.nombre_cliente||''}
+                    ${escH(it.nombre_cliente||'')}
                   </h4>
                 </div>
                 <!-- Formulario de edición inline -->
@@ -1903,11 +1912,11 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <p class="text-sm text-gray-600 mb-1">Cliente</p>
-                        <p class="font-semibold text-gray-800 m-0">${it.nombre_cliente||'N/A'}</p>
+                        <p class="font-semibold text-gray-800 m-0">${escH(it.nombre_cliente||'N/A')}</p>
                       </div>
                       <div>
                         <p class="text-sm text-gray-600 mb-1">Teléfono Principal</p>
-                        <p class="font-semibold text-gray-800 m-0">${it.telefono_principal||'N/A'}</p>
+                        <p class="font-semibold text-gray-800 m-0">${escH(it.telefono_principal||'N/A')}</p>
                       </div>
                       <div>
                         <p class="text-sm text-gray-600 mb-1">Fecha de Venta</p>
@@ -1969,7 +1978,7 @@
                       </div>
                       <div>
                         <h5 class="font-semibold text-gray-800 text-lg m-0">Línea ${i+1}</h5>
-                        <p class="text-sm text-gray-500 m-0 line-tel-display">${telefono || 'Sin teléfono'}</p>
+                        <p class="text-sm text-gray-500 m-0 line-tel-display">${escH(telefono || 'Sin teléfono')}</p>
                       </div>
                     </div>
                     <div style="display:flex;align-items:center;gap:8px;">
@@ -1981,7 +1990,7 @@
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                       <p class="text-xs text-gray-500 mb-1">Servicio</p>
-                      <p class="font-medium text-gray-700 m-0">${servicio || 'N/A'}</p>
+                      <p class="font-medium text-gray-700 m-0">${escH(servicio || 'N/A')}</p>
                     </div>
                     <div>
                       <p class="text-xs text-gray-500 mb-1">Estado</p>
@@ -2022,11 +2031,11 @@
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
                       <div>
                         <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Teléfono</label>
-                        <input type="tel" class="line-edit-tel" value="${telefono}" style="width:100%;padding:8px 11px;border:1px solid #dde3f0;border-radius:8px;font-size:13px;color:#1e293b;outline:none;">
+                        <input type="tel" class="line-edit-tel" value="${escH(telefono)}" style="width:100%;padding:8px 11px;border:1px solid #dde3f0;border-radius:8px;font-size:13px;color:#1e293b;outline:none;">
                       </div>
                       <div>
                         <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Servicio</label>
-                        <input type="text" class="line-edit-serv" value="${servicio}" style="width:100%;padding:8px 11px;border:1px solid #dde3f0;border-radius:8px;font-size:13px;color:#1e293b;outline:none;">
+                        <input type="text" class="line-edit-serv" value="${escH(servicio)}" style="width:100%;padding:8px 11px;border:1px solid #dde3f0;border-radius:8px;font-size:13px;color:#1e293b;outline:none;">
                       </div>
                     </div>
                     <div style="display:flex;gap:8px;align-items:center;">
@@ -2055,8 +2064,8 @@
                         <div class="note-item" data-note-index="${nIdx}" style="background:#fff; border:1px solid #e5e7eb; border-radius:4px; padding:8px; position:relative;">
                           <div style="display:flex; justify-content:space-between; align-items:start; gap:8px;">
                             <div style="flex:1;">
-                              <div class="note-text" style="color:#0f172a; font-size:13px;">${textoNota}</div>
-                              ${fechaNota ? `<div style="color:#94a3b8; font-size:11px; margin-top:4px;">${fechaNota}${autor ? ' - ' + autor : ''}</div>` : ''}
+                              <div class="note-text" style="color:#0f172a; font-size:13px;">${escH(textoNota)}</div>
+                              ${fechaNota ? `<div style="color:#94a3b8; font-size:11px; margin-top:4px;">${escH(fechaNota)}${autor ? ' - ' + escH(autor) : ''}</div>` : ''}
                             </div>
                             <div style="display:flex; gap:4px;">
                               <button class="btn-edit-note" data-client-id="${docId}" data-line-index="${i}" data-note-index="${nIdx}" style="background:#3b82f6; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:2px;" title="Editar nota">
@@ -2155,12 +2164,10 @@
             
             // Guardar en el backend
             try {
-              const token = localStorage.getItem('token') || sessionStorage.getItem('token');
               const response = await fetch('/api/lineas-team/notes', {
                 method: 'POST',
                 headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`
+                  'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                   clientId: clientId,
@@ -2280,12 +2287,10 @@
               }
               
               try {
-                const token = localStorage.getItem('token') || sessionStorage.getItem('token');
                 const response = await fetch('/api/lineas-team/notes/edit', {
                   method: 'PUT',
                   headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                   },
                   body: JSON.stringify({
                     clientId: clientId,
@@ -2339,12 +2344,10 @@
             const noteIndex = parseInt(this.getAttribute('data-note-index'));
             
             try {
-              const token = localStorage.getItem('token') || sessionStorage.getItem('token');
               const response = await fetch('/api/lineas-team/notes/delete', {
                 method: 'DELETE',
                 headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`
+                  'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                   clientId: clientId,
@@ -2431,10 +2434,9 @@
             }
 
             try {
-              const token = localStorage.getItem('token') || sessionStorage.getItem('token');
               const response = await fetch('/api/lineas-team/update', {
                 method: 'PUT',
-                headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${token}` },
+                headers: { 'Content-Type':'application/json' },
                 body: JSON.stringify(payload)
               });
               const result = await response.json();
@@ -2495,10 +2497,9 @@
             const msgEl = form.querySelector('.line-edit-msg');
             if (msgEl) msgEl.textContent = 'Guardando...';
             try {
-              const token = localStorage.getItem('token')||sessionStorage.getItem('token');
               const res = await fetch('/api/lineas-team/update', {
                 method: 'PUT',
-                headers: {'Content-Type':'application/json','Authorization':'Bearer '+token},
+                headers: {'Content-Type':'application/json'},
                 body: JSON.stringify({
                   id: clientId,
                   line_index: lineIndex,
@@ -2547,12 +2548,10 @@
             const previousStatus = (clientData ? (extractLineStatus(clientData, lineIndex) || clientData?.lines?.[lineIndex]?.status || (Number(clientData?.cantidad_lineas || 0) === 1 ? clientData?.status : '')) : '') || 'PENDING';
             
             try {
-              const token = localStorage.getItem('token') || sessionStorage.getItem('token');
               const response = await fetch('/api/lineas-team/line-status', {
                 method: 'PUT',
                 headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`
+                  'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                   clientId: clientId,
@@ -2609,12 +2608,10 @@
             if (!confirmed) return;
             
             try {
-              const token = localStorage.getItem('token') || sessionStorage.getItem('token');
               const response = await fetch('/api/lineas-team/delete', {
                 method: 'DELETE',
                 headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`
+                  'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ id: clientId })
               });
@@ -2664,9 +2661,11 @@
         if (!file) return;
         
         try {
-          // Cargar SheetJS si no está disponible
+          // Cargar SheetJS si no está disponible.
+          // Self-hosted 0.20.3 (parchea CVE-2023-30533 prototype pollution y
+          // CVE-2024-22363 ReDoS de 0.18.5); ya no depende de CDN externo.
           if (typeof XLSX === 'undefined') {
-            await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+            await loadScript('/vendor/xlsx/xlsx-0.20.3.full.min.js');
           }
           
           const reader = new FileReader();
@@ -3640,9 +3639,7 @@
 
       async function refreshMonthlyKPIs() {
         try {
-          const token = localStorage.getItem('token') || sessionStorage.getItem('token');
           const headers = {};
-          if (token) headers['Authorization'] = `Bearer ${token}`;
           const resp = await fetch(`/api/lineas-team`, { credentials: 'include', headers });
           const j    = await resp.json();
           if (Array.isArray(j?.data) && j.data.length > 0) {
@@ -4155,12 +4152,9 @@
     /* ══════════════════════════════════════════
        NOTAS DE CLIENTE
     ══════════════════════════════════════════ */
-    function _notesToken() {
-      return localStorage.getItem('token') || sessionStorage.getItem('token') || '';
-    }
     function _notesHeaders() {
-      var t = _notesToken();
-      return Object.assign({'Content-Type':'application/json'}, t ? {'Authorization':'Bearer '+t} : {});
+      // Auth por cookie httpOnly (same-origin); no se envía token por header.
+      return {'Content-Type':'application/json'};
     }
 
     async function loadLeadNotes(leadId, container) {
@@ -4313,8 +4307,8 @@
         var fechaEscAttr = _escAttr(fecha);
         return '<div class="ile-note-card" onclick="openNoteModal(\''+autorEscAttr+'\',\''+fechaEscAttr+'\',\''+textoEscAttr+'\')" title="Click para ver nota completa">' +
           '<button class="ile-note-del" onclick="event.stopPropagation();deleteLeadNote(\''+nid+'\',this)" title="Eliminar"><i class="fas fa-times"></i></button>' +
-          '<div class="ile-note-autor">' + autor + '</div>' +
-          '<div class="ile-note-fecha">' + fecha + '</div>' +
+          '<div class="ile-note-autor">' + escH(autor) + '</div>' +
+          '<div class="ile-note-fecha">' + escH(fecha) + '</div>' +
           '<div class="ile-note-texto">' + texto.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>') + '</div>' +
           '</div>';
       }).join('');
