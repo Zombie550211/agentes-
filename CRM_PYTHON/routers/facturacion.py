@@ -57,7 +57,7 @@ def _campos_from_row(row) -> list:
     c = row.get("campos")
     if isinstance(c, str):
         try: c = json.loads(c)
-        except: c = []
+        except (ValueError, TypeError): c = []
     return _ensure_len17(c or [])
 
 

@@ -416,6 +416,9 @@ const $ = id => document.getElementById(id);
 const fmt = d => { const p = n => String(n).padStart(2,'0'); const dd=new Date(d); return `${dd.getFullYear()}-${p(dd.getMonth()+1)}-${p(dd.getDate())}`; };
 const initials = s => String(s||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?';
 const capFirst = s => String(s||'').split(/\s+/).map(w=>w?w[0].toUpperCase()+w.slice(1):'').join(' ');
+/* Escapa HTML para interpolar datos del servidor en innerHTML sin riesgo de XSS.
+   (No usar con textContent — ahí el escape lo hace el navegador.) */
+const escH = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const PALETTE  = ['#00e5ff','#0ea5e9','#6366f1','#f59e0b','#10b981','#ec4899','#a78bfa','#f97316'];
 const colorFor = s => { let h=0; for(const c of String(s||'')) h=(h*31+c.charCodeAt(0))&0xffff; return PALETTE[h%PALETTE.length]; };
 const MONTHS   = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
@@ -615,9 +618,9 @@ function renderTopLineas(leads){
     const pct = Math.round((ag.lineas / max) * 100);
     return `<div class="tl-row">
       <span class="tl-pos">${medals[i] || (i+1)}</span>
-      <div class="tl-av" style="background:${col};box-shadow:0 0 8px ${col}44">${initials(ag.name)}</div>
+      <div class="tl-av" style="background:${col};box-shadow:0 0 8px ${col}44">${escH(initials(ag.name))}</div>
       <div style="flex:1;min-width:0">
-        <div class="tl-name">${capFirst(ag.name)}</div>
+        <div class="tl-name">${escH(capFirst(ag.name))}</div>
         <div style="height:2px;background:rgba(255,255,255,.06);border-radius:4px;margin-top:3px;overflow:hidden">
           <div style="height:100%;width:${pct}%;background:${col};border-radius:4px"></div>
         </div>
@@ -647,10 +650,10 @@ function renderWeeklyAgents(sorted, weekTotal){
     const medals=['🥇','🥈','🥉'];
     return `<div class="mp-agent">
       <div class="mp-ag-av" style="background:${col};box-shadow:0 0 10px ${col}55;font-size:.65rem">
-        ${medals[i]||initials(ag.name)}
+        ${medals[i]||escH(initials(ag.name))}
       </div>
       <div class="mp-ag-info">
-        <div class="mp-ag-name">${capFirst(ag.name)}</div>
+        <div class="mp-ag-name">${escH(capFirst(ag.name))}</div>
         <div class="mp-bar-row"><div class="mp-bar"><div class="mp-bar-fill" style="width:${pct}%;background:${col}"></div></div></div>
       </div>
       <div class="mp-ag-val" style="color:${col}">${ag.ventas}v</div>
@@ -669,9 +672,9 @@ function renderRankingList(sorted){
     const pct=Math.round((ag.ventas/max)*100);
     return `<div class="tp-row">
       <span class="tp-num">${medals[i]||i+1}</span>
-      <div class="tp-av" style="background:${col};box-shadow:0 0 8px ${col}44">${initials(ag.name)}</div>
+      <div class="tp-av" style="background:${col};box-shadow:0 0 8px ${col}44">${escH(initials(ag.name))}</div>
       <div class="tp-info">
-        <div class="tp-name">${capFirst(ag.name)}</div>
+        <div class="tp-name">${escH(capFirst(ag.name))}</div>
         <div class="tp-team">Team Líneas</div>
       </div>
       <div class="tp-bar-wrap"><div class="tp-bar"><div class="tp-bar-fill" style="width:${pct}%;background:${col}"></div></div></div>
@@ -706,10 +709,10 @@ function renderRecent(leads){
     return `<div class="act-row">
       <div class="act-icon" style="background:${col}22;color:${col}"><i class="fas fa-user"></i></div>
       <div class="act-info">
-        <div class="act-name">${capFirst(name)}</div>
-        <div class="act-meta">${capFirst(agente)} · ${l.mercado||'—'}</div>
+        <div class="act-name">${escH(capFirst(name))}</div>
+        <div class="act-meta">${escH(capFirst(agente))} · ${escH(l.mercado||'—')}</div>
       </div>
-      <span class="act-tag ${tag}">${status}</span>
+      <span class="act-tag ${tag}">${escH(status)}</span>
     </div>`;
   }).join('');
 }

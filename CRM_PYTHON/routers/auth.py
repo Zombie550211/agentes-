@@ -94,7 +94,7 @@ def _row_to_user(row) -> dict:
         v = u.get(col)
         if isinstance(v, str):
             try: u[col] = json.loads(v)
-            except: u[col] = []
+            except (ValueError, TypeError): u[col] = []
         elif v is None:
             u[col] = []
     u["_id"] = str(u["id"])
@@ -216,6 +216,8 @@ async def login(request: Request, body: LoginBody, response: Response):
     log_login_ok(user.get("username", ""), ip)
     token = _make_token(user)
     _set_token_cookie(response, token)
+    # El token viaja SOLO en la cookie httpOnly; no se expone en el body para
+    # que JavaScript (y por tanto un XSS) nunca pueda leerlo.
     return {
         "success": True,
         "message": "Inicio de sesión exitoso",
@@ -227,7 +229,6 @@ async def login(request: Request, body: LoginBody, response: Response):
             "supervisor": user.get("supervisor"),
             "name":       user.get("name"),
         },
-        "token": token,
     }
 
 

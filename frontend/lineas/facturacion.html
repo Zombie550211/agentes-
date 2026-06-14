@@ -122,9 +122,7 @@
         async function fetchFacturacionMes(mes, ano) {
             try {
                 const url = `/api/facturacion-lineas/${ano}/${String(mes).padStart(2, '0')}`;
-                const token = localStorage.getItem('token') || sessionStorage.getItem('token');
                 const headers = {};
-                if (token) headers['Authorization'] = `Bearer ${token}`;
                 const res = await fetch(url, { method: 'GET', headers, credentials: 'include' });
                 if (!res.ok) {
                     console.warn('Facturación Líneas: respuesta no OK', res.status);
@@ -268,9 +266,7 @@
                 if (campos.length > 9) campos.length = 9;
                 
                 if (campos.some(val => val !== "")) {
-                    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
                     const headers = { 'Content-Type': 'application/json' };
-                    if (token) headers['Authorization'] = `Bearer ${token}`;
                     
                     const res = await fetch('/api/facturacion-lineas', {
                         method: 'POST',

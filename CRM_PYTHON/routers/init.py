@@ -126,7 +126,7 @@ def _row_to_lead(row) -> dict:
         v = d.get(col)
         if isinstance(v, str):
             try: d[col] = json.loads(v)
-            except: d[col] = []
+            except (ValueError, TypeError): d[col] = []
     for col in ("dia_venta", "dia_instalacion", "created_at", "updated_at"):
         if d.get(col) is not None:
             d[col] = str(d[col])
@@ -792,7 +792,7 @@ async def recent_activity(user: dict = Depends(current_user)):
         services = lead.get("servicios") or "Servicio general"
         if isinstance(services, str):
             try: services = json.loads(services)
-            except: pass
+            except (ValueError, TypeError): pass
         if isinstance(services, list):
             services = services[0] if services else "Servicio general"
         norm_st  = normalize_status(lead.get("status",""))
@@ -803,7 +803,7 @@ async def recent_activity(user: dict = Depends(current_user)):
         date_c   = lead.get("dia_venta") or lead.get("created_at") or _dt.datetime.utcnow()
         if not isinstance(date_c, _dt.datetime):
             try: date_c = _dt.datetime.strptime(str(date_c)[:10], "%Y-%m-%d")
-            except: date_c = _dt.datetime.utcnow()
+            except (ValueError, TypeError): date_c = _dt.datetime.utcnow()
         formatted.append({
             "id": str(lead["id"]), "nombre_cliente": client, "agente": agent,
             "servicio": services, "tipo_actividad": act_type, "status": norm_st,
@@ -893,7 +893,7 @@ async def agent_history(
         if not isinstance(dt, _dt.datetime):
             if dt:
                 try: dt = _dt.datetime.strptime(str(dt)[:19], "%Y-%m-%d %H:%M:%S")
-                except: return None
+                except (ValueError, TypeError): return None
             else:
                 return None
         return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -903,7 +903,7 @@ async def agent_history(
         campos_raw = a.get("campos")
         if isinstance(campos_raw, str):
             try: campos_raw = json.loads(campos_raw)
-            except: pass
+            except (ValueError, TypeError): pass
         actividades.append({
             "id":          str(a["id"]),
             "tipo":        a.get("activity_type") or "Acción",

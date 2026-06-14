@@ -19,6 +19,17 @@
         if(!ok){ window.location.replace('/login.html'); }
       }catch(e){ window.location.replace('/login.html'); }
     })();
+
+    // Escapa HTML para interpolar datos en innerHTML sin riesgo de XSS
+    // (contenido y atributos con comillas dobles).
+    window.escH = function (s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    };
   </script>
   <link rel="stylesheet" href="/css/theme.css?v=20251124f"/>
   <style>.sidebar,.sidebar.sidebar-inicio{background:rgba(5,15,35,0.55)!important;backdrop-filter:blur(14px)!important;-webkit-backdrop-filter:blur(14px)!important}.sidebar .user-info,.sidebar .user-details,.sidebar .avatar-wrapper,.sidebar .avatar,.sidebar .user-name,.sidebar .user-role{display:none!important}.sidebar .nav-item,.sidebar .btn-sidebar{background:transparent!important;box-shadow:none!important}</style>
@@ -505,11 +516,10 @@
       if (!_llImgFile) return '';
       var formData = new FormData();
       formData.append('file', _llImgFile);
-      var token = (localStorage.getItem('token') || '').trim();
       var res = await fetch('/api/files/upload', {
         method: 'POST',
         credentials: 'include',
-        headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+        headers: {},
         body: formData
       });
       if (!res.ok) throw new Error('Error subiendo imagen');
@@ -601,7 +611,7 @@
             '<div class="ll-grid">' +
               '<div class="ll-field">' +
                 '<label>Número de Teléfono *</label>' +
-                '<input type="tel" id="tel_' + i + '" required placeholder="Tu respuesta" value="' + val.tel + '" />' +
+                '<input type="tel" id="tel_' + i + '" required placeholder="Tu respuesta" value="' + escH(val.tel) + '" />' +
               '</div>' +
               '<div class="ll-field">' +
                 '<label>Servicio *</label>' +
@@ -667,10 +677,9 @@
 
           assignWrap.style.display = 'block';
 
-          var token = (localStorage.getItem('token') || '').trim();
           fetch('/api/users/agents', {
             credentials: 'include',
-            headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+            headers: {}
           })
           .then(function(r){ return r.ok ? r.json() : null; })
           .then(function(data) {
@@ -688,7 +697,7 @@
             agentAssign.innerHTML = '<option value="">— Selecciona agente —</option>' +
               agentes.map(function(u){
                 var n = getName(u);
-                return n ? '<option value="'+n+'">'+n+'</option>' : '';
+                return n ? '<option value="'+escH(n)+'">'+escH(n)+'</option>' : '';
               }).join('');
 
             var note = document.getElementById('agentAssignNote');

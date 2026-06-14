@@ -6,7 +6,7 @@ from sqlalchemy import text
 from deps import current_user
 from datetime import datetime
 from typing import Optional, List, Any
-import re, random, unicodedata, time, json, os
+import re, random, unicodedata, time, json, os, secrets
 
 _LINEAS_CACHE: dict = {}
 _LINEAS_TTL = 45
@@ -116,14 +116,14 @@ def _fmt_lc(row) -> dict:
         v = d.get(col)
         if isinstance(v, str):
             try: d[col] = json.loads(v)
-            except: d[col] = []
+            except (ValueError, TypeError): d[col] = []
         elif v is None:
             d[col] = []
     for col in ("lineas_status", "lines_data"):
         v = d.get(col)
         if isinstance(v, str):
             try: d[col] = json.loads(v)
-            except: d[col] = {}
+            except (ValueError, TypeError): d[col] = {}
         elif v is None:
             d[col] = {}
     for col in ("dia_venta", "dia_instalacion", "created_at", "updated_at"):
@@ -186,7 +186,8 @@ async def webhook_post(request: Request, x_api_key: str = Header(default="")):
     if origin in WEBHOOK_ALLOWED_ORIGINS:
         cors_headers["Access-Control-Allow-Origin"] = origin
 
-    if not WEBHOOK_KEY or x_api_key != WEBHOOK_KEY:
+    # Comparación en tiempo constante para no filtrar la clave por timing.
+    if not WEBHOOK_KEY or not secrets.compare_digest(str(x_api_key), str(WEBHOOK_KEY)):
         return JSONResponse({"success": False, "message": "API key inválida"}, 401, headers=cors_headers)
 
     body = await request.json()

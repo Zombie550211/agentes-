@@ -64,9 +64,10 @@
             useEffect(() => {
                 const loadUserInfo = () => {
                     try {
-                        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-                        if (token) {
-                            const payload = JSON.parse(atob(token.split('.')[1]));
+                        // Datos del usuario desde el objeto persistido (la auth es por cookie httpOnly;
+                        // el JWT ya no se expone a JS, así que no se decodifica aquí).
+                        const payload = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+                        if (payload && (payload.role || payload.username)) {
                             const role = (payload.role || '').toLowerCase();
                             const name = payload.name || payload.username || '';
                             const displayName = (payload.displayName || payload.name || '').toUpperCase();

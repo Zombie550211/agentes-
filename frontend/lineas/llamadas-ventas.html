@@ -296,6 +296,8 @@
     </div>
 
     <script>
+        // Escapa HTML para interpolar datos del servidor en innerHTML sin riesgo de XSS.
+        const escH = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
         const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
         
         // Teams de Líneas (sin llamadas, solo calis y ventas)
@@ -318,9 +320,7 @@
         // Cargar agentes desde la API
         async function loadAgentes() {
             try {
-                const token = localStorage.getItem('token') || sessionStorage.getItem('token');
                 const headers = {};
-                if (token) headers['Authorization'] = `Bearer ${token}`;
                 
                 const res = await fetch('/api/comisiones/agentes-lineas', { headers, credentials: 'include' });
                 const data = await res.json();
@@ -377,7 +377,7 @@
             teams.forEach(team => {
                 let agentsHtml = team.agents.map((agent, idx) => `
                     <tr>
-                        <td>${agent}</td>
+                        <td>${escH(agent)}</td>
                         <td><input type="number" class="stat-input" id="${team.name}-ca-${idx}" value="0" min="0" onchange="calcularTotales()"></td>
                         <td><input type="number" class="stat-input" id="${team.name}-v-${idx}" value="0" min="0" onchange="calcularTotales()"></td>
                     </tr>
@@ -457,9 +457,7 @@
             });
 
             try {
-                const token = localStorage.getItem('token') || sessionStorage.getItem('token');
                 const headers = { 'Content-Type': 'application/json' };
-                if (token) headers['Authorization'] = `Bearer ${token}`;
 
                 const res = await fetch('/api/llamadas-ventas-lineas', {
                     method: 'POST',
@@ -483,9 +481,7 @@
             const dateKey = getDateKey(currentDate);
             
             try {
-                const token = localStorage.getItem('token') || sessionStorage.getItem('token');
                 const headers = {};
-                if (token) headers['Authorization'] = `Bearer ${token}`;
 
                 const res = await fetch(`/api/llamadas-ventas-lineas/${dateKey}`, { headers, credentials: 'include' });
                 const data = await res.json();

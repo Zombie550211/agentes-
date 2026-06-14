@@ -238,7 +238,7 @@ async def get_ranking(
         aliases = u.get("aliases")
         if isinstance(aliases, str):
             try: aliases = json.loads(aliases)
-            except: aliases = []
+            except (ValueError, TypeError): aliases = []
         for val in [u.get("username"), u.get("name"), (u.get("email") or "").split("@")[0]]:
             k = _normalize_key(val)
             if k and k not in user_map:
