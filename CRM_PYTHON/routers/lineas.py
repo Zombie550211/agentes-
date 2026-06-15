@@ -7,10 +7,15 @@ from deps import current_user
 from limiter import limiter
 from datetime import datetime
 from typing import Optional, List, Any
-import re, random, unicodedata, time, json, os, secrets
+import re, random, unicodedata, time, json, os, secrets, asyncio
+import realtime
 
 _LINEAS_CACHE: dict = {}
 _LINEAS_TTL = 45
+
+# Referencias a tareas fire-and-forget de notificación SSE (evita que el GC
+# las recoja antes de completarse).
+_notify_tasks: set = set()
 
 
 def _cache_get(key: str):
@@ -24,8 +29,24 @@ def _cache_set(key: str, data: list):
     _LINEAS_CACHE[key] = {"ts": time.monotonic(), "data": data}
 
 
+def _notify_lineas(action: str = "change"):
+    """Avisa (sin bloquear) a los clientes SSE del canal 'lineas'.
+
+    Fire-and-forget: si no hay loop activo (p. ej. en tests sync), no hace nada.
+    realtime.publish es a prueba de excepciones, así que nunca rompe la escritura.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    task = loop.create_task(realtime.publish("lineas", {"type": "lineas", "action": action}))
+    _notify_tasks.add(task)
+    task.add_done_callback(_notify_tasks.discard)
+
+
 def _cache_invalidate():
     _LINEAS_CACHE.clear()
+    _notify_lineas()
 
 
 router = APIRouter(tags=["Lineas"])
@@ -230,6 +251,9 @@ async def webhook_post(request: Request, x_api_key: str = Header(default="")):
         })
         await s.commit()
         new_id = r.lastrowid
+
+    # Refresca caché y avisa a los dashboards conectados (venta entrante del chatbot).
+    _cache_invalidate()
 
     return JSONResponse(
         {"success": True, "message": "Lead registrado correctamente en Team Líneas", "id": str(new_id)},

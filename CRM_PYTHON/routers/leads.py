@@ -7,8 +7,15 @@ from datetime import datetime
 from typing import Optional, List, Any
 import re, unicodedata, time, json, calendar, traceback, asyncio
 from geocoder import geocode_and_save
+import realtime
 
 router = APIRouter(tags=["Leads"])
+
+
+async def _notify(channel: str, action: str = "change"):
+    """Avisa a los clientes SSE del canal que los datos cambiaron.
+    A prueba de excepciones (realtime.publish nunca lanza)."""
+    await realtime.publish(channel, {"type": channel, "action": action})
 
 
 async def _log_activity(activity_type: str, client_name: str, description: str, user: dict):
@@ -482,6 +489,7 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
         f"Nuevo lead: {body.nombre_cliente} — {body.tipo_servicio or body.servicios or ''}",
         user
     ))
+    await _notify("residencial", "create")
     return {"success": True, "message": "Lead guardado exitosamente", "id": str(new_id)}
 
 
@@ -1084,6 +1092,7 @@ async def registrar_llamada(
         f"Llamada {numero}/3 ({tipo}) registrada con captura y nota",
         user
     ))
+    await _notify("residencial", "llamada")
     return {"success": True, "message": f"Llamada {numero}/3 registrada",
             "data": {"numero_llamada": numero, "tipo": tipo, "restantes": 3 - numero}}
 
@@ -1162,6 +1171,7 @@ async def update_lead_status(
         f"Estado cambiado a: {body.status}",
         user
     ))
+    await _notify("residencial", "status")
     return {"success": True, "message": "Status actualizado", "data": {"id": lead_id, "status": body.status}}
 
 
@@ -1309,6 +1319,7 @@ async def update_lead(
         act_desc = f"Campos actualizados: {', '.join(data.keys())}"
 
     asyncio.create_task(_log_activity(act_type, cn, act_desc, user))
+    await _notify("residencial", "update")
     return {"success": True, "message": "Lead actualizado"}
 
 
@@ -1325,6 +1336,7 @@ async def delete_lead(lead_id: str, user: dict = Depends(current_user)):
         await s.commit()
         if r.rowcount == 0:
             raise HTTPException(404, "Lead no encontrado")
+    await _notify("residencial", "delete")
     return {"success": True, "message": "Lead eliminado"}
 
 
@@ -1415,6 +1427,7 @@ async def update_lineas_team_status(body: LineasTeamStatusBody, user: dict = Dep
         await s.commit()
         if r.rowcount == 0:
             raise HTTPException(404, "Registro no encontrado")
+    await _notify("lineas", "status")
     return {"success": True, "message": "Status actualizado"}
 
 
@@ -1450,6 +1463,7 @@ async def update_lineas_team_line_status(body: LineasLineStatusBody, user: dict 
         await s.commit()
         if r.rowcount == 0:
             raise HTTPException(404, "Registro no encontrado")
+    await _notify("lineas", "line-status")
     return {"success": True, "message": "Estado de línea actualizado"}
 
 
@@ -1518,5 +1532,6 @@ async def crm_agente(raw_request: Request, user: dict = Depends(current_user)):
         await s.commit()
         new_id = r.lastrowid
 
+    await _notify("residencial", "create")
     return {"success": True, "message": f"Lead guardado en {col_name}",
             "id": str(new_id), "collection": col_name}

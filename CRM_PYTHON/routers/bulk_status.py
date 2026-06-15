@@ -6,6 +6,7 @@ from deps import current_user
 from datetime import datetime
 from typing import List
 import re
+import realtime
 
 router = APIRouter(prefix="/api/leads", tags=["Bulk Status"])
 
@@ -109,6 +110,7 @@ async def bulk_status_by_phone(body: BulkByPhoneBody, user: dict = Depends(curre
         for row in found_rows
     ]
 
+    await realtime.publish("residencial", {"type": "residencial", "action": "bulk"})
     return {
         "success": True,
         "message": f"{updated} lead(s) actualizados a \"{body.newStatus}\"",
@@ -179,6 +181,7 @@ async def bulk_status_by_name(body: BulkByNameBody, user: dict = Depends(current
         for row in found_rows
     ]
 
+    await realtime.publish("residencial", {"type": "residencial", "action": "bulk"})
     return {
         "success": True,
         "message": f"{updated} lead(s) actualizados a \"{body.newStatus}\"",

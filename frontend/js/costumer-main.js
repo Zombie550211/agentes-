@@ -2172,6 +2172,25 @@
     if(selSt)selSt.addEventListener('change',_updateBulkCount);
 
     loadInitialData();
+
+    // ── Tiempo real (SSE): refresca la lista de clientes sin recargar la página ──
+    // No re-registra el setInterval de loadInitialData(); replica la acción del
+    // botón "Refrescar" (respeta el modo llamadas y el filtro de mes activo).
+    (function(){
+      async function reloadData(){
+        try{
+          if(__llamadasMode){
+            var resLl=await AUTH.secureFetch('/api/leads/llamadas-pendientes?full=1');
+            if(resLl&&resLl.ok){var dLl=await resLl.json();__allDataLoaded=true;window.renderCostumerTable(dLl.leads||[]);}
+            return;
+          }
+          __allDataLoaded=false;
+          var data=await fetchBootstrap();
+          if(data){_applyBootstrapFilters(data);window.renderCostumerTable(data.leads||[]);}
+        }catch(_){}
+      }
+      if(window.CRMRealtime) CRMRealtime.connect('residencial', reloadData);
+    })();
   });
 
 })();

@@ -366,6 +366,7 @@
   <script src="/js/logout-handler.js"></script>
   <script src="/js/user-info.js"></script>
   <script src="/js/sidebar-loader.js?v=20260612f"></script>
+  <script src="/js/realtime.js"></script>
   <script>
     // Variables para instancias de Highcharts
     let chartJonathanInstance = null;
@@ -1267,6 +1268,8 @@
       
       // Cargar estadísticas del mes actual
       loadEstadisticas();
+      // Tiempo real: recarga al cambiar datos de líneas (los charts hacen destroy/re-render).
+      if (window.CRMRealtime) CRMRealtime.connect('lineas', loadEstadisticas);
     });
   </script>
 </body>
