@@ -22,9 +22,10 @@ if not JWT_SECRET:
 JWT_ALGO    = "HS256"
 JWT_EXPIRES = 30 * 60  # 30 minutos — sesión expira por inactividad
 IS_PROD     = os.getenv("NODE_ENV") == "production"
-# "none" es necesario solo si frontend y API viven en dominios distintos
-# (Netlify + Render). Si se sirve todo desde FastAPI, poner COOKIE_SAMESITE=lax.
-COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "none" if IS_PROD else "lax").lower()
+# Por defecto "lax": el frontend usa URLs relativas (API_BASE_URL=''), así que
+# todas las peticiones son same-origin (incl. el proxy de Netlify a /api) y Lax
+# mitiga CSRF. Poner "none" solo si el frontend hace fetch cross-origin a la API.
+COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax").lower()
 
 def _hash_pwd(plain: str) -> str:
     return _bcrypt.hashpw(plain[:72].encode(), _bcrypt.gensalt(rounds=10)).decode()

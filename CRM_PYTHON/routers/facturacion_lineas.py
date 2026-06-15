@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
-from deps import current_user, require_roles, ADMIN_BO
+from deps import current_user, require_roles
 from datetime import datetime
 from typing import Optional, List, Any
 import re, json

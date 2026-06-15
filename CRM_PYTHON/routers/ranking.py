@@ -89,7 +89,6 @@ async def get_ranking(
     # ── SQL query ──────────────────────────────────────────────────
     # Calcular fecha exclusiva del mes siguiente para capturar todas las horas del último día
     from datetime import date as _date
-    import calendar as _rcal
     _s_date = _date.fromisoformat(start_date)
     _nm = _s_date.month + 1 if _s_date.month < 12 else 1
     _ny = _s_date.year if _s_date.month < 12 else _s_date.year + 1

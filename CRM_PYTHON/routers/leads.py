@@ -4,7 +4,7 @@ from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user, require_roles
 from datetime import datetime
-from typing import Optional, List, Any, Dict
+from typing import Optional, List, Any
 import re, unicodedata, time, json, calendar, traceback, asyncio
 from geocoder import geocode_and_save
 

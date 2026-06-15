@@ -228,6 +228,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Cabeceras de seguridad ───────────────────────────────────────
+# Defensa en profundidad para todas las respuestas (incluidas las páginas HTML).
+# La CSP es deliberadamente acotada: NO fija script-src/default-src porque el
+# frontend usa scripts inline y CDNs (Tailwind, jsdelivr, cdnjs, unpkg). Aun así
+# bloquea clickjacking (frame-ancestors), plugins (object-src) e inyección de
+# <base> (base-uri), sin romper la app.
+_IS_PROD = os.getenv("NODE_ENV") == "production"
+
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    resp = await call_next(request)
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    resp.headers["Content-Security-Policy"] = (
+        "frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
+    )
+    if _IS_PROD:
+        resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return resp
+
 # ── Routers ──────────────────────────────────────────────────────
 app.include_router(auth_router.router)
 app.include_router(dashboard_router.router)

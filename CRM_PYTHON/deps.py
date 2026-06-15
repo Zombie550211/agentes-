@@ -9,8 +9,11 @@ if not JWT_SECRET:
 JWT_ALGO    = "HS256"
 JWT_EXPIRES = 30 * 60  # 30 min — se renueva con cada petición (expira solo por inactividad)
 IS_PROD     = os.getenv("NODE_ENV") == "production"
-# Debe coincidir con routers/auth.py — "none" solo para frontend en otro dominio
-COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "none" if IS_PROD else "lax").lower()
+# Debe coincidir con routers/auth.py. Por defecto "lax": el frontend usa URLs
+# relativas (API_BASE_URL=''), así que todas las peticiones son same-origin
+# (incluido el proxy de Netlify a /api). Lax mitiga CSRF. Poner "none" solo si
+# alguna vez el frontend hace fetch cross-origin directo a la API.
+COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax").lower()
 
 def _get_token(request: Request) -> str | None:
     token = request.cookies.get("token")
@@ -62,7 +65,3 @@ def require_roles(*roles):
     return checker
 
 ADMIN_ROLES  = ("Administrador", "admin", "administrador", "Administrativo")
-ADMIN_BO     = (*ADMIN_ROLES, "Backoffice", "backoffice")
-ALL_ROLES    = ("Administrador", "admin", "administrador", "Administrativo",
-                "Backoffice", "backoffice", "Supervisor", "supervisor",
-                "Supervisor Team Lineas", "Agente", "agente")
