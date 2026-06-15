@@ -696,6 +696,37 @@ function isAgentRole(role){
   const r=String(role||'').toLowerCase();
   return ['agente','agent','agentes','vendedor','vendedores','seller'].some(v=>r===v||r.includes(v));
 }
+function isSupervisorRole(role){
+  return String(role||'').toLowerCase().includes('supervisor');
+}
+// El supervisor (no admin) solo ve las comisiones de los agentes de SU equipo,
+// definido por la "card de team" de la página de permisos (users.team) vía /api/teams/agents.
+let _teamAgentKeys = null;   // Set de nombres normalizados; null = aún no cargado
+function _agentMatchKey(s){
+  return normalizeAgentName(String(s||'')).toLowerCase().replace(/\./g,' ').replace(/\s+/g,' ').trim();
+}
+async function _loadTeamScope(){
+  _teamAgentKeys = null;
+  if(isAdmin(_user?.role) || !isSupervisorRole(_user?.role)) return;
+  try{
+    const sid = _user?.username || _user?.name || _user?.id || '';
+    const res = await AUTH.sf('/api/teams/agents?supervisor=' + encodeURIComponent(sid));
+    const j = await res.json();
+    const keys = new Set();
+    ((j && j.data) || []).forEach(function(a){
+      [a.name, a.username].forEach(function(v){ const k = _agentMatchKey(v); if(k) keys.add(k); });
+    });
+    _teamAgentKeys = keys;
+  }catch(e){
+    console.error('[comisiones] No se pudo cargar el equipo del supervisor:', e);
+    _teamAgentKeys = new Set();  // ante fallo: no exponer agentes de otros equipos
+  }
+}
+function _scopeAgentsForRole(){
+  if(isAdmin(_user?.role) || !isSupervisorRole(_user?.role)) return;
+  if(!_teamAgentKeys) return;  // aún sin cargar (se carga en init antes del primer loadData)
+  _agents = _agents.filter(function(a){ return _teamAgentKeys.has(_agentMatchKey(a.rawName)); });
+}
 
 /* ══════════════════════════════════════════════════════
    COMMISSION FORMULA — RESIDENCIAL
@@ -897,6 +928,7 @@ window.updatePayKPIs = function(payKey, totalCom) {
 
 // Click cicla: auto → forzar M1 → forzar M2 → forzar regular → auto
 window.cycleAgentTipo = function(agentKey) {
+  if(!isAdmin(_user?.role)) return; // solo admin puede cambiar el tipo de agente
   const overrides = getNuevoMap();
   const cur = agentKey in overrides ? overrides[agentKey] : 'auto';
   if(cur === 'auto') setAgentOverride(agentKey, 1);
@@ -905,6 +937,7 @@ window.cycleAgentTipo = function(agentKey) {
   else                setAgentOverride(agentKey, null); // vuelve a auto
   const ym = getYM(_month.year, _month.month);
   _agents = aggregateAgents(_leads, ym);
+  _scopeAgentsForRole();
   render();
 };
 
@@ -1127,6 +1160,8 @@ function renderViewToggle(){
 
 function renderAdminView(){
   const ym = getYM(_month.year, _month.month);
+  // Cambiar el "tipo" de agente recalcula la comisión → solo admin; el supervisor es solo lectura.
+  const canEditTipo = isAdmin(_user?.role);
   const totalPuntos = _agents.reduce((s,a)=>s+a.puntos,0).toFixed(2);
   const totalComision = _agents.reduce((s,a)=>s+a.comision,0);
   const totalVentas = _agents.reduce((s,a)=>s+a.totalVentas,0);
@@ -1180,7 +1215,7 @@ function renderAdminView(){
       <td class="mono">$${a.tasa}/pto</td>
       <td class="mono green" style="color:var(--green)">${fmtUSD(a.comision)}</td>
       <td><span class="badge ${escalaCls}">${a.escala}</span></td>
-      <td><span class="badge ${tipoCls}" onclick="cycleAgentTipo('${agKey}')" title="Click para cambiar tipo">${tipoLbl}</span></td>
+      <td><span class="badge ${tipoCls}"${canEditTipo?` onclick="cycleAgentTipo('${agKey}')" title="Click para cambiar tipo" style="cursor:pointer"`:''}>${tipoLbl}</span></td>
     </tr>`;
   }).join('');
 
@@ -1282,6 +1317,7 @@ function resolveAgentData(){
     return allMatch && Math.abs(normWords.length - anWords.length) <= 1;
   }) || {
     name: capName(userName)||'Mi usuario',
+    rawName: userName || 'usuario',   // necesario: el código aguas abajo usa agentData.rawName.toLowerCase()
     team: '',
     puntos: 0, ventas: 0, colchones: 0,
     comision: 0, escala: 'Sin meta', tasa: 0, pct: 0, totalVentas: 0
@@ -1569,7 +1605,9 @@ function render(){
   if(!container) return;
 
   const userIsAdmin = isAdmin(_user?.role);
-  const showAdminView = userIsAdmin && _view === 'admin';
+  // El supervisor ve la grilla del equipo (ya filtrada a sus agentes), siempre en solo lectura.
+  const isSup = !userIsAdmin && isSupervisorRole(_user?.role);
+  const showAdminView = (userIsAdmin && _view === 'admin') || isSup;
 
   container.innerHTML = `
     <div class="page-header">
@@ -1625,6 +1663,7 @@ async function loadData(){
   _leads = leads;
   const ym = getYM(_month.year, _month.month);
   _agents = aggregateAgents(leads, ym);
+  _scopeAgentsForRole();
   _loading = false;
   render();
 }
@@ -1660,6 +1699,9 @@ async function loadData(){
   }
 
   _view = isAdmin(role) ? 'admin' : 'agent';
+
+  // Carga los agentes del equipo del supervisor (card de permisos) para acotar la vista.
+  await _loadTeamScope();
 
   // ── Llamada 2: Leads del mes actual (filtrado, sin limit=10000) ──
   await loadData();

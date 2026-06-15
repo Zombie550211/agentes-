@@ -148,6 +148,28 @@ async def dashboard_home(user: dict = Depends(current_user)):
             """))
             map_rows = r6.mappings().all()
 
+            # ── 7. Llamadas pendientes — verificación/seguimiento (vista global) ──
+            # Mismos criterios que routers/leads.py (_LLAMADAS_DUE_SQL) pero sin
+            # filtrar por agente: aquí es una visualización general del dashboard.
+            r7 = await s.execute(text("""
+                SELECT id, nombre_cliente, telefono_principal, telefono, status,
+                       agente_nombre,
+                       COALESCE(llamadas_realizadas,0) AS llamadas_realizadas,
+                       fecha_completed, fecha_ultima_llamada, llamada_cliente
+                FROM leads
+                WHERE
+                    (LOWER(COALESCE(status,'')) LIKE '%cancel%'
+                     AND COALESCE(llamada_cliente,'') = 'Pendiente'
+                     AND COALESCE(llamadas_realizadas,0) = 0)
+                    OR
+                    (LOWER(COALESCE(status,'')) LIKE '%complet%'
+                     AND fecha_completed IS NOT NULL
+                     AND COALESCE(llamadas_realizadas,0) < 3)
+                ORDER BY COALESCE(fecha_ultima_llamada, fecha_completed, created_at) ASC
+                LIMIT 200
+            """))
+            llamadas_rows = r7.mappings().all()
+
     except Exception as e:
         print(f"[dashboard/home] ERROR: {e}\n{traceback.format_exc()}")
         raise HTTPException(500, f"Error interno: {str(e)}")
@@ -281,6 +303,53 @@ async def dashboard_home(user: dict = Depends(current_user)):
             "created_at":      ts.isoformat() if ts else None,
         })
 
+    # ── Llamadas pendientes — vencidas + próximas + en espera ───────────────────
+    # vencida  : la llamada ya venció (hay que llamar)
+    # proxima  : vence dentro de los próximos _PROXIMA_DIAS días
+    # espera   : completado, aún contando los 7 días para la llamada
+    _PROXIMA_DIAS = 3   # días "hacia adelante" que cuentan como "próxima"
+    _CICLO_DIAS   = 7   # cada llamada se programa 7 días después de la anterior
+    llamadas_pendientes = []
+    for row in llamadas_rows:
+        d  = dict(row)
+        st = str(d.get("status") or "").lower()
+        n  = int(d.get("llamadas_realizadas") or 0)
+        if "cancel" in st:
+            # Cancelada sin llamar → vencida desde el momento en que se canceló
+            due  = d.get("fecha_completed") or now
+            tipo = "verificacion"
+        else:
+            base = d.get("fecha_ultima_llamada") or d.get("fecha_completed")
+            if not base:
+                continue
+            due  = base + _dt.timedelta(days=_CICLO_DIAS)
+            tipo = "verificacion" if n == 0 else "seguimiento"
+        try:
+            dias = (due.replace(tzinfo=None) - now).days
+        except Exception:
+            dias = 0
+        if dias <= 0:
+            estado = "vencida"
+        elif dias <= _PROXIMA_DIAS:
+            estado = "proxima"
+        else:
+            estado = "espera"   # completado, aún dentro de la ventana de 7 días
+        llamadas_pendientes.append({
+            "id":                  str(d.get("id", "")),
+            "nombre_cliente":      d.get("nombre_cliente") or "—",
+            "telefono":            d.get("telefono_principal") or d.get("telefono") or "",
+            "agente_nombre":       d.get("agente_nombre") or "—",
+            "status":              d.get("status") or "",
+            "llamadas_realizadas": n,
+            "numero_llamada":      n + 1,
+            "tipo_llamada":        tipo,           # verificacion | seguimiento
+            "estado":              estado,         # vencida | proxima
+            "dias":                dias,           # <=0 vencida (atraso = -dias), >0 faltan
+        })
+    # Vencidas primero (más atrasadas), luego próximas y en espera (más cercanas)
+    llamadas_pendientes.sort(key=lambda x: x["dias"])
+    llamadas_pendientes = llamadas_pendientes[:25]
+
     result = {
         "success":       True,
         "authenticated": True,
@@ -307,6 +376,7 @@ async def dashboard_home(user: dict = Depends(current_user)):
         "semaforo":               semaforo,
         "top_productos":          top_productos,
         "actividades_recientes":  actividades,
+        "llamadas_pendientes":    llamadas_pendientes,
         "mapa_clientes": _build_map_pins(map_rows),
         "meta": {
             "mes":       now.month,
