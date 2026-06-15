@@ -235,6 +235,22 @@ body, body * { color: #fff !important; }
 .asub      { font-size: .60rem; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .atime     { font-size: .57rem; color: var(--t3); white-space: nowrap; flex-shrink: 0; }
 
+/* ══ LLAMADAS PENDIENTES ══ */
+.lp-list   { flex: 1; min-height: 0; overflow-y: auto; padding: 2px 4px; scrollbar-width: none; }
+.lp-list::-webkit-scrollbar { display: none; }
+.lp-item   { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 10px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.09); margin-bottom: 5px; transition: background .15s; }
+.lp-item:hover { background: rgba(255,255,255,.13); }
+.lp-ic     { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; }
+.lp-info   { flex: 1; min-width: 0; }
+.lp-name   { font-size: .70rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lp-sub    { font-size: .59rem; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lp-right  { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
+.lp-tag    { font-size: .55rem; font-weight: 800; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+.lp-tag.venc   { background: rgba(220,38,38,.30); border: 1px solid rgba(220,38,38,.40); }
+.lp-tag.prox   { background: rgba(217,119,6,.32); border: 1px solid rgba(217,119,6,.42); }
+.lp-tag.espera { background: rgba(37,99,235,.28); border: 1px solid rgba(37,99,235,.40); }
+.lp-num    { font-size: .54rem; color: var(--t3); font-weight: 600; white-space: nowrap; }
+
 /* ══ SEMÁFORO ══ */
 .sem-wrap   { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 5px; overflow: hidden; }
 .sitem      { flex: 1; min-height: 0; display: flex; align-items: center; gap: 12px; padding: 5px 12px; border-radius: 10px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); transition: background .18s; }
@@ -581,15 +597,15 @@ body.dark-theme .tp-bar-wrap { background: rgba(255,255,255,.08) !important; }
       <div style="text-align:center;padding:5px 0 7px;font-size:.60rem;color:var(--t3)">Datos en tiempo real</div>
     </div>
 
-    <!-- Actividades Recientes -->
+    <!-- Llamadas Pendientes -->
     <div class="gpanel fsu">
       <div class="ph">
-        <i class="fas fa-clock" style="color:#2563eb"></i>
-        <span class="ph-title">ACTIVIDADES RECIENTES</span>
+        <i class="fas fa-phone-volume" style="color:#dc2626"></i>
+        <span class="ph-title">LLAMADAS PENDIENTES</span>
         <a href="/residencial/costumer.html" class="ph-link">Ver todas →</a>
       </div>
       <div class="pb" style="padding:6px 8px;overflow:hidden;display:block;">
-        <div class="act-list" id="actividades-container" style="height:100%;"></div>
+        <div class="lp-list" id="llamadas-pendientes-container" style="height:100%;"></div>
       </div>
     </div>
 
@@ -723,7 +739,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   try { _renderRankingSection(dash);          } catch (e) { console.warn('[inicio] ranking:', e); }
   try { _renderSemaforoSection(dash);         } catch (e) { console.warn('[inicio] semaforo:', e); }
   try { _renderTopProductos(dash);            } catch (e) { console.warn('[inicio] productos:', e); }
-  try { _renderActividades(dash);             } catch (e) { console.warn('[inicio] actividades:', e); }
+  try { _renderLlamadasPendientes(dash);      } catch (e) { console.warn('[inicio] llamadas:', e); }
   try { _renderMapaClientes(dash);            } catch (e) { console.warn('[inicio] mapa:', e); }
 
   // 5. Horario del semáforo
@@ -734,15 +750,15 @@ document.addEventListener('DOMContentLoaded', async function() {
   document.dispatchEvent(new CustomEvent('crm:data-ready'));
   document.dispatchEvent(new CustomEvent('crm:semaforo-ready'));
 
-  // Auto-refresh de actividades cada 2 minutos
+  // Auto-refresh de llamadas pendientes cada 5 minutos (reusa el endpoint /home)
   setInterval(async () => {
     try {
-      const r = await fetch('/api/dashboard/actividades', { credentials: 'include' });
+      const r = await fetch('/api/dashboard/home', { credentials: 'include' });
       if (!r.ok) return;
       const d = await r.json();
-      if (d.ok) _renderActividades(d);
+      _renderLlamadasPendientes(d);
     } catch (_) {}
-  }, 2 * 60 * 1000);
+  }, 5 * 60 * 1000);
 });
 
 // ── Widgets ───────────────────────────────────────────────────────────────
@@ -767,12 +783,15 @@ function _renderKpis(dash, user) {
   const us    = dash.user_stats || {};
   const roleLC  = (user.role || '').toLowerCase();
   const isAdmBo = ['admin','administrador','backoffice','bo','administrativo'].some(r => roleLC.includes(r));
+  // Supervisores ven los totales GLOBALES del mes (no tienen ventas a su propio nombre).
+  const isSupervisor = roleLC.includes('supervisor');
+  const showGlobal = isAdmBo || isSupervisor;
   const _set    = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   const _fmt    = v => Number(v) > 0 ? Math.round(Number(v)) : 0;
   const _fmtPts = v => { const n = Number(v) || 0; return n.toFixed(2); };
 
-  const ventasVal = isAdmBo ? (kpis.ventas_totales ?? 0) : (us.ventas ?? 0);
-  const puntosVal = isAdmBo ? (Number(kpis.puntos_totales) || 0) : (Number(us.puntos) || 0);
+  const ventasVal = showGlobal ? (kpis.ventas_totales ?? 0) : (us.ventas ?? 0);
+  const puntosVal = showGlobal ? (Number(kpis.puntos_totales) || 0) : (Number(us.puntos) || 0);
   _countUp('kpi-ventas', ventasVal, 0, 900);
   _countUp('kpi-puntos', puntosVal, 2, 900);
   _set('kpi-seller', kpis.mejor_vendedor || '—');
@@ -850,50 +869,54 @@ function _renderTopProductos(dash) {
   }).join('');
 }
 
-function _renderActividades(dash) {
-  const container = document.getElementById('actividades-container');
+// Escape para evitar XSS al interpolar datos del servidor en innerHTML
+function _esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+}
+
+function _renderLlamadasPendientes(dash) {
+  const container = document.getElementById('llamadas-pendientes-container');
   if (!container) return;
-  const acts = dash.actividades_recientes || [];
-  if (acts.length === 0) {
-    container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--t3);font-size:.8rem">Sin actividades recientes</div>';
+  const items = dash.llamadas_pendientes || [];
+  if (items.length === 0) {
+    container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--t3);font-size:.8rem">Sin llamadas pendientes 🎉</div>';
     return;
   }
-  const ICONS  = ['fa-user-plus','fa-calendar-check','fa-paper-plane','fa-handshake','fa-check-circle','fa-star'];
-  const COLORS = ['#7c3aed','#2563eb','#059669','#d97706','#0d9488','#db2777'];
-
-  function _fmtTiempo(a) {
-    if (!a.created_at) return a.tiempo_relativo || 'Reciente';
-    try {
-      const dt  = new Date(a.created_at.includes('T') ? a.created_at + (a.created_at.endsWith('Z') ? '' : 'Z') : a.created_at);
-      const now = new Date();
-      if (dt.toDateString() === now.toDateString()) {
-        return dt.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true });
-      }
-    } catch (_) {}
-    return a.tiempo_relativo || 'Reciente';
-  }
-
-  container.className = 'act-list';
-  container.innerHTML = acts.map((a, i) => {
-    const color  = COLORS[i % COLORS.length];
-    const isLast = i === acts.length - 1;
-    return `
-      <div class="tl-item">
-        <div class="tl-side">
-          <div class="tl-dot" style="border-color:${color};background:${color}22"></div>
-          ${!isLast ? '<div class="tl-line"></div>' : ''}
-        </div>
-        <div class="tl-body">
-          <div class="aav" style="background:${color}18;border:1.5px solid ${color}44;color:${color}">
-            <i class="fas ${ICONS[i % ICONS.length]}" style="font-size:10px"></i>
-          </div>
-          <div class="ainfo">
-            <div class="atitle">${a.nombre_cliente || '—'}</div>
-            <div class="asub">${a.servicios_str || 'Servicio general'} · ${a.agente_nombre || '—'}</div>
-          </div>
-          <div class="atime">${_fmtTiempo(a)}</div>
-        </div>
-      </div>`;
+  container.className = 'lp-list';
+  container.innerHTML = items.map(function (it) {
+    const dias = Number(it.dias) || 0;
+    let icBg, tagCls, icon, tagTxt;
+    if (it.estado === 'vencida') {
+      icBg = '#dc2626'; tagCls = 'venc'; icon = 'fa-phone';
+      const atraso = Math.abs(dias);
+      tagTxt = atraso <= 0 ? 'Hoy' : ('Vencida ' + atraso + 'd');
+    } else if (it.estado === 'proxima') {
+      icBg = '#d97706'; tagCls = 'prox'; icon = 'fa-phone';
+      tagTxt = dias === 1 ? 'Mañana' : ('En ' + dias + 'd');
+    } else {
+      icBg = '#2563eb'; tagCls = 'espera'; icon = 'fa-hourglass-half';
+      tagTxt = 'Faltan ' + dias + 'd';
+    }
+    const tel  = it.telefono ? (' · ' + _esc(it.telefono)) : '';
+    const tipo = it.tipo_llamada === 'verificacion'
+      ? 'Verificación'
+      : ('Seguimiento ' + _esc(it.numero_llamada) + '/3');
+    return ''
+      + '<div class="lp-item">'
+      +   '<div class="lp-ic" style="background:' + icBg + ';color:#fff">'
+      +     '<i class="fas ' + icon + '"></i>'
+      +   '</div>'
+      +   '<div class="lp-info">'
+      +     '<div class="lp-name">' + _esc(it.nombre_cliente) + '</div>'
+      +     '<div class="lp-sub">' + _esc(it.agente_nombre) + tel + '</div>'
+      +   '</div>'
+      +   '<div class="lp-right">'
+      +     '<span class="lp-tag ' + tagCls + '">' + tagTxt + '</span>'
+      +     '<span class="lp-num">' + tipo + '</span>'
+      +   '</div>'
+      + '</div>';
   }).join('');
 }
 
