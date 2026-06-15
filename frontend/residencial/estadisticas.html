@@ -476,6 +476,7 @@
 <script src="/js/logout-handler.js" defer></script>
 <script src="/js/user-info.js?v=20260602" defer></script>
 <script src="/js/sidebar-loader.js?v=20260611b" defer></script>
+<script src="/js/realtime.js" defer></script>
 <script>
 (function(){
   'use strict';
@@ -902,6 +903,12 @@
     document.getElementById('btn-next').addEventListener('click',nextMonth);
     document.getElementById('btn-today').addEventListener('click',todayMonth);
     load();
+    // Tiempo real: refresca al cambiar datos de residencial o de líneas (esta
+    // página muestra ambos). load() solo re-renderiza si los datos cambiaron.
+    if (window.CRMRealtime) {
+      CRMRealtime.connect('residencial', load);
+      CRMRealtime.connect('lineas', load);
+    }
   });
 })();
 </script>

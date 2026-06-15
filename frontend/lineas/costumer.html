@@ -1058,6 +1058,7 @@
   <script src="/js/logout-handler.js"></script>
   <script src="/js/user-info.js"></script>
   <script src="/js/sidebar-loader.js?v=20260612d"></script>
+  <script src="/js/realtime.js"></script>
   <script>
     // Resuelve imagen_url sin importar si viene de Cloudinary (https://...) o local (/uploads/...)
     function _resolveImgUrl(u) {
@@ -4077,6 +4078,28 @@
         });
       }
       // ────────────────────────────────────────────────────────────
+
+      // Tiempo real (SSE): recarga datos sin refrescar la página. No re-registra
+      // el setInterval de load() (eso lo hace load() una sola vez en el arranque).
+      async function reloadCostumer(){
+        try {
+          allItems = await fetchData();
+          sortNewToOld(allItems);
+          if (__llamadasModeLineas) {
+            try {
+              const pr = await fetch('/api/leads/llamadas-pendientes', { credentials:'include' });
+              const pd = pr.ok ? await pr.json() : null;
+              if (pd) window.__llamadasPendientes = pd;
+              const ids = ((pd && pd.leads)||[]).filter(l=>l.source==='lineas').map(l=>String(l.id));
+              allItems = allItems.filter(it=>ids.includes(String(it.id||it._id)));
+            } catch(_){}
+          }
+          populateAgentFilterFromItems(allItems);
+          applyAndRender();
+          try { await refreshMonthlyKPIs(); } catch(_){}
+        } catch(_){}
+      }
+      if (window.CRMRealtime) CRMRealtime.connect('lineas', reloadCostumer);
 
       load().then(initCustomSelects);
     });

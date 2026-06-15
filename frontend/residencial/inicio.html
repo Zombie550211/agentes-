@@ -25,6 +25,7 @@
 <script src="/js/crm-init.js" defer></script>
 <script src="/js/sidebar-loader.js?v=20260611b" defer></script>
 <script src="/js/dashboard-init.js" defer></script>
+<script src="/js/realtime.js" defer></script>
 <style>
 /* ══ RESET & ROOT ══ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1251,6 +1252,33 @@ if (hn) {
   setTimeout(function(){
     document.querySelectorAll('.fsu:not(.go)').forEach(function(el){ el.classList.add('go'); });
   }, 2500);
+})();
+</script>
+
+<!-- ── Tiempo real (SSE): refresca el dashboard sin recargar ───────────────── -->
+<script>
+(function () {
+  // Re-consulta /api/dashboard/home y re-renderiza los widgets (todos los
+  // _render* son idempotentes: usan updateOptions / guardas, no duplican).
+  async function reloadHome() {
+    try {
+      const r = await fetch('/api/dashboard/home', { credentials: 'include' });
+      if (!r.ok) return;
+      const dash = await r.json();
+      window.__homeData = dash;
+      const user = dash.user || {};
+      try { _renderKpis(dash, user);         } catch (e) {}
+      try { _renderGraficaMensual(dash);     } catch (e) {}
+      try { _renderRankingSection(dash);     } catch (e) {}
+      try { _renderSemaforoSection(dash);    } catch (e) {}
+      try { _renderTopProductos(dash);       } catch (e) {}
+      try { _renderLlamadasPendientes(dash); } catch (e) {}
+      try { _renderMapaClientes(dash);       } catch (e) {}
+    } catch (_) {}
+  }
+  document.addEventListener('DOMContentLoaded', function () {
+    if (window.CRMRealtime) window.__rt = CRMRealtime.connect('residencial', reloadHome);
+  });
 })();
 </script>
 </body>

@@ -13,6 +13,7 @@
 <script src="/js/fetch-interceptor.js" defer></script>
 <script src="/js/logout-handler.js" defer></script>
 <script src="/js/sidebar-loader.js?v=20260612d" defer></script>
+<script src="/js/realtime.js" defer></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif}
@@ -718,8 +719,12 @@ function renderRecent(leads){
 }
 
 /* ═══════ LOAD DASHBOARD ══════ */
+let _firstLoad=true;
 async function loadDashboard(){
-  const allData=await _allFetch;
+  // 1ª carga: reusa el prefetch (_allFetch). Recargas posteriores (tiempo real):
+  // vuelve a consultar para traer los datos frescos.
+  const allData=_firstLoad ? await _allFetch : await fetchLineas('/api/lineas-team');
+  _firstLoad=false;
 
   /* Mes actual */
   const allMonth=allData.filter(l=>{
@@ -804,6 +809,8 @@ async function loadDashboard(){
 document.addEventListener('DOMContentLoaded',function(){
   if(window.loadSidebar) window.loadSidebar();
   loadDashboard();
+  // Tiempo real: cuando entra/cambia una venta de líneas, recarga sin refrescar.
+  if(window.CRMRealtime) CRMRealtime.connect('lineas', loadDashboard);
 });
 </script>
 </body>
