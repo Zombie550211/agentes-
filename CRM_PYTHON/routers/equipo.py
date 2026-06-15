@@ -186,7 +186,6 @@ async def equipo_telefonos(
         })
 
     duplicados = {tel: leads for tel, leads in tel_map.items() if len(leads) > 1}
-    todos = [{"tel": tel, "leads": leads} for tel, leads in tel_map.items()]
 
     return {
         "success": True,

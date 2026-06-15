@@ -363,7 +363,7 @@ async def force_logout_all(user: dict = Depends(current_user)):
 async def clear_all_caches(user: dict = Depends(current_user)):
     if not _is_admin(_role_lower(user)):
         raise HTTPException(403, "No autorizado")
-    import importlib, sys
+    import sys
     cleared = []
     for mod_name, attr in [
         ("routers.dashboard", "_cache"),

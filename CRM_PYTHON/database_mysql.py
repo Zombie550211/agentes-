@@ -56,16 +56,6 @@ class Base(DeclarativeBase):
     pass
 
 
-async def get_mysql_db():
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-
-
 async def init_mysql():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

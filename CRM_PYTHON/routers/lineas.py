@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
+from limiter import limiter
 from datetime import datetime
 from typing import Optional, List, Any
 import re, random, unicodedata, time, json, os, secrets
@@ -87,11 +88,6 @@ def _normalize_date(s) -> Optional[str]:
     if m:
         return f"{int(m.group(3))}-{int(m.group(2)):02d}-{int(m.group(1)):02d}"
     return v
-
-
-def _is_privileged(role: str) -> bool:
-    r = str(role or "").lower()
-    return any(v in r for v in ["admin", "administrador", "backoffice", "back office", "back_office", "bo", "b.o", "supervisor"])
 
 
 def _llamada_sets_lineas(old_status: str, new_status: str) -> str:
@@ -180,6 +176,7 @@ async def webhook_options(request: Request):
 
 
 @router.post("/api/webhook/lineas")
+@limiter.limit("20/minute")
 async def webhook_post(request: Request, x_api_key: str = Header(default="")):
     origin = request.headers.get("origin", "")
     cors_headers = {}
@@ -405,9 +402,6 @@ async def post_lineas(body: LineasBody, user: dict = Depends(current_user)):
 
     if errors:
         raise HTTPException(400, {"message": "Validación fallida", "errors": errors})
-
-    telefono_clean = re.sub(r"\D+", "", body.telefono_principal)
-    cuenta_clean   = str(body.numero_cuenta).strip()
 
     username     = user.get("username", "")
     target_agent = username

@@ -50,9 +50,3 @@ def log_password_reset_request(username: str, ip: str):
 
 def log_password_reset_ok(username: str, ip: str):
     _log("PASSWORD_RESET_OK", username, ip)
-
-def log_user_created(new_username: str, role: str, by: str, ip: str):
-    _log("USER_CREATED", new_username, ip, {"role": role, "created_by": by})
-
-def log_user_suspended(target: str, by: str, ip: str):
-    _log("USER_SUSPENDED", target, ip, {"by": by})
