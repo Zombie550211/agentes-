@@ -96,20 +96,26 @@ async def equipo_estadisticas(
     except Exception as e:
         return {"success": False, "message": f"Error: {e}", "data": []}
 
-    # Aggregate in Python with team normalization
+    # Aggregate in Python with team normalization.
+    # El semáforo cuenta como venta del mes SOLO pendientes y activas/completadas.
+    # Se excluyen canceladas, reserva, hold, reagendadas (repro) y oficina.
     agg: dict = {}
-    cancel_re  = {"cancel", "reserva", "hold"}
-    active_re  = {"completed", "completado", "complete", "active", "activo", "activa"}
-    repro_re   = {"repro", "rescheduled", "reagendado"}
+    exclude_re = ("cancel", "reser", "hold", "resched", "reagend", "reprogram", "oficina")
+    active_re  = ("completed", "completado", "complete", "active", "activo", "activa", "cerrad")
+    pending_re = ("pend",)  # pending / pendiente
+    repro_re   = ("repro", "rescheduled", "reagendado", "reprogram", "resched")
 
     for row in rows:
         team_norm  = _normalize_team(row["team_raw"])
         mercado    = row["mercado_norm"]
-        sl         = row["status_lower"]
+        sl         = (row["status_lower"] or "").strip()
         puntaje    = float(row["puntaje"] or 0)
-        is_counted = not any(c in sl for c in cancel_re)
-        is_active  = any(a in sl for a in active_re)
+        is_excluded = any(x in sl for x in exclude_re)
+        is_active  = (not is_excluded) and any(a in sl for a in active_re)
+        is_pending = (not is_excluded) and (sl == "" or any(p in sl for p in pending_re))
         is_repro   = any(r in sl for r in repro_re)
+        # Solo pendientes + activas/completadas suman a Total.
+        is_counted = is_pending or is_active
 
         if team_norm not in agg:
             agg[team_norm] = {"TEAM": team_norm, "ICON": 0, "BAMO": 0, "Total": 0,
