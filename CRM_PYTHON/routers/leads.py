@@ -679,18 +679,27 @@ async def semaforo(
 
     async with AsyncSessionLocal() as s:
         try:
+            # Cuenta SOLO por fecha de venta del mes (sin colchón): pendientes y
+            # activas/completadas. Excluye cancel/reserva/hold/reagendada/oficina,
+            # igual que /api/equipos/estadisticas, para que la suma de agentes
+            # cuadre con el total del equipo.
+            _EXCL = "CANCEL|RESER|HOLD|RESCHED|REAGEND|REPROGRAM|OFICINA"
+            _INCL = "PEND|ACTIV|COMPLET|CERRAD"
             r = await s.execute(text(f"""
                 SELECT
                   COALESCE(agente_nombre, agente) AS agente_fuente,
-                  SUM(CASE WHEN UPPER(TRIM(COALESCE(status,''))) REGEXP 'CANCEL' THEN 0 ELSE 1 END) AS ventas,
-                  SUM(CASE WHEN UPPER(TRIM(COALESCE(status,''))) NOT REGEXP 'CANCEL'
-                      THEN COALESCE(puntaje,0) ELSE 0 END) AS sum_puntaje
+                  SUM(CASE
+                        WHEN UPPER(TRIM(COALESCE(status,''))) REGEXP '{_EXCL}' THEN 0
+                        WHEN TRIM(COALESCE(status,'')) = '' THEN 1
+                        WHEN UPPER(TRIM(status)) REGEXP '{_INCL}' THEN 1
+                        ELSE 0 END) AS ventas,
+                  SUM(CASE
+                        WHEN UPPER(TRIM(COALESCE(status,''))) REGEXP '{_EXCL}' THEN 0
+                        WHEN TRIM(COALESCE(status,'')) = '' THEN COALESCE(puntaje,0)
+                        WHEN UPPER(TRIM(status)) REGEXP '{_INCL}' THEN COALESCE(puntaje,0)
+                        ELSE 0 END) AS sum_puntaje
                 FROM leads
-                WHERE (
-                    (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR LEFT(dia_instalacion,7)=LEFT(dia_venta,7)))
-                    OR (dia_instalacion IS NOT NULL AND LEFT(dia_instalacion,7)=LEFT(:s,7) AND (dia_venta IS NULL OR LEFT(dia_venta,7)<LEFT(:s,7)))
-                    OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at BETWEEN :s AND :e)
-                )
+                WHERE dia_venta BETWEEN :s AND :e
                   AND (agente_nombre IS NOT NULL OR agente IS NOT NULL)
                   AND (excluir_de_reporte IS NULL OR excluir_de_reporte = FALSE)
                   {status_clause}
