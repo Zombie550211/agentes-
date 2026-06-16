@@ -408,13 +408,15 @@ async def post_lineas(body: LineasBody, user: dict = Depends(current_user)):
         "jonathan figueroa": "jonathan f", "jonathan.figueroa": "jonathan f",
         "jonathan f": "jonathan f",
         "luis g": "luis g", "luis.g": "luis g",
+        "victor hurtado": "victor h", "victor.hurtado": "victor h",
+        "victor h": "victor h",
     }
     supervisor_val = _sup_map.get(supervisor_val, supervisor_val)
 
     if not supervisor_val:
         errors.append("No se pudo determinar el supervisor")
-    elif supervisor_val not in ("jonathan f", "luis g"):
-        errors.append("supervisor inválido (permitidos: JONATHAN F, LUIS G)")
+    elif supervisor_val not in ("jonathan f", "luis g", "victor h"):
+        errors.append("supervisor inválido (permitidos: JONATHAN F, LUIS G, VICTOR H)")
 
     cantidad_lineas = int(body.cantidad_lineas or 0)
     if cantidad_lineas < 1 or cantidad_lineas > 5:
@@ -438,6 +440,8 @@ async def post_lineas(body: LineasBody, user: dict = Depends(current_user)):
         team_name = "TEAM LINEAS JONATHAN"
     elif "luis" in supervisor_val:
         team_name = "TEAM LINEAS LUIS"
+    elif "victor" in supervisor_val:
+        team_name = "TEAM LINEAS VICTOR"
     else:
         team_name = "TEAM LINEAS"
 
