@@ -25,8 +25,17 @@ if _use_ssl:
     if _ssl_ca:
         _ssl_ctx.verify_mode   = ssl.CERT_REQUIRED
         _ssl_ctx.check_hostname = True
+    elif os.getenv("NODE_ENV") == "production":
+        # En producción NO se permite conexión sin verificar el certificado del
+        # servidor: sería vulnerable a MITM. Hay que configurar el CA cert.
+        raise RuntimeError(
+            "MYSQL_SSL_CA no configurado en producción. La verificación TLS del "
+            "servidor MySQL es obligatoria para evitar ataques MITM. Descarga el "
+            "CA cert desde la consola de tu proveedor (Aiven/Railway/etc.) y "
+            "configura MYSQL_SSL_CA=/ruta/ca.pem"
+        )
     else:
-        # Sin CA cert configurado: acepta el cert pero advierte
+        # Solo en desarrollo: acepta el cert sin verificar, pero advierte.
         _ssl_ctx.check_hostname = False
         _ssl_ctx.verify_mode   = ssl.CERT_NONE
         print("[AVISO SSL] MYSQL_SSL_CA no configurado — verificación de certificado desactivada. "

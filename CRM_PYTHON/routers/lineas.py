@@ -5,10 +5,19 @@ from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
 from limiter import limiter
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List, Any
 import re, random, unicodedata, time, json, os, secrets, asyncio
 import realtime
+
+
+def _utcnow() -> datetime:
+    """UTC naive (reemplazo no-deprecado de datetime.utcnow()).
+
+    Mantiene el valor sin tzinfo para que coincida con las columnas DATETIME de
+    MySQL (que se leen como naive) y no rompa comparaciones.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 _LINEAS_CACHE: dict = {}
 _LINEAS_TTL = 45
@@ -67,6 +76,79 @@ TEAMS = {
 }
 
 SUPERVISOR_KEYS = ["JONATHAN F", "LUIS G"]
+
+
+# ── Autorización por alcance (visibilidad = permiso de edición) ──────
+# Un usuario solo puede MODIFICAR los registros que también puede VER. La
+# cláusula de abajo es la fuente única de verdad y la reutiliza tanto el
+# listado (GET /api/lineas-team) como las comprobaciones de modificación.
+
+def _is_admin_bo_lineas(user: dict) -> bool:
+    """admin / backoffice / roles equivalentes (icon/bamo): acceso total.
+
+    El conjunto de tokens debe coincidir EXACTAMENTE con el de GET /api/lineas-team
+    para que el alcance de edición sea igual al de visibilidad ('admin' ya cubre
+    administrador/administrator por substring).
+    """
+    r = str(user.get("role", "")).lower()
+    return any(v in r for v in (
+        "admin", "backoffice", "back_office",
+        "rol_icon", "rol_bamo", "icon", "bamo",
+    ))
+
+
+def _user_scope_clause(user: dict) -> tuple[str, dict]:
+    """Devuelve (condición_sql, params) que delimita los registros del usuario.
+
+    Cadena vacía ('') = acceso total (admin/backoffice). Mantener alineado con
+    el filtrado de GET /api/lineas-team.
+    """
+    role     = str(user.get("role", "")).lower()
+    username = str(user.get("username", ""))
+    is_supervisor = "supervisor" in role
+
+    if _is_admin_bo_lineas(user):
+        return "", {}
+
+    if is_supervisor:
+        sup_key = None
+        uname_low = username.lower()
+        for t in TEAMS.values():
+            if (t.get("supervisor", "").lower() == uname_low or
+                    t.get("supervisorKey", "").lower() == uname_low):
+                sup_key = t.get("supervisorKey")
+                break
+        if sup_key:
+            first_word = sup_key.split()[0].upper()
+            return ("""(
+                UPPER(TRIM(supervisor)) = :sup
+                OR UPPER(TRIM(supervisor)) LIKE :sup_like
+                OR UPPER(REPLACE(supervisor, '.', ' ')) LIKE :sup_like
+            )""", {"sup": sup_key.upper(), "sup_like": f"{first_word}%"})
+        return "supervisor = '__none__'", {}
+
+    display = username.replace(".", " ").replace("_", " ").upper()
+    return ("""(agente = :ag1 OR agente_nombre = :ag1
+                OR agente = :ag2 OR agente_nombre = :ag2
+                OR agente_asignado = :ag1 OR agente_asignado = :ag2)""",
+            {"ag1": username, "ag2": display})
+
+
+async def _ensure_can_modify(s, mid: int, user: dict) -> None:
+    """Lanza 403 si el usuario no tiene alcance sobre el registro `mid`.
+
+    admin/backoffice → cualquiera; supervisor → los de su equipo; agente → los suyos.
+    Debe llamarse dentro de una sesión activa, antes del UPDATE.
+    """
+    clause, params = _user_scope_clause(user)
+    if not clause:
+        return  # acceso total
+    r = await s.execute(
+        text(f"SELECT 1 FROM lineas_clientes WHERE id = :id AND {clause} LIMIT 1"),
+        {"id": mid, **params},
+    )
+    if r.first() is None:
+        raise HTTPException(403, "No autorizado para modificar este registro")
 
 WEBHOOK_ALLOWED_ORIGINS = {
     "https://www.lineas-moviles.com", "https://lineas-moviles.com",
@@ -219,7 +301,7 @@ async def webhook_post(request: Request, x_api_key: str = Header(default="")):
     if not telefono:
         return JSONResponse({"success": False, "message": "Campo requerido: telefono"}, 400, headers=cors_headers)
 
-    now            = datetime.utcnow()
+    now            = _utcnow()
     supervisor_key = clean(body.get("supervisor", "")).upper() or await _pick_supervisor_key()
     assigned_agent = await _pick_agent(supervisor_key) or "SIN ASIGNAR"
 
@@ -463,7 +545,7 @@ async def post_lineas(body: LineasBody, user: dict = Depends(current_user)):
         serv = servicios[i] if i < len(servicios) else ""
         initial_lines.append({"telefono": telf, "servicio": serv, "estado": st})
 
-    now = datetime.utcnow()
+    now = _utcnow()
 
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
@@ -553,7 +635,7 @@ async def lineas_team_update(body: LineasTeamUpdateBody, user: dict = Depends(cu
         raise HTTPException(400, "ID inválido")
 
     sets:   list = ["updated_at = :now"]
-    params: dict = {"id": mid, "now": datetime.utcnow()}
+    params: dict = {"id": mid, "now": _utcnow()}
 
     if body.nombre_cliente:
         sets.append("nombre_cliente = :nc"); params["nc"] = body.nombre_cliente.strip().upper()
@@ -603,6 +685,7 @@ async def lineas_team_update(body: LineasTeamUpdateBody, user: dict = Depends(cu
             sets.append("lines_data = JSON_SET(COALESCE(lines_data, JSON_ARRAY()), :lserv_path, :lserv)")
 
     async with AsyncSessionLocal() as s:
+        await _ensure_can_modify(s, mid, user)
         extra_llamada = ""
         if body.status:
             pr = await s.execute(text("SELECT status FROM lineas_clientes WHERE id = :id LIMIT 1"), {"id": mid})
@@ -639,7 +722,7 @@ class NoteDeleteBody(BaseModel):
 async def lineas_notes_add(body: NoteBody, user: dict = Depends(current_user)):
     if not body.clientId:
         raise HTTPException(400, "clientId requerido")
-    now   = datetime.utcnow()
+    now   = _utcnow()
     texto = str(body.texto or "")[:1000]
     autor = user.get("username", "Sistema")
 
@@ -674,13 +757,20 @@ async def lineas_notes_edit(body: NoteEditBody, user: dict = Depends(current_use
         raise HTTPException(400, "noteId inválido")
 
     async with AsyncSessionLocal() as s:
+        nr = await s.execute(text("SELECT autor FROM lineas_notes WHERE id = :id LIMIT 1"), {"id": note_id})
+        note_row = nr.first()
+        if note_row is None:
+            raise HTTPException(404, "Nota no encontrada")
+        # Solo el autor de la nota o administración/backoffice pueden editarla.
+        if not _is_admin_bo_lineas(user) and (note_row[0] or "") != user.get("username"):
+            raise HTTPException(403, "Solo el autor puede editar esta nota")
         r = await s.execute(text("""
             UPDATE lineas_notes
             SET texto = :txt, updated_at = :now, updated_by = :by
             WHERE id = :id
         """), {
             "txt": str(body.texto or "")[:1000],
-            "now": datetime.utcnow(),
+            "now": _utcnow(),
             "by":  user.get("username"),
             "id":  note_id,
         })
@@ -701,6 +791,13 @@ async def lineas_notes_delete(body: NoteDeleteBody, user: dict = Depends(current
         raise HTTPException(400, "noteId inválido")
 
     async with AsyncSessionLocal() as s:
+        nr = await s.execute(text("SELECT autor FROM lineas_notes WHERE id = :id LIMIT 1"), {"id": note_id})
+        note_row = nr.first()
+        if note_row is None:
+            raise HTTPException(404, "Nota no encontrada")
+        # Solo el autor de la nota o administración/backoffice pueden borrarla.
+        if not _is_admin_bo_lineas(user) and (note_row[0] or "") != user.get("username"):
+            raise HTTPException(403, "Solo el autor puede eliminar esta nota")
         r = await s.execute(text("DELETE FROM lineas_notes WHERE id = :id"), {"id": note_id})
         await s.commit()
         if r.rowcount == 0:
@@ -732,6 +829,9 @@ class LineasTeamDeleteBody(BaseModel):
 
 @router.delete("/api/lineas-team/delete")
 async def lineas_team_delete(body: LineasTeamDeleteBody, user: dict = Depends(current_user)):
+    # Borrado irreversible: restringido a administración / backoffice.
+    if not _is_admin_bo_lineas(user):
+        raise HTTPException(403, "No autorizado para eliminar registros")
     if not body.id:
         raise HTTPException(400, "ID requerido")
     try:
@@ -842,6 +942,7 @@ async def lineas_team_status(body: LineasTeamStatusBody, user: dict = Depends(cu
         raise HTTPException(400, "ID inválido")
 
     async with AsyncSessionLocal() as s:
+        await _ensure_can_modify(s, mid, user)
         pr = await s.execute(text("SELECT status FROM lineas_clientes WHERE id = :id LIMIT 1"), {"id": mid})
         prev_status = (pr.first() or [""])[0] or ""
         extra = _llamada_sets_lineas(prev_status, body.status)
@@ -849,7 +950,7 @@ async def lineas_team_status(body: LineasTeamStatusBody, user: dict = Depends(cu
             UPDATE lineas_clientes
             SET status = :st, updated_at = :now{extra}
             WHERE id = :id
-        """), {"st": body.status.upper(), "now": datetime.utcnow(), "id": mid})
+        """), {"st": body.status.upper(), "now": _utcnow(), "id": mid})
         await s.commit()
         if r.rowcount == 0:
             raise HTTPException(404, "Registro no encontrado")
@@ -879,6 +980,7 @@ async def lineas_team_line_status(body: LineStatusBody, user: dict = Depends(cur
     idx        = body.lineIndex
 
     async with AsyncSessionLocal() as s:
+        await _ensure_can_modify(s, mid, user)
         r = await s.execute(text("""
             UPDATE lineas_clientes
             SET lineas_status = JSON_SET(COALESCE(lineas_status, '{}'),
@@ -887,7 +989,7 @@ async def lineas_team_line_status(body: LineStatusBody, user: dict = Depends(cur
                                          CONCAT('$[', :idx, '].estado'), :st),
                 updated_at    = :now
             WHERE id = :id
-        """), {"idx": str(idx), "st": new_status, "now": datetime.utcnow(), "id": mid})
+        """), {"idx": str(idx), "st": new_status, "now": _utcnow(), "id": mid})
         await s.commit()
         if r.rowcount == 0:
             raise HTTPException(404, "Registro no encontrado")
@@ -898,11 +1000,6 @@ async def lineas_team_line_status(body: LineStatusBody, user: dict = Depends(cur
 
 
 # ── LLAMADAS DE VERIFICACIÓN / SEGUIMIENTO (líneas) ─────────────────
-
-def _is_admin_bo_lineas(user: dict) -> bool:
-    r = str(user.get("role", "")).lower()
-    return any(v in r for v in ("admin", "administrador", "administrator", "backoffice", "bo"))
-
 
 @router.get("/api/lineas-team/{client_id}/llamadas")
 async def lineas_get_llamadas(client_id: str, user: dict = Depends(current_user)):
@@ -944,7 +1041,7 @@ async def lineas_registrar_llamada(
     except ValueError:
         raise HTTPException(400, "ID inválido")
 
-    now   = datetime.utcnow()
+    now   = _utcnow()
     autor = user.get("name") or user.get("username") or "system"
 
     async with AsyncSessionLocal() as s:
@@ -1010,7 +1107,7 @@ async def lineas_team_stats(
     month: Optional[str] = None,   # YYYY-MM, default: mes actual
     user: dict = Depends(current_user),
 ):
-    now = datetime.utcnow()
+    now = _utcnow()
     if month and re.match(r"^\d{4}-\d{2}$", month):
         yr, mo = map(int, month.split("-"))
     else:

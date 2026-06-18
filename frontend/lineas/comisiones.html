@@ -92,7 +92,6 @@
                                 } else if (fullName.includes('LUIS') || userName.includes('LUIS')) {
                                     supervisorTeam = 'LUIS G';
                                 }
-                                console.log('[COMISIONES-LINEAS] Detectando supervisor - fullName:', fullName, 'userName:', userName, 'supervisorTeam:', supervisorTeam);
                                 setUserSupervisor(supervisorTeam);
                             }
                             
@@ -101,7 +100,6 @@
                                 setIsAgentView(true);
                             }
                             
-                            console.log('[COMISIONES-LINEAS] Usuario:', displayName, 'Rol:', role, 'Es Admin:', isAdminUser, 'Es Supervisor:', isSupervisorUser, 'Equipo Supervisor:', supervisorTeam, 'Es agente:', !isAdminUser && !isSupervisorUser);
                         }
                     } catch (e) {
                         console.error('Error cargando info de usuario:', e);
@@ -142,7 +140,6 @@
                         const ownData = procesados.find(a => a.name.toUpperCase() === userName || a.name.toUpperCase().includes(userName.split(' ')[0]));
                         if (ownData) {
                             setOwnAgentData(ownData);
-                            console.log('[COMISIONES-LINEAS] Datos propios del agente encontrados:', ownData);
                         }
                     }
                 } catch (error) {
@@ -374,7 +371,6 @@
             const isAdmin = userRole === 'admin' || userRole === 'backoffice' || userRole === 'administrador';
             const isSupervisor = userRole.includes('supervisor');
             
-            console.log('[COMISIONES-LINEAS] Render - userRole:', userRole, 'isAdmin:', isAdmin, 'isSupervisor:', isSupervisor, 'userSupervisor:', userSupervisor);
             
             // Si es supervisor, solo mostrar su equipo
             let teamJonathan = agentsLineas.filter(a => a.supervisor === 'JONATHAN F');
@@ -384,12 +380,9 @@
             if (isSupervisor && !isAdmin) {
                 if (userSupervisor === 'JONATHAN F') {
                     teamLuis = []; // No mostrar el otro equipo
-                    console.log('[COMISIONES-LINEAS] Supervisor JONATHAN F - ocultando Team Luis');
                 } else if (userSupervisor === 'LUIS G') {
                     teamJonathan = []; // No mostrar el otro equipo
-                    console.log('[COMISIONES-LINEAS] Supervisor LUIS G - ocultando Team Jonathan');
                 } else {
-                    console.log('[COMISIONES-LINEAS] Supervisor sin equipo asignado, userSupervisor:', userSupervisor);
                 }
             }
 

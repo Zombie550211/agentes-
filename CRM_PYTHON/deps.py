@@ -1,3 +1,9 @@
+"""Dependencias de autenticación — fuente única de verdad.
+
+Aquí viven la configuración de JWT/cookie y los helpers de sesión que usan TODOS
+los routers (incluido routers/auth.py). No dupliques esta lógica en otros módulos:
+si necesitas crear/decodificar tokens o leer al usuario actual, impórtalo de aquí.
+"""
 from fastapi import Request, Response, HTTPException, Depends
 from jose import jwt, JWTError
 import os, time, math
@@ -15,6 +21,9 @@ IS_PROD     = os.getenv("NODE_ENV") == "production"
 # alguna vez el frontend hace fetch cross-origin directo a la API.
 COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax").lower()
 
+ADMIN_ROLES  = ("Administrador", "admin", "administrador", "Administrativo")
+
+
 def _get_token(request: Request) -> str | None:
     token = request.cookies.get("token")
     if not token:
@@ -23,15 +32,34 @@ def _get_token(request: Request) -> str | None:
             token = auth[7:]
     return token
 
-def _renew_token_cookie(response: Response, payload: dict):
-    """Sliding session: re-emite el token con expiración fresca."""
+
+def make_token(user: dict) -> str:
+    """Crea un JWT firmado a partir de un registro de usuario (flujo de login)."""
     now = math.floor(time.time())
-    new_payload = dict(payload)
-    new_payload["iat"] = now
-    new_payload["exp"] = now + JWT_EXPIRES
-    new_token = jwt.encode(new_payload, JWT_SECRET, algorithm=JWT_ALGO)
+    payload = {
+        "id":         str(user.get("_id") or user.get("id")),
+        "username":   user.get("username", ""),
+        "name":       user.get("name", "") or user.get("username", ""),
+        "role":       user.get("role", ""),
+        "team":       user.get("team", ""),
+        "supervisor": user.get("supervisor", ""),
+        "iat":        now,
+        "exp":        now + JWT_EXPIRES,
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
+
+
+def decode_token(token: str) -> dict | None:
+    """Devuelve el payload del JWT si es válido, o None."""
+    try:
+        return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
+    except JWTError:
+        return None
+
+
+def set_token_cookie(response: Response, token: str) -> None:
     response.set_cookie(
-        key="token", value=new_token,
+        key="token", value=token,
         httponly=True,
         secure=IS_PROD,
         samesite=COOKIE_SAMESITE,
@@ -39,13 +67,22 @@ def _renew_token_cookie(response: Response, payload: dict):
         path="/",
     )
 
+
+def _renew_token_cookie(response: Response, payload: dict) -> None:
+    """Sliding session: re-emite el token preservando sus claims con exp fresca."""
+    now = math.floor(time.time())
+    new_payload = dict(payload)
+    new_payload["iat"] = now
+    new_payload["exp"] = now + JWT_EXPIRES
+    set_token_cookie(response, jwt.encode(new_payload, JWT_SECRET, algorithm=JWT_ALGO))
+
+
 async def current_user(request: Request, response: Response) -> dict:
     token = _get_token(request)
     if not token:
         raise HTTPException(status_code=401, detail="No autenticado")
-    try:
-        decoded = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
-    except JWTError:
+    decoded = decode_token(token)
+    if decoded is None:
         raise HTTPException(status_code=401, detail="Token inválido")
     # Renovar el token si le queda menos de la mitad de vida —
     # mientras el usuario esté activo, la sesión nunca se cierra.
@@ -57,11 +94,10 @@ async def current_user(request: Request, response: Response) -> dict:
         pass
     return decoded
 
+
 def require_roles(*roles):
     async def checker(user: dict = Depends(current_user)):
         if user.get("role") not in roles:
             raise HTTPException(status_code=403, detail="Sin permiso")
         return user
     return checker
-
-ADMIN_ROLES  = ("Administrador", "admin", "administrador", "Administrativo")

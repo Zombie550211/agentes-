@@ -34,7 +34,7 @@
       if(!r.ok) throw new Error('leads fetch error');
       const j = await r.json();
       const arr = Array.isArray(j) ? j : (Array.isArray(j?.data) ? j.data : (Array.isArray(j?.leads) ? j.leads : []));
-      if(arr.length){ console.log('[dashboard] leads mes actual:', arr.length); return arr; }
+      if(arr.length){  return arr; }
       // Fallback: intentar sin filtro de fecha (diagnóstico)
       const r2 = await fetch('/api/leads?skipDate=1', { credentials: 'include', headers: authHeaders() });
       if(r2.ok){ const j2 = await r2.json(); const arr2 = Array.isArray(j2)?j2:(Array.isArray(j2?.data)?j2.data:(Array.isArray(j2?.leads)?j2.leads:[])); console.warn('[dashboard] fallback skipDate=1, leads:', arr2.length); return arr2; }
@@ -149,7 +149,6 @@
         updateText('hkpi-puntos', myPoints > 0 ? String(Math.round(myPoints)) : '0');
       }
 
-      console.log('[dashboard] KPIs cargados:', { ventas: leads.length, puntos: totalPoints });
     }catch(e){ console.error('[dashboard] Error cargando KPIs:', e); }
     finally { __loading = false; }
   }

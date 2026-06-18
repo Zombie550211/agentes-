@@ -325,15 +325,12 @@
                 const res = await fetch('/api/comisiones/agentes-lineas', { headers, credentials: 'include' });
                 const data = await res.json();
                 
-                console.log('[LLAMADAS-VENTAS] Respuesta API:', data);
                 
                 if ((data.success || data.ok) && Array.isArray(data.data)) {
                     // Separar por supervisor (la API usa 'nombre' no 'name')
                     teams[0].agents = data.data.filter(a => a.supervisor === 'JONATHAN F').map(a => a.nombre || a.name);
                     teams[1].agents = data.data.filter(a => a.supervisor === 'LUIS G').map(a => a.nombre || a.name);
                     
-                    console.log('[LLAMADAS-VENTAS] Team Jonathan:', teams[0].agents);
-                    console.log('[LLAMADAS-VENTAS] Team Luis:', teams[1].agents);
                 }
             } catch (e) {
                 console.error('Error cargando agentes:', e);
@@ -497,7 +494,6 @@
                 });
 
                 // Cargar datos si existen
-                console.log('[LLAMADAS-VENTAS] Datos del día:', data);
                 if ((data.ok || data.success) && data.data && data.data.equipos) {
                     teams.forEach(team => {
                         const teamData = data.data.equipos[team.name];
