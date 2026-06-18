@@ -3,7 +3,8 @@
   'use strict';
 
   /* ── Estado ── */
-  let socket = null;
+  let socket = null;           // (legacy Socket.IO — ya no se usa, ver initSSE)
+  let sse = null;              // EventSource de tiempo real
   let currentUser = null;
   let activePeer = null;       // { username, name, avatarUrl }
   let allUsers = [];
@@ -82,71 +83,64 @@
     await loadConversations();
     await loadUnreadCount();
     renderChatList();
-    initSocket();
+    initSSE();
     bindEvents();
   }
 
-  /* ── Socket.io ── */
-  function initSocket() {
-    socket = io({ transports: ['websocket', 'polling'] });
-    socket.on('connect', () => {
-      socket.emit('register', {
-        username: currentUser.username,
-        role: currentUser.role,
-        agenteId: currentUser.id
-      });
-    });
+  /* ── Tiempo real (SSE) ──
+   * El backend publica cada mensaje nuevo en el canal del destinatario; aquí
+   * abrimos un EventSource a /api/chat/stream (la sesión viaja en la cookie
+   * httponly). EventSource reconecta solo, así que no gestionamos reintentos. */
+  function initSSE() {
+    if (!window.EventSource) return;
+    try {
+      sse = new EventSource('/api/chat/stream');
+    } catch (e) { return; }
 
-    socket.on('chat:message', msg => {
-      // Actualizar conversación activa si coincide
-      if (activePeer && (msg.from === activePeer.username || msg.to === activePeer.username)) {
-        // No re-agregar mensajes propios (ya se hizo el append optimista)
-        if (msg.from !== currentUser.username) {
-          appendMessage(msg);
-          scrollToBottom();
-        }
-        // Marcar como leído si somos el destinatario
-        if (msg.to === currentUser.username) {
-          apiFetch(`/api/chat/messages/${msg._id}/read`, { method: 'PATCH' }).catch(() => {});
-        }
-      } else if (msg.to === currentUser.username) {
-        // Notificación de nuevo mensaje (conversación no activa)
-        loadUnreadCount();
-        showToast(`Nuevo mensaje de ${msg.fromName}`);
-        addNotifItem(msg);
-        // Tarjeta de notificación CRM global
-        if (window.showCRMNotif) {
-          const tipo = msg.type === 'email' ? 'email' : 'chat';
-          const preview = String(msg.body || '').replace(/<[^>]+>/g, '').slice(0, 80);
-          window.showCRMNotif(tipo, {
-            cliente: msg.fromName || msg.from || 'Alguien',
-            actor:   msg.fromName || msg.from || '',
-            detalle: preview || '(mensaje sin texto)',
-            extra:   msg.subject ? 'Asunto: ' + msg.subject : ''
-          });
-        }
+    sse.onmessage = ev => {
+      let data;
+      try { data = JSON.parse(ev.data || '{}'); } catch (_) { return; }
+      if (!data || data.type === 'connected') return;
+      if (data.type === 'chat:message' && data.message) {
+        handleIncomingMessage(data.message);
       }
-      // Actualizar lista de conversaciones
-      updateConvPreview(msg);
-    });
+    };
 
-    socket.on('chat:typing', ({ from, typing }) => {
-      if (activePeer && from === activePeer.username) {
-        const ind = $('typingIndicator');
-        $('typingName').textContent = activePeer.name;
-        ind.classList.toggle('show', typing);
-      }
-    });
+    // EventSource reintenta la conexión por sí mismo; no hacemos nada en error.
+    sse.onerror = () => {};
+  }
 
-    socket.on('chat:presence', ({ username, online }) => {
-      // Actualizar indicador de presencia en la lista
-      const dot = document.querySelector(`.presence-dot[data-user="${username}"]`);
-      if (dot) dot.classList.toggle('online', online);
-      // Actualizar header de conversación activa
-      if (activePeer && activePeer.username === username) {
-        $('convStatus').textContent = online ? 'En línea' : 'Desconectado';
+  function handleIncomingMessage(msg) {
+    // ¿Pertenece a la conversación abierta?
+    if (activePeer && (msg.from === activePeer.username || msg.to === activePeer.username)) {
+      // No re-agregar los propios (ya hubo append optimista en esta pestaña)
+      if (msg.from !== currentUser.username) {
+        appendMessage(msg);
+        scrollToBottom();
       }
-    });
+      // Marcar como leído si somos el destinatario
+      if (msg.to === currentUser.username) {
+        apiFetch(`/api/chat/messages/${msg._id}/read`, { method: 'PATCH' }).catch(() => {});
+      }
+    } else if (msg.to === currentUser.username) {
+      // Mensaje en una conversación NO activa → notificar
+      loadUnreadCount();
+      showToast(`Nuevo mensaje de ${msg.fromName}`);
+      addNotifItem(msg);
+      // Tarjeta de notificación CRM global
+      if (window.showCRMNotif) {
+        const tipo = msg.type === 'email' ? 'email' : 'chat';
+        const preview = String(msg.body || '').replace(/<[^>]+>/g, '').slice(0, 80);
+        window.showCRMNotif(tipo, {
+          cliente: msg.fromName || msg.from || 'Alguien',
+          actor:   msg.fromName || msg.from || '',
+          detalle: preview || '(mensaje sin texto)',
+          extra:   msg.subject ? 'Asunto: ' + msg.subject : ''
+        });
+      }
+    }
+    // Actualizar lista de conversaciones (preview + orden)
+    updateConvPreview(msg);
   }
 
   /* ── Cargar datos ── */

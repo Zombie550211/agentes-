@@ -1,12 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException
+import asyncio
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
 from datetime import datetime
 from typing import List
+import realtime
 
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
+
+# Cada cuántos segundos enviar un heartbeat SSE para no morir tras proxies.
+_HEARTBEAT_SECS = 20
 
 
 def _fmt_msg(row) -> dict:
@@ -127,6 +133,15 @@ async def send_message(body: SendMessage, user: dict = Depends(current_user)):
         r = await s.execute(text("SELECT * FROM messages WHERE id = LAST_INSERT_ID()"))
         msg = _fmt_msg(r.mappings().first())
 
+    # ── Tiempo real (SSE) ──────────────────────────────────────────
+    # Avisamos al destinatario (canal propio) y al emisor (otras pestañas/equipos).
+    # El canal se deriva del username, NO de un parámetro del cliente: así nadie
+    # puede suscribirse al canal de otro usuario (ver chat_stream).
+    payload = {"type": "chat:message", "message": msg}
+    await realtime.publish(f"chat:{body.to}", payload)
+    if body.to != user["username"]:
+        await realtime.publish(f"chat:{user['username']}", payload)
+
     return {"success": True, "message": msg}
 
 
@@ -224,3 +239,45 @@ async def mark_read_all(body: _ReadAllBody, user: dict = Depends(current_user)):
         """), {"now": datetime.utcnow(), "ids": tuple(ids), "u": user["username"]})
         await s.commit()
     return {"success": True, "updated": r.rowcount}
+
+
+@router.get("/stream")
+async def chat_stream(request: Request):
+    """SSE: stream de mensajes nuevos para el usuario autenticado.
+
+    El canal (`chat:{username}`) se deriva del JWT, no de la query, para que un
+    usuario no pueda escuchar la conversación de otro. EventSource no admite
+    cabeceras Authorization → la sesión viaja en la cookie httponly `token`.
+    """
+    user = realtime.auth_sse(request)
+    if not user:
+        return JSONResponse({"detail": "No autenticado"}, status_code=401)
+
+    channel = f"chat:{user.get('username', '')}"
+    queue = realtime.subscribe(channel)
+
+    async def event_gen():
+        yield realtime.event_payload({"type": "connected"})
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=_HEARTBEAT_SECS)
+                    yield realtime.event_payload(event)
+                except asyncio.TimeoutError:
+                    yield ": ping\n\n"   # heartbeat (las líneas ':' se ignoran)
+        except asyncio.CancelledError:
+            pass
+        finally:
+            realtime.unsubscribe(channel, queue)
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
