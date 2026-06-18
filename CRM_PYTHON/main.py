@@ -46,11 +46,13 @@ FRONTEND_DIR = BASE_DIR / "frontend"
 UPLOADS_DIR  = BASE_DIR / "uploads"
 COMPONENTS   = BASE_DIR / "components"
 
-# Solo migraciones estructurales (DDL) — idempotentes, seguras en cada arranque.
-# Las migraciones de datos (UPDATE masivos) se movieron a CRM_PYTHON/scripts/data_migrations.py
-# y ya fueron ejecutadas. No corren en cada arranque.
-_MIGRATIONS = [
-    """CREATE TABLE note_files (
+# Migraciones estructurales (DDL). Cada una lleva un NOMBRE estable y se registra
+# en la tabla `schema_migrations` tras aplicarse: así solo corren UNA vez en vez de
+# ejecutarse (y fallar con "ya existe") en cada arranque. Para añadir una nueva,
+# agrégala al final con un nombre nuevo; nunca renombres ni reordenes las previas.
+# Las migraciones de datos (UPDATE masivos) viven en scripts/data_migrations.py.
+_MIGRATIONS: list[tuple[str, str]] = [
+    ("0001_create_note_files", """CREATE TABLE note_files (
         id INT AUTO_INCREMENT PRIMARY KEY,
         filename VARCHAR(500) NOT NULL,
         original_name VARCHAR(500),
@@ -61,32 +63,32 @@ _MIGRATIONS = [
         lead_id VARCHAR(100),
         uploaded_by VARCHAR(200),
         uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )""",
-    "ALTER TABLE lineas_clientes ADD COLUMN imagen_url VARCHAR(500) NULL AFTER fuente",
-    "ALTER TABLE leads ADD COLUMN sistema VARCHAR(100) NULL",
-    "ALTER TABLE leads ADD COLUMN riesgo VARCHAR(50) NULL",
-    "ALTER TABLE leads ADD COLUMN notas JSON NULL",
-    "ALTER TABLE users ADD COLUMN active TINYINT(1) NOT NULL DEFAULT 1",
-    "ALTER TABLE note_files ADD COLUMN content LONGBLOB NULL",
+    )"""),
+    ("0002_lineas_clientes_imagen_url", "ALTER TABLE lineas_clientes ADD COLUMN imagen_url VARCHAR(500) NULL AFTER fuente"),
+    ("0003_leads_sistema", "ALTER TABLE leads ADD COLUMN sistema VARCHAR(100) NULL"),
+    ("0004_leads_riesgo", "ALTER TABLE leads ADD COLUMN riesgo VARCHAR(50) NULL"),
+    ("0005_leads_notas", "ALTER TABLE leads ADD COLUMN notas JSON NULL"),
+    ("0006_users_active", "ALTER TABLE users ADD COLUMN active TINYINT(1) NOT NULL DEFAULT 1"),
+    ("0007_note_files_content", "ALTER TABLE note_files ADD COLUMN content LONGBLOB NULL"),
     # Índices para consultas frecuentes en leads
-    "CREATE INDEX idx_leads_dia_venta   ON leads (dia_venta)",
-    "CREATE INDEX idx_leads_dia_inst    ON leads (dia_instalacion)",
-    "CREATE INDEX idx_leads_created     ON leads (created_at)",
-    "CREATE INDEX idx_leads_status      ON leads (status(50))",
-    "CREATE INDEX idx_leads_agente      ON leads (agente_nombre(100))",
-    "CREATE INDEX idx_leads_supervisor  ON leads (supervisor(100))",
-    "CREATE INDEX idx_leads_venta_stat  ON leads (dia_venta, status(50))",
+    ("0008_idx_leads_dia_venta",  "CREATE INDEX idx_leads_dia_venta   ON leads (dia_venta)"),
+    ("0009_idx_leads_dia_inst",   "CREATE INDEX idx_leads_dia_inst    ON leads (dia_instalacion)"),
+    ("0010_idx_leads_created",    "CREATE INDEX idx_leads_created     ON leads (created_at)"),
+    ("0011_idx_leads_status",     "CREATE INDEX idx_leads_status      ON leads (status(50))"),
+    ("0012_idx_leads_agente",     "CREATE INDEX idx_leads_agente      ON leads (agente_nombre(100))"),
+    ("0013_idx_leads_supervisor", "CREATE INDEX idx_leads_supervisor  ON leads (supervisor(100))"),
+    ("0014_idx_leads_venta_stat", "CREATE INDEX idx_leads_venta_stat  ON leads (dia_venta, status(50))"),
     # Índices para lineas_clientes
-    "CREATE INDEX idx_lc_agente         ON lineas_clientes (agente(100))",
-    "CREATE INDEX idx_lc_supervisor     ON lineas_clientes (supervisor(100))",
-    "CREATE INDEX idx_lc_status         ON lineas_clientes (status(50))",
-    "CREATE INDEX idx_lc_created        ON lineas_clientes (created_at)",
-    "ALTER TABLE employees_month MODIFY COLUMN period_date VARCHAR(100)",
+    ("0015_idx_lc_agente",        "CREATE INDEX idx_lc_agente         ON lineas_clientes (agente(100))"),
+    ("0016_idx_lc_supervisor",    "CREATE INDEX idx_lc_supervisor     ON lineas_clientes (supervisor(100))"),
+    ("0017_idx_lc_status",        "CREATE INDEX idx_lc_status         ON lineas_clientes (status(50))"),
+    ("0018_idx_lc_created",       "CREATE INDEX idx_lc_created        ON lineas_clientes (created_at)"),
+    ("0019_employees_month_period_date", "ALTER TABLE employees_month MODIFY COLUMN period_date VARCHAR(100)"),
     # Coordenadas para el mapa de clientes
-    "ALTER TABLE leads ADD COLUMN lat  DOUBLE NULL",
-    "ALTER TABLE leads ADD COLUMN lng  DOUBLE NULL",
-    "CREATE INDEX idx_leads_coords ON leads (lat, lng)",
-    """CREATE TABLE IF NOT EXISTS employees_month (
+    ("0020_leads_lat", "ALTER TABLE leads ADD COLUMN lat  DOUBLE NULL"),
+    ("0021_leads_lng", "ALTER TABLE leads ADD COLUMN lng  DOUBLE NULL"),
+    ("0022_idx_leads_coords", "CREATE INDEX idx_leads_coords ON leads (lat, lng)"),
+    ("0023_create_employees_month", """CREATE TABLE IF NOT EXISTS employees_month (
         id INT AUTO_INCREMENT PRIMARY KEY,
         employee VARCHAR(20) NOT NULL UNIQUE,
         name VARCHAR(200) NOT NULL DEFAULT '',
@@ -94,22 +96,22 @@ _MIGRATIONS = [
         image_url TEXT,
         period_date VARCHAR(50),
         updated_at DATETIME
-    )""",
+    )"""),
     # Historial de cambios de nombre de equipos
-    """CREATE TABLE IF NOT EXISTS team_renames (
+    ("0024_create_team_renames", """CREATE TABLE IF NOT EXISTS team_renames (
         id INT AUTO_INCREMENT PRIMARY KEY,
         old_name VARCHAR(200) NOT NULL,
         new_name VARCHAR(200) NOT NULL,
         changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         created_by VARCHAR(200) NULL,
         INDEX idx_tr_old (old_name(100))
-    )""",
+    )"""),
     # ── Llamadas de verificación/seguimiento (bloqueo de agentes) ──
-    "ALTER TABLE leads ADD COLUMN fecha_completed DATETIME NULL",
-    "ALTER TABLE leads ADD COLUMN llamada_cliente VARCHAR(20) NULL",
-    "ALTER TABLE leads ADD COLUMN llamadas_realizadas TINYINT NOT NULL DEFAULT 0",
-    "ALTER TABLE leads ADD COLUMN fecha_ultima_llamada DATETIME NULL",
-    """CREATE TABLE IF NOT EXISTS lead_llamadas (
+    ("0025_leads_fecha_completed",      "ALTER TABLE leads ADD COLUMN fecha_completed DATETIME NULL"),
+    ("0026_leads_llamada_cliente",      "ALTER TABLE leads ADD COLUMN llamada_cliente VARCHAR(20) NULL"),
+    ("0027_leads_llamadas_realizadas",  "ALTER TABLE leads ADD COLUMN llamadas_realizadas TINYINT NOT NULL DEFAULT 0"),
+    ("0028_leads_fecha_ultima_llamada", "ALTER TABLE leads ADD COLUMN fecha_ultima_llamada DATETIME NULL"),
+    ("0029_create_lead_llamadas", """CREATE TABLE IF NOT EXISTS lead_llamadas (
         id INT AUTO_INCREMENT PRIMARY KEY,
         lead_id VARCHAR(100) NOT NULL,
         numero_llamada TINYINT NOT NULL,
@@ -119,14 +121,65 @@ _MIGRATIONS = [
         created_by VARCHAR(200),
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_ll_lead (lead_id)
-    )""",
+    )"""),
     # Llamadas de verificación también para la sección de líneas
-    "ALTER TABLE lead_llamadas ADD COLUMN source VARCHAR(20) NOT NULL DEFAULT 'leads'",
-    "ALTER TABLE lineas_clientes ADD COLUMN fecha_completed DATETIME NULL",
-    "ALTER TABLE lineas_clientes ADD COLUMN llamada_cliente VARCHAR(20) NULL",
-    "ALTER TABLE lineas_clientes ADD COLUMN llamadas_realizadas TINYINT NOT NULL DEFAULT 0",
-    "ALTER TABLE lineas_clientes ADD COLUMN fecha_ultima_llamada DATETIME NULL",
+    ("0030_lead_llamadas_source",          "ALTER TABLE lead_llamadas ADD COLUMN source VARCHAR(20) NOT NULL DEFAULT 'leads'"),
+    ("0031_lc_fecha_completed",            "ALTER TABLE lineas_clientes ADD COLUMN fecha_completed DATETIME NULL"),
+    ("0032_lc_llamada_cliente",            "ALTER TABLE lineas_clientes ADD COLUMN llamada_cliente VARCHAR(20) NULL"),
+    ("0033_lc_llamadas_realizadas",        "ALTER TABLE lineas_clientes ADD COLUMN llamadas_realizadas TINYINT NOT NULL DEFAULT 0"),
+    ("0034_lc_fecha_ultima_llamada",       "ALTER TABLE lineas_clientes ADD COLUMN fecha_ultima_llamada DATETIME NULL"),
 ]
+
+# Subcadenas de error MySQL que significan "el objeto ya existe" → la migración
+# ya estaba aplicada (DB previa al control de versión): se marca como aplicada.
+_MIGRATION_ALREADY_APPLIED = (
+    "duplicate column", "already exists", "duplicate key name",
+    "check that column/key exists",
+)
+
+
+async def _run_migrations():
+    """Aplica las migraciones DDL pendientes UNA sola vez (ver tabla schema_migrations)."""
+    from database_mysql import AsyncSessionLocal
+    # 1. Tabla de control (idempotente).
+    async with engine.begin() as conn:
+        await conn.execute(_sa_text("""
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                name VARCHAR(190) PRIMARY KEY,
+                applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+    # 2. Migraciones ya aplicadas.
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(_sa_text("SELECT name FROM schema_migrations"))
+        applied = {row[0] for row in r.fetchall()}
+
+    pending = [(n, sql) for n, sql in _MIGRATIONS if n not in applied]
+    if not pending:
+        return
+    done = 0
+    for name, sql in pending:
+        record = True
+        try:
+            async with engine.begin() as conn:
+                await conn.execute(_sa_text(sql))
+        except Exception as e:
+            if any(sig in str(e).lower() for sig in _MIGRATION_ALREADY_APPLIED):
+                pass  # el objeto ya existía: estado deseado alcanzado → registrar
+            else:
+                print(f"[migration:{name}] ERROR (se reintentará en el próximo arranque): {e}")
+                record = False
+        if record:
+            try:
+                async with engine.begin() as conn:
+                    await conn.execute(
+                        _sa_text("INSERT IGNORE INTO schema_migrations (name) VALUES (:n)"),
+                        {"n": name},
+                    )
+                done += 1
+            except Exception as e:
+                print(f"[migration:{name}] no se pudo registrar: {e}")
+    print(f"[migrations] {done}/{len(pending)} migraciones aplicadas/registradas en este arranque")
 
 async def _fix_api_file_urls():
     """Resuelve /api/files/{id} → /uploads/files/... para leads y lineas_clientes."""
@@ -161,14 +214,12 @@ async def _fix_api_file_urls():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_mysql()
-    # Cada migración en su propia transacción para que los ALTER TABLE
-    # que fallen (columna ya existe) no aborte los UPDATE posteriores.
-    for sql in _MIGRATIONS:
-        try:
-            async with engine.begin() as conn:
-                await conn.execute(_sa_text(sql))
-        except Exception as e:
-            print(f"[migration] {e}")
+    # Migraciones DDL: solo las pendientes, registradas en schema_migrations
+    # (ya no se ejecutan ni fallan en cada arranque).
+    try:
+        await _run_migrations()
+    except Exception as e:
+        print(f"[migrations] error general: {e}")
     try:
         await _fix_api_file_urls()
     except Exception as e:
@@ -206,10 +257,16 @@ async def _seed_team_renames():
         await s.commit()
     print("[team-renames] Seeds aplicados")
 
+# En producción no exponemos la documentación interactiva ni el esquema OpenAPI
+# (evita filtrar el mapa completo de la API a usuarios no autenticados).
+_IS_PROD = os.getenv("NODE_ENV") == "production"
+
 app = FastAPI(
     title="CRM Connecting — Python",
     description="FastAPI — migración completa desde Node.js",
-    docs_url="/py-docs",
+    docs_url=None if _IS_PROD else "/py-docs",
+    redoc_url=None if _IS_PROD else "/py-redoc",
+    openapi_url=None if _IS_PROD else "/openapi.json",
     lifespan=lifespan,
 )
 
@@ -235,7 +292,6 @@ app.add_middleware(
 # frontend usa scripts inline y CDNs (Tailwind, jsdelivr, cdnjs, unpkg). Aun así
 # bloquea clickjacking (frame-ancestors), plugins (object-src) e inyección de
 # <base> (base-uri), sin romper la app.
-_IS_PROD = os.getenv("NODE_ENV") == "production"
 
 @app.middleware("http")
 async def _security_headers(request: Request, call_next):
@@ -324,12 +380,26 @@ HTML_DIRS = [
     FRONTEND_DIR / "lineas",
 ]
 
+def _resolve_within(base: Path, rel: str) -> Path | None:
+    """Resuelve base/rel y garantiza que el resultado quede DENTRO de base.
+
+    Defensa contra path traversal (../, rutas absolutas, symlinks): si la ruta
+    pedida se sale del directorio permitido, devuelve None en vez de la ruta.
+    """
+    try:
+        candidate = (base / rel).resolve()
+    except (ValueError, OSError):
+        return None
+    if candidate.is_relative_to(base.resolve()):
+        return candidate
+    return None
+
 def find_html(name: str) -> Path | None:
     if not name.endswith(".html"):
         name += ".html"
     for d in HTML_DIRS:
-        candidate = d / name
-        if candidate.is_file():
+        candidate = _resolve_within(d, name)
+        if candidate and candidate.is_file():
             return candidate
     return None
 
@@ -393,10 +463,10 @@ async def serve_page(page: str):
         if page_lower == old.lower():
             return RedirectResponse(url=new, status_code=301)
 
-    # 1. Intentar como archivo HTML exacto
+    # 1. Intentar como archivo HTML exacto (con contención anti-traversal)
     for d in HTML_DIRS:
-        candidate = d / page
-        if candidate.is_file():
+        candidate = _resolve_within(d, page)
+        if candidate and candidate.is_file():
             return FileResponse(str(candidate), headers=_NO_CACHE)
 
     # 2. Intentar añadiendo .html

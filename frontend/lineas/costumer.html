@@ -1527,34 +1527,27 @@
           const role = String(user.role || '').toLowerCase();
           const username = String(user.username || '').toUpperCase();
           
-          console.log('[fetchData] Rol del usuario:', role, 'Username:', username);
-          console.log('[fetchData] Datos recibidos del backend:', data.length);
           
           // Admin, BackOffice y rol_icon ven TODO
           if (role === 'admin' || role === 'administrador' || role === 'backoffice' || role === 'back office' || role === 'back_office' || role === 'rol_icon' || role === 'rol-icon' || role === 'rolicon') {
-            console.log('[fetchData] Usuario es admin/backoffice/rol_icon - retornando todos los datos');
             return data;
           }
           
           // Supervisores ven solo leads de sus agentes
           if (role === 'supervisor' || role === 'supervisor team lineas') {
-            console.log('[fetchData] Usuario es supervisor - el backend ya filtró los datos');
             return data;
           }
           
           // Vendedores/Agentes - el backend ya filtró los datos por su colección
           if (role === 'vendedor' || role === 'agente' || role === 'agent' || role === 'seller') {
-            console.log('[fetchData] Usuario es vendedor/agente - el backend ya filtró los datos por colección');
             return data;
           }
           
           // Otros roles - filtrar por username como fallback
-          console.log('[fetchData] Usuario con rol desconocido - filtrando por username');
           data = data.filter(item => {
             const agente = String(item.agenteAsignado || item.agenteNombre || item.agente || item._collectionName || '').toUpperCase();
             return agente.includes(username) || agente === username;
           });
-          console.log('[fetchData] Datos después de filtrar:', data.length);
           
         } catch (e) {
           console.error('Error al filtrar datos por rol:', e);
@@ -2815,7 +2808,6 @@
           const minDateStr = formatDate(minDate);
           const maxDateStr = formatDate(maxDate);
           
-          console.log('[Análisis Excel] Rango de fechas detectado:', minDateStr, 'a', maxDateStr);
           
           // Filtrar allItems por el rango de fechas del Excel
           crmClients = allItems.filter(item => {
@@ -2830,11 +2822,9 @@
             return diaVenta >= minDateStr && diaVenta <= maxDateStr;
           });
           
-          console.log('[Análisis Excel] Leads en CRM para ese rango:', crmClients.length);
         } else {
           // Si no se detectaron fechas, usar los datos filtrados actuales
           crmClients = applyFilters(allItems);
-          console.log('[Análisis Excel] No se detectó rango de fechas, usando filtros actuales');
         }
         
         // Análisis comparativo
@@ -3035,7 +3025,6 @@
           const script2 = document.createElement('script');
           script2.src = 'https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/highcharts-3d.min.js';
           script2.onload = function() {
-            console.log('[Highcharts] Scripts cargados exitosamente');
             initChartsAfterLoad();
           };
           script2.onerror = function() {
@@ -3058,7 +3047,6 @@
           return;
         }
         
-        console.log('Inicializando gráficas Highcharts 3D...');
         createCharts();
       }
       
@@ -3084,7 +3072,6 @@
           return;
         }
         
-        console.log('Inicializando gráficas Highcharts 3D...');
         createCharts();
       }
       
@@ -3147,7 +3134,6 @@
             ]
           }]
         });
-        console.log('Gráfica 3D de estado creada exitosamente');
         
         // Gráfica 3D de columnas por agente (Column Chart 3D)
         agentChart = Highcharts.chart('agentChart', {
@@ -3224,7 +3210,6 @@
             data: []
           }]
         });
-        console.log('Gráfica 3D de agentes creada exitosamente');
       }
       
       function updateKPIs(items, ventaItems) {
@@ -3269,8 +3254,6 @@
         const rawTeamCounts = new Map();
         const mismatchesJonathan = [];
         
-        console.log('=== DEBUG KPIs (LINEAS) ===');
-        console.log('Total ventas (clientes):', cantidadVentas);
         
         items.forEach((item, index) => {
           const cantFromField = Number(item.cantidad_lineas || 0) || 0;
@@ -3281,14 +3264,6 @@
           
           // Debug: Ver estructura de datos del primer item
           if (index === 0) {
-            console.log('Estructura del primer item:', {
-              cantidad_lineas: item.cantidad_lineas,
-              lines_len: Array.isArray(item.lines) ? item.lines.length : 0,
-              telefonos_len: Array.isArray(item.telefonos) ? item.telefonos.length : 0,
-              lineas_status: item.lineas_status,
-              lineas_status_type: typeof item.lineas_status,
-              lineas_status_isArray: Array.isArray(item.lineas_status)
-            });
           }
 
           const clientStatusUpper = String(item.status || '').toUpperCase();
@@ -3500,10 +3475,8 @@
           inferred_line_status_from_client_status: inferredFromClientStatus,
           multi_line_missing_lineas_status: multiLineMissingLineStatus
         };
-        console.log('KPIs (resumen):', resumen);
         if (samplesMissing.length) console.table(samplesMissing);
         if (mismatchesJonathan.length) {
-          console.log('=== DEBUG MISMATCH JONATHAN (lines vs current extraction) ===');
           console.table(mismatchesJonathan.slice(0, 80));
         }
 
@@ -3511,7 +3484,6 @@
         try {
           const teamsArr = Array.from(byTeam.values())
             .sort((a, b) => (b.lineas_active - a.lineas_active) || (b.lineas_total - a.lineas_total) || a.team.localeCompare(b.team));
-          console.log('=== DEBUG KPIs (LINEAS) POR TEAM ===');
           console.table(teamsArr);
         } catch (e) {
           console.warn('No se pudo imprimir tabla por team:', e?.message);
@@ -3521,7 +3493,6 @@
           const rawArr = Array.from(rawTeamCounts.entries())
             .map(([raw, clientes]) => ({ raw, normalized: normalizeTeamKey(raw), clientes }))
             .sort((a, b) => (b.clientes - a.clientes) || a.normalized.localeCompare(b.normalized) || a.raw.localeCompare(b.raw));
-          console.log('=== DEBUG TEAM RAW -> NORMALIZED ===');
           console.table(rawArr.slice(0, 50));
         } catch (e) {
           console.warn('No se pudo imprimir debug team raw:', e?.message);
@@ -3529,7 +3500,6 @@
 
         // Histograma de status por team: ayuda a detectar estados que deberían contarse como ACTIVE.
         try {
-          console.log('=== DEBUG STATUS HIST POR TEAM (TOP) ===');
           Array.from(statusHistByTeam.entries()).forEach(([team, hist]) => {
             const top = Array.from(hist.entries())
               .sort((a, b) => b[1] - a[1])
@@ -3543,10 +3513,8 @@
 
         // Muestras por team de líneas NO-ACTIVE (cap 20)
         try {
-          console.log('=== DEBUG MUESTRAS NO-ACTIVE POR TEAM ===');
           Array.from(nonActiveSamplesByTeam.entries()).forEach(([team, arr]) => {
             if (arr && arr.length) {
-              console.log(`Team ${team} - muestras (${arr.length})`);
               console.table(arr);
             }
           });
@@ -3556,10 +3524,8 @@
 
         // Muestras por team de líneas ACTIVE-like (cap 30)
         try {
-          console.log('=== DEBUG MUESTRAS ACTIVE POR TEAM ===');
           Array.from(activeSamplesByTeam.entries()).forEach(([team, arr]) => {
             if (arr && arr.length) {
-              console.log(`Team ${team} - active samples (${arr.length})`);
               console.table(arr);
             }
           });
@@ -3949,7 +3915,6 @@
           const id = sel.getAttribute('data-id');
           const status = sel.value;
           const prev = sel.getAttribute('data-prev') || '';
-          console.log('[STATUS UPDATE] Enviando:', { id, status, prev });
           if (!id) { alert('Error: ID del registro no encontrado'); return; }
           // Actualizar color del select inmediatamente
           sel.className = sel.className.replace(/status-select-\w+/g, '').trim() + ' status-select-' + status.toLowerCase();

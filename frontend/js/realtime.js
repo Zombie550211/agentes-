@@ -62,12 +62,10 @@
     var backoff = 2000;
     var closed = false;
 
-    console.info(LOG, 'conectando canal', channel);
 
     function fireChange() {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(function () {
-        console.info(LOG, 'refrescando datos (canal ' + channel + ')');
         try { onChange(); } catch (e) { console.warn(LOG, 'onChange error:', e); }
       }, DEBOUNCE_MS);
     }
@@ -84,7 +82,6 @@
 
       es.onopen = function () {
         backoff = 2000;
-        console.info(LOG, 'conectado ✓ (canal ' + channel + ')');
         if (showBadge) setBadge('live');
       };
 
@@ -92,12 +89,10 @@
         try {
           var data = JSON.parse(ev.data || '{}');
           if (data && data.type === 'connected') {
-            console.info(LOG, 'stream listo (canal ' + channel + ')');
             if (showBadge) setBadge('live');
             return;
           }
         } catch (_) { /* payload no-JSON → tratar como cambio */ }
-        console.info(LOG, 'evento recibido →', ev.data);
         if (showBadge) setBadge('live');
         fireChange();
       };
@@ -139,5 +134,4 @@
   }
 
   global.CRMRealtime = { connect: connect };
-  console.info(LOG, 'realtime.js cargado');
 })(window);

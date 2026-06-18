@@ -2,12 +2,19 @@ from fastapi import APIRouter, Request, Response, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Optional
 import bcrypt as _bcrypt
-from jose import jwt, JWTError
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from pathlib import Path
 from limiter import limiter
 from audit import log_login_ok, log_login_fail, log_logout, log_password_reset_request, log_password_reset_ok
+# Auth/JWT: fuente única en deps.py — no redefinir aquí (ver mejora #5).
+from deps import (
+    JWT_EXPIRES, COOKIE_SAMESITE, ADMIN_ROLES,
+    current_user, require_roles, _get_token,
+    make_token as _make_token,
+    decode_token as _decode_token,
+    set_token_cookie as _set_token_cookie,
+)
 import unicodedata, re, os, json, math, time, secrets, smtplib
 import datetime as _dt
 from email.mime.text import MIMEText
@@ -15,17 +22,10 @@ from email.mime.multipart import MIMEMultipart
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
-JWT_SECRET  = os.getenv("JWT_SECRET")
-if not JWT_SECRET:
-    raise RuntimeError("JWT_SECRET no configurado. Genera uno con: python -c \"import secrets; print(secrets.token_hex(32))\"")
 
-JWT_ALGO    = "HS256"
-JWT_EXPIRES = 30 * 60  # 30 minutos — sesión expira por inactividad
-IS_PROD     = os.getenv("NODE_ENV") == "production"
-# Por defecto "lax": el frontend usa URLs relativas (API_BASE_URL=''), así que
-# todas las peticiones son same-origin (incl. el proxy de Netlify a /api) y Lax
-# mitiga CSRF. Poner "none" solo si el frontend hace fetch cross-origin a la API.
-COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax").lower()
+def _utcnow() -> _dt.datetime:
+    """UTC naive (reemplazo no-deprecado de datetime.utcnow())."""
+    return _dt.datetime.now(_dt.timezone.utc).replace(tzinfo=None)
 
 def _hash_pwd(plain: str) -> str:
     return _bcrypt.hashpw(plain[:72].encode(), _bcrypt.gensalt(rounds=10)).decode()
@@ -122,33 +122,6 @@ async def _find_user_by_username(username: str) -> dict | None:
         row = r.mappings().first()
         return _row_to_user(row) if row else None
 
-def _make_token(user: dict) -> str:
-    payload = {
-        "id":         str(user.get("_id") or user.get("id")),
-        "username":   user.get("username", ""),
-        "name":       user.get("name", "") or user.get("username", ""),
-        "role":       user.get("role", ""),
-        "team":       user.get("team", ""),
-        "supervisor": user.get("supervisor", ""),
-        "iat":        math.floor(time.time()),
-        "exp":        math.floor(time.time()) + JWT_EXPIRES,
-    }
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
-
-def _decode_token(token: str) -> dict | None:
-    try:
-        return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
-    except JWTError:
-        return None
-
-def _get_token(request: Request) -> str | None:
-    token = request.cookies.get("token")
-    if not token:
-        auth = request.headers.get("Authorization", "")
-        if auth.startswith("Bearer "):
-            token = auth[7:]
-    return token
-
 def _load_maintenance() -> dict:
     try:
         if MAINTENANCE_FILE.exists():
@@ -162,42 +135,6 @@ def _save_maintenance(state: dict):
         MAINTENANCE_FILE.write_text(json.dumps(state, indent=2))
     except Exception:
         pass
-
-def _set_token_cookie(response: Response, token: str):
-    response.set_cookie(
-        key="token", value=token,
-        httponly=True,
-        secure=IS_PROD,
-        samesite=COOKIE_SAMESITE,
-        max_age=JWT_EXPIRES,
-        path="/",
-    )
-
-
-async def current_user(request: Request, response: Response) -> dict:
-    token = _get_token(request)
-    if not token:
-        raise HTTPException(status_code=401, detail="No autenticado")
-    decoded = _decode_token(token)
-    if not decoded:
-        raise HTTPException(status_code=401, detail="Token inválido")
-    # Sliding session: renovar si queda menos de la mitad de vida
-    try:
-        exp = int(decoded.get("exp") or 0)
-        if exp - time.time() < JWT_EXPIRES / 2:
-            _set_token_cookie(response, _make_token(decoded))
-    except Exception:
-        pass
-    return decoded
-
-def require_roles(*roles):
-    async def checker(user: dict = Depends(current_user)):
-        if user.get("role") not in roles:
-            raise HTTPException(status_code=403, detail="Sin permiso")
-        return user
-    return checker
-
-ADMIN_ROLES = ("Administrador", "admin", "administrador", "Administrativo")
 
 # ── RUTAS ────────────────────────────────────────────────────────
 
@@ -487,7 +424,7 @@ async def forgot_password(request: Request, body: ForgotPasswordBody):
 
     code       = _gen_code()
     code_hash  = _hash_code(code)
-    expires_at = _dt.datetime.utcnow() + _dt.timedelta(seconds=_RESET_EXPIRY_SECS)
+    expires_at = _utcnow() + _dt.timedelta(seconds=_RESET_EXPIRY_SECS)
     expiry_min = _RESET_EXPIRY_SECS // 60
 
     async with AsyncSessionLocal() as s:
@@ -561,7 +498,7 @@ async def verify_reset_code(request: Request, body: VerifyCodeBody):
     if not row or not row.get("reset_code_hash"):
         raise HTTPException(400, "No hay solicitud de recuperación activa. Vuelve al paso 1.")
 
-    now = _dt.datetime.utcnow()
+    now = _utcnow()
     exp = row["reset_code_expires_at"]
     if exp and now > exp:
         async with AsyncSessionLocal() as s:
@@ -636,7 +573,7 @@ async def reset_password(request: Request, body: ResetPasswordBody):
         if not row or not row.get("reset_token_hash"):
             raise HTTPException(400, "Token de recuperación no válido o ya utilizado.")
 
-        now = _dt.datetime.utcnow()
+        now = _utcnow()
         if row.get("reset_token_expires_at") and now > row["reset_token_expires_at"]:
             async with AsyncSessionLocal() as s:
                 await s.execute(text("UPDATE users SET reset_token_hash=NULL, reset_token_expires_at=NULL, reset_token_used=TRUE WHERE username=:u"), {"u": username})
