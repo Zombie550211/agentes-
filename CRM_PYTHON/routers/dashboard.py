@@ -9,6 +9,10 @@ from sqlalchemy import text
 from deps import current_user
 import datetime as _dt, calendar, traceback, json as _json
 
+
+def _utcnow() -> _dt.datetime:
+    """UTC naive (reemplazo de datetime.utcnow() deprecado en Python 3.12+)."""
+    return _dt.datetime.now(_dt.timezone.utc).replace(tzinfo=None)
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
 
 
@@ -26,7 +30,7 @@ _STATUS_EXCLUDE_RE = "cancel|reserva|hold|rescheduled|reagendado"
 
 @router.get("/home")
 async def dashboard_home(user: dict = Depends(current_user)):
-    now      = _dt.datetime.utcnow()
+    now      = _utcnow()
     role     = (user.get("role") or "").lower()
     username = (user.get("name") or user.get("username") or "").strip().lower()
     is_adm_bo = any(r in role for r in ("admin","administrator","administrador","backoffice","bo","administrativo"))
@@ -276,7 +280,7 @@ async def dashboard_home(user: dict = Depends(current_user)):
         if not created_at:
             return "Reciente"
         try:
-            delta = _dt.datetime.utcnow() - created_at.replace(tzinfo=None)
+            delta = _utcnow() - created_at.replace(tzinfo=None)
             mins = int(delta.total_seconds() // 60)
             if mins < 1:   return "Ahora"
             if mins < 60:  return f"Hace {mins} min"
@@ -394,7 +398,7 @@ async def get_actividades(user: dict = Depends(current_user)):
     def _tiempo_relativo(ts):
         if not ts: return "Reciente"
         try:
-            delta = _dt.datetime.utcnow() - ts.replace(tzinfo=None)
+            delta = _utcnow() - ts.replace(tzinfo=None)
             mins  = int(delta.total_seconds() // 60)
             if mins < 1:   return "Ahora"
             if mins < 60:  return f"Hace {mins} min"

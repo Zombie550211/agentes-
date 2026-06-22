@@ -3,7 +3,7 @@ from fastapi import Body
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 
 router = APIRouter(prefix="/api/equipos", tags=["Equipos"])
@@ -71,7 +71,7 @@ async def equipo_estadisticas(
     scope:       Optional[str] = Query(None),
     user: dict = Depends(current_user),
 ):
-    now = datetime.utcnow()
+    now = _utcnow()
     if not fechaInicio or not fechaFin:
         fi = _to_ymd(datetime(now.year, now.month, 1))
         ff = _to_ymd(now)
@@ -152,7 +152,7 @@ async def equipo_telefonos(
     user: dict = Depends(current_user),
 ):
     """Devuelve todos los teléfonos del mes y detecta duplicados."""
-    now = datetime.utcnow()
+    now = _utcnow()
     fi = fechaInicio or f"{now.year}-{str(now.month).zfill(2)}-01"
     ff = fechaFin    or now.strftime("%Y-%m-%d")
     params = {"fi": fi, "ff": ff}
@@ -177,6 +177,10 @@ async def equipo_telefonos(
 
     # Agrupar por teléfono para detectar duplicados
     from collections import defaultdict
+
+def _utcnow() -> datetime:
+    """UTC naive (reemplazo de _utcnow() deprecado en Python 3.12+)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
     tel_map: dict = defaultdict(list)
     for row in rows:
         tel = str(row["tel"] or "").strip().replace(" ", "").replace("-", "")
@@ -211,7 +215,7 @@ async def equipo_comparar_telefonos(
     user: dict = Depends(current_user),
 ):
     """Compara una lista de teléfonos del Excel contra la BD."""
-    now = datetime.utcnow()
+    now = _utcnow()
     fi = fechaInicio or f"{now.year}-{str(now.month).zfill(2)}-01"
     ff = fechaFin    or now.strftime("%Y-%m-%d")
 

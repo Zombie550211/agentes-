@@ -194,6 +194,10 @@
         })(),
         dia_instalacion: String(pick(['dia_instalacion','installDate','fecha_instalacion','fechaInstalacion','diaInstalacion'])).slice(0,10),
         status:          normalizeStatus(pick(['status','Status','estado','state'])),
+        status_comision: (function(){
+          var v=normalizeStatus(pick(['status_comision','statusComision']));
+          return v||normalizeStatus(pick(['status','Status','estado','state']));
+        })(),
         servicios:       pick(['servicios','servicios_texto','producto_contratado','serviceDescription']),
         tipo_servicio:   pick(['tipo_servicio','serviceType','tipoServicio','tipo_servicios']),
         mercado:         pick(['mercado','market']),
@@ -609,11 +613,25 @@
     return'<select class="status-inline-select '+cfg.cls+(isColchon?' colchon-select':'')+'" data-lead-id="'+escHTML(lidStr)+'"'+colchonAttr+' onchange="inlineStatusChange(this)" aria-label="Cambiar status">'+opts+'</select>'+colchonChip;
   }
 
+  /* ── STATUS COMISIÓN (columna independiente, solo afecta la página de Comisiones) ── */
+  function statusComisionCellHTML(leadId,currentStatus,isColchon){
+    // Fallback al status normal si aún no se ha asignado uno de comisión (datos previos a la columna)
+    const sc=(currentStatus===null||currentStatus===undefined||currentStatus==='')?null:currentStatus;
+    const colchonChip=isColchon?'<span class="badge badge-colchon" style="margin-top:3px;font-size:.6rem;padding:1px 6px;display:block;">🛏 Colchón</span>':'';
+    const ud=getUserData(),role=String(ud.role||ud.rol||'').toLowerCase();
+    if(!isAdminOrBackoffice(role))return badgeHTML(sc||'pending',isColchon);
+    const lidStr=String(leadId);
+    const cfg=STATUS_CFG[sc]||{cls:'badge-hold'};
+    const allOpts=[{value:'pending',label:'Pending'},{value:'completed',label:'Completed'},{value:'cancelled',label:'Cancelled'},{value:'hold',label:'Hold'},{value:'oficina',label:'Oficina'},{value:'reserva',label:'Reserva'}];
+    const opts=allOpts.map(function(o){return'<option value="'+o.value+'"'+(o.value===sc?' selected':'')+'>'+o.label+'</option>';}).join('');
+    return'<select class="status-inline-select '+cfg.cls+(isColchon?' colchon-select':'')+'" data-lead-id="'+escHTML(lidStr)+'" onchange="inlineStatusComisionChange(this)" aria-label="Cambiar status de comisión">'+opts+'</select>'+colchonChip;
+  }
+
   /* ── TABLE ROWS ── */
   function renderTableRows(){
     const tbody=document.getElementById('costumer-tbody');if(!tbody)return;
     const total=__filteredLeads.length,ps=pageSize===99999?total:pageSize,start=(currentPage-1)*ps,paged=__filteredLeads.slice(start,start+ps);
-    if(!paged.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--ink-4);font-size:.82rem;">Sin resultados para los filtros aplicados</td></tr>';}
+    if(!paged.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--ink-4);font-size:.82rem;">Sin resultados para los filtros aplicados</td></tr>';}
     else{tbody.innerHTML=paged.map(function(lead,_ri){
       const lid=String(lead._id);
       const _dv7=String(lead.dia_venta||'').slice(0,7),_di7=String(lead.dia_instalacion||'').slice(0,7);
@@ -654,12 +672,14 @@
         '</td>'+
         // Col 5: Estatus
         '<td class="status-td">'+statusCellHTML(lid,lead.status,isCol)+'</td>'+
-        // Col 6: Métricas / Sup
+        // Col 6: Status Comisión (independiente — solo afecta la página de Comisiones)
+        '<td class="status-td">'+statusComisionCellHTML(lid,lead.status_comision,isCol)+'</td>'+
+        // Col 7: Métricas / Sup
         '<td style="padding:10px 14px;">'+
           '<div style="font-weight:700;font-size:.88rem;font-family:var(--f-mono);color:'+ptsColor+';">'+(pts!==null?escHTML(String(lead.puntaje))+' pts':'— pts')+'</div>'+
           '<div style="font-size:.73rem;color:var(--ink-3);margin-top:3px;">Sup: '+escHTML(fmtSupervisor(lead.supervisor)||'—')+'</div>'+
         '</td>'+
-        // Col 7: Acción
+        // Col 8: Acción
         '<td style="padding:8px 14px;white-space:nowrap;">'+
           '<div style="display:inline-flex;gap:6px;">'+
             '<button onclick="toggleRowExpand(\''+lid+'\')" title="Editar" style="width:30px;height:30px;border-radius:var(--r2);border:1px solid var(--line-1);background:var(--sheet);color:var(--a);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;" aria-label="Editar">'+
@@ -789,6 +809,22 @@
     const res=await AUTH.secureFetch('/api/leads/'+leadId,{method:'PUT',body:JSON.stringify({status:newStatus})});
     if(res&&res.ok){showToast('Status actualizado ✓','ok');showCRMNotif('status',{cliente:lead.nombre_cliente||leadId,actor:getUserData().name||getUserData().username||'Tú',detalle:'Cambió el status del lead',extra:'Nuevo status: '+newStatus});applyFilters();}
     else if(res){lead.status=oldStatus;selectEl.value=oldStatus;selectEl.classList.remove(newCls);selectEl.classList.add(oldCls);showToast('No se pudo guardar el status','error');}
+  };
+
+  /* ── STATUS COMISIÓN: guarda en columna independiente, no toca el status normal ── */
+  window.inlineStatusComisionChange=async function(selectEl){
+    const leadId=selectEl.dataset.leadId,newStatus=selectEl.value;
+    const lead=__allLeadsData.find(function(l){return String(l._id)===leadId;});
+    if(!lead){showToast('Lead no encontrado','error');return;}
+    if(String(leadId).startsWith('tmp-')){showToast('Este lead no tiene ID válido — recarga la página','error');return;}
+    const oldStatus=(lead.status_comision===null||lead.status_comision===undefined||lead.status_comision==='')?null:lead.status_comision;
+    const oldCls=(STATUS_CFG[oldStatus]||{cls:'badge-hold'}).cls;
+    const newCls=(STATUS_CFG[newStatus]||{cls:'badge-hold'}).cls;
+    lead.status_comision=newStatus;
+    selectEl.classList.remove(oldCls);selectEl.classList.add(newCls);
+    const res=await AUTH.secureFetch('/api/leads/'+leadId+'/status-comision',{method:'PUT',body:JSON.stringify({status_comision:newStatus})});
+    if(res&&res.ok){showToast('Status de comisión actualizado ✓','ok');}
+    else if(res){lead.status_comision=oldStatus;selectEl.value=oldStatus||'pending';selectEl.classList.remove(newCls);selectEl.classList.add(oldCls);showToast('No se pudo guardar el status de comisión','error');}
   };
 
   /* ── EDIT MODAL ── */

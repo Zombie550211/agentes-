@@ -4,7 +4,11 @@ from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
 from typing import Optional
-from datetime import datetime, date
+from datetime import datetime, date, timezone
+
+def _utcnow() -> datetime:
+    """UTC naive (reemplazo de _utcnow() deprecado en Python 3.12+)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 router = APIRouter(prefix="/api/premios", tags=["Premios"])
 
@@ -49,7 +53,7 @@ async def get_activos():
 async def create_activo(body: PremioActivo, user: dict = Depends(current_user)):
     if body.tipo not in TIPOS_VALIDOS:
         raise HTTPException(400, "Tipo inválido")
-    now = datetime.utcnow()
+    now = _utcnow()
     async with AsyncSessionLocal() as s:
         await s.execute(text("""
             INSERT INTO premios_activos (tipo, titulo, descripcion, categoria, monto, creado_por, created_at)
@@ -92,7 +96,7 @@ async def get_ganadores():
 async def create_ganador(body: Ganador, user: dict = Depends(current_user)):
     if not body.nombre or not body.iniciales:
         raise HTTPException(400, "Nombre e iniciales requeridos")
-    now = datetime.utcnow()
+    now = _utcnow()
     fecha_val = body.fecha or date.today().isoformat()
     async with AsyncSessionLocal() as s:
         await s.execute(text("""

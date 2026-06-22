@@ -90,10 +90,10 @@ async def upload_media(
         raise HTTPException(413, f"Archivo demasiado grande (max {_MAX_MB} MB)")
 
     ext      = _ext(file.filename or "")
-    ts       = int(_dt.datetime.utcnow().timestamp() * 1000)
+    ts       = int(_utcnow().timestamp() * 1000)
     safe_cat = re.sub(r"[^a-z0-9_-]", "_", cat.lower())
     filename = f"{safe_cat}_{ts}{ext}"
-    now      = _dt.datetime.utcnow()
+    now      = _utcnow()
     upby     = user.get("username", "")
     origname = file.filename or filename
     mimetype = file.content_type or "application/octet-stream"
@@ -136,6 +136,10 @@ async def upload_media(
 
 # ── Alias /api/upload (sin prefix /api/media) ────────────────
 from fastapi import APIRouter as _AR
+
+def _utcnow() -> _dt.datetime:
+    """UTC naive (reemplazo de datetime.utcnow() deprecado en Python 3.12+)."""
+    return _dt.datetime.now(_dt.timezone.utc).replace(tzinfo=None)
 _upload_alias = _AR(tags=["Media"])
 
 

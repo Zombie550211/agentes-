@@ -6,13 +6,17 @@ from sqlalchemy import text
 from deps import current_user
 import datetime as _dt
 
+def _utcnow() -> _dt.datetime:
+    """UTC naive (reemplazo de datetime.utcnow() deprecado en Python 3.12+)."""
+    return _dt.datetime.now(_dt.timezone.utc).replace(tzinfo=None)
+
 router = APIRouter(tags=["Comentarios"])
 
 
 def _fmt_comment(row) -> dict:
     r = dict(row)
     created = r.get("created_at")
-    fecha = created.isoformat() if isinstance(created, _dt.datetime) else _dt.datetime.utcnow().isoformat()
+    fecha = created.isoformat() if isinstance(created, _dt.datetime) else _utcnow().isoformat()
     return {
         "_id":   str(r["id"]),
         "autor": r.get("autor") or "Desconocido",
@@ -75,7 +79,7 @@ async def create_comentario(lead_id: str, body: ComentarioBody, user: dict = Dep
 
     texto = (body.texto or body.comentario or "")[:1000]
     autor = body.autor or user.get("username") or "Sistema"
-    now = _dt.datetime.utcnow()
+    now = _utcnow()
 
     async with AsyncSessionLocal() as s:
         await s.execute(text("""
@@ -128,7 +132,7 @@ async def update_comentario(lead_id: str, comentario_id: str, body: ComentarioUp
     if not db_lead_id:
         raise HTTPException(404, "Lead no encontrado")
 
-    now = _dt.datetime.utcnow()
+    now = _utcnow()
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
             UPDATE lead_comments SET texto = :texto, updated_at = :now

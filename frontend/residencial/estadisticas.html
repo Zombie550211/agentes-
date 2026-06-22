@@ -492,13 +492,13 @@
   function todayMonth(){cY=now.getFullYear();cM=now.getMonth()+1;updateDisplay();load();}
 
   var TTL=2*60*1000;
-  function ck(m){return 'res_stats_v12_'+m;}
+  function ck(m){return 'res_stats_v13_'+m;}
   function cSave(m,d){try{localStorage.setItem(ck(m),JSON.stringify({ts:Date.now(),d:d}));}catch(_){}}
   function cLoad(m){try{var r=localStorage.getItem(ck(m));if(!r)return null;var p=JSON.parse(r);return(Date.now()-p.ts<TTL)?p.d:null;}catch(_){return null;}}
 
   async function fetchData(m){
     try{
-      var res=await fetch('/api/leads/bootstrap?month='+encodeURIComponent(m),{credentials:'include'});
+      var res=await fetch('/api/leads/bootstrap?stats=1&month='+encodeURIComponent(m),{credentials:'include'});
       if(!res.ok)return null;
       var j=await res.json();
       return j.success?j:null;

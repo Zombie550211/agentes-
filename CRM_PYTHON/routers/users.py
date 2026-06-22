@@ -3,10 +3,14 @@ from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 import unicodedata, json
 
+
+def _utcnow() -> datetime:
+    """UTC naive (reemplazo de datetime.utcnow() deprecado en Python 3.12+)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 router = APIRouter(prefix="/api/users", tags=["Users"])
 
 ROLE_PERMS = {
@@ -243,7 +247,7 @@ async def update_role(user_id: str, body: UpdateRoleBody, user: dict = Depends(c
             "role": body.role, "team": final_team,
             "supervisor": final_supervisor,
             "perms": json.dumps(new_perms),
-            "now": datetime.utcnow(), "id": uid,
+            "now": _utcnow(), "id": uid,
         })
         await s.commit()
         r2 = await s.execute(text("SELECT id, username, name, email, role, team, supervisor, avatar_url, permissions FROM users WHERE id = :id"), {"id": uid})
@@ -271,7 +275,7 @@ async def update_credentials(user_id: str, body: UpdateCredentialsBody, user: di
             raise HTTPException(404, "Usuario no encontrado")
 
         set_parts = ["updated_at = :now"]
-        params: dict = {"now": datetime.utcnow(), "id": uid}
+        params: dict = {"now": _utcnow(), "id": uid}
 
         if body.name is not None:
             set_parts.append("name = :name")
@@ -311,7 +315,7 @@ async def update_permissions(user_id: str, body: UpdatePermissionsBody, user: di
 
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("UPDATE users SET permissions = :p, updated_at = :now WHERE id = :id"), {
-            "p": json.dumps(body.permissions), "now": datetime.utcnow(), "id": uid,
+            "p": json.dumps(body.permissions), "now": _utcnow(), "id": uid,
         })
         await s.commit()
         if r.rowcount == 0:
@@ -340,7 +344,7 @@ async def suspend_user(user_id: str, body: SuspendBody, user: dict = Depends(cur
             raise HTTPException(404, "Usuario no encontrado")
         await s.execute(
             text("UPDATE users SET active = :active, updated_at = :now WHERE id = :id"),
-            {"active": 1 if body.active else 0, "now": datetime.utcnow(), "id": uid},
+            {"active": 1 if body.active else 0, "now": _utcnow(), "id": uid},
         )
         await s.commit()
 

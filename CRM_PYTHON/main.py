@@ -128,6 +128,11 @@ _MIGRATIONS: list[tuple[str, str]] = [
     ("0032_lc_llamada_cliente",            "ALTER TABLE lineas_clientes ADD COLUMN llamada_cliente VARCHAR(20) NULL"),
     ("0033_lc_llamadas_realizadas",        "ALTER TABLE lineas_clientes ADD COLUMN llamadas_realizadas TINYINT NOT NULL DEFAULT 0"),
     ("0034_lc_fecha_ultima_llamada",       "ALTER TABLE lineas_clientes ADD COLUMN fecha_ultima_llamada DATETIME NULL"),
+    # Status de comisión: columna independiente del status normal. SOLO la usa la página de
+    # Comisiones residenciales; no afecta semáforo/estadísticas/inicio ni nada del status normal.
+    ("0035_leads_status_comision",         "ALTER TABLE leads ADD COLUMN status_comision VARCHAR(50) NULL"),
+    # Inicializar con el status actual para que la comisión no cambie al desplegar (transición transparente).
+    ("0036_leads_status_comision_init",    "UPDATE leads SET status_comision = status WHERE status_comision IS NULL"),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración

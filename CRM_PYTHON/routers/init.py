@@ -5,6 +5,10 @@ from deps import current_user
 from typing import Optional
 import datetime as _dt, unicodedata, re, json, calendar
 
+def _utcnow() -> _dt.datetime:
+    """UTC naive (reemplazo de datetime.utcnow() deprecado en Python 3.12+)."""
+    return _dt.datetime.now(_dt.timezone.utc).replace(tzinfo=None)
+
 router = APIRouter(tags=["Init"])
 
 _COMPLETED = {"completed","active","completado","activo","activa","vendido","cerrado","cerrada","venta cerrada"}
@@ -64,7 +68,7 @@ def is_colchon(lead: dict, ref_date: _dt.datetime) -> bool:
 def get_time_ago(date) -> str:
     if not isinstance(date, _dt.datetime):
         return "Hace poco"
-    diff = _dt.datetime.utcnow() - date
+    diff = _utcnow() - date
     mins  = int(diff.total_seconds() / 60)
     hours = mins // 60
     days  = hours // 24
@@ -123,7 +127,7 @@ def _row_to_lead(row) -> dict:
 
 @router.get("/api/init-dashboard")
 async def init_dashboard(user: dict = Depends(current_user)):
-    now      = _dt.datetime.utcnow()
+    now      = _utcnow()
     role     = (user.get("role") or "").lower()
     username = user.get("username", "")
 
@@ -243,7 +247,7 @@ async def init_dashboard(user: dict = Depends(current_user)):
             pass
 
     return {
-        "success": True, "timestamp": _dt.datetime.utcnow().isoformat(),
+        "success": True, "timestamp": _utcnow().isoformat(),
         "user": {"username": username, "role": user.get("role"), "team": user.get("team","Sin equipo"), "name": user.get("name") or username},
         "kpis": kpis,
         "userStats": {
@@ -263,7 +267,7 @@ async def init_dashboard(user: dict = Depends(current_user)):
 
 @router.get("/api/init-rankings")
 async def init_rankings(user: dict = Depends(current_user)):
-    now = _dt.datetime.utcnow()
+    now = _utcnow()
     start_date, end_date = _month_range(now.year, now.month)
 
     current_month_ranking = []
@@ -357,7 +361,7 @@ async def init_rankings(user: dict = Depends(current_user)):
 
     top = current_month_ranking
     return {
-        "success": True, "timestamp": _dt.datetime.utcnow().isoformat(),
+        "success": True, "timestamp": _utcnow().isoformat(),
         "user": {"username": user.get("username"), "role": user.get("role"), "team": user.get("team","Sin equipo")},
         "data": {
             "currentMonthRanking": current_month_ranking,
@@ -377,7 +381,7 @@ async def init_rankings(user: dict = Depends(current_user)):
 
 @router.get("/api/init-estadisticas")
 async def init_estadisticas(user: dict = Depends(current_user)):
-    now = _dt.datetime.utcnow()
+    now = _utcnow()
     ms, me = _month_range(now.year, now.month)
 
     date_cond = """(
@@ -480,7 +484,7 @@ async def init_estadisticas(user: dict = Depends(current_user)):
         pass
 
     return {
-        "success": True, "timestamp": _dt.datetime.utcnow().isoformat(),
+        "success": True, "timestamp": _utcnow().isoformat(),
         "user": {"username": user.get("username"), "role": user.get("role"), "team": user.get("team","Sin equipo")},
         "data": {
             "teamsData": teams_data, "agentsData": agents_data,
@@ -495,7 +499,7 @@ async def init_estadisticas(user: dict = Depends(current_user)):
 
 @router.get("/api/init-all-pages")
 async def init_all_pages(user: dict = Depends(current_user)):
-    now = _dt.datetime.utcnow()
+    now = _utcnow()
     ms, me = _month_range(now.year, now.month)
     date_cond = """(
         (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR LEFT(dia_instalacion,7)=LEFT(dia_venta,7)))
@@ -572,7 +576,7 @@ async def init_all_pages(user: dict = Depends(current_user)):
         pass
 
     return {
-        "success": True, "timestamp": _dt.datetime.utcnow().isoformat(),
+        "success": True, "timestamp": _utcnow().isoformat(),
         "user": {"username": user.get("username"), "role": user.get("role"), "team": user.get("team","Sin equipo")},
         "data": {
             "customers": customers, "leads": [], "rankings": rankings,
@@ -586,7 +590,7 @@ async def init_all_pages(user: dict = Depends(current_user)):
 
 @router.get("/api/init-lead")
 async def init_lead(user: dict = Depends(current_user)):
-    now = _dt.datetime.utcnow()
+    now = _utcnow()
     ms, me = _month_range(now.year, now.month)
     date_cond = "(dia_venta BETWEEN :s AND :e OR (created_at BETWEEN :s AND :e AND dia_venta IS NULL))"
     params    = {"s": ms, "e": me}
@@ -618,7 +622,7 @@ async def init_lead(user: dict = Depends(current_user)):
         pass
 
     return {
-        "success": True, "timestamp": _dt.datetime.utcnow().isoformat(),
+        "success": True, "timestamp": _utcnow().isoformat(),
         "user": {"username": user.get("username"), "role": user.get("role")},
         "data": {
             "leadsData": leads_data, "statusSummary": status_summary,
@@ -632,7 +636,7 @@ async def init_lead(user: dict = Depends(current_user)):
 
 @router.get("/api/init-facturacion")
 async def init_facturacion(user: dict = Depends(current_user)):
-    now = _dt.datetime.utcnow()
+    now = _utcnow()
     ms, me = _month_range(now.year, now.month)
     date_cond = "(dia_venta BETWEEN :s AND :e OR (created_at BETWEEN :s AND :e AND dia_venta IS NULL))"
     params    = {"s": ms, "e": me}
@@ -669,7 +673,7 @@ async def init_facturacion(user: dict = Depends(current_user)):
         pass
 
     return {
-        "success": True, "timestamp": _dt.datetime.utcnow().isoformat(),
+        "success": True, "timestamp": _utcnow().isoformat(),
         "user": {"username": user.get("username"), "role": user.get("role")},
         "data": {
             "facturacionData": facturacion_data,
@@ -721,7 +725,7 @@ async def init_multimedia(user: dict = Depends(current_user)):
         pass
 
     return {
-        "success": True, "timestamp": _dt.datetime.utcnow().isoformat(),
+        "success": True, "timestamp": _utcnow().isoformat(),
         "user": {"username": user.get("username"), "role": user.get("role")},
         "data": {"multimediaData": multimedia_data, "typeSummary": type_summary},
         "ttl": 300000,
@@ -745,7 +749,7 @@ async def recent_activity(user: dict = Depends(current_user)):
     if is_sup:                                    users_for_data = sup_agents
     elif is_agent and not is_admin and not is_bo: users_for_data = [username]
 
-    last_date = (_dt.datetime.utcnow() - _dt.timedelta(days=30)).strftime("%Y-%m-%d")
+    last_date = (_utcnow() - _dt.timedelta(days=30)).strftime("%Y-%m-%d")
     date_cond = "(dia_venta >= :ld OR created_at >= :ld)"
     params: dict = {"ld": last_date}
 
@@ -784,10 +788,10 @@ async def recent_activity(user: dict = Depends(current_user)):
             "completed": "Venta cerrada", "cancelled": "Cancelación",
             "hold": "En espera", "rescheduled": "Reagendado", "pending": "Seguimiento",
         }.get(norm_st, "Nuevo")
-        date_c   = lead.get("dia_venta") or lead.get("created_at") or _dt.datetime.utcnow()
+        date_c   = lead.get("dia_venta") or lead.get("created_at") or _utcnow()
         if not isinstance(date_c, _dt.datetime):
             try: date_c = _dt.datetime.strptime(str(date_c)[:10], "%Y-%m-%d")
-            except (ValueError, TypeError): date_c = _dt.datetime.utcnow()
+            except (ValueError, TypeError): date_c = _utcnow()
         formatted.append({
             "id": str(lead["id"]), "nombre_cliente": client, "agente": agent,
             "servicio": services, "tipo_actividad": act_type, "status": norm_st,
@@ -818,7 +822,7 @@ async def agent_history(
     if is_agent and not is_admin and not is_sup:
         agente = username
 
-    now_sv       = _dt.datetime.utcnow() - _dt.timedelta(hours=6)
+    now_sv       = _utcnow() - _dt.timedelta(hours=6)
     _, last_day  = calendar.monthrange(now_sv.year, now_sv.month)
     default_start = f"{now_sv.year}-{now_sv.month:02d}-01"
     default_end   = f"{now_sv.year}-{now_sv.month:02d}-{last_day:02d}"

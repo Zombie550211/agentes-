@@ -6,6 +6,10 @@ from sqlalchemy import text
 from deps import current_user
 import datetime as _dt, re, calendar
 
+def _utcnow() -> _dt.datetime:
+    """UTC naive (reemplazo de datetime.utcnow() deprecado en Python 3.12+)."""
+    return _dt.datetime.now(_dt.timezone.utc).replace(tzinfo=None)
+
 router = APIRouter(tags=["Llamadas Ventas"])
 
 _ADMIN_ROLES = {"admin", "administrador", "administrator", "backoffice", "bo"}
@@ -40,7 +44,7 @@ async def get_llamadas_ventas(
     if not _is_admin(user.get("role", "")):
         raise HTTPException(403, "No autorizado")
 
-    now          = _dt.datetime.utcnow()
+    now          = _utcnow()
     target_month = month if month else now.month
     target_year  = year  if year  else now.year
 
@@ -93,7 +97,7 @@ async def post_llamadas_ventas(body: LlamadasVentasBody, user: dict = Depends(cu
         except ValueError:
             raise HTTPException(400, "Valor no numérico para LLAMADAS/VENTAS")
 
-    now         = _dt.datetime.utcnow()
+    now         = _utcnow()
     day         = int(body.day)
     fecha       = f"{now.year}-{now.month:02d}-{day:02d}"
     valor_final = body.value if body.type == "TOTALES" else (float(body.value) if body.value is not None else 0)
@@ -154,7 +158,7 @@ class CreateSheetBody(BaseModel):
 @router.post("/api/llamadas-ventas-excel/sheets")
 async def excel_create_sheet(body: CreateSheetBody, user: dict = Depends(current_user)):
     _check_excel_access(user)
-    now       = _dt.datetime.utcnow()
+    now       = _utcnow()
     base_name = (body.name or "").strip() or now.strftime("%Y-%m-%d")
     by        = user.get("username", "unknown")
 
@@ -223,7 +227,7 @@ class ExcelCellBody(BaseModel):
 async def excel_save_cell(body: ExcelCellBody, user: dict = Depends(current_user)):
     _check_excel_access(user)
     sid = _sid(body.sheetId.strip())
-    now = _dt.datetime.utcnow()
+    now = _utcnow()
     v   = str(body.value or "").strip()
     by  = user.get("username", "unknown")
 
@@ -289,7 +293,7 @@ async def excel_save_user(body: ExcelUserBody, user: dict = Depends(current_user
     sid = _sid(body.sheetId.strip())
     if not body.name or not body.team:
         raise HTTPException(400, "Faltan campos: name, team")
-    now    = _dt.datetime.utcnow()
+    now    = _utcnow()
     name   = body.name.strip().upper()
     team   = body.team.strip()
     role   = (body.role or "").strip()
@@ -372,7 +376,7 @@ async def excel_rename_sheet(sheet_id: str, body: PatchSheetBody, user: dict = D
     if not _DATE_RE.match(new_name):
         raise HTTPException(400, "Formato de fecha inválido. Use MM/DD/YYYY")
 
-    now = _dt.datetime.utcnow()
+    now = _utcnow()
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
             UPDATE lv_excel_sheets

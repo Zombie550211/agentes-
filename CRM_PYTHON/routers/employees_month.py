@@ -3,9 +3,13 @@ from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user, require_roles, ADMIN_ROLES
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 import re
+
+def _utcnow() -> datetime:
+    """UTC naive (reemplazo de _utcnow() deprecado en Python 3.12+)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 router = APIRouter(prefix="/api/employees-of-month", tags=["Employees of Month"])
 
@@ -61,7 +65,7 @@ async def migrate_cloudinary(user: dict = Depends(require_roles(*ADMIN_ROLES))):
 async def upsert_employee(body: EmployeeBody, user: dict = Depends(require_roles(*ADMIN_ROLES))):
     if body.employee not in VALID_EMPLOYEES:
         raise HTTPException(400, 'Parámetro "employee" inválido (first|second)')
-    now = datetime.utcnow()
+    now = _utcnow()
     async with AsyncSessionLocal() as s:
         exists = await s.execute(text("SELECT id FROM employees_month WHERE employee = :e LIMIT 1"), {"e": body.employee})
         if exists.first():

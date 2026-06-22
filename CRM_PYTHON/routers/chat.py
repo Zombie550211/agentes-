@@ -3,8 +3,12 @@ from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
+
+def _utcnow() -> datetime:
+    """UTC naive (reemplazo de _utcnow() deprecado en Python 3.12+)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
 
@@ -97,7 +101,7 @@ async def get_messages(username: str, user: dict = Depends(current_user)):
             await s.execute(text("""
                 UPDATE messages SET is_read = TRUE, read_at = :now
                 WHERE id IN :ids AND to_user = :u
-            """), {"now": datetime.utcnow(), "ids": tuple(unread_ids), "u": uname})
+            """), {"now": _utcnow(), "ids": tuple(unread_ids), "u": uname})
             await s.commit()
 
     return {"success": True, "messages": msgs}
@@ -107,7 +111,7 @@ async def get_messages(username: str, user: dict = Depends(current_user)):
 async def send_message(body: SendMessage, user: dict = Depends(current_user)):
     if not body.to or not body.body:
         raise HTTPException(400, "Faltan campos")
-    now = datetime.utcnow()
+    now = _utcnow()
     async with AsyncSessionLocal() as s:
         await s.execute(text("""
             INSERT INTO messages (from_user, from_name, from_avatar, to_user, to_name,
@@ -182,7 +186,7 @@ async def mark_read(msg_id: str, user: dict = Depends(current_user)):
         raise HTTPException(400, "ID inválido")
     async with AsyncSessionLocal() as s:
         await s.execute(text("UPDATE messages SET is_read = TRUE, read_at = :now WHERE id = :id AND to_user = :u"), {
-            "now": datetime.utcnow(), "id": mid, "u": user["username"],
+            "now": _utcnow(), "id": mid, "u": user["username"],
         })
         await s.commit()
     return {"success": True}
@@ -221,6 +225,6 @@ async def mark_read_all(body: _ReadAllBody, user: dict = Depends(current_user)):
         r = await s.execute(text("""
             UPDATE messages SET is_read = TRUE, read_at = :now
             WHERE id IN :ids AND to_user = :u
-        """), {"now": datetime.utcnow(), "ids": tuple(ids), "u": user["username"]})
+        """), {"now": _utcnow(), "ids": tuple(ids), "u": user["username"]})
         await s.commit()
     return {"success": True, "updated": r.rowcount}

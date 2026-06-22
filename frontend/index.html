@@ -1358,11 +1358,8 @@
     // Verificar autenticación al cargar la página
     document.addEventListener('DOMContentLoaded', async function() {
       try {
-        console.log('🔍 Iniciando verificación de autenticación...');
         const res = await fetch('/api/auth/verify', { method: 'GET', credentials: 'include' });
         
-        console.log('📡 Response status:', res.status);
-        console.log('📡 Response ok:', res.ok);
         
         if (!res.ok) {
           console.error('❌ Respuesta no válida, redirigiendo a login');
@@ -1375,23 +1372,17 @@
           return {};
         });
         
-        console.log('📦 Datos completos recibidos del servidor:', JSON.stringify(data, null, 2));
         
         const user = data?.user || {};
-        console.log('👤 Usuario extraído:', JSON.stringify(user, null, 2));
         
         // Verificar si realmente hay datos de usuario
         if (!user || !user.username) {
           console.error('❌ No se recibieron datos válidos del usuario');
-          console.log('🔄 Data recibida:', data);
-          console.log('🔄 User extraído:', user);
           
           // Verificar si hay token en cookies
-          console.log('🍪 Cookies disponibles:', document.cookie);
           
           // Intentar obtener de localStorage como fallback
           const storedUser = localStorage.getItem('user');
-          console.log('💾 Usuario en localStorage:', storedUser);
           
           if (!user.username && !storedUser) {
             console.error('❌ No hay datos de usuario disponibles, redirigiendo a login');
@@ -1399,7 +1390,6 @@
             return;
           }
         } else {
-          console.log('✅ Datos de usuario válidos recibidos');
         }
 
         // Mostrar nombre de usuario en el sidebar
@@ -1423,23 +1413,17 @@
 
         // Mostrar nombre de usuario en el perfil de usuario
         const userNameElement = document.getElementById('user-name');
-        console.log('Elemento user-name encontrado:', userNameElement);
         if (userNameElement) {
           userNameElement.textContent = user.username || 'Usuario';
-          console.log('Nombre actualizado a:', user.username);
         } else {
-          console.log('ERROR: No se encontró el elemento user-name');
         }
 
         // Mostrar rol del usuario
         const userRoleElement = document.getElementById('user-role');
-        console.log('Elemento user-role encontrado:', userRoleElement);
         if (userRoleElement) {
           const role = user.role || 'usuario';
           userRoleElement.textContent = role.charAt(0).toUpperCase() + role.slice(1);
-          console.log('Rol actualizado a:', role);
         } else {
-          console.log('ERROR: No se encontró el elemento user-role');
         }
 
         // Mostrar opción de "Crear cuenta" solo si es ADMIN
@@ -1467,26 +1451,20 @@
 
         // Función para actualizar información del usuario en el sidebar
         function updateUserInfoInSidebar() {
-          console.log('Actualizando información del usuario en sidebar...');
-          console.log('Datos del usuario disponibles:', user);
           
           // Actualizar nombre de usuario
           const userNameElement = document.getElementById('user-name');
-          console.log('Elemento user-name encontrado:', userNameElement);
           if (userNameElement) {
             userNameElement.textContent = user.username || 'Usuario';
-            console.log('Nombre actualizado:', user.username);
           } else {
             console.error('Elemento #user-name no encontrado en el DOM');
           }
 
           // Actualizar rol del usuario
           const userRoleElement = document.getElementById('user-role');
-          console.log('Elemento user-role encontrado:', userRoleElement);
           if (userRoleElement) {
             const role = user.role || 'usuario';
             userRoleElement.textContent = role.charAt(0).toUpperCase() + role.slice(1);
-            console.log('Rol actualizado:', role);
           } else {
             console.error('Elemento #user-role no encontrado en el DOM');
           }
@@ -1560,7 +1538,6 @@
           }
         }
       } catch (error) {
-        console.log('Error cargando estadísticas del usuario para sidebar:', error);
         // Mantener valores por defecto en caso de error
       }
     }
@@ -1568,7 +1545,6 @@
     // Función para cargar datos del dashboard
     async function loadDashboardData(user) {
       try {
-        console.log('🔄 Cargando datos del dashboard...');
         
         // Obtener datos de leads/customers
         const response = await fetch('/api/leads', {
@@ -1580,7 +1556,6 @@
           const data = await response.json();
           const leads = data.data || [];
           
-          console.log('📊 Datos cargados:', leads.length, 'registros');
           
           // Calcular métricas generales
           await updateDashboardMetrics(leads, user);

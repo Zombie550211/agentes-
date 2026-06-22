@@ -3,9 +3,13 @@ from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user, require_roles, ADMIN_ROLES
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 import re, json
+
+def _utcnow() -> datetime:
+    """UTC naive (reemplazo de _utcnow() deprecado en Python 3.12+)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 router = APIRouter(prefix="/api/facturacion", tags=["Facturacion"])
 
@@ -101,7 +105,7 @@ async def save_facturacion(body: FacturacionBody, user: dict = Depends(require_r
     if not parsed:
         raise HTTPException(400, "Fecha inválida")
     campos17 = _ensure_len17(body.campos)
-    now = datetime.utcnow()
+    now = _utcnow()
     username = user.get("username")
 
     async with AsyncSessionLocal() as s:

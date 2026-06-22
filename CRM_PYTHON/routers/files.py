@@ -10,6 +10,10 @@ import traceback
 import io
 import re
 
+
+def _utcnow() -> _dt.datetime:
+    """UTC naive (reemplazo de datetime.utcnow() deprecado en Python 3.12+)."""
+    return _dt.datetime.now(_dt.timezone.utc).replace(tzinfo=None)
 router = APIRouter(tags=["Files"])
 
 _ADMIN_ROLES = {"admin", "administrador", "administrator", "backoffice", "bo"}
@@ -89,10 +93,10 @@ async def upload_file(
 
         mimetype  = file.content_type or "application/octet-stream"
         file_type = _classify(mimetype)
-        ts        = int(_dt.datetime.utcnow().timestamp() * 1000)
+        ts        = int(_utcnow().timestamp() * 1000)
         orig      = safe_filename(file.filename or "file")
         upby      = user.get("username") or "unknown"
-        now       = _dt.datetime.utcnow()
+        now       = _utcnow()
 
         if file_type == "image":
             # Convertir a WebP antes de guardar (reduce tamaño en BD)

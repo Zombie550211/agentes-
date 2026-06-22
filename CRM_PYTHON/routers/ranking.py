@@ -2,10 +2,14 @@ from fastapi import APIRouter, Depends, Query
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 import unicodedata, re, time, json
 
+
+def _utcnow() -> datetime:
+    """UTC naive (reemplazo de datetime.utcnow() deprecado en Python 3.12+)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 router = APIRouter(prefix="/api/ranking", tags=["Ranking"])
 
 _cache: dict = {}
@@ -58,7 +62,7 @@ async def get_ranking(
     debug:       Optional[str] = Query(None),
     user: dict = Depends(current_user),
 ):
-    now = datetime.utcnow()
+    now = _utcnow()
 
     allowed_statuses = None
     if statuses:
@@ -88,7 +92,7 @@ async def get_ranking(
 
     # ── SQL query ──────────────────────────────────────────────────
     # Calcular fecha exclusiva del mes siguiente para capturar todas las horas del último día
-    from datetime import date as _date
+    from datetime import date as _date, timezone
     _s_date = _date.fromisoformat(start_date)
     _nm = _s_date.month + 1 if _s_date.month < 12 else 1
     _ny = _s_date.year if _s_date.month < 12 else _s_date.year + 1
@@ -334,7 +338,7 @@ async def ranking_init(
     user: dict = Depends(current_user),
 ):
     """Endpoint combinado: ranking + media en una sola llamada."""
-    from datetime import date as _date
+    from datetime import date as _date, timezone
     # Fechas por defecto: mes actual
     now = datetime.now()
     fi = fechaInicio or f"{now.year}-{now.month:02d}-01"

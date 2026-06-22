@@ -7,6 +7,10 @@ from pathlib import Path
 import datetime as _dt
 import aiofiles, os, re
 
+
+def _utcnow() -> _dt.datetime:
+    """UTC naive (reemplazo de datetime.utcnow() deprecado en Python 3.12+)."""
+    return _dt.datetime.now(_dt.timezone.utc).replace(tzinfo=None)
 router = APIRouter(tags=["Avatars"])
 
 _AVATAR_DIR = Path(__file__).parent.parent.parent / "uploads" / "avatars"
@@ -142,7 +146,7 @@ async def upload_avatar(
     base_name = sanitized.rsplit(".", 1)[0] or "avatar"
 
     buf, content_type, ext, details, cld_url = await _process_avatar(data, mimetype)
-    ts         = int(_dt.datetime.utcnow().timestamp() * 1000)
+    ts         = int(_utcnow().timestamp() * 1000)
     final_file = f"{ts}-{base_name}.{ext}"
     dest       = _AVATAR_DIR / final_file
 
@@ -156,7 +160,7 @@ async def upload_avatar(
     async with AsyncSessionLocal() as s:
         await s.execute(text("""
             UPDATE users SET avatar_url=:url, updated_at=:now WHERE username=:u
-        """), {"url": avatar_url, "now": _dt.datetime.utcnow(), "u": username})
+        """), {"url": avatar_url, "now": _utcnow(), "u": username})
         await s.commit()
 
     return {
@@ -231,7 +235,7 @@ async def delete_avatar(user: dict = Depends(current_user)):
 
         await s.execute(text("""
             UPDATE users SET avatar_url=NULL, updated_at=:now WHERE username=:u
-        """), {"now": _dt.datetime.utcnow(), "u": username})
+        """), {"now": _utcnow(), "u": username})
         await s.commit()
 
     return {"success": True, "message": "Avatar eliminado", "data": {"url": None}}

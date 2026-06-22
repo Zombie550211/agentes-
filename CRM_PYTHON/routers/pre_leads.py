@@ -3,10 +3,14 @@ from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 import random, re, aiofiles, datetime as _dt, json
+
+def _utcnow() -> datetime:
+    """UTC naive (reemplazo de _utcnow() deprecado en Python 3.12+)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 router = APIRouter(prefix="/api/pre-leads", tags=["Pre-Leads"])
 
@@ -100,7 +104,7 @@ class ResolverBody(BaseModel):
 async def create_pre_lead(body: PreLeadBody, user: dict = Depends(current_user)):
     if not all([body.nombre, body.phone1, body.direccion, body.servicio, body.fechaNacimiento, body.correo]):
         raise HTTPException(400, "Faltan campos obligatorios")
-    now = datetime.utcnow()
+    now = _utcnow()
     fn_date = _parse_date(body.fechaNacimiento)
 
     async with AsyncSessionLocal() as s:
@@ -179,7 +183,7 @@ async def resolver(lead_id: str, body: ResolverBody, user: dict = Depends(curren
     except ValueError:
         raise HTTPException(400, "ID inválido")
 
-    now = datetime.utcnow()
+    now = _utcnow()
     sets = ["resolucion = :res", "resuelto_en = :now", "updated_at = :now"]
     params: dict = {"res": body.resolucion, "now": now, "id": mid}
     if body.notaProcesamiento is not None:
@@ -222,7 +226,7 @@ async def upload_pre_lead_image(
         raise HTTPException(413, "Imagen demasiado grande (máx 20 MB)")
 
     ext      = Path(image.filename or "img.jpg").suffix.lower() or ".jpg"
-    ts       = int(_dt.datetime.utcnow().timestamp() * 1000)
+    ts       = int(_utcnow().timestamp() * 1000)
     filename = f"{lead_id}_{ts}{ext}"
     dest     = _IMAGES_DIR / filename
 
@@ -230,7 +234,7 @@ async def upload_pre_lead_image(
         await f.write(data)
 
     url = f"/uploads/pre_leads/{filename}"
-    new_img = {"url": url, "filename": filename, "uploadedAt": str(_dt.datetime.utcnow())}
+    new_img = {"url": url, "filename": filename, "uploadedAt": str(_utcnow())}
 
     async with AsyncSessionLocal() as s:
         # Fetch existing images JSON and append
@@ -248,7 +252,7 @@ async def upload_pre_lead_image(
         imgs.append(new_img)
         await s.execute(text("""
             UPDATE pre_leads SET images = :imgs, updated_at = :now WHERE id = :id
-        """), {"imgs": json.dumps(imgs), "now": _dt.datetime.utcnow(), "id": mid})
+        """), {"imgs": json.dumps(imgs), "now": _utcnow(), "id": mid})
         await s.commit()
 
     return {"success": True, "url": url, "filename": filename}
@@ -281,7 +285,7 @@ async def update_pre_lead(lead_id: str, body: UpdateLeadBody, user: dict = Depen
     date_cols = {"fechaVenta", "fechaInstalacion", "fechaNacimiento"}
 
     sets = []
-    params: dict = {"id": mid, "now": datetime.utcnow()}
+    params: dict = {"id": mid, "now": _utcnow()}
     for field, col in col_map.items():
         val = getattr(body, field, None)
         if val is not None:
