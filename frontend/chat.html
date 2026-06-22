@@ -566,6 +566,77 @@
   }
   </style>
   <link rel="stylesheet" href="/css/glass-cards.css?v=20260605">
+
+  <!-- ── Tema glass oscuro para el chat ──────────────────────────────
+       glass-cards.css fuerza todo el texto a blanco; sin esto los paneles
+       seguirían usando --surface:#fff → texto blanco sobre blanco (invisible).
+       Aquí reasignamos las variables del chat a superficies oscuras translúcidas
+       (no totalmente transparentes) y damos efecto cristal a los paneles. -->
+  <style>
+    :root {
+      --surface: rgba(8,18,38,0.62);
+      --border:  rgba(255,255,255,0.12);
+      --text:    #f1f5f9;
+      --text-2:  #cbd5e1;
+      --text-3:  #94a3b8;
+      --accent-light: rgba(99,102,241,0.22);
+    }
+
+    /* Paneles con efecto cristal */
+    .chat-left,
+    .conv-header,
+    .conv-input-area,
+    .conv-search-bar,
+    .inbox-header,
+    .notif-panel,
+    .compose-modal,
+    .to-dropdown,
+    .emoji-picker-wrap {
+      background: rgba(8,18,38,0.62) !important;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+    .chat-right { background: transparent !important; }
+
+    /* Lista / categorías / items */
+    .chat-item:hover,
+    .cat-item:hover,
+    .inbox-item:hover,
+    .notif-item:hover  { background: rgba(255,255,255,0.07) !important; }
+    .chat-item.active,
+    .cat-item.active,
+    .inbox-item.unread,
+    .notif-item.unread { background: rgba(99,102,241,0.20) !important; }
+    .notif-item, .inbox-item { border-bottom-color: rgba(255,255,255,0.06) !important; }
+
+    /* Burbujas de mensaje */
+    .msg-row.theirs .msg-bubble {
+      background: rgba(8,18,38,0.72) !important;
+      border-color: rgba(255,255,255,0.12) !important;
+    }
+    .msg-row.mine .msg-bubble { background: var(--accent) !important; }
+    .msg-date-sep span { background: rgba(8,18,38,0.85) !important; }
+
+    /* Inputs (refuerzo sobre glass-cards) */
+    .chat-search input,
+    .conv-input, .conv-input:focus,
+    .conv-search-wrap,
+    .compose-field-input,
+    .compose-to-input,
+    .compose-body { background: rgba(8,18,38,0.55) !important; }
+
+    /* Avatares con tinte índigo (en vez de blanco) */
+    .chat-avatar,
+    .conv-header-avatar,
+    .inbox-avatar,
+    .notif-item-avatar,
+    .to-option-avatar { background: rgba(99,102,241,0.28) !important; }
+
+    /* Botones de acción redondos */
+    .conv-action-btn,
+    .notif-btn,
+    .btn-emoji-toggle { background: rgba(8,18,38,0.55) !important; }
+  </style>
 </head>
 <body>
 <div class="layout">
@@ -767,6 +838,6 @@
 <div class="toast" id="toast"></div>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="js/chat-page.js" defer></script>
+<script src="js/chat-page.js?v=20260618sse" defer></script>
 </body>
 </html>

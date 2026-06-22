@@ -20,26 +20,37 @@ _use_ssl = os.getenv("MYSQL_SSL", "").lower() in ("1", "true", "yes") or (
 
 _connect_args: dict = {}
 if _use_ssl:
-    _ssl_ca = os.getenv("MYSQL_SSL_CA")  # ruta al CA cert de Aiven (descargable desde Aiven Console)
-    _ssl_ctx = ssl.create_default_context(cafile=_ssl_ca if _ssl_ca else None)
-    if _ssl_ca:
-        _ssl_ctx.verify_mode   = ssl.CERT_REQUIRED
+    _ssl_ca  = os.getenv("MYSQL_SSL_CA")      # ruta a un archivo CA cert (p.ej. Secret File en Render)
+    _ssl_pem = os.getenv("MYSQL_SSL_CA_PEM")  # contenido del CA cert inline (cómodo en env vars de Render)
+
+    if _ssl_pem:
+        # El CA cert viene pegado directamente en la variable de entorno.
+        # Toleramos saltos de línea escapados (\n) por si la plataforma los almacena así.
+        _ssl_ctx = ssl.create_default_context(cadata=_ssl_pem.replace("\\n", "\n"))
+        _ssl_ctx.verify_mode    = ssl.CERT_REQUIRED
+        _ssl_ctx.check_hostname = True
+    elif _ssl_ca:
+        _ssl_ctx = ssl.create_default_context(cafile=_ssl_ca)
+        _ssl_ctx.verify_mode    = ssl.CERT_REQUIRED
         _ssl_ctx.check_hostname = True
     elif os.getenv("NODE_ENV") == "production":
         # En producción NO se permite conexión sin verificar el certificado del
         # servidor: sería vulnerable a MITM. Hay que configurar el CA cert.
         raise RuntimeError(
-            "MYSQL_SSL_CA no configurado en producción. La verificación TLS del "
-            "servidor MySQL es obligatoria para evitar ataques MITM. Descarga el "
-            "CA cert desde la consola de tu proveedor (Aiven/Railway/etc.) y "
-            "configura MYSQL_SSL_CA=/ruta/ca.pem"
+            "MYSQL_SSL_CA / MYSQL_SSL_CA_PEM no configurado en producción. La "
+            "verificación TLS del servidor MySQL es obligatoria para evitar ataques "
+            "MITM. Descarga el CA cert desde la consola de tu proveedor "
+            "(Aiven/Railway/etc.) y configura MYSQL_SSL_CA=/ruta/ca.pem, o pega su "
+            "contenido en MYSQL_SSL_CA_PEM."
         )
     else:
         # Solo en desarrollo: acepta el cert sin verificar, pero advierte.
+        _ssl_ctx = ssl.create_default_context()
         _ssl_ctx.check_hostname = False
-        _ssl_ctx.verify_mode   = ssl.CERT_NONE
-        print("[AVISO SSL] MYSQL_SSL_CA no configurado — verificación de certificado desactivada. "
-              "Descarga el CA cert desde Aiven Console y configura MYSQL_SSL_CA=/ruta/ca.pem")
+        _ssl_ctx.verify_mode    = ssl.CERT_NONE
+        print("[AVISO SSL] MYSQL_SSL_CA / MYSQL_SSL_CA_PEM no configurado — verificación de "
+              "certificado desactivada. Descarga el CA cert desde Aiven Console y configura "
+              "MYSQL_SSL_CA=/ruta/ca.pem (o MYSQL_SSL_CA_PEM con su contenido).")
     _connect_args["ssl"] = _ssl_ctx
 
 engine = create_async_engine(
