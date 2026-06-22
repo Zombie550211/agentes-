@@ -863,7 +863,6 @@ function getMonthsWorked(agentKey, targetYM){
   const created = new Date(createdAt);
   const [ty, tm] = targetYM.split('-').map(Number);
   const months = (ty - created.getFullYear()) * 12 + (tm - (created.getMonth()+1));
-  console.log('[getMonthsWorked]', agentKey, 'createdAt:', createdAt, 'created month:', created.getFullYear()+'-'+(created.getMonth()+1), 'targetYM:', targetYM, 'months:', months);
   return months;
   // <0 → no existía aún, 0 → primer mes, 1 → segundo mes, 2+ → regular
 }
@@ -883,7 +882,6 @@ function getAgentMes(agentKey, targetYM) {
   const overrides = getNuevoMap();
   if(agentKey in overrides) {
     const val = overrides[agentKey] === 99 ? 0 : overrides[agentKey];
-    console.log('[getAgentMes]', agentKey, 'override:', overrides[agentKey], '→ tipo:', val);
     return val;
   }
   // Auto-detect por antigüedad relativa al mes visualizado
@@ -893,7 +891,6 @@ function getAgentMes(agentKey, targetYM) {
   else if(months === 0) tipo = 1; // primer mes
   else if(months === 1) tipo = 2; // segundo mes
   else tipo = 0; // 2+ meses → regular
-  console.log('[getAgentMes]', agentKey, 'months:', months, '→ tipo:', tipo);
   return tipo;
 }
 
@@ -971,7 +968,11 @@ function isColchon(lead, targetYM){
 // - Colchón: dia_venta !== targetYM Y dia_instalacion === targetYM
 // - Venta futura: dia_venta === targetYM pero dia_instalacion en mes siguiente → NO cuenta aún
 function cuentaParaComision(lead, targetYM){
-  const st = normalizeStatus(lead.status);
+  // La comisión se controla por status_comision (columna independiente del status normal).
+  // Fallback a status normal para registros previos a la columna (status_comision NULL/vacío).
+  const sc = (lead.status_comision !== null && lead.status_comision !== undefined && lead.status_comision !== '')
+    ? lead.status_comision : lead.status;
+  const st = normalizeStatus(sc);
   if(st !== 'completed') return false;
   const dv = String(lead.dia_venta||lead.diaVenta||'').slice(0,7);
   const di = String(lead.dia_instalacion||lead.diaInstalacion||'').slice(0,7);

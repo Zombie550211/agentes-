@@ -3,9 +3,13 @@ from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import require_roles
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Any
 import json
+
+def _utcnow() -> datetime:
+    """UTC naive (reemplazo de _utcnow() deprecado en Python 3.12+)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 router = APIRouter(prefix="/api/llamadas-ventas-lineas", tags=["Llamadas Ventas Lineas"])
 
@@ -53,7 +57,7 @@ async def llamadas_por_fecha(fecha: str, user: dict = Depends(require_roles(*_AD
 async def llamadas_save(body: LlamadasBody, user: dict = Depends(require_roles(*_ADMIN_BO_ROLES))):
     if not body.fecha:
         raise HTTPException(400, "Fecha requerida")
-    now = datetime.utcnow()
+    now = _utcnow()
     username = user.get("username")
     equipos_json = json.dumps(body.equipos or {})
 

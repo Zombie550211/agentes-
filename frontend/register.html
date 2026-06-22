@@ -8,11 +8,9 @@
     // Protección de ruta: solo usuarios con permisos de administrador pueden acceder
     (async function() {
       try {
-        console.log('[REGISTER] Verificando permisos de acceso...');
         
         // Intentar primero con el token del localStorage
         let token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        console.log('[REGISTER] Token encontrado:', !!token);
         
         let res;
         if (token) {
@@ -35,21 +33,17 @@
           });
         }
         
-        console.log('[REGISTER] Respuesta del servidor:', res.status, res.statusText);
         
         if (!res.ok) {
-          console.log('[REGISTER] No autenticado, redirigiendo a login');
           window.location.href = 'login.html';
           return;
         }
         
         const data = await res.json();
-        console.log('[REGISTER] Datos del usuario:', data);
         
         const role = (data && data.user && data.user.role) || '';
         const username = (data && data.user && data.user.username) || '';
         
-        console.log('[REGISTER] Usuario:', username, 'Rol:', role);
         
         // Roles que pueden crear cuentas
         const allowedRoles = ['Administrador', 'admin', 'administrador', 'Administrativo'];
@@ -58,8 +52,6 @@
         const normalizedRole = role.toLowerCase().trim();
         const normalizedAllowedRoles = allowedRoles.map(r => r.toLowerCase().trim());
         
-        console.log('[REGISTER] Rol normalizado:', normalizedRole);
-        console.log('[REGISTER] Roles permitidos normalizados:', normalizedAllowedRoles);
         
         // Verificar si el usuario tiene permisos de administrador
         const hasAdminAccess = normalizedAllowedRoles.includes(normalizedRole) || 
@@ -67,13 +59,11 @@
                               normalizedRole.includes('administrativo');
         
         if (!hasAdminAccess) {
-          console.log('[REGISTER] Rol no autorizado:', role, 'Roles permitidos:', allowedRoles);
           alert(`Acceso denegado. Tu rol "${role}" no tiene permisos para crear cuentas.\n\nSolo los administradores pueden acceder a esta página.`);
           window.location.href = '/residencial/inicio.html';
           return;
         }
         
-        console.log('[REGISTER] Acceso autorizado para:', username, 'con rol:', role);
         // Persistir usuario para sidebar unificado
         try { if (window.setCurrentUser) window.setCurrentUser(data.user); } catch(_) {}
         // Autorizado: continuar
@@ -1158,7 +1148,6 @@
             }, 10);
           }
           
-          console.log('Team seleccionado:', this.value, 'Supervisor asignado:', supervisor);
         } else {
           // Ocultar supervisor si no hay team seleccionado
           selectedSupervisor = null;
@@ -1257,7 +1246,6 @@
         const supervisor = selectedSupervisor; // Supervisor asignado automáticamente
         
         // Log para debugging
-        console.log('Creando usuario:', { username, fullName, role: userType, team, supervisor });
         
         let isValid = true;
         

@@ -3,12 +3,16 @@ from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user, require_roles
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List, Any
 import re, unicodedata, time, json, calendar, traceback, asyncio
 from geocoder import geocode_and_save
 import realtime
 
+
+def _utcnow() -> datetime:
+    """UTC naive (reemplazo de datetime.utcnow() deprecado en Python 3.12+)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 router = APIRouter(tags=["Leads"])
 
 
@@ -30,7 +34,7 @@ async def _log_activity(activity_type: str, client_name: str, description: str, 
                 "desc":   description,
                 "actor":  user.get("username") or "Sistema",
                 "role":   user.get("role") or "Usuario",
-                "ts":     datetime.utcnow(),
+                "ts":     _utcnow(),
             })
             await s.commit()
     except Exception:
@@ -85,6 +89,32 @@ def _serialize_lead(row) -> dict:
     return d
 
 
+def _serialize_lead_stats(row) -> dict:
+    """Versión reducida para la página de Estadísticas: SOLO campos agregables
+    (fechas, status, puntaje, mercado, equipo, servicios). NO incluye PII de
+    clientes (nombre, teléfono, dirección, notas). Permite mostrar KPIs globales
+    a cualquier rol —incluidos agentes— sin exponer datos individuales de otros."""
+    d = dict(row)
+    out = {
+        "id":              str(d.get("id", "")),
+        "dia_venta":       str(d["dia_venta"])       if d.get("dia_venta")       else None,
+        "dia_instalacion": str(d["dia_instalacion"]) if d.get("dia_instalacion") else None,
+        "status":          d.get("status"),
+        "puntaje":         d.get("puntaje"),
+        "mercado":         d.get("mercado"),
+        "team":            d.get("team"),
+        "supervisor":      d.get("supervisor"),
+        "tipo_servicio":   d.get("tipo_servicio"),
+    }
+    v = d.get("servicios")
+    if isinstance(v, str):
+        try: out["servicios"] = json.loads(v)
+        except (ValueError, TypeError): out["servicios"] = None
+    else:
+        out["servicios"] = v
+    return out
+
+
 def _find_id(s: str) -> tuple[Optional[int], Optional[str]]:
     """Return (mysql_int_id, mongo_id_str) from an arbitrary ID string."""
     try:
@@ -124,9 +154,16 @@ async def leads_bootstrap(
     year:        Optional[str] = Query(None),
     noAutoMonth: Optional[str] = Query(None),
     allData:     Optional[str] = Query(None),
+    stats:       Optional[str] = Query(None),
     limit:       int           = Query(5000),
     user: dict = Depends(current_user),
 ):
+    # Modo estadísticas: devuelve totales GLOBALES (los mismos que ve el admin) con un
+    # serializador reducido sin PII. No filtra por agente, así los KPIs de la página de
+    # Estadísticas no quedan acotados a las ventas del propio agente. La restricción por
+    # mercado (BAMO) sí se mantiene. La Lista de Clientes (sin stats) sigue filtrada.
+    is_stats = str(stats or "").lower() in ("1", "true")
+
     async def _get_leads():
         where = ["1=1"]
         params: dict = {}
@@ -134,7 +171,7 @@ async def leads_bootstrap(
         if mercado_restrict:
             where.append("UPPER(TRIM(COALESCE(mercado,''))) = :mer")
             params["mer"] = mercado_restrict
-        if _is_agent(user):
+        if _is_agent(user) and not is_stats:
             username = user.get("username", "")
             if username:
                 where.append("(agente_nombre = :u OR agente = :u OR created_by = :u)")
@@ -142,7 +179,7 @@ async def leads_bootstrap(
         disable_auto = str(noAutoMonth or "").lower() in ("1", "true")
         is_global    = str(allData or "").lower() in ("true", "1")
         if not is_global and not disable_auto:
-            now = datetime.utcnow()
+            now = _utcnow()
             if month and re.match(r"^\d{4}-\d{2}$", month):
                 yr, mo = map(int, month.split("-"))
                 has_month_filter = True
@@ -184,7 +221,8 @@ async def leads_bootstrap(
             rc = await s.execute(text(f"SELECT COUNT(*) AS total FROM leads WHERE {where_sql}"), count_params)
             total_mes = int(rc.scalar() or 0)
             r = await s.execute(text(f"SELECT * FROM leads WHERE {where_sql} ORDER BY created_at DESC LIMIT :_lim"), params)
-            return [_serialize_lead(row) for row in r.mappings().all()], total_mes
+            _ser = _serialize_lead_stats if is_stats else _serialize_lead
+            return [_ser(row) for row in r.mappings().all()], total_mes
 
     async def _get_teams():
         async with AsyncSessionLocal() as s:
@@ -223,7 +261,7 @@ async def leads_bootstrap(
 
     async def _get_lineas_stats():
         try:
-            now = datetime.utcnow()  # noqa
+            now = _utcnow()  # noqa
             if month and re.match(r"^\d{4}-\d{2}$", month):
                 yr, mo = map(int, month.split("-"))
             else:
@@ -302,7 +340,7 @@ async def leads_agents_summary(
     month:       Optional[str] = Query(None),
     user: dict = Depends(current_user),
 ):
-    now = datetime.utcnow()
+    now = _utcnow()
     if month and re.match(r"^\d{4}-\d{2}$", month):
         yr, mo = map(int, month.split("-"))
     else:
@@ -338,7 +376,7 @@ async def leads_kpis(
     month:       Optional[str] = Query(None),
     user: dict = Depends(current_user),
 ):
-    now = datetime.utcnow()
+    now = _utcnow()
     if month and re.match(r"^\d{4}-\d{2}$", month):
         yr, mo = map(int, month.split("-"))
     else:
@@ -420,7 +458,7 @@ async def _count_llamadas_vencidas(user: dict) -> int:
 async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
     if await _count_llamadas_vencidas(user) > 0:
         raise HTTPException(423, "Tienes clientes completados por llamar. Registra las llamadas pendientes para continuar.")
-    now = datetime.utcnow()
+    now = _utcnow()
     # Auto-asignar supervisor/team desde el perfil del agente si no viene en el body
     if not body.supervisor:
         if _is_supervisor(user):
@@ -441,13 +479,13 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
         r = await s.execute(text("""
             INSERT INTO leads
               (nombre_cliente, telefono_principal, telefono, telefono_alterno, direccion, zip_code, servicios,
-               tipo_servicio, numero_cuenta, mercado, motivo_llamada, status,
+               tipo_servicio, numero_cuenta, mercado, motivo_llamada, status, status_comision,
                autopago, sistema, riesgo,
                puntaje, dia_venta, dia_instalacion, supervisor, agente, agente_nombre,
                imagen_url, source_collection, created_by, created_at, updated_at)
             VALUES
               (:nc, :tp, :t2, :talt, :dir, :zip, :srv,
-               :ts, :nc2, :mer, :ml, :st,
+               :ts, :nc2, :mer, :ml, :st, :st,
                :ap, :sis, :rie,
                :pts, :dv, :di, :sup, :ag, :agn,
                :img, 'leads', :by, :now, :now)
@@ -568,7 +606,7 @@ async def list_leads(
     disable_auto = str(noAutoMonth or "").lower() in ("1", "true")
     is_global = any(str(v or "").lower() in ("true", "1") for v in [allData, noFilter, skipDate])
     if not is_global and not disable_auto and not fechaInicio and not fechaFin and not has_search:
-        now = datetime.utcnow()
+        now = _utcnow()
         if month and re.match(r"^\d{4}-\d{2}$", month):
             yr, mo = map(int, month.split("-"))
         elif month and year and re.match(r"^\d{4}$", year or ""):
@@ -616,7 +654,7 @@ async def leads_dashboard(
     month:       Optional[str] = Query(None),
     user: dict = Depends(current_user),
 ):
-    now = datetime.utcnow()
+    now = _utcnow()
     if month and re.match(r"^\d{4}-\d{2}$", month):
         yr, mo = map(int, month.split("-"))
     else:
@@ -663,7 +701,7 @@ async def semaforo(
     statuses:    Optional[str] = Query(None),
     user: dict = Depends(current_user),
 ):
-    now = datetime.utcnow()
+    now = _utcnow()
     start = fechaInicio or datetime(now.year, now.month, 1).strftime("%Y-%m-%d")
     end   = fechaFin   or now.strftime("%Y-%m-%d")
 
@@ -724,7 +762,7 @@ async def comisiones_agents(
     debug:       Optional[str] = Query(None),
     user: dict = Depends(current_user),
 ):
-    now = datetime.utcnow()
+    now = _utcnow()
     if month and re.match(r"^\d{4}-\d{2}$", month):
         yr, mo = map(int, month.split("-"))
     elif month and year and re.match(r"^\d{4}$", year or ""):
@@ -775,7 +813,7 @@ async def comisiones_agentes_lineas(
     year:  Optional[str] = Query(None),
     user: dict = Depends(current_user),
 ):
-    now = datetime.utcnow()
+    now = _utcnow()
     if month and re.match(r"^\d{4}-\d{2}$", month):
         yr, mo = map(int, month.split("-"))
     elif month and year and re.match(r"^\d{4}$", year or ""):
@@ -824,7 +862,7 @@ async def leads_lineas(
     # Mes por defecto: mes actual si no se especifica
     target_month = month
     if not target_month:
-        now = datetime.utcnow()
+        now = _utcnow()
         if year and re.match(r"^\d{4}$", year):
             target_month = f"{year}-{now.month:02d}"
         else:
@@ -1061,7 +1099,7 @@ async def registrar_llamada(
 
         numero = n_actual + 1
         tipo   = "verificacion" if n_actual == 0 else "seguimiento"
-        now    = datetime.utcnow()
+        now    = _utcnow()
         autor  = user.get("name") or user.get("username") or "system"
 
         await s.execute(text("""
@@ -1184,6 +1222,45 @@ async def update_lead_status(
     return {"success": True, "message": "Status actualizado", "data": {"id": lead_id, "status": body.status}}
 
 
+class UpdateStatusComisionBody(BaseModel):
+    status_comision: str
+
+
+@router.put("/api/leads/{lead_id}/status-comision")
+async def update_lead_status_comision(
+    lead_id: str,
+    body: UpdateStatusComisionBody,
+    user: dict = Depends(current_user),
+):
+    """Actualiza SOLO el status de comisión, una columna independiente del status normal.
+
+    Aislamiento total: no toca `status`, no dispara el ciclo de llamadas de verificación
+    ni notificaciones de status. Únicamente la página de Comisiones residenciales lee este
+    campo, así que cambiarlo no afecta semáforo, estadísticas, inicio ni nada del flujo normal.
+    """
+    if not (_is_admin_or_bo(user) or _is_supervisor(user)):
+        raise HTTPException(403, "No autorizado")
+    if not body.status_comision:
+        raise HTTPException(400, "status_comision requerido")
+    mysql_id, mongo_id = _find_id(lead_id)
+    async with AsyncSessionLocal() as s:
+        if mysql_id:
+            r = await s.execute(
+                text("UPDATE leads SET status_comision = :sc WHERE id = :id"),
+                {"sc": body.status_comision, "id": mysql_id},
+            )
+        else:
+            r = await s.execute(
+                text("UPDATE leads SET status_comision = :sc WHERE mongo_id = :mid"),
+                {"sc": body.status_comision, "mid": mongo_id},
+            )
+        await s.commit()
+        if r.rowcount == 0:
+            raise HTTPException(404, "Lead no encontrado")
+    return {"success": True, "message": "Status de comisión actualizado",
+            "data": {"id": lead_id, "status_comision": body.status_comision}}
+
+
 class UpdateLeadBody(BaseModel):
     model_config = {"extra": "allow"}
 
@@ -1252,7 +1329,7 @@ async def update_lead(
         raise HTTPException(400, "Sin campos para actualizar")
 
     sets = []
-    params: dict = {"now": datetime.utcnow(), "by": user.get("username", "system")}
+    params: dict = {"now": _utcnow(), "by": user.get("username", "system")}
 
     for field, col in _LEAD_COL_MAP.items():
         if field in data:
@@ -1428,11 +1505,11 @@ async def update_lineas_team_status(body: LineasTeamStatusBody, user: dict = Dep
         if mysql_id:
             r = await s.execute(text(
                 "UPDATE lineas_clientes SET status = :st, updated_at = :now WHERE id = :id"
-            ), {"st": body.status, "now": datetime.utcnow(), "id": mysql_id})
+            ), {"st": body.status, "now": _utcnow(), "id": mysql_id})
         else:
             r = await s.execute(text(
                 "UPDATE lineas_clientes SET status = :st, updated_at = :now WHERE mongo_id = :mid"
-            ), {"st": body.status, "now": datetime.utcnow(), "mid": mongo_id})
+            ), {"st": body.status, "now": _utcnow(), "mid": mongo_id})
         await s.commit()
         if r.rowcount == 0:
             raise HTTPException(404, "Registro no encontrado")
@@ -1461,14 +1538,14 @@ async def update_lineas_team_line_status(body: LineasLineStatusBody, user: dict 
                 "lineas_status = JSON_SET(COALESCE(lineas_status,'{}'), CONCAT('$.\"', :idx, '\"'), :st), "
                 "lines_data = JSON_SET(COALESCE(lines_data,'[]'), CONCAT('$[', :idx, '].estado'), :st), "
                 "updated_at = :now WHERE id = :id"
-            ), {"idx": str(idx), "st": new_status, "now": datetime.utcnow(), "id": mysql_id})
+            ), {"idx": str(idx), "st": new_status, "now": _utcnow(), "id": mysql_id})
         else:
             r = await s.execute(text(
                 "UPDATE lineas_clientes SET "
                 "lineas_status = JSON_SET(COALESCE(lineas_status,'{}'), CONCAT('$.\"', :idx, '\"'), :st), "
                 "lines_data = JSON_SET(COALESCE(lines_data,'[]'), CONCAT('$[', :idx, '].estado'), :st), "
                 "updated_at = :now WHERE mongo_id = :mid"
-            ), {"idx": str(idx), "st": new_status, "now": datetime.utcnow(), "mid": mongo_id})
+            ), {"idx": str(idx), "st": new_status, "now": _utcnow(), "mid": mongo_id})
         await s.commit()
         if r.rowcount == 0:
             raise HTTPException(404, "Registro no encontrado")
@@ -1515,16 +1592,16 @@ async def crm_agente(raw_request: Request, user: dict = Depends(current_user)):
     agent_username  = agent_row["username"]
     agent_supervisor = agent_row.get("supervisor") or ""
     col_name = f"costumers_{agent_username.replace('.','_').replace(' ','_')}"
-    now = datetime.utcnow()
+    now = _utcnow()
     servicios = request_data.get("servicios")
 
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
             INSERT INTO leads
-              (nombre_cliente, telefono_principal, status, agente, agente_nombre,
+              (nombre_cliente, telefono_principal, status, status_comision, agente, agente_nombre,
                servicios, mercado, supervisor, source_collection, created_by, created_at, updated_at)
             VALUES
-              (:nc, :tp, :st, :ag, :agn, :srv, :mer, :sup, :src, :by, :now, :now)
+              (:nc, :tp, :st, :st, :ag, :agn, :srv, :mer, :sup, :src, :by, :now, :now)
         """), {
             "nc":  request_data.get("nombre_cliente", ""),
             "tp":  request_data.get("telefono_principal", ""),

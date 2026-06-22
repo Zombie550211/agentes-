@@ -3,10 +3,14 @@ from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
 import re
 import realtime
+
+def _utcnow() -> datetime:
+    """UTC naive (reemplazo de _utcnow() deprecado en Python 3.12+)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 router = APIRouter(prefix="/api/leads", tags=["Bulk Status"])
 
@@ -56,7 +60,7 @@ async def bulk_status_by_phone(body: BulkByPhoneBody, user: dict = Depends(curre
     if not input_phones:
         raise HTTPException(400, "Sin números válidos de 10 dígitos")
 
-    now = datetime.utcnow()
+    now = _utcnow()
     found_rows = []
 
     async with AsyncSessionLocal() as s:
@@ -137,7 +141,7 @@ async def bulk_status_by_name(body: BulkByNameBody, user: dict = Depends(current
     if not normalized_names:
         raise HTTPException(400, "Sin nombres válidos (mínimo 3 caracteres)")
 
-    now = datetime.utcnow()
+    now = _utcnow()
     found_rows = []
 
     async with AsyncSessionLocal() as s:

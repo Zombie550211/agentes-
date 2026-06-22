@@ -41,7 +41,7 @@ def _normalize_status(raw: str) -> str:
 
 
 def _is_colchon(lead: dict, ref_date: _dt.datetime = None) -> bool:
-    now = ref_date or _dt.datetime.utcnow()
+    now = ref_date or _utcnow()
     ref_ym = f"{now.year}-{str(now.month).zfill(2)}"
     dv = str(lead.get("dia_venta") or "")[:7]
     di = str(lead.get("dia_instalacion") or "")[:7]
@@ -174,7 +174,7 @@ async def rankings_leads(
         try:
             ref_date = _dt.datetime.fromisoformat(fechaFin)
         except Exception:
-            ref_date = _dt.datetime.utcnow()
+            ref_date = _utcnow()
 
     where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
 
@@ -347,7 +347,7 @@ async def supervisors_by_team(team: str, user: dict = Depends(current_user)):
 async def force_logout_all(user: dict = Depends(current_user)):
     if not _is_admin(_role_lower(user)):
         raise HTTPException(403, "No autorizado")
-    ts = int(_dt.datetime.utcnow().timestamp() * 1000)
+    ts = int(_utcnow().timestamp() * 1000)
     async with AsyncSessionLocal() as s:
         await s.execute(text("""
             INSERT INTO system_settings (`key`, value, updated_by)
@@ -364,6 +364,10 @@ async def clear_all_caches(user: dict = Depends(current_user)):
     if not _is_admin(_role_lower(user)):
         raise HTTPException(403, "No autorizado")
     import sys
+
+def _utcnow() -> _dt.datetime:
+    """UTC naive (reemplazo de datetime.utcnow() deprecado en Python 3.12+)."""
+    return _dt.datetime.now(_dt.timezone.utc).replace(tzinfo=None)
     cleared = []
     for mod_name, attr in [
         ("routers.dashboard", "_cache"),
