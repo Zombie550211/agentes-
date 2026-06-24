@@ -1,15 +1,15 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Facturación</title>
   <link rel="icon" type="image/png" href="/images/favicon.png">
-  <style>.sidebar,.sidebar.sidebar-inicio{background:rgba(5,15,35,0.55)!important;backdrop-filter:blur(14px)!important;-webkit-backdrop-filter:blur(14px)!important}.sidebar .user-info,.sidebar .user-details,.sidebar .avatar-wrapper,.sidebar .avatar,.sidebar .user-name,.sidebar .user-role{display:none!important}.sidebar .nav-item,.sidebar .btn-sidebar{background:transparent!important;box-shadow:none!important}</style>
+  <style>.sidebar,.sidebar.sidebar-inicio{background:rgba(5,15,35,0.65)!important;backdrop-filter:blur(14px)!important;-webkit-backdrop-filter:blur(14px)!important}.sidebar .nav-item,.sidebar .btn-sidebar{background:transparent!important;box-shadow:none!important}</style>
   <link rel="stylesheet" href="/css/sidebar-shared.css?v=20260606f">
   <link rel="stylesheet" href="/css/sidebar-modern.css?v=20260609b">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=Inter:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
@@ -17,542 +17,182 @@
   <style>
     /* ─── TOKENS ─────────────────────────────────────────────────── */
     :root {
-      --bg:        #f5f7fa;
-      --surface:   #ffffff;
-      --card:      #ffffff;
-      --border:    #dde2f0;
-      --accent:    #2563eb;
-      --accent2:   #ef4444;
-      --text:      #1f2937;
-      --muted:     #9ca3af;
-      --positive:  #10b981;
-      --header-h:  72px;
+      --bg:        #070b14;
+      --panel:     #0e1422;
+      --panel2:    #121a2b;
+      --border:    rgba(255,255,255,0.07);
+      --border2:   rgba(255,255,255,0.12);
+      --text:      #e6ebf5;
+      --muted:     #8a93a8;
+      --accent:    #00e5ff;
+      --green:     #34d399;
+      --c-alexis:    #a78bfa;
+      --c-alejandro: #60a5fa;
+      --c-tito:      #2dd4bf;
+      --c-total:     #94a3b8;
+      --header-h:  76px;
       --font-head: 'Syne', sans-serif;
       --font-mono: 'DM Mono', monospace;
+      --font-kpi:  'Inter', system-ui, -apple-system, sans-serif;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      background: var(--bg);
+      background:
+        radial-gradient(1200px 600px at 80% -10%, rgba(0,229,255,0.06), transparent 60%),
+        var(--bg);
       color: var(--text);
       font-family: var(--font-mono);
       min-height: 100vh;
-      overflow-x: hidden;
     }
 
     /* ─── LAYOUT ─────────────────────────────────────────────────── */
-    .layout {
-      display: flex;
-      min-height: 100vh;
-    }
+    .layout { display: flex; min-height: 100vh; }
+    .main-content { flex: 1; min-width: 0; }
+    .central-container { padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 22px; }
 
-    .main-content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .central-container {
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      overflow: hidden;
-    }
-
-    /* ─── TOPBAR ──────────────────────────────────────────────────── */
-    .topbar {
-      height: var(--header-h);
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 32px;
-      gap: 24px;
-      flex-shrink: 0;
-      position: relative;
-    }
-
-    .topbar::after {
-      content: '';
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      height: 2px;
-      background: linear-gradient(90deg, var(--accent) 0%, transparent 60%);
-    }
-
-    .topbar-title {
+    /* ─── TOPBAR ─────────────────────────────────────────────────── */
+    .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+    .topbar-title h1 {
       font-family: var(--font-head);
-      font-size: 22px;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      gap: 12px;
+      font-size: 30px; font-weight: 800; letter-spacing: 0.01em; color: #fff;
     }
+    .topbar-title p { color: var(--muted); font-size: 13px; margin-top: 4px; }
 
-    .topbar-title .dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--accent);
-      box-shadow: 0 0 12px var(--accent);
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50%       { opacity: 0.4; transform: scale(0.7); }
-    }
-
-    /* ─── FILTERS ─────────────────────────────────────────────────── */
-    .filters-group {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .filter-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .filter-item label {
-      font-size: 10px;
-      font-weight: 500;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
+    .filters-group { display: flex; align-items: flex-end; gap: 16px; }
+    .filter-item { display: flex; flex-direction: column; gap: 6px; }
+    .filter-item label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
     .filter-item select {
-      background: var(--card);
-      border: 1px solid var(--border);
-      color: var(--text);
-      font-family: var(--font-mono);
-      font-size: 13px;
-      padding: 6px 28px 6px 12px;
-      border-radius: 6px;
-      outline: none;
-      cursor: pointer;
-      appearance: none;
-      -webkit-appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2300e5ff' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 10px center;
-      transition: border-color .2s;
+      background: var(--panel2); color: var(--text);
+      border: 1px solid var(--border2); border-radius: 10px;
+      padding: 10px 14px; font-family: var(--font-mono); font-size: 13px; min-width: 130px; cursor: pointer;
     }
-
-    .filter-item select:hover,
-    .filter-item select:focus {
-      border-color: var(--accent);
-    }
-
-    /* ─── SAVE BUTTON ─────────────────────────────────────────────── */
+    .filter-item select:focus { outline: none; border-color: var(--accent); }
     .btn-save {
-      background: var(--accent);
-      color: var(--bg);
-      border: none;
-      border-radius: 6px;
-      font-family: var(--font-head);
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      padding: 8px 20px;
-      cursor: pointer;
-      transition: all .2s;
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      display: inline-flex; align-items: center; gap: 8px;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff;
+      border: none; border-radius: 10px; padding: 11px 22px;
+      font-family: var(--font-mono); font-weight: 500; font-size: 14px; cursor: pointer;
+      box-shadow: 0 6px 18px rgba(37,99,235,0.35); transition: transform .15s, box-shadow .15s;
     }
+    .btn-save:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(37,99,235,0.5); }
+    .btn-save:disabled { opacity: .6; cursor: default; transform: none; }
 
-    .btn-save:hover {
-      background: #1e40af;
-      transform: translateY(-1px);
-      box-shadow: 0 6px 20px rgba(37,99,235,0.3);
+    /* ─── KPI CARDS ──────────────────────────────────────────────── */
+    .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px; }
+    .kpi-card {
+      background: linear-gradient(180deg, var(--panel2), var(--panel));
+      border: 1px solid var(--border); border-radius: 16px;
+      padding: 20px; display: flex; align-items: center; gap: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
     }
-
-    .btn-save:active { transform: translateY(0); }
-
-    /* ─── TABLE WRAPPER ────────────────────────────────────────────── */
-    .table-section {
-      flex: 1;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      padding: 0 24px 12px;
-      min-height: 0;
+    .kpi-icon {
+      width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 22px; color: #fff;
     }
+    .kpi-body { min-width: 0; }
+    .kpi-label { font-family: var(--font-kpi); font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    .kpi-value { font-family: var(--font-kpi); font-size: 27px; font-weight: 700; color: #fff; margin-top: 3px; white-space: nowrap; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+    .kpi-sub { font-family: var(--font-kpi); font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .kpi-sub .delta-up { color: var(--green); font-weight: 600; }
+    .kpi-sub .delta-down { color: #f87171; font-weight: 600; }
 
-    .table-scroll {
-      flex: 1;
-      overflow: auto;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      scrollbar-width: thin;
-      scrollbar-color: var(--border) transparent;
+    /* ─── CARD (genérico) ────────────────────────────────────────── */
+    .card {
+      background: linear-gradient(180deg, var(--panel2), var(--panel));
+      border: 1px solid var(--border); border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
     }
+    .card-title { font-family: var(--font-head); font-size: 17px; font-weight: 700; color: #fff; padding: 18px 20px 0; }
 
-    .table-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
-    .table-scroll::-webkit-scrollbar-track { background: transparent; }
-    .table-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-    /* ─── TABLE ────────────────────────────────────────────────────── */
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
+    /* ─── TABLE ──────────────────────────────────────────────────── */
+    .table-section { overflow: hidden; }
+    .table-scroll { overflow: auto; max-height: 460px; }
+    .fact-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .fact-table th, .fact-table td { padding: 9px 12px; text-align: right; white-space: nowrap; }
+    /* Encabezados fijos al hacer scroll vertical */
+    .fact-table thead th { color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--border2); position: sticky; z-index: 3; background: #0e1422; }
+    .fact-table thead tr:first-child th { top: 0; }
+    .fact-table thead tr:nth-child(2) th { top: 28px; }
+    .fact-table .group-header-row th {
+      font-family: var(--font-head); font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.06em; font-size: 12px; text-align: center; padding-bottom: 4px; border-bottom: none;
     }
+    .gh-alexis    { color: var(--c-alexis); }
+    .gh-alejandro { color: var(--c-alejandro); }
+    .gh-tito      { color: var(--c-tito); }
+    .gh-total     { color: var(--c-total); }
+    .gh-garay      { color: #f59e0b; }
+    .gh-connecting { color: var(--accent); }
 
-    /* Group headers */
-    .group-header-row th {
-      background: var(--bg);
-      padding: 6px 8px;
-      font-family: var(--font-head);
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      text-align: center;
-      border-bottom: 1px solid var(--border);
-      color: var(--muted);
+    /* Botón cambio de modo (Residencial / Líneas) */
+    .btn-mode {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--panel2); color: var(--text);
+      border: 1px solid var(--border2); border-radius: 10px; padding: 11px 18px;
+      font-family: var(--font-mono); font-weight: 500; font-size: 14px; cursor: pointer;
+      transition: border-color .15s, color .15s;
     }
-
-    .group-header-row .gh-alexis   { color: #0891b2; border-bottom-color: #0891b2; }
-    .group-header-row .gh-alejandro{ color: #dc2626; border-bottom-color: #dc2626; }
-    .group-header-row .gh-garay    { color: #7c3aed; border-bottom-color: #7c3aed; }
-    .group-header-row .gh-tito     { color: #059669; border-bottom-color: #059669; }
-    .group-header-row .gh-total    { color: #ca8a04; border-bottom-color: #ca8a04; }
-
-    thead tr:not(.group-header-row) th {
-      background: var(--surface);
-      padding: 8px 6px;
-      font-size: 9px;
-      font-weight: 500;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
-      text-align: center;
-      border-bottom: 1px solid var(--border);
-      white-space: nowrap;
-      position: sticky;
-      top: 0;
-      z-index: 2;
+    .btn-mode:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-mode.activo { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+    .fact-table tbody td { border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--text); }
+    .fact-table tbody td:first-child { text-align: left; color: var(--muted); font-weight: 500; }
+    .fact-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.015); }
+    .fact-table tbody tr:hover { background: rgba(0,229,255,0.04); }
+    /* Celdas calculadas (no editables) en tono distinto */
+    .fact-table tbody td[contenteditable="false"]:not(:first-child) { color: var(--muted); }
+    .fact-table tbody td[contenteditable="true"]:focus { outline: 1px solid var(--accent); background: rgba(0,229,255,0.06); border-radius: 4px; }
+    .fact-table tfoot td {
+      padding: 14px 12px; font-weight: 700; color: #fff;
+      border-top: 1px solid var(--border2); background: #0c1a26;
+      position: sticky; bottom: 0; z-index: 4;
+      box-shadow: 0 -6px 14px rgba(0,0,0,0.45);
     }
+    .fact-table tfoot td:first-child { text-align: left; color: var(--accent); letter-spacing: 0.06em; }
 
-    /* Sticky group header */
-    .group-header-row th {
-      position: sticky;
-      top: 0;
-      z-index: 3;
-    }
+    /* ─── BOTTOM GRID ────────────────────────────────────────────── */
+    .bottom-grid { display: grid; grid-template-columns: 1.6fr 1fr 1fr; gap: 18px; }
+    .chart-canvas-wrap { padding: 12px 20px 20px; height: 280px; }
+    .chart-canvas-wrap canvas { width: 100% !important; height: 100% !important; }
 
-    tbody tr {
-      border-bottom: 1px solid #c5cad6;
-      transition: background .15s;
-    }
+    /* Resumen del mes */
+    .resumen-list { padding: 14px 20px 20px; display: flex; flex-direction: column; gap: 6px; }
+    .resumen-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .resumen-item:last-child { border-bottom: none; }
+    .resumen-ic { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #fff; flex-shrink: 0; }
+    .resumen-label { flex: 1; color: var(--muted); font-size: 13px; }
+    .resumen-val { font-family: var(--font-mono); font-weight: 500; color: #fff; font-size: 16px; }
 
-    tbody tr:hover { background: rgba(37,99,235,0.04); }
+    /* Top asesores */
+    .top-list { padding: 14px 20px 20px; display: flex; flex-direction: column; gap: 16px; }
+    .top-item { display: flex; align-items: center; gap: 12px; }
+    .top-rank { width: 22px; height: 22px; border-radius: 50%; background: var(--panel2); border: 1px solid var(--border2); color: var(--muted); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .top-main { flex: 1; min-width: 0; }
+    .top-name { font-size: 13px; color: var(--text); margin-bottom: 6px; }
+    .top-bar { height: 6px; border-radius: 4px; background: rgba(255,255,255,0.06); overflow: hidden; }
+    .top-bar > span { display: block; height: 100%; border-radius: 4px; }
+    .top-val { font-family: var(--font-mono); font-weight: 500; color: #fff; font-size: 13px; white-space: nowrap; }
 
-    tbody tr:nth-child(even) { background: rgba(0,0,0,0.02); }
-    tbody tr:nth-child(even):hover { background: rgba(37,99,235,0.06); }
+    /* ─── FOOTER ─────────────────────────────────────────────────── */
+    .fact-footer { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; color: var(--muted); font-size: 12px; padding-top: 4px; }
+    .fact-footer em { font-style: italic; }
 
-    tbody td {
-      padding: 5px 8px;
-      text-align: center;
-      color: var(--text);
-      font-size: 12px;
-      white-space: nowrap;
-      min-width: 72px;
-      outline: none;
-      transition: background .1s;
-    }
-
-    tbody td:first-child {
-      text-align: left;
-      color: var(--muted);
-      font-size: 11px;
-      min-width: 100px;
-      position: sticky;
-      left: 0;
-      background: var(--card);
-      z-index: 1;
-      padding-left: 12px;
-      border-right: 2px solid #0891b2;
-    }
-
-    /* Líneas separadoras entre grupos */
-    tbody td:nth-child(4) { border-right: 2px solid #0891b2; }  /* Después de Alexis */
-    tbody td:nth-child(7) { border-right: 2px solid #dc2626; }  /* Después de Alejandro */
-    tbody td:nth-child(12) { border-right: 2px solid #7c3aed; } /* Después de Garay */
-    tbody td:nth-child(15) { border-right: 2px solid #059669; } /* Después de Tito */
-
-    tbody tr:hover td:first-child { background: var(--surface); }
-
-    tbody td[contenteditable="true"]:focus {
-      background: rgba(37,99,235,0.08);
-      box-shadow: inset 0 0 0 1px rgba(37,99,235,0.4);
-      color: #1f2937;
-    }
-
-    /* Color-coded columns by group */
-    /* Alexis: cols 1-3 */
-    tbody td:nth-child(2),
-    tbody td:nth-child(3),
-    tbody td:nth-child(4) { color: #0891b2; }
-
-    /* Alejandro: cols 4-6 */
-    tbody td:nth-child(5),
-    tbody td:nth-child(6),
-    tbody td:nth-child(7) { color: #dc2626; }
-
-    /* Garay: cols 7-11 */
-    tbody td:nth-child(8),
-    tbody td:nth-child(9),
-    tbody td:nth-child(10),
-    tbody td:nth-child(11),
-    tbody td:nth-child(12) { color: #7c3aed; }
-
-    /* Tito: cols 12-14 */
-    tbody td:nth-child(13),
-    tbody td:nth-child(14),
-    tbody td:nth-child(15) { color: #059669; }
-
-    /* Totales: cols 15-19 */
-    tbody td:nth-child(16),
-    tbody td:nth-child(17),
-    tbody td:nth-child(18),
-    tbody td:nth-child(19),
-    tbody td:nth-child(20) { color: #ca8a04; }
-
-    /* ─── TOTALS ROW ───────────────────────────────────────────────── */
-    .totals-row {
-      background: var(--surface) !important;
-      border-top: 1px solid var(--border) !important;
-    }
-
-    .totals-row td {
-      font-weight: 500;
-      color: var(--accent) !important;
-      padding: 7px 8px;
-      font-size: 11px;
-      text-align: center;
-    }
-
-    .totals-row td:first-child {
-      font-family: var(--font-head);
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--accent) !important;
-      background: var(--surface);
-      border-right: 2px solid #0891b2;
-    }
-
-    /* Líneas separadoras en totales para alinear con grupos */
-    .totals-row td:nth-child(4) { border-right: 2px solid #0891b2; }  /* Después de Alexis */
-    .totals-row td:nth-child(7) { border-right: 2px solid #dc2626; }  /* Después de Alejandro */
-    .totals-row td:nth-child(12) { border-right: 2px solid #7c3aed; } /* Después de Garay */
-    .totals-row td:nth-child(15) { border-right: 2px solid #059669; } /* Después de Tito */
-
-    /* ─── CHART SECTION ────────────────────────────────────────────── */
-    .chart-section {
-      height: 220px;
-      background: var(--surface);
-      border-top: 1px solid var(--border);
-      padding: 16px 32px 12px;
-      flex-shrink: 0;
-      position: relative;
-    }
-
-    .chart-label {
-      font-family: var(--font-head);
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 8px;
-    }
-
-    .chart-canvas-wrap {
-      height: 150px;
-    }
-
-    /* ─── MODAL ────────────────────────────────────────────────────── */
-    .modal-bg {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.4);
-      z-index: 1000;
-      align-items: center;
-      justify-content: center;
-      backdrop-filter: blur(4px);
-    }
-
-    .modal-bg.active {
-      display: flex;
-    }
-
-    .modal-content {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 28px;
-      max-width: 95vw;
-      max-height: 90vh;
-      overflow: auto;
-      position: relative;
-      width: 1200px;
-    }
-
-    .modal-title {
-      font-family: var(--font-head);
-      font-size: 16px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--accent);
-      margin-bottom: 20px;
-    }
-
-    .modal-close-btn {
-      position: absolute;
-      top: 16px; right: 16px;
-      background: var(--border);
-      border: none;
-      color: var(--text);
-      width: 32px; height: 32px;
-      border-radius: 6px;
-      font-size: 18px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background .2s;
-    }
-
-    .modal-close-btn:hover { background: var(--accent2); }
-
-    .modal-table-container { overflow: auto; }
-
-    /* ─── TOAST ────────────────────────────────────────────────────── */
+    /* ─── TOAST ──────────────────────────────────────────────────── */
     .toast {
-      position: fixed;
-      bottom: 28px;
-      right: 28px;
-      background: rgba(30, 41, 59, 0.75);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 12px;
-      padding: 14px 20px;
-      font-family: var(--font-head);
-      font-size: 13px;
-      font-weight: 600;
-      color: #fff;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-      z-index: 9999;
-      transform: translateY(80px);
-      opacity: 0;
-      transition: all .35s cubic-bezier(.34,1.56,.64,1);
-      pointer-events: none;
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: var(--panel2); color: var(--text); border: 1px solid var(--border2);
+      padding: 12px 22px; border-radius: 12px; font-size: 13px; opacity: 0; pointer-events: none;
+      transition: opacity .25s, transform .25s; z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-    .toast.show {
-      transform: translateY(0);
-      opacity: 1;
+    @media (max-width: 1280px) {
+      .kpi-row { grid-template-columns: repeat(3, 1fr); }
+      .bottom-grid { grid-template-columns: 1fr 1fr; }
     }
-
-    /* ─── ANIMATIONS ───────────────────────────────────────────────── */
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    tbody tr {
-      animation: fadeIn .15s ease both;
-    }
-
-    /* Stagger first 15 rows */
-    tbody tr:nth-child(1)  { animation-delay: .02s }
-    tbody tr:nth-child(2)  { animation-delay: .04s }
-    tbody tr:nth-child(3)  { animation-delay: .06s }
-    tbody tr:nth-child(4)  { animation-delay: .08s }
-    tbody tr:nth-child(5)  { animation-delay: .10s }
-    tbody tr:nth-child(6)  { animation-delay: .12s }
-    tbody tr:nth-child(7)  { animation-delay: .14s }
-    tbody tr:nth-child(8)  { animation-delay: .16s }
-
-    /* ── DARK MODE ── */
-    body.dark-theme {
-      --bg:      #0f172a;
-      --surface: #1e293b;
-      --card:    #1e293b;
-      --border:  #334155;
-      --text:    #e2e8f0;
-      --muted:   #94a3b8;
-      --positive:#4ade80;
-    }
-    body.dark-theme tbody tr { border-bottom-color: #253351 !important; }
-    body.dark-theme tbody tr:hover { background: rgba(99,102,241,0.06) !important; }
-    body.dark-theme tbody td:first-child { background: #1e293b !important; }
-    body.dark-theme tbody tr:hover td:first-child { background: #253351 !important; }
-    body.dark-theme tbody td[contenteditable="true"]:focus { color: #e2e8f0 !important; }
-    body.dark-theme .totals-row { background: #162032 !important; }
-    body.dark-theme .totals-row td:first-child { background: #162032 !important; }
-  body { background: #0a1628 !important; }
-  body::before {
-    content: '';
-    position: fixed; inset: 0; z-index: 0;
-    background: url('/images/ESTADIOOO.jpeg') center center / cover no-repeat;
-  opacity: 0.55;
-    pointer-events: none;
-  }
-  </style>
-  <link rel="stylesheet" href="/css/glass-cards.css?v=20260605">
-  <style>
-    /* ── Transparencia fondo estadio ── */
-    body, html { background: transparent !important; }
-    body * { color: #fff !important; }
-    .topbar,
-    .table-scroll,
-    .chart-section,
-    .modal-content {
-      background: rgba(255,255,255,0.10) !important;
-      backdrop-filter: blur(10px) !important;
-      -webkit-backdrop-filter: blur(10px) !important;
-      border-color: rgba(255,255,255,0.10) !important;
-    }
-    .central-container,
-    .table-section { background: transparent !important; }
-    thead tr:not(.group-header-row) th,
-    .group-header-row th {
-      background: rgba(255,255,255,0.14) !important;
-      border-color: rgba(255,255,255,0.10) !important;
-    }
-    tbody td:first-child {
-      background: rgba(255,255,255,0.12) !important;
-    }
-    tbody tr:hover td:first-child {
-      background: rgba(255,255,255,0.14) !important;
-    }
-    .totals-row {
-      background: rgba(255,255,255,0.14) !important;
-      border-color: rgba(255,255,255,0.15) !important;
-    }
-    .totals-row td:first-child { background: rgba(255,255,255,0.14) !important; }
-    .filter-item select {
-      background: rgba(255,255,255,0.12) !important;
-      border-color: rgba(255,255,255,0.15) !important;
+    @media (max-width: 820px) {
+      .kpi-row, .bottom-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -567,8 +207,8 @@
       <!-- ── TOPBAR ── -->
       <div class="topbar">
         <div class="topbar-title">
-          <span class="dot"></span>
-          Facturación
+          <h1>Facturación</h1>
+          <p>Control y seguimiento de ventas por asesor</p>
         </div>
 
         <div class="filters-group">
@@ -593,134 +233,262 @@
             <label for="filtroAno">Año</label>
             <select id="filtroAno"></select>
           </div>
+          <button class="btn-mode" id="btnModo" title="Cambiar de vista">
+            <i class="fas fa-network-wired"></i> <span id="btnModoLabel">Líneas</span>
+          </button>
           <button class="btn-save" id="btnGuardarFacturacion">
             <i class="fas fa-save"></i> Guardar
           </button>
         </div>
       </div>
 
-      <!-- ── TABLE SECTION ── -->
-      <div class="table-section">
+      <!-- ════════ VISTA RESIDENCIAL ════════ -->
+      <div id="view-residencial">
+
+      <!-- ── KPIs ── -->
+      <div class="kpi-row">
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)"><i class="fas fa-dollar-sign"></i></div>
+          <div class="kpi-body">
+            <div class="kpi-label">Total Facturado</div>
+            <div class="kpi-value" id="kpi-facturado">$0.00</div>
+            <div class="kpi-sub" id="kpi-facturado-sub"></div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)"><i class="fas fa-shopping-bag"></i></div>
+          <div class="kpi-body">
+            <div class="kpi-label">Total Ventas</div>
+            <div class="kpi-value" id="kpi-ventas">0</div>
+            <div class="kpi-sub" id="kpi-ventas-sub"></div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background:linear-gradient(135deg,#10b981,#047857)"><i class="fas fa-chart-line"></i></div>
+          <div class="kpi-body">
+            <div class="kpi-label">Valor Prom. Venta</div>
+            <div class="kpi-value" id="kpi-valor">$0.00</div>
+            <div class="kpi-sub" id="kpi-valor-sub"></div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background:linear-gradient(135deg,#d4a72c,#a16207)"><i class="fas fa-trophy"></i></div>
+          <div class="kpi-body">
+            <div class="kpi-label">Mejor Asesor</div>
+            <div class="kpi-value" id="kpi-mejor">—</div>
+            <div class="kpi-sub" id="kpi-mejor-sub"></div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background:linear-gradient(135deg,#14b8a6,#0f766e)"><i class="fas fa-users"></i></div>
+          <div class="kpi-body">
+            <div class="kpi-label">Asesores Activos</div>
+            <div class="kpi-value" id="kpi-activos">0</div>
+            <div class="kpi-sub" id="kpi-activos-sub">de 3 totales</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TABLE ── -->
+      <div class="card table-section">
         <div class="table-scroll">
-          <table id="tablaExcel">
+          <table id="tablaExcel" class="fact-table">
             <thead>
-              <!-- Group labels row -->
               <tr class="group-header-row">
                 <th></th>
                 <th colspan="3" class="gh-alexis">Alexis</th>
                 <th colspan="3" class="gh-alejandro">Alejandro</th>
-                <th colspan="5" class="gh-garay">Garay</th>
                 <th colspan="3" class="gh-tito">Tito</th>
-                <th colspan="5" class="gh-total">Total</th>
+                <th colspan="5" class="gh-total">Totales</th>
               </tr>
-              <!-- Column labels row -->
               <tr>
                 <th>Fecha</th>
-                <th>Monto</th>
-                <th>Ventas/día</th>
-                <th>Valor venta</th>
-                <th>Monto</th>
-                <th>Ventas/día</th>
-                <th>Valor venta</th>
-                <th>Monto</th>
-                <th>Cliente/día</th>
-                <th>Total líneas</th>
-                <th>Valor/venta</th>
-                <th>Valor/línea</th>
-                <th>Monto</th>
-                <th>Ventas/día</th>
-                <th>Valor venta</th>
-                <th>Total día</th>
-                <th>Total ventas</th>
-                <th>Valor venta</th>
-                <th>Puntos</th>
-                <th>CPA puntos</th>
+                <th>Ventas</th><th>Valor venta</th><th>Monto</th>
+                <th>Ventas</th><th>Valor venta</th><th>Monto</th>
+                <th>Ventas</th><th>Valor venta</th><th>Monto</th>
+                <th>Total día</th><th>Total ventas</th><th>Valor venta</th><th>Puntos</th><th>CPA puntos</th>
               </tr>
             </thead>
             <tbody id="excelBody"></tbody>
             <tfoot>
               <tr class="totals-row" id="filaTotalesFacturacion">
                 <td>TOTALES</td>
-                <td id="total-col-1"></td>
-                <td id="total-col-2"></td>
-                <td id="total-col-3"></td>
-                <td id="total-col-4"></td>
-                <td id="total-col-5"></td>
-                <td id="total-col-6"></td>
-                <td id="total-col-7"></td>
-                <td id="total-col-8"></td>
-                <td id="total-col-9"></td>
-                <td id="total-col-10"></td>
-                <td id="total-col-11"></td>
-                <td id="total-col-12"></td>
-                <td id="total-col-13"></td>
-                <td id="total-col-14"></td>
-                <td id="total-col-15"></td>
-                <td id="total-col-16"></td>
-                <td id="total-col-17"></td>
-                <td id="total-col-18"></td>
-                <td id="total-col-19"></td>
+                <td id="total-col-1"></td><td id="total-col-2"></td><td id="total-col-3"></td>
+                <td id="total-col-4"></td><td id="total-col-5"></td><td id="total-col-6"></td>
+                <td id="total-col-7"></td><td id="total-col-8"></td><td id="total-col-9"></td>
+                <td id="total-col-10"></td><td id="total-col-11"></td><td id="total-col-12"></td>
+                <td id="total-col-13"></td><td id="total-col-14"></td>
               </tr>
             </tfoot>
           </table>
         </div>
       </div>
 
-      <!-- ── CHART SECTION ── -->
-      <div class="chart-section">
-        <div class="chart-label">Total facturado por mes</div>
-        <div class="chart-canvas-wrap">
-          <canvas id="graficaGastosMes"></canvas>
+      <!-- ── BOTTOM ── -->
+      <div class="bottom-grid">
+        <div class="card">
+          <div class="card-title">Total facturado por mes</div>
+          <div class="chart-canvas-wrap"><canvas id="graficaGastosMes"></canvas></div>
         </div>
+
+        <div class="card">
+          <div class="card-title">Resumen del mes</div>
+          <div class="resumen-list">
+            <div class="resumen-item">
+              <div class="resumen-ic" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)"><i class="fas fa-dollar-sign"></i></div>
+              <div class="resumen-label">Total facturado</div>
+              <div class="resumen-val" id="res-facturado">$0.00</div>
+            </div>
+            <div class="resumen-item">
+              <div class="resumen-ic" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)"><i class="fas fa-shopping-bag"></i></div>
+              <div class="resumen-label">Total ventas</div>
+              <div class="resumen-val" id="res-ventas">0</div>
+            </div>
+            <div class="resumen-item">
+              <div class="resumen-ic" style="background:linear-gradient(135deg,#10b981,#047857)"><i class="fas fa-chart-line"></i></div>
+              <div class="resumen-label">Valor promedio venta</div>
+              <div class="resumen-val" id="res-valor">$0.00</div>
+            </div>
+            <div class="resumen-item">
+              <div class="resumen-ic" style="background:linear-gradient(135deg,#d4a72c,#a16207)"><i class="fas fa-bullseye"></i></div>
+              <div class="resumen-label">CPA promedio</div>
+              <div class="resumen-val" id="res-cpa">$0.00</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Gasto por publicista</div>
+          <div class="top-list" id="topAsesores"></div>
+        </div>
+      </div>
+
+      </div><!-- /view-residencial -->
+
+      <!-- ════════ VISTA LÍNEAS ════════ -->
+      <div id="view-lineas" style="display:none">
+
+        <!-- KPIs -->
+        <div class="kpi-row">
+          <div class="kpi-card">
+            <div class="kpi-icon" style="background:linear-gradient(135deg,#f59e0b,#b45309)"><i class="fas fa-dollar-sign"></i></div>
+            <div class="kpi-body">
+              <div class="kpi-label">Total Facturado</div>
+              <div class="kpi-value" id="lkpi-facturado">$0.00</div>
+              <div class="kpi-sub" id="lkpi-facturado-sub"></div>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)"><i class="fas fa-shopping-bag"></i></div>
+            <div class="kpi-body">
+              <div class="kpi-label">Total Ventas</div>
+              <div class="kpi-value" id="lkpi-ventas">0</div>
+              <div class="kpi-sub" id="lkpi-ventas-sub"></div>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon" style="background:linear-gradient(135deg,#14b8a6,#0f766e)"><i class="fas fa-sim-card"></i></div>
+            <div class="kpi-body">
+              <div class="kpi-label">Total Líneas</div>
+              <div class="kpi-value" id="lkpi-lineas">0</div>
+              <div class="kpi-sub"></div>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon" style="background:linear-gradient(135deg,#10b981,#047857)"><i class="fas fa-chart-line"></i></div>
+            <div class="kpi-body">
+              <div class="kpi-label">Valor por Venta</div>
+              <div class="kpi-value" id="lkpi-vventa">$0.00</div>
+              <div class="kpi-sub"></div>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)"><i class="fas fa-coins"></i></div>
+            <div class="kpi-body">
+              <div class="kpi-label">Valor por Línea</div>
+              <div class="kpi-value" id="lkpi-vlinea">$0.00</div>
+              <div class="kpi-sub"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabla Líneas -->
+        <div class="card table-section">
+          <div class="table-scroll">
+            <table id="tablaExcelL" class="fact-table">
+              <thead>
+                <tr class="group-header-row">
+                  <th></th>
+                  <th colspan="5" class="gh-garay">Líneas Garay</th>
+                  <th colspan="5" class="gh-connecting">Líneas Connecting</th>
+                  <th colspan="4" class="gh-total">Totales</th>
+                </tr>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Cant. ventas</th><th>Cant. líneas</th><th>Costo/venta</th><th>Costo/línea</th><th>Monto</th>
+                  <th>Cant. ventas</th><th>Cant. líneas</th><th>Costo/venta</th><th>Costo/línea</th><th>Monto</th>
+                  <th>Total ventas</th><th>Valor de venta</th><th>Total líneas</th><th>Valor de línea</th>
+                </tr>
+              </thead>
+              <tbody id="excelBodyL"></tbody>
+              <tfoot>
+                <tr class="totals-row">
+                  <td>TOTALES</td>
+                  <td id="ltotal-col-1"></td><td id="ltotal-col-2"></td><td id="ltotal-col-3"></td><td id="ltotal-col-4"></td><td id="ltotal-col-5"></td>
+                  <td id="ltotal-col-6"></td><td id="ltotal-col-7"></td><td id="ltotal-col-8"></td><td id="ltotal-col-9"></td><td id="ltotal-col-10"></td>
+                  <td id="ltotal-col-11"></td><td id="ltotal-col-12"></td><td id="ltotal-col-13"></td><td id="ltotal-col-14"></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
+        <!-- Bottom -->
+        <div class="bottom-grid">
+          <div class="card">
+            <div class="card-title">Total facturado por mes</div>
+            <div class="chart-canvas-wrap"><canvas id="graficaGastosMesL"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Resumen del mes</div>
+            <div class="resumen-list">
+              <div class="resumen-item">
+                <div class="resumen-ic" style="background:linear-gradient(135deg,#f59e0b,#b45309)"><i class="fas fa-dollar-sign"></i></div>
+                <div class="resumen-label">Total facturado</div>
+                <div class="resumen-val" id="lres-facturado">$0.00</div>
+              </div>
+              <div class="resumen-item">
+                <div class="resumen-ic" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)"><i class="fas fa-shopping-bag"></i></div>
+                <div class="resumen-label">Total ventas</div>
+                <div class="resumen-val" id="lres-ventas">0</div>
+              </div>
+              <div class="resumen-item">
+                <div class="resumen-ic" style="background:linear-gradient(135deg,#14b8a6,#0f766e)"><i class="fas fa-sim-card"></i></div>
+                <div class="resumen-label">Total líneas</div>
+                <div class="resumen-val" id="lres-lineas">0</div>
+              </div>
+              <div class="resumen-item">
+                <div class="resumen-ic" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)"><i class="fas fa-coins"></i></div>
+                <div class="resumen-label">Valor por línea</div>
+                <div class="resumen-val" id="lres-vlinea">$0.00</div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Gasto por publicista</div>
+            <div class="top-list" id="topPublicistas"></div>
+          </div>
+        </div>
+
+      </div><!-- /view-lineas -->
+
+      <div class="fact-footer">
+        <em>"El éxito es la suma de pequeños esfuerzos repetidos día tras día."</em>
+        <span id="ultimaActualizacion"></span>
       </div>
 
     </div><!-- /central-container -->
   </main>
-</div>
-
-<!-- Modal tabla completa -->
-<div class="modal-bg" id="modalTablaCompleta">
-  <div class="modal-content">
-    <button class="modal-close-btn" onclick="cerrarModalTabla()">&times;</button>
-    <div class="modal-title">Tabla completa del mes</div>
-    <div class="modal-table-container">
-      <table>
-        <thead>
-          <tr class="group-header-row">
-            <th></th>
-            <th colspan="3" class="gh-alexis">Alexis</th>
-            <th colspan="3" class="gh-alejandro">Alejandro</th>
-            <th colspan="5" class="gh-garay">Garay</th>
-            <th colspan="3" class="gh-tito">Tito</th>
-            <th colspan="5" class="gh-total">Total</th>
-          </tr>
-          <tr>
-            <th>Fecha</th>
-            <th>Monto</th>
-            <th>Ventas/día</th>
-            <th>Valor venta</th>
-            <th>Monto</th>
-            <th>Ventas/día</th>
-            <th>Valor venta</th>
-            <th>Monto</th>
-            <th>Cliente/día</th>
-            <th>Total líneas</th>
-            <th>Valor/venta</th>
-            <th>Valor/línea</th>
-            <th>Monto</th>
-            <th>Ventas/día</th>
-            <th>Valor venta</th>
-            <th>Total día</th>
-            <th>Total ventas</th>
-            <th>Valor venta</th>
-            <th>Puntos</th>
-            <th>CPA puntos</th>
-          </tr>
-        </thead>
-        <tbody id="modalTablaBody"></tbody>
-      </table>
-    </div>
-  </div>
 </div>
 
 <!-- Toast notification -->
@@ -734,37 +502,10 @@
 
 <script>
 /* =====================================================================
-   PRECACHE & AUTH
-   ===================================================================== */
-function tryLoadFromPrecachedFacturacion() {
-  try {
-    const storedData = sessionStorage.getItem('facturacionData');
-    const storedTimestamp = sessionStorage.getItem('facturacionTimestamp');
-    if (!storedData || !storedTimestamp) return null;
-    const cacheAge = Date.now() - new Date(storedTimestamp).getTime();
-    if (cacheAge > 5 * 60 * 1000) {
-      sessionStorage.removeItem('facturacionData');
-      sessionStorage.removeItem('facturacionTimestamp');
-      return null;
-    }
-    const data = JSON.parse(storedData);
-    return { success: true, data, fromCache: true, loadTime: 0 };
-  } catch (e) { return null; }
-}
-
-window.addEventListener('facturacionPreheated', (event) => {
-  sessionStorage.setItem('facturacionData', JSON.stringify(event.detail));
-  window.__precachedFacturacionData = event.detail;
-});
-
-/* =====================================================================
-   AUTH GUARD
+   AUTH GUARD (solo administradores)
    ===================================================================== */
 (async function guardAdmin() {
   try {
-    const cachedFacturacion = tryLoadFromPrecachedFacturacion();
-    if (cachedFacturacion) window.__precachedFacturacionData = cachedFacturacion.data;
-
     const res = await fetch('/api/auth/verify-server', { credentials: 'include' });
     if (!res.ok) throw new Error('No autenticado');
     const data = await res.json();
@@ -793,14 +534,15 @@ const filtroAno  = document.getElementById("filtroAno");
 const excelBody  = document.getElementById("excelBody");
 const btnGuardar = document.getElementById('btnGuardarFacturacion');
 
-let totalesPorMesLocales = Array(12).fill(0);
-let currentBlock  = 0; // FIX: variable was missing in original code
-let currentMonth;
-let currentYear;
-let datosFacturacionMes   = [];
-let datosFacturacionIndex = {};
+let currentMonth, currentYear;
+let currentMode = 'residencial';  // 'residencial' | 'lineas'
+let datosFacturacionIndex = {};   // fechaKey -> array de campos (17) guardados
+let prevAgg = { fact: 0, ventas: 0, valor: 0 };  // agregados del mes anterior (para deltas)
+let datosLineasIndex = {};        // fechaKey -> array de campos (9) líneas-publicidad
+let prevAggL = { fact: 0, ventas: 0 };
+let lineasInit = false;           // la vista líneas se carga la primera vez que se abre
 
-/* Populate year selector */
+/* Selector de años */
 (function(){
   const yearNow = new Date().getFullYear();
   let anos = '';
@@ -816,6 +558,10 @@ let datosFacturacionIndex = {};
    HELPERS
    ===================================================================== */
 function daysInMonth(year, month) { return new Date(year, month, 0).getDate(); }
+function num(v) { return parseFloat(String(v ?? '').replace(/[^0-9.\-]/g, '')) || 0; }
+function truncateTo2(n) { return isFinite(n) ? Math.trunc(n * 100) / 100 : 0; }
+function money(n) { return "$" + truncateTo2(Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function intFmt(n) { return (Math.round(Number(n) || 0)).toLocaleString('en-US'); }
 
 function toFechaKey(fecha) {
   try {
@@ -824,36 +570,10 @@ function toFechaKey(fecha) {
     if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
     let m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
     if (m) return `${m[3].padStart(2,'0')}/${m[2].padStart(2,'0')}/${m[1]}`;
-    const d = new Date(s);
-    if (!isNaN(d.getTime()))
-      return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
     m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
     if (m) return `${String(parseInt(m[1])).padStart(2,'0')}/${String(parseInt(m[2])).padStart(2,'0')}/${m[3]}`;
     return s;
   } catch { return String(fecha || ''); }
-}
-
-/* Columns that display currency symbol: indices are 1-based td.cellIndex */
-const columnasConSigno = [1,3,4,6,7,10,11,12,14,15,17,19];
-
-function addMoneySign(val) {
-  if (val === "" || isNaN(val)) return "";
-  return "$" + parseFloat(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function removeMoneySign(val) {
-  if (typeof val !== "string") return val;
-  return val.replace(/[^0-9.]/g, '');
-}
-
-function truncateTo2(n) {
-  if (!isFinite(n)) return 0;
-  return Math.trunc(n * 100) / 100;
-}
-
-function formatMoneyTrunc(n) {
-  const t = truncateTo2(Number(n) || 0);
-  return "$" + t.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function showToast(msg) {
@@ -863,24 +583,29 @@ function showToast(msg) {
   setTimeout(() => el.classList.remove('show'), 2800);
 }
 
+/* Columnas (td index): 1 Alexis Ventas, 2 Alexis ValorVenta(calc), 3 Alexis Monto,
+   4 Alejandro Ventas, 5 Alejandro ValorVenta(calc), 6 Alejandro Monto,
+   7 Tito Ventas, 8 Tito ValorVenta(calc), 9 Tito Monto,
+   10 Total día(calc), 11 Total ventas(calc), 12 Valor venta(calc), 13 Puntos, 14 CPA puntos(calc) */
+const COL = { aVentas:1, aValor:2, aMonto:3, jVentas:4, jValor:5, jMonto:6, tVentas:7, tValor:8, tMonto:9,
+              totalDia:10, totalVentas:11, valorVenta:12, puntos:13, cpa:14 };
+const EDIT_COLS = [1,3,4,6,7,9,13];                 // editables
+const CALC_COLS = [2,5,8,10,11,12,14];              // calculadas
+const MONEY_COLS = [2,3,5,6,8,9,10,12,14];          // se muestran con $
+const NUM_COLS = 15;                                // 0..14
+
 /* =====================================================================
-   COLUMN VISIBILITY (Alejandro - only from Feb onwards)
+   VISIBILIDAD ALEJANDRO (solo desde Febrero)
    ===================================================================== */
 function setColumnVisibility(tableEl, colIndex, show) {
   if (!tableEl) return;
-  tableEl.querySelectorAll(`tr > *:nth-child(${colIndex})`).forEach(el => {
-    el.style.display = show ? '' : 'none';
-  });
+  // Excluir la fila de encabezados de grupo (usa colspans, no columnas 1:1)
+  tableEl.querySelectorAll(`tr:not(.group-header-row) > *:nth-child(${colIndex})`).forEach(el => { el.style.display = show ? '' : 'none'; });
 }
-
 function applyAlejandroVisibility() {
   const show = parseInt(filtroMes.value, 10) >= 2;
-  const mainTable  = document.getElementById('tablaExcel');
-  const modalTable = document.querySelector('#modalTablaCompleta table');
-  [5,6,7].forEach(c => {
-    setColumnVisibility(mainTable, c, show);
-    setColumnVisibility(modalTable, c, show);
-  });
+  const mainTable = document.getElementById('tablaExcel');
+  [5,6,7].forEach(c => setColumnVisibility(mainTable, c, show));   // nth-child de cols 4,5,6
   ['total-col-4','total-col-5','total-col-6'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = show ? '' : 'none';
@@ -888,200 +613,234 @@ function applyAlejandroVisibility() {
 }
 
 /* =====================================================================
-   DATA FETCH & MAP
+   DATA FETCH
    ===================================================================== */
 async function fetchFacturacionMes(mes, ano) {
   try {
     const url = `/api/facturacion/${ano}/${String(mes).padStart(2,'0')}`;
-    const res  = await fetch(url, { method: 'GET', credentials: 'include' });
+    const res = await fetch(url, { method: 'GET', credentials: 'include' });
     const data = await res.json().catch(() => null);
     let arr = [];
-    if (data?.ok && Array.isArray(data.data))          arr = data.data;
-    else if (Array.isArray(data))                       arr = data;
-    else if (data && Array.isArray(data.result))        arr = data.result;
-    datosFacturacionMes   = arr;
+    if (data?.ok && Array.isArray(data.data)) arr = data.data;
+    else if (Array.isArray(data))             arr = data;
     datosFacturacionIndex = {};
-    for (const fila of datosFacturacionMes) {
+    for (const fila of arr) {
       const key = toFechaKey(fila?.fecha);
       if (key) datosFacturacionIndex[key] = Array.isArray(fila?.campos) ? fila.campos : [];
     }
   } catch (e) {
     console.error('Error cargando facturación:', e);
-    datosFacturacionMes   = [];
     datosFacturacionIndex = {};
   }
 }
 
-function buscarCamposPorFecha(fecha) {
-  const camposAntiguos = datosFacturacionIndex[toFechaKey(fecha)];
-  if (!Array.isArray(camposAntiguos)) return Array(19).fill('');
-  if (camposAntiguos.length === 19) return camposAntiguos;
-  if (camposAntiguos.length === 17) {
-    const nuevos = Array(19).fill('');
-    for (let i = 0; i <= 6; i++) nuevos[i] = camposAntiguos[i] || '';
-    nuevos[7]  = camposAntiguos[7] || '';
-    nuevos[8]  = camposAntiguos[8] || '';
-    nuevos[11] = camposAntiguos[9] || '';
-    nuevos[12] = camposAntiguos[10] || '';
-    nuevos[13] = camposAntiguos[11] || '';
-    nuevos[14] = camposAntiguos[12] || ''; // Total día
-    nuevos[15] = camposAntiguos[13] || ''; // Total ventas
-    nuevos[16] = camposAntiguos[14] || ''; // Valor venta
-    nuevos[17] = camposAntiguos[15] || ''; // Puntos
-    // nuevos[18] = CPA puntos (calculado, no se carga del backend)
-    return nuevos;
-  }
-  return Array(19).fill('');
+/* Array de 17 campos guardados para una fecha (o vacío). */
+function camposGuardados(fecha) {
+  const c = datosFacturacionIndex[toFechaKey(fecha)];
+  const a = Array.isArray(c) ? c.slice() : [];
+  while (a.length < 17) a.push('');
+  return a;
+}
+
+/* Agregados de un mes (para deltas y comparativas), SIN Garay. */
+async function aggregateMes(mes, ano) {
+  try {
+    const r = await fetch(`/api/facturacion/${ano}/${String(mes).padStart(2,'0')}`, { credentials: 'include' });
+    const d = await r.json().catch(() => null);
+    const arr = (d?.ok && Array.isArray(d.data)) ? d.data : [];
+    let fact = 0, ventas = 0;
+    arr.forEach(row => {
+      const c = Array.isArray(row.campos) ? row.campos : [];
+      fact   += num(c[0]) + num(c[3]) + num(c[9]);   // montos Alexis + Alejandro + Tito
+      ventas += num(c[1]) + num(c[4]) + num(c[10]);  // ventas Alexis + Alejandro + Tito
+    });
+    return { fact, ventas, valor: ventas > 0 ? fact / ventas : 0 };
+  } catch (_) { return { fact: 0, ventas: 0, valor: 0 }; }
+}
+
+function mesAnterior(mes, ano) {
+  return mes <= 1 ? { mes: 12, ano: ano - 1 } : { mes: mes - 1, ano };
 }
 
 /* =====================================================================
-   RENDER TABLE
+   RENDER TABLA
    ===================================================================== */
 async function renderTablaDias(mes, ano) {
   await fetchFacturacionMes(mes, ano);
   excelBody.innerHTML = "";
   const numDias = daysInMonth(ano, mes);
+
   for (let i = 0; i < numDias; i++) {
+    const fecha = `${String(i+1).padStart(2,'0')}/${String(mes).padStart(2,'0')}/${ano}`;
+    const g = camposGuardados(fecha);
+    // Mapeo backend(17) -> celdas editables
+    const editVal = {};
+    editVal[COL.aVentas] = g[1];  editVal[COL.aMonto] = g[0];
+    editVal[COL.jVentas] = g[4];  editVal[COL.jMonto] = g[3];
+    editVal[COL.tVentas] = g[10]; editVal[COL.tMonto] = g[9];
+    editVal[COL.puntos]  = g[15];
+
     const tr = document.createElement("tr");
-    for (let c = 0; c < 20; c++) {
+    for (let c = 0; c < NUM_COLS; c++) {
       const td = document.createElement("td");
       if (c === 0) {
-        td.textContent = `${String(i+1).padStart(2,'0')}/${String(mes).padStart(2,'0')}/${ano}`;
+        td.textContent = fecha;
         td.contentEditable = false;
-      } else {
-        const fecha  = `${String(i+1).padStart(2,'0')}/${String(mes).padStart(2,'0')}/${ano}`;
-        const campos = buscarCamposPorFecha(fecha);
-        let val = campos[c-1] ?? '';
-        if (columnasConSigno.includes(c) && val !== "") val = addMoneySign(removeMoneySign(val));
-        if (c === 16 && val !== "") val = (parseInt(removeMoneySign(val), 10) || 0).toLocaleString('en-US');
+      } else if (EDIT_COLS.includes(c)) {
+        let val = String(editVal[c] ?? '').trim();
+        if (val !== "" && MONEY_COLS.includes(c)) val = money(num(val));
         td.textContent = val;
         td.contentEditable = true;
+      } else {
+        td.textContent = "";        // calculada: la llena recalcularFila
+        td.contentEditable = false;
       }
       tr.appendChild(td);
     }
     excelBody.appendChild(tr);
     recalcularFila(tr);
   }
+
   applyAlejandroVisibility();
   renderFilaTotalesFacturacion();
-  actualizarTotalesPorMesLocales();
 }
 
 /* =====================================================================
-   ROW CALCULATION  (FIX: calculated cols now show $ consistently)
+   CÁLCULO POR FILA
    ===================================================================== */
 function recalcularFila(tr) {
   const tds = Array.from(tr.children);
-  const raw = i => parseFloat(tds[i].textContent.replace(/[^0-9.-]/g, "")) || 0;
+  const raw = i => num(tds[i].textContent);
 
-  const alexis         = raw(1);
-  const ventasAlexis   = raw(2);
-  tds[3].textContent   = ventasAlexis > 0 ? formatMoneyTrunc(alexis / ventasAlexis) : "";
+  const aVentas = raw(COL.aVentas), aMonto = raw(COL.aMonto);
+  tds[COL.aValor].textContent = aVentas > 0 ? money(aMonto / aVentas) : "";
 
-  const alejandro      = raw(4);
-  const ventasAlejandro= raw(5);
-  tds[6].textContent   = ventasAlejandro > 0 ? formatMoneyTrunc(alejandro / ventasAlejandro) : "";
+  const jVentas = raw(COL.jVentas), jMonto = raw(COL.jMonto);
+  tds[COL.jValor].textContent = jVentas > 0 ? money(jMonto / jVentas) : "";
 
-  const garay           = raw(7);
-  const clientePorDia   = raw(8);
-  const totalLineas     = raw(9);
-  tds[10].textContent   = clientePorDia > 0 ? formatMoneyTrunc(garay / clientePorDia) : "";
-  tds[11].textContent   = totalLineas   > 0 ? formatMoneyTrunc(garay / totalLineas)   : "";
+  const tVentas = raw(COL.tVentas), tMonto = raw(COL.tMonto);
+  tds[COL.tValor].textContent = tVentas > 0 ? money(tMonto / tVentas) : "";
 
-  const tito           = raw(12);
-  const ventasTito     = raw(13);
-  tds[14].textContent  = ventasTito > 0 ? formatMoneyTrunc(tito / ventasTito) : "";
+  const totalDia    = aMonto + jMonto + tMonto;
+  const totalVentas = aVentas + jVentas + tVentas;
+  tds[COL.totalDia].textContent    = totalDia > 0 ? money(totalDia) : "";
+  tds[COL.totalVentas].textContent = totalVentas > 0 ? intFmt(totalVentas) : "";
 
-  const totalDia       = alexis + alejandro + garay + tito;
-  tds[15].textContent  = totalDia > 0 ? formatMoneyTrunc(totalDia) : "";
+  const valorVenta = totalVentas > 0 ? totalDia / totalVentas : 0;
+  tds[COL.valorVenta].textContent = totalVentas > 0 ? money(valorVenta) : "";
 
-  const totalVentas    = ventasAlexis + ventasAlejandro + clientePorDia + ventasTito;
-  tds[16].textContent  = totalVentas > 0 ? totalVentas.toLocaleString('en-US') : "";
-
-  tds[17].textContent  = totalVentas > 0 ? formatMoneyTrunc(totalDia / totalVentas) : "";
-
-  const valorVenta     = totalVentas > 0 ? totalDia / totalVentas : 0;
-  const puntos         = raw(18);
-  tds[19].textContent  = puntos > 0 ? formatMoneyTrunc(valorVenta / puntos) : "";
+  const puntos = raw(COL.puntos);
+  tds[COL.cpa].textContent = puntos > 0 ? money(valorVenta / puntos) : "";
 }
 
 excelBody.addEventListener('input', function(e) {
   const td = e.target;
-  const tr = td.parentElement;
-  const calculatedCols = [3,6,10,11,14,15,16,17,19];
-  if (td.cellIndex !== 0 && !calculatedCols.includes(td.cellIndex)) {
-    recalcularFila(tr);
+  if (EDIT_COLS.includes(td.cellIndex)) {
+    recalcularFila(td.parentElement);
     renderFilaTotalesFacturacion();
-    actualizarTotalesPorMesLocales();
-    actualizarGrafica();
+    refreshDashboard();
   }
 });
 
 /* =====================================================================
-   TOTALS ROW
+   FILA DE TOTALES
    ===================================================================== */
 function renderFilaTotalesFacturacion() {
-  const numCols = 20;
-  const totales = Array(numCols).fill(0);
-
+  const t = Array(NUM_COLS).fill(0);
   Array.from(excelBody.querySelectorAll('tr')).forEach(tr => {
-    Array.from(tr.children).forEach((td, i) => {
-      if (i === 0) return; // Saltar columna de fecha
-      // Excluir solo columnas calculadas que NO deben sumarse
-      const columnasExcluidas = [3, 6, 11, 14, 15, 16, 17, 19];
-      if (columnasExcluidas.includes(i)) return;
-      totales[i] += parseFloat(td.textContent.replace(/[^0-9.-]/g, "")) || 0;
-    });
+    const tds = Array.from(tr.children);
+    EDIT_COLS.forEach(c => { t[c] += num(tds[c].textContent); });
   });
 
-  // Recalculate ratios and totals
-  totales[3]  = totales[2]  > 0 ? totales[1]  / totales[2]  : 0;
-  totales[6]  = totales[5]  > 0 ? totales[4]  / totales[5]  : 0;
-  // totales[9] se suma normalmente (Total del lineas de GARAY)
-  totales[11] = totales[9]  > 0 ? totales[7]  / totales[9]  : 0;
-  totales[14] = totales[13] > 0 ? totales[12] / totales[13] : 0;
-  totales[15] = totales[1] + totales[4] + totales[7] + totales[12]; // Total día
-  totales[16] = totales[2] + totales[5] + totales[8] + totales[13]; // Total ventas
-  totales[17] = totales[16] > 0 ? totales[15] / totales[16] : 0; // Valor venta = Total día / Total ventas
-  totales[19] = totales[18] > 0 ? totales[17] / totales[18] : 0;
+  t[COL.aValor] = t[COL.aVentas] > 0 ? t[COL.aMonto] / t[COL.aVentas] : 0;
+  t[COL.jValor] = t[COL.jVentas] > 0 ? t[COL.jMonto] / t[COL.jVentas] : 0;
+  t[COL.tValor] = t[COL.tVentas] > 0 ? t[COL.tMonto] / t[COL.tVentas] : 0;
+  t[COL.totalDia]    = t[COL.aMonto]  + t[COL.jMonto]  + t[COL.tMonto];
+  t[COL.totalVentas] = t[COL.aVentas] + t[COL.jVentas] + t[COL.tVentas];
+  t[COL.valorVenta]  = t[COL.totalVentas] > 0 ? t[COL.totalDia] / t[COL.totalVentas] : 0;
+  t[COL.cpa]         = t[COL.puntos] > 0 ? t[COL.valorVenta] / t[COL.puntos] : 0;
 
-  for (let i = 1; i < numCols; i++) {
+  for (let i = 1; i < NUM_COLS; i++) {
     const el = document.getElementById('total-col-' + i);
     if (!el) continue;
-    if ([3,6,10,11,14,17,19].includes(i)) {
-      el.textContent = formatMoneyTrunc(totales[i]);
-    } else if (columnasConSigno.includes(i)) {
-      el.textContent = addMoneySign(totales[i]);
-    } else {
-      el.textContent = Number.isFinite(totales[i]) ? totales[i].toLocaleString('en-US', { maximumFractionDigits: 2 }) : '0';
-    }
+    if (MONEY_COLS.includes(i))       el.textContent = money(t[i]);
+    else if (i === COL.totalVentas)   el.textContent = intFmt(t[i]);
+    else                              el.textContent = t[i] ? t[i].toLocaleString('en-US', { maximumFractionDigits: 2 }) : '';
   }
+  refreshDashboard();
 }
 
-function actualizarTotalesPorMesLocales() {
-  const mesActual = parseInt(filtroMes.value, 10) - 1;
-  const total = parseFloat(document.getElementById('total-col-15')?.textContent?.replace(/[^0-9.-]/g, "")) || 0;
-  totalesPorMesLocales[mesActual] = total;
+/* Lee los totales actuales desde la fila de totales. */
+function leerTotales() {
+  const g = id => num(document.getElementById(id)?.textContent);
+  return {
+    facturado: g('total-col-' + COL.totalDia),
+    ventas:    g('total-col-' + COL.totalVentas),
+    valor:     g('total-col-' + COL.valorVenta),
+    cpa:       g('total-col-' + COL.cpa),
+    alexis:    g('total-col-' + COL.aMonto),
+    alejandro: g('total-col-' + COL.jMonto),
+    tito:      g('total-col-' + COL.tMonto),
+  };
 }
 
 /* =====================================================================
-   FILTER CHANGE
+   KPIs · RESUMEN · TOP ASESORES
    ===================================================================== */
-function updateTableByFilters() {
-  currentMonth = parseInt(filtroMes.value, 10);
-  currentYear  = parseInt(filtroAno.value, 10);
-  renderTablaDias(currentMonth, currentYear);
-  applyAlejandroVisibility();
-  actualizarGrafica();
+function deltaHTML(cur, prev) {
+  if (!prev || prev <= 0) return '';
+  const pct = ((cur - prev) / prev) * 100;
+  const up = pct >= 0;
+  return `<span class="${up ? 'delta-up' : 'delta-down'}">${up ? '+' : ''}${pct.toFixed(1)}%</span> vs mes anterior`;
 }
 
-filtroMes.addEventListener('change', updateTableByFilters);
-filtroAno.addEventListener('change', updateTableByFilters);
+function refreshDashboard() {
+  const T = leerTotales();
+
+  document.getElementById('kpi-facturado').textContent = money(T.facturado);
+  document.getElementById('kpi-ventas').textContent    = intFmt(T.ventas);
+  document.getElementById('kpi-valor').textContent     = money(T.valor);
+  document.getElementById('kpi-facturado-sub').innerHTML = deltaHTML(T.facturado, prevAgg.fact);
+  document.getElementById('kpi-ventas-sub').innerHTML    = deltaHTML(T.ventas, prevAgg.ventas);
+  document.getElementById('kpi-valor-sub').innerHTML     = deltaHTML(T.valor, prevAgg.valor);
+
+  // Mejor asesor / activos
+  const asesores = [
+    { nombre: 'Alexis', monto: T.alexis, color: 'var(--c-alexis)' },
+    { nombre: 'Alejandro', monto: T.alejandro, color: 'var(--c-alejandro)' },
+    { nombre: 'Tito', monto: T.tito, color: 'var(--c-tito)' },
+  ];
+  const ordenados = asesores.slice().sort((a, b) => b.monto - a.monto);
+  const mejor = ordenados[0];
+  document.getElementById('kpi-mejor').textContent = mejor.monto > 0 ? mejor.nombre : '—';
+  document.getElementById('kpi-mejor-sub').textContent = mejor.monto > 0 ? money(mejor.monto) : '';
+  const activos = asesores.filter(a => a.monto > 0).length;
+  document.getElementById('kpi-activos').textContent = activos;
+  document.getElementById('kpi-activos-sub').textContent = `de ${asesores.length} totales`;
+
+  // Resumen del mes
+  document.getElementById('res-facturado').textContent = money(T.facturado);
+  document.getElementById('res-ventas').textContent    = intFmt(T.ventas);
+  document.getElementById('res-valor').textContent     = money(T.valor);
+  document.getElementById('res-cpa').textContent       = money(T.cpa);
+
+  // Top asesores por monto
+  const max = Math.max(...asesores.map(a => a.monto), 1);
+  document.getElementById('topAsesores').innerHTML = ordenados.map((a, i) => `
+    <div class="top-item">
+      <div class="top-rank">${i + 1}</div>
+      <div class="top-main">
+        <div class="top-name">${a.nombre}</div>
+        <div class="top-bar"><span style="width:${Math.max(4, (a.monto / max) * 100)}%;background:${a.color}"></span></div>
+      </div>
+      <div class="top-val">${money(a.monto)}</div>
+    </div>`).join('');
+}
 
 /* =====================================================================
-   SAVE
+   GUARDAR
    ===================================================================== */
-btnGuardar.addEventListener('click', guardarTodoFacturacion);
+btnGuardar.addEventListener('click', () => currentMode === 'lineas' ? guardarLineas() : guardarTodoFacturacion());
 
 async function guardarTodoFacturacion() {
   btnGuardar.disabled = true;
@@ -1093,186 +852,397 @@ async function guardarTodoFacturacion() {
     recalcularFila(tr);
     const tds = Array.from(tr.children);
     const fecha = tds[0].textContent.trim();
-    
-    // Backend espera 17 campos, frontend tiene 19
-    // Mapeo: [0-8] Alexis/Alejandro/Garay(3), [9-11] Tito, [12-16] Totales
-    // Frontend: [0-8] igual, [9-10] Garay extras (omitir), [11-13] Tito, [14] calc (omitir), [15-18] Totales, [19] calc (omitir)
-    const campos17 = [];
-    
-    // 0-8: Alexis (0-2), Alejandro (3-5), Garay primeros 3 (6-8)
-    for (let i = 0; i <= 8; i++) {
-      let txt = tds[i+1].textContent.trim();
-      if (txt.startsWith("$")) txt = txt.replace(/[^0-9.\-]/g, "");
-      if (txt.includes(",")) txt = txt.replace(/,/g, "");
-      campos17.push(txt);
-    }
-    
-    // 9-11: Tito (frontend idx 11-13)
-    for (let i = 11; i <= 13; i++) {
-      let txt = tds[i+1].textContent.trim();
-      if (txt.startsWith("$")) txt = txt.replace(/[^0-9.\-]/g, "");
-      if (txt.includes(",")) txt = txt.replace(/,/g, "");
-      campos17.push(txt);
-    }
-    
-    // 12-14: Total día, Total ventas, Valor venta (tds[15..17])
-    for (let i = 15; i <= 17; i++) {
-      let txt = tds[i].textContent.trim();
-      if (txt.startsWith("$")) txt = txt.replace(/[^0-9.\-]/g, "");
-      if (txt.includes(",")) txt = txt.replace(/,/g, "");
-      campos17.push(txt);
-    }
+    const cell = i => String(tds[i].textContent || '').replace(/[$,]/g, '').trim();
 
-    // 15: Puntos (tds[18])
-    let puntos = tds[18].textContent.trim();
-    if (puntos.startsWith("$")) puntos = puntos.replace(/[^0-9.\-]/g, "");
-    if (puntos.includes(",")) puntos = puntos.replace(/,/g, "");
-    campos17.push(puntos);
-    // NO guardar CPA puntos (col 19 = tds[20]) porque es calculado
-    
-    const campos = campos17;
+    // Preservar campos previos (incl. Garay 6-8 y pad 16) y sobrescribir el resto
+    const orig = camposGuardados(fecha);
+    const g = Array.from({ length: 17 }, (_, i) => String(orig[i] ?? ''));
+    g[0]  = cell(COL.aMonto);   g[1]  = cell(COL.aVentas);  g[2]  = cell(COL.aValor);
+    g[3]  = cell(COL.jMonto);   g[4]  = cell(COL.jVentas);  g[5]  = cell(COL.jValor);
+    // g[6..8] = Garay -> preservados
+    g[9]  = cell(COL.tMonto);   g[10] = cell(COL.tVentas);  g[11] = cell(COL.tValor);
+    g[12] = cell(COL.totalDia); g[13] = cell(COL.totalVentas); g[14] = cell(COL.valorVenta);
+    g[15] = cell(COL.puntos);
+    // g[16] = pad -> preservado
 
-    if (campos.some(v => v !== "")) {
-      const res = await fetch('/api/facturacion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ fecha, campos })
-      });
-      let ok = false;
-      try {
-        if (res.ok) {
-          const data = await res.json();
-          ok = data?.ok === true || data?.success === true || (res.status >= 200 && res.status < 300);
-        }
-      } catch (_) {}
-      if (ok) guardados++; else errores++;
-    }
+    // Guardar solo si esta fila tiene algún dato propio (Alexis/Alejandro/Tito/Puntos)
+    const tieneDato = [COL.aVentas,COL.aMonto,COL.jVentas,COL.jMonto,COL.tVentas,COL.tMonto,COL.puntos]
+      .some(c => cell(c) !== "");
+    const garayPrevio = (g[6] || g[7] || g[8]);
+    if (!tieneDato && !garayPrevio) continue;
+
+    const res = await fetch('/api/facturacion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ fecha, campos: g })
+    });
+    let ok = false;
+    try { if (res.ok) { const d = await res.json(); ok = d?.ok === true || d?.success === true || (res.status >= 200 && res.status < 300); } } catch (_) {}
+    if (ok) guardados++; else errores++;
   }
 
   await renderTablaDias(currentMonth, currentYear);
-  actualizarTotalesPorMesLocales();
   actualizarGrafica();
-  renderFilaTotalesFacturacion();
-
+  setUltimaActualizacion();
   btnGuardar.disabled = false;
   btnGuardar.innerHTML = '<i class="fas fa-save"></i> Guardar';
   showToast(`✓ Guardados: ${guardados}${errores ? ` · Errores: ${errores}` : ''}`);
 }
 
 /* =====================================================================
-   CHART
+   GRÁFICA ANUAL
    ===================================================================== */
 let grafica;
-
 async function actualizarGrafica() {
   try {
-    const ano   = parseInt(filtroAno.value, 10);
-    const resp  = await fetch(`/api/facturacion/anual/${ano}`, { credentials: 'include' });
+    const ano  = parseInt(filtroAno.value, 10);
+    const resp = await fetch(`/api/facturacion/anual/${ano}`, { credentials: 'include' });
     let totalesPorMes = Array(12).fill(0);
     if (resp.ok) {
       const data = await resp.json().catch(() => null);
-      if (data?.ok && Array.isArray(data.totalesPorMes))
-        totalesPorMes = data.totalesPorMes.map(v => Number(v) || 0);
+      if (data?.ok && Array.isArray(data.totalesPorMes)) totalesPorMes = data.totalesPorMes.map(v => Number(v) || 0);
     }
 
     if (grafica) grafica.destroy();
     const ctx = document.getElementById('graficaGastosMes').getContext('2d');
-
     grafica = new Chart(ctx, {
       type: 'bar',
       data: {
         labels: ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"],
         datasets: [{
           data: totalesPorMes,
-          backgroundColor: totalesPorMes.map((v, i) =>
-            i === (currentMonth - 1) ? 'rgba(0,229,255,0.85)' : 'rgba(0,229,255,0.25)'
-          ),
-          borderColor: 'transparent',
-          borderRadius: 6,
+          backgroundColor: totalesPorMes.map((v, i) => i === (currentMonth - 1) ? 'rgba(0,229,255,0.85)' : 'rgba(0,229,255,0.22)'),
+          borderColor: 'transparent', borderRadius: 6,
           datalabels: {
-            anchor: 'end', align: 'end', offset: -28,
-            color: '#94a3b8',
+            anchor: 'end', align: 'end', offset: 4, color: '#e6ebf5',
             font: { family: "'DM Mono', monospace", weight: '700', size: 11 },
-            formatter: v => v > 0 ? "$" + Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : ''
+            formatter: v => v > 0 ? "$" + Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 }) : ''
           }
         }]
       },
       options: {
-        plugins: {
-          legend: { display: false },
-          datalabels: {
-            display: ctx => Number(ctx?.dataset?.data?.[ctx?.dataIndex]) > 0
-          }
-        },
-        responsive: true,
-        maintainAspectRatio: false,
-        layout: { padding: { top: 36 } },
+        plugins: { legend: { display: false }, datalabels: { display: ctx => Number(ctx?.dataset?.data?.[ctx?.dataIndex]) > 0 } },
+        responsive: true, maintainAspectRatio: false, layout: { padding: { top: 30 } },
         scales: {
-          x: {
-            grid: { display: false },
-            ticks: { color: "#4a5568", font: { family: "'DM Mono', monospace", size: 11 } },
-            border: { display: false }
-          },
-          y: {
-            grid: { display: false },
-            ticks: { display: false },
-            border: { display: false }
-          }
+          x: { grid: { display: false }, ticks: { color: "#64748b", font: { family: "'DM Mono', monospace", size: 11 } }, border: { display: false } },
+          y: { grid: { display: false }, ticks: { display: false }, border: { display: false } }
         }
       }
     });
-  } catch (e) {
-    console.error('Error gráfica anual:', e);
-  }
+  } catch (e) { console.error('Error gráfica anual:', e); }
 }
 
 /* =====================================================================
-   MODAL
+   ════════════════════  MODO LÍNEAS (Garay / Connecting)  ════════════════════
+   campos(9): [0]G ventas [1]G líneas [2]G monto [3]C ventas [4]C líneas
+              [5]C monto [6]total monto [7]total ventas [8]total líneas
    ===================================================================== */
-function cerrarModalTabla() {
-  document.getElementById('modalTablaCompleta').classList.remove('active');
-  document.body.style.overflow = "";
+const COLL = { gV:1, gL:2, gCV:3, gCL:4, gM:5, cV:6, cL:7, cCV:8, cCL:9, cM:10,
+               totV:11, valV:12, totL:13, valL:14 };
+const EDIT_COLS_L  = [1,2,5,6,7,10];
+const CALC_COLS_L  = [3,4,8,9,11,12,13,14];
+const MONEY_COLS_L = [3,4,5,8,9,10,12,14];
+const INT_COLS_L   = [1,2,6,7,11,13];
+const NUM_COLS_L   = 15;
+const excelBodyL   = document.getElementById('excelBodyL');
+
+async function fetchLineasMes(mes, ano) {
+  try {
+    const r = await fetch(`/api/facturacion-lineas-pub/${ano}/${String(mes).padStart(2,'0')}`, { credentials: 'include' });
+    const d = await r.json().catch(() => null);
+    const arr = (d?.ok && Array.isArray(d.data)) ? d.data : (Array.isArray(d) ? d : []);
+    datosLineasIndex = {};
+    for (const fila of arr) {
+      const key = toFechaKey(fila?.fecha);
+      if (key) datosLineasIndex[key] = Array.isArray(fila?.campos) ? fila.campos : [];
+    }
+  } catch (e) { console.error('Error cargando líneas:', e); datosLineasIndex = {}; }
 }
 
-function abrirModalTabla() {
-  renderTablaCompleta(currentMonth, currentYear);
-  document.getElementById('modalTablaCompleta').classList.add('active');
-  document.body.style.overflow = "hidden";
+function camposLineas(fecha) {
+  const c = datosLineasIndex[toFechaKey(fecha)];
+  const a = Array.isArray(c) ? c.slice() : [];
+  while (a.length < 9) a.push('');
+  return a;
 }
 
-async function renderTablaCompleta(mes, ano) {
-  await fetchFacturacionMes(mes, ano);
-  const modalBody = document.getElementById("modalTablaBody");
-  modalBody.innerHTML = "";
+async function aggregateMesL(mes, ano) {
+  try {
+    const r = await fetch(`/api/facturacion-lineas-pub/${ano}/${String(mes).padStart(2,'0')}`, { credentials: 'include' });
+    const d = await r.json().catch(() => null);
+    const arr = (d?.ok && Array.isArray(d.data)) ? d.data : [];
+    let fact = 0, ventas = 0;
+    arr.forEach(row => {
+      const c = Array.isArray(row.campos) ? row.campos : [];
+      fact   += num(c[2]) + num(c[5]);   // monto Garay + Connecting
+      ventas += num(c[0]) + num(c[3]);   // ventas Garay + Connecting
+    });
+    return { fact, ventas };
+  } catch (_) { return { fact: 0, ventas: 0 }; }
+}
+
+async function renderTablaDiasL(mes, ano) {
+  await fetchLineasMes(mes, ano);
+  excelBodyL.innerHTML = "";
   const numDias = daysInMonth(ano, mes);
   for (let i = 0; i < numDias; i++) {
+    const fecha = `${String(i+1).padStart(2,'0')}/${String(mes).padStart(2,'0')}/${ano}`;
+    const g = camposLineas(fecha);
+    const editVal = {};
+    editVal[COLL.gV] = g[0]; editVal[COLL.gL] = g[1]; editVal[COLL.gM] = g[2];
+    editVal[COLL.cV] = g[3]; editVal[COLL.cL] = g[4]; editVal[COLL.cM] = g[5];
+
     const tr = document.createElement("tr");
-    for (let c = 0; c < 20; c++) {
+    for (let c = 0; c < NUM_COLS_L; c++) {
       const td = document.createElement("td");
       if (c === 0) {
-        td.textContent = `${String(i+1).padStart(2,'0')}/${String(mes).padStart(2,'0')}/${ano}`;
-      } else {
-        const fecha  = `${String(i+1).padStart(2,'0')}/${String(mes).padStart(2,'0')}/${ano}`;
-        const campos = buscarCamposPorFecha(fecha);
-        td.textContent = campos[c-1] ?? '';
-      }
+        td.textContent = fecha; td.contentEditable = false;
+      } else if (EDIT_COLS_L.includes(c)) {
+        let val = String(editVal[c] ?? '').trim();
+        if (val !== "" && MONEY_COLS_L.includes(c)) val = money(num(val));
+        td.textContent = val; td.contentEditable = true;
+      } else { td.textContent = ""; td.contentEditable = false; }
       tr.appendChild(td);
     }
-    modalBody.appendChild(tr);
+    excelBodyL.appendChild(tr);
+    recalcularFilaL(tr);
   }
-  applyAlejandroVisibility();
+  renderFilaTotalesL();
+}
+
+function recalcularFilaL(tr) {
+  const tds = Array.from(tr.children);
+  const raw = i => num(tds[i].textContent);
+
+  const gV = raw(COLL.gV), gL = raw(COLL.gL), gM = raw(COLL.gM);
+  const cV = raw(COLL.cV), cL = raw(COLL.cL), cM = raw(COLL.cM);
+
+  const costoVentaG = gV > 0 ? gM / gV : 0;
+  const costoLineaG = gL > 0 ? gM / gL : 0;
+  const costoVentaC = cV > 0 ? cM / cV : 0;
+  const costoLineaC = cL > 0 ? cM / cL : 0;
+  tds[COLL.gCV].textContent = gV > 0 ? money(costoVentaG) : "";
+  tds[COLL.gCL].textContent = gL > 0 ? money(costoLineaG) : "";
+  tds[COLL.cCV].textContent = cV > 0 ? money(costoVentaC) : "";
+  tds[COLL.cCL].textContent = cL > 0 ? money(costoLineaC) : "";
+
+  const totV = gV + cV, totL = gL + cL;
+  tds[COLL.totV].textContent = totV > 0 ? intFmt(totV) : "";
+  tds[COLL.totL].textContent = totL > 0 ? intFmt(totL) : "";
+  // Fórmula literal: (costo venta Garay + costo venta Connecting) / total ventas
+  tds[COLL.valV].textContent = totV > 0 ? money((costoVentaG + costoVentaC) / totV) : "";
+  // Literal-paralelo: (costo línea Garay + costo línea Connecting) / total líneas
+  tds[COLL.valL].textContent = totL > 0 ? money((costoLineaG + costoLineaC) / totL) : "";
+}
+
+excelBodyL.addEventListener('input', function(e) {
+  const td = e.target;
+  if (EDIT_COLS_L.includes(td.cellIndex)) {
+    recalcularFilaL(td.parentElement);
+    renderFilaTotalesL();
+  }
+});
+
+function renderFilaTotalesL() {
+  const t = Array(NUM_COLS_L).fill(0);
+  Array.from(excelBodyL.querySelectorAll('tr')).forEach(tr => {
+    const tds = Array.from(tr.children);
+    EDIT_COLS_L.forEach(c => { t[c] += num(tds[c].textContent); });
+  });
+  const costoVentaG = t[COLL.gV] > 0 ? t[COLL.gM] / t[COLL.gV] : 0;
+  const costoLineaG = t[COLL.gL] > 0 ? t[COLL.gM] / t[COLL.gL] : 0;
+  const costoVentaC = t[COLL.cV] > 0 ? t[COLL.cM] / t[COLL.cV] : 0;
+  const costoLineaC = t[COLL.cL] > 0 ? t[COLL.cM] / t[COLL.cL] : 0;
+  t[COLL.gCV] = costoVentaG; t[COLL.gCL] = costoLineaG;
+  t[COLL.cCV] = costoVentaC; t[COLL.cCL] = costoLineaC;
+  t[COLL.totV] = t[COLL.gV] + t[COLL.cV];
+  t[COLL.totL] = t[COLL.gL] + t[COLL.cL];
+  t[COLL.valV] = t[COLL.totV] > 0 ? (costoVentaG + costoVentaC) / t[COLL.totV] : 0;
+  t[COLL.valL] = t[COLL.totL] > 0 ? (costoLineaG + costoLineaC) / t[COLL.totL] : 0;
+
+  for (let i = 1; i < NUM_COLS_L; i++) {
+    const el = document.getElementById('ltotal-col-' + i);
+    if (!el) continue;
+    if (MONEY_COLS_L.includes(i))   el.textContent = money(t[i]);
+    else if (INT_COLS_L.includes(i)) el.textContent = intFmt(t[i]);
+    else                             el.textContent = t[i] ? t[i].toLocaleString('en-US', { maximumFractionDigits: 2 }) : '';
+  }
+  refreshDashboardL(t);
+}
+
+function refreshDashboardL(t) {
+  const totMonto = (t[COLL.gM] || 0) + (t[COLL.cM] || 0);
+  document.getElementById('lkpi-facturado').textContent = money(totMonto);
+  document.getElementById('lkpi-ventas').textContent    = intFmt(t[COLL.totV]);
+  document.getElementById('lkpi-lineas').textContent    = intFmt(t[COLL.totL]);
+  document.getElementById('lkpi-vventa').textContent    = money(t[COLL.valV]);
+  document.getElementById('lkpi-vlinea').textContent    = money(t[COLL.valL]);
+  document.getElementById('lkpi-facturado-sub').innerHTML = deltaHTML(totMonto, prevAggL.fact);
+  document.getElementById('lkpi-ventas-sub').innerHTML    = deltaHTML(t[COLL.totV], prevAggL.ventas);
+
+  document.getElementById('lres-facturado').textContent = money(totMonto);
+  document.getElementById('lres-ventas').textContent    = intFmt(t[COLL.totV]);
+  document.getElementById('lres-lineas').textContent    = intFmt(t[COLL.totL]);
+  document.getElementById('lres-vlinea').textContent    = money(t[COLL.valL]);
+
+  const pubs = [
+    { nombre: 'Garay', monto: t[COLL.gM] || 0, color: '#f59e0b' },
+    { nombre: 'Connecting', monto: t[COLL.cM] || 0, color: 'var(--accent)' },
+  ];
+  const ordenados = pubs.slice().sort((a, b) => b.monto - a.monto);
+  const max = Math.max(...pubs.map(p => p.monto), 1);
+  document.getElementById('topPublicistas').innerHTML = ordenados.map((p, i) => `
+    <div class="top-item">
+      <div class="top-rank">${i + 1}</div>
+      <div class="top-main">
+        <div class="top-name">${p.nombre}</div>
+        <div class="top-bar"><span style="width:${Math.max(4, (p.monto / max) * 100)}%;background:${p.color}"></span></div>
+      </div>
+      <div class="top-val">${money(p.monto)}</div>
+    </div>`).join('');
+}
+
+async function guardarLineas() {
+  btnGuardar.disabled = true;
+  btnGuardar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando…';
+  const filas = Array.from(excelBodyL.querySelectorAll('tr'));
+  let guardados = 0, errores = 0;
+
+  for (const tr of filas) {
+    recalcularFilaL(tr);
+    const tds = Array.from(tr.children);
+    const fecha = tds[0].textContent.trim();
+    const cell = i => String(tds[i].textContent || '').replace(/[$,]/g, '').trim();
+
+    const gV = cell(COLL.gV), gL = cell(COLL.gL), gM = cell(COLL.gM);
+    const cV = cell(COLL.cV), cL = cell(COLL.cL), cM = cell(COLL.cM);
+    const tieneDato = [gV,gL,gM,cV,cL,cM].some(v => v !== "");
+    if (!tieneDato) continue;
+
+    const campos = [
+      gV, gL, gM, cV, cL, cM,
+      String(num(gM) + num(cM)),   // [6] total monto
+      String(num(gV) + num(cV)),   // [7] total ventas
+      String(num(gL) + num(cL)),   // [8] total líneas
+    ];
+    const res = await fetch('/api/facturacion-lineas-pub', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+      body: JSON.stringify({ fecha, campos })
+    });
+    let ok = false;
+    try { if (res.ok) { const d = await res.json(); ok = d?.ok === true || (res.status >= 200 && res.status < 300); } } catch (_) {}
+    if (ok) guardados++; else errores++;
+  }
+
+  await renderTablaDiasL(currentMonth, currentYear);
+  actualizarGraficaL();
+  setUltimaActualizacion();
+  btnGuardar.disabled = false;
+  btnGuardar.innerHTML = '<i class="fas fa-save"></i> Guardar';
+  showToast(`✓ Guardados: ${guardados}${errores ? ` · Errores: ${errores}` : ''}`);
+}
+
+let graficaL;
+async function actualizarGraficaL() {
+  try {
+    const ano = parseInt(filtroAno.value, 10);
+    const resp = await fetch(`/api/facturacion-lineas-pub/anual/${ano}`, { credentials: 'include' });
+    let totalesPorMes = Array(12).fill(0);
+    if (resp.ok) {
+      const data = await resp.json().catch(() => null);
+      if (data?.ok && Array.isArray(data.totalesPorMes)) totalesPorMes = data.totalesPorMes.map(v => Number(v) || 0);
+    }
+    if (graficaL) graficaL.destroy();
+    const ctx = document.getElementById('graficaGastosMesL').getContext('2d');
+    graficaL = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"],
+        datasets: [{
+          data: totalesPorMes,
+          backgroundColor: totalesPorMes.map((v, i) => i === (currentMonth - 1) ? 'rgba(245,158,11,0.9)' : 'rgba(245,158,11,0.22)'),
+          borderColor: 'transparent', borderRadius: 6,
+          datalabels: {
+            anchor: 'end', align: 'end', offset: 4, color: '#e6ebf5',
+            font: { family: "'DM Mono', monospace", weight: '700', size: 11 },
+            formatter: v => v > 0 ? "$" + Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 }) : ''
+          }
+        }]
+      },
+      options: {
+        plugins: { legend: { display: false }, datalabels: { display: ctx => Number(ctx?.dataset?.data?.[ctx?.dataIndex]) > 0 } },
+        responsive: true, maintainAspectRatio: false, layout: { padding: { top: 30 } },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: "#64748b", font: { family: "'DM Mono', monospace", size: 11 } }, border: { display: false } },
+          y: { grid: { display: false }, ticks: { display: false }, border: { display: false } }
+        }
+      }
+    });
+  } catch (e) { console.error('Error gráfica líneas:', e); }
+}
+
+/* =====================================================================
+   TOGGLE DE MODO
+   ===================================================================== */
+async function setMode(mode) {
+  currentMode = mode;
+  const esLineas = mode === 'lineas';
+  document.getElementById('view-residencial').style.display = esLineas ? 'none' : '';
+  document.getElementById('view-lineas').style.display      = esLineas ? '' : 'none';
+  document.getElementById('btnModoLabel').textContent = esLineas ? 'Residencial' : 'Líneas';
+  document.getElementById('btnModo').classList.toggle('activo', esLineas);
+  document.querySelector('.topbar-title p').textContent =
+    esLineas ? 'Líneas — Garay / Connecting' : 'Control y seguimiento de ventas por asesor';
+
+  if (esLineas) {
+    const { mes, ano } = mesAnterior(currentMonth, currentYear);
+    prevAggL = await aggregateMesL(mes, ano);
+    await renderTablaDiasL(currentMonth, currentYear);
+    actualizarGraficaL();
+    lineasInit = true;
+  }
+}
+
+document.getElementById('btnModo').addEventListener('click', () => {
+  setMode(currentMode === 'lineas' ? 'residencial' : 'lineas');
+});
+
+/* =====================================================================
+   FILTROS
+   ===================================================================== */
+async function updateTableByFilters() {
+  currentMonth = parseInt(filtroMes.value, 10);
+  currentYear  = parseInt(filtroAno.value, 10);
+  const { mes, ano } = mesAnterior(currentMonth, currentYear);
+  if (currentMode === 'lineas') {
+    prevAggL = await aggregateMesL(mes, ano);
+    await renderTablaDiasL(currentMonth, currentYear);
+    actualizarGraficaL();
+  } else {
+    prevAgg = await aggregateMes(mes, ano);
+    await renderTablaDias(currentMonth, currentYear);
+    actualizarGrafica();
+  }
+}
+filtroMes.addEventListener('change', updateTableByFilters);
+filtroAno.addEventListener('change', updateTableByFilters);
+
+function setUltimaActualizacion() {
+  const now = new Date();
+  document.getElementById('ultimaActualizacion').textContent =
+    `Última actualización: ${now.toLocaleDateString('es')} ${now.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}`;
 }
 
 /* =====================================================================
    INIT
    ===================================================================== */
 window.addEventListener('DOMContentLoaded', async () => {
+  const { mes, ano } = mesAnterior(currentMonth, currentYear);
+  prevAgg = await aggregateMes(mes, ano);
   await renderTablaDias(currentMonth, currentYear);
-  actualizarTotalesPorMesLocales();
   actualizarGrafica();
-  renderFilaTotalesFacturacion();
-  applyAlejandroVisibility();
+  setUltimaActualizacion();
 });
 </script>
 </body>

@@ -23,7 +23,7 @@
     .layout { display: flex; min-height: 100vh; }
     .sidebar { flex: 0 0 auto; }
     .main-content { flex: 1; overflow-y: auto; }
-    .content-container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    .content-container { max-width: 1840px; margin: 0 auto; padding: 20px 36px; }
     h1 { color: #f0f4ff; margin-top: 0; margin-bottom: 30px; font-size: 28px; text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
 
     /* Team Section */
@@ -160,6 +160,95 @@
     @media (max-width: 1280px) {
       .content-container > div:first-of-type { grid-template-columns: repeat(2, 1fr) !important; }
     }
+
+    /* ===== Rendimiento por Agente: encabezado + toggle de vista ===== */
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 8px 0 20px 0;
+      flex-wrap: wrap;
+    }
+    .section-title { font-size: 22px; font-weight: 700; color: #f0f4ff; margin: 0; }
+    .section-sub { font-size: 13px; color: rgba(255,255,255,0.55); margin: 4px 0 0 0; }
+    .view-toggle {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,255,255,0.12);
+      padding: 6px 10px; border-radius: 12px;
+    }
+    .vt-caption { font-size: 12px; color: rgba(255,255,255,0.55); margin-right: 4px; }
+    .vt-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: transparent; color: rgba(255,255,255,0.7);
+      border: none; padding: 8px 14px; border-radius: 8px;
+      cursor: pointer; font-weight: 600; font-size: 13px; transition: all 0.2s;
+    }
+    .vt-btn.active { background: #6366f1; color: #fff; box-shadow: 0 4px 12px rgba(99,102,241,0.4); }
+    .vt-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ===== Grid de 3 tarjetas de team ===== */
+    .teams-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      align-items: stretch;
+    }
+    .team-card {
+      display: flex; flex-direction: column;
+      background: rgba(10, 20, 60, 0.55);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px; padding: 20px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+    }
+    .team-card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .team-card-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(129,140,248,0.18); color: #818cf8; font-size: 18px;
+    }
+    .team-card-title { font-size: 18px; font-weight: 700; color: #f0f4ff; margin: 0; }
+
+    /* Franja de stats del team */
+    .team-stat-strip {
+      display: grid; grid-template-columns: repeat(5, 1fr);
+      gap: 4px; margin-bottom: 18px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 12px; padding: 12px 8px;
+    }
+    .tstat { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; }
+    .tstat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: rgba(255,255,255,0.55); }
+    .tstat-val { font-size: 22px; font-weight: 700; color: #f0f4ff; }
+    .tstat-green { color: #22c55e; }
+    .tstat-red { color: #f87171; }
+
+    /* Gráfica del team */
+    .team-chart-wrap { position: relative; height: 460px; }
+    .team-chart { width: 100%; height: 100%; }
+    /* Spinner / mensaje de "sin datos" como overlay centrado (no empuja la gráfica) */
+    .team-chart-wrap .loading {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0; margin: 0;
+    }
+
+    /* Botón Ver Detalle Completo */
+    .btn-detalle {
+      display: block; text-align: center; margin-top: 16px;
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+      color: #fff; text-decoration: none; font-weight: 700; font-size: 14px;
+      padding: 12px 16px; border-radius: 10px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn-detalle:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(99,102,241,0.45); }
+
+    @media (max-width: 1100px) {
+      .teams-grid { grid-template-columns: 1fr; }
+    }
   </style>
   <link rel="stylesheet" href="/css/glass-cards.css?v=20260605">
 </head>
@@ -255,105 +344,21 @@
           </div>
         </div>
 
-        <!-- Team Jonathan F -->
-        <div class="team-section">
-          <h2 class="team-title" id="team-title-jonathan">Team Jonathan F</h2>
-          <div class="team-content">
-            <div class="chart-container">
-              <div class="loading" id="loading-jonathan">
-                <div class="spinner"></div>
-              </div>
-              <div id="chartJonathan" style="width: 100%; height: 100%;"></div>
-            </div>
-            <div class="kpi-card">
-              <div class="kpi-item">
-                <div class="kpi-icon"></div>
-                <div class="kpi-content">
-                  <p class="kpi-label">Cantidad de Clientes</p>
-                  <p class="kpi-value" id="kpi-jonathan-ventas">-</p>
-                </div>
-              </div>
-              <div class="kpi-item">
-                <div class="kpi-icon"></div>
-                <div class="kpi-content">
-                  <p class="kpi-label">Cantidad de Líneas</p>
-                  <p class="kpi-value" id="kpi-jonathan-ventas-lineas">-</p>
-                </div>
-              </div>
-              <div class="kpi-item">
-                <div class="kpi-icon"></div>
-                <div class="kpi-content">
-                  <p class="kpi-label" style="color: #22c55e;">Líneas Activas</p>
-                  <p class="kpi-value" id="kpi-jonathan-activas" style="color: #22c55e;">-</p>
-                </div>
-              </div>
-              <div class="kpi-item">
-                <div class="kpi-icon"></div>
-                <div class="kpi-content">
-                  <p class="kpi-label">Líneas Pendientes</p>
-                  <p class="kpi-value" id="kpi-jonathan-lineas-pendientes">-</p>
-                </div>
-              </div>
-              <div class="kpi-item">
-                <div class="kpi-icon"></div>
-                <div class="kpi-content">
-                  <p class="kpi-label" style="color: #f87171;">Líneas Canceladas</p>
-                  <p class="kpi-value" id="kpi-jonathan-lineas-canceladas" style="color: #f87171;">-</p>
-                </div>
-              </div>
-            </div>
+        <!-- Rendimiento por Agente -->
+        <div class="section-head">
+          <div>
+            <h2 class="section-title">Rendimiento por Agente</h2>
+            <p class="section-sub">Comparativa de ventas y líneas por agente</p>
+          </div>
+          <div class="view-toggle" id="view-toggle">
+            <span class="vt-caption">Modo Vista:</span>
+            <button class="vt-btn active" data-view="cards"><i class="fas fa-th-large"></i> Tarjetas</button>
+            <button class="vt-btn" data-view="table" disabled title="Próximamente"><i class="fas fa-table"></i> Tabla</button>
           </div>
         </div>
 
-        <!-- Team Luis G -->
-        <div class="team-section">
-          <h2 class="team-title" id="team-title-luis">Team Luis G</h2>
-          <div class="team-content">
-            <div class="chart-container">
-              <div class="loading" id="loading-luis">
-                <div class="spinner"></div>
-              </div>
-              <div id="chartLuis" style="width: 100%; height: 100%;"></div>
-            </div>
-            <div class="kpi-card">
-              <div class="kpi-item">
-                <div class="kpi-icon"></div>
-                <div class="kpi-content">
-                  <p class="kpi-label">Cantidad de Clientes</p>
-                  <p class="kpi-value" id="kpi-luis-ventas">-</p>
-                </div>
-              </div>
-              <div class="kpi-item">
-                <div class="kpi-icon"></div>
-                <div class="kpi-content">
-                  <p class="kpi-label">Cantidad de Líneas</p>
-                  <p class="kpi-value" id="kpi-luis-ventas-lineas">-</p>
-                </div>
-              </div>
-              <div class="kpi-item">
-                <div class="kpi-icon"></div>
-                <div class="kpi-content">
-                  <p class="kpi-label" style="color: #22c55e;">Líneas Activas</p>
-                  <p class="kpi-value" id="kpi-luis-activas" style="color: #22c55e;">-</p>
-                </div>
-              </div>
-              <div class="kpi-item">
-                <div class="kpi-icon"></div>
-                <div class="kpi-content">
-                  <p class="kpi-label">Líneas Pendientes</p>
-                  <p class="kpi-value" id="kpi-luis-lineas-pendientes">-</p>
-                </div>
-              </div>
-              <div class="kpi-item">
-                <div class="kpi-icon"></div>
-                <div class="kpi-content">
-                  <p class="kpi-label" style="color: #f87171;">Líneas Canceladas</p>
-                  <p class="kpi-value" id="kpi-luis-lineas-canceladas" style="color: #f87171;">-</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- Tarjetas de teams (generadas por JS desde el array TEAMS) -->
+        <div class="teams-grid" id="teams-grid"></div>
 
       </div>
     </main>
@@ -376,6 +381,106 @@
     let currentYear = new Date().getFullYear();
     let currentMonth = new Date().getMonth() + 1; // 1-12
     let sumarColchonActivo = false;
+
+    // ===== Configuración de Teams de Líneas =====
+    // Añadir un team nuevo = agregar un objeto aquí. La tarjeta, KPIs y gráfica
+    // se generan automáticamente a partir de este array.
+    const TEAMS = [
+      { key: 'JONATHAN F', slug: 'jonathan', title: 'Team Jonathan F',     teamWord: 'JONATHAN' },
+      { key: 'LUIS G',     slug: 'luis',     title: 'Team Luis G',         teamWord: 'LUIS' },
+      { key: 'VICTOR H',   slug: 'victor',   title: 'Team Líneas Victor',  teamWord: 'VICTOR' },
+    ];
+    TEAMS.forEach(t => {
+      t.chartId   = `chart-${t.slug}`;
+      t.kpiPrefix = `kpi-${t.slug}-`;
+      t.loadingId = `loading-${t.slug}`;
+      t.roster    = []; // agentes del team según la página de permisos (tabla users)
+    });
+
+    // Normaliza el campo supervisor a la clave canónica del team.
+    function normalizeSupervisor(sup) {
+      const s = String(sup || '').trim().toUpperCase();
+      if (s.includes('JONATHAN')) return 'JONATHAN F';
+      if (s.includes('LUIS'))     return 'LUIS G';
+      if (s.includes('VICTOR'))   return 'VICTOR H';
+      return s;
+    }
+
+    // Normaliza nombre de agente (igual criterio que la gráfica) para cruzar roster ↔ leads.
+    function normalizeAgentName(name) {
+      return String(name || '').trim().replace(/_/g, ' ').replace(/\s+/g, ' ').toUpperCase();
+    }
+
+    // Trae el roster de agentes por team desde la página de permisos (/api/users/agents),
+    // agrupando por la columna `team` (TEAM LINEAS JONATHAN/LUIS/VICTOR), excluyendo
+    // supervisores y cuentas sin nombre. Así la gráfica muestra TODOS los agentes,
+    // aunque tengan 0 ventas en el mes.
+    let __rostersLoaded = false;
+    async function loadRosters() {
+      if (__rostersLoaded) return;
+      try {
+        const res = await fetch('/api/users/agents');
+        if (!res.ok) return;
+        const data = await res.json();
+        const agents = Array.isArray(data.agents) ? data.agents : [];
+        TEAMS.forEach(t => { t.roster = []; });
+        agents.forEach(u => {
+          const role = String(u.role || '').toLowerCase();
+          if (role.includes('supervisor')) return;           // el supervisor no es barra de agente
+          const username = String(u.username || '');
+          if (/^lineas[\s-]/i.test(username)) return;        // saltar cuentas legacy duplicadas (Lineas-Edward, ...)
+          const display = normalizeAgentName(u.name || '');
+          if (!display) return;
+          const team = String(u.team || '').toUpperCase();
+          const t = TEAMS.find(tt => team.includes(tt.teamWord));
+          if (t && !t.roster.includes(display)) t.roster.push(display);
+        });
+        __rostersLoaded = true;
+      } catch (_) { /* sin roster: la gráfica usa solo agentes con ventas */ }
+    }
+
+    // Construye el esqueleto de cada tarjeta de team dentro de #teams-grid.
+    function renderTeamCards() {
+      const grid = document.getElementById('teams-grid');
+      if (!grid) return;
+      grid.innerHTML = TEAMS.map(t => `
+        <div class="team-card">
+          <div class="team-card-head">
+            <div class="team-card-icon"><i class="fas fa-user-tie"></i></div>
+            <h3 class="team-card-title" id="team-title-${t.slug}">${t.title}</h3>
+          </div>
+          <div class="team-stat-strip">
+            <div class="tstat"><span class="tstat-label">Clientes</span><span class="tstat-val" id="${t.kpiPrefix}ventas">-</span></div>
+            <div class="tstat"><span class="tstat-label">Líneas</span><span class="tstat-val" id="${t.kpiPrefix}ventas-lineas">-</span></div>
+            <div class="tstat"><span class="tstat-label">Activas</span><span class="tstat-val tstat-green" id="${t.kpiPrefix}activas">-</span></div>
+            <div class="tstat"><span class="tstat-label">Pendientes</span><span class="tstat-val" id="${t.kpiPrefix}lineas-pendientes">-</span></div>
+            <div class="tstat"><span class="tstat-label">Canceladas</span><span class="tstat-val tstat-red" id="${t.kpiPrefix}lineas-canceladas">-</span></div>
+          </div>
+          <div class="team-chart-wrap">
+            <div class="loading" id="${t.loadingId}"><div class="spinner"></div></div>
+            <div id="${t.chartId}" class="team-chart"></div>
+          </div>
+          <a class="btn-detalle" href="/lineas/costumer.html?team=${encodeURIComponent(t.key)}">Ver Detalle Completo</a>
+        </div>
+      `).join('');
+    }
+
+    // Pone una tarjeta de team en estado vacío (sin datos en el mes).
+    function resetTeamCard(t) {
+      const loadingEl = document.getElementById(t.loadingId);
+      if (loadingEl) {
+        loadingEl.innerHTML = '<p style="color: rgba(255,255,255,0.5); font-size: 14px;">No hay datos para este mes</p>';
+        loadingEl.style.display = 'block';
+      }
+      if (window[t.chartId + 'Instance']) {
+        try { window[t.chartId + 'Instance'].destroy(); } catch (_) {}
+        window[t.chartId + 'Instance'] = null;
+      }
+      ['ventas', 'ventas-lineas', 'activas', 'lineas-pendientes', 'lineas-canceladas'].forEach(suffix => {
+        const el = document.getElementById(t.kpiPrefix + suffix);
+        if (el) el.textContent = '0';
+      });
+    }
 
     // Funciones de utilidad para manejo de fechas
     const __urlParams = (() => {
@@ -646,152 +751,31 @@
           allLeads = mockLeads;
         }
 
-        // Mostrar distribución de supervisores ANTES del filtrado mensual
-        const supervisoresAntes = {};
-        const agentesPorSupervisor = {};
-        
-        allLeads.forEach(l => {
-          const sup = l.supervisor || 'Sin supervisor';
-          // Usar agenteAsignado si existe, sino _collection
-          const agente = l.agenteAsignado || l._collection || 'Sin agente';
-          
-          supervisoresAntes[sup] = (supervisoresAntes[sup] || 0) + 1;
-          
-          if (!agentesPorSupervisor[sup]) {
-            agentesPorSupervisor[sup] = {};
+        // Filtrar por mes/rango seleccionado y deduplicar
+        const leads = __dedupeLeads(filterLeadsByMonth(allLeads));
+
+        // Roster de agentes por team (página de permisos) para mostrarlos todos
+        await loadRosters();
+
+        // Si viene ?team=... en la URL, limitar la pantalla a ese team
+        const normalizedTeamParam = __rangeTeam ? normalizeSupervisor(__rangeTeam) : '';
+
+        // Procesar y renderizar cada team (Jonathan, Luis, Victor, …)
+        const teamLeadsAll = [];
+        TEAMS.forEach(t => {
+          let teamLeads = __dedupeLeads(leads.filter(l => normalizeSupervisor(l.supervisor) === t.key));
+          if (normalizedTeamParam && normalizedTeamParam !== t.key) teamLeads = [];
+
+          if (teamLeads.length > 0 || (t.roster && t.roster.length > 0)) {
+            renderTeamData(t.title, teamLeads, t.chartId, t.kpiPrefix, t.loadingId, t.roster);
+            teamLeadsAll.push(...teamLeads);
+          } else {
+            resetTeamCard(t);
           }
-          agentesPorSupervisor[sup][agente] = (agentesPorSupervisor[sup][agente] || 0) + 1;
-        });
-        
-        
-        // Filtrar por mes/rango seleccionado usando dia_venta
-        let leads = filterLeadsByMonth(allLeads);
-        leads = __dedupeLeads(leads);
-        
-        // Mostrar distribución DESPUÉS del filtrado mensual
-        const supervisoresDespues = {};
-        const agentesDespues = {};
-        
-        leads.forEach(l => {
-          const sup = l.supervisor || 'Sin supervisor';
-          // Usar agenteAsignado si existe, sino _collection
-          const agente = l.agenteAsignado || l._collection || 'Sin agente';
-          
-          supervisoresDespues[sup] = (supervisoresDespues[sup] || 0) + 1;
-          
-          if (!agentesDespues[sup]) {
-            agentesDespues[sup] = {};
-          }
-          agentesDespues[sup][agente] = (agentesDespues[sup][agente] || 0) + 1;   
-        });
-        
-
-        // Detectar supervisores únicos en los datos
-        const supervisoresUnicos = [...new Set(leads.map(l => (l.supervisor || 'Sin asignar')).filter(s => s.trim() !== ''))];
-        supervisoresUnicos.sort();
-
-        // Filtrar específicamente por los supervisores de Team Líneas
-        // Normalizar nombres de supervisores (pueden venir como "JONATHAN F", "Jonathan F", etc.)
-        const normalizeSupervisor = (sup) => {
-          const s = String(sup || '').trim().toUpperCase();
-          if (s.includes('JONATHAN')) return 'JONATHAN F';
-          if (s.includes('LUIS')) return 'LUIS G';
-          return s;
-        };
-
-        // Filtrar leads por supervisor específico de Team Líneas
-        const normalizedTeamParam = (() => {
-          const s = String(__rangeTeam || '').trim().toUpperCase();
-          if (!s) return '';
-          if (s.includes('JONATHAN')) return 'JONATHAN F';
-          if (s.includes('LUIS')) return 'LUIS G';
-          return s;
-        })();
-
-        let team1Leads = leads.filter(l => {
-          const sup = normalizeSupervisor(l.supervisor);
-          return sup === 'JONATHAN F';
         });
 
-        let team2Leads = leads.filter(l => {
-          const sup = normalizeSupervisor(l.supervisor);
-          return sup === 'LUIS G';
-        });
-
-        team1Leads = __dedupeLeads(team1Leads);
-        team2Leads = __dedupeLeads(team2Leads);
-
-        // Diagnóstico: identificar si hay "extras" en teams vs (mes actual + colchón) por ID
-        try {
-          const startDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
-          const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
-          const endDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
-
-          const getId = (l) => String(l?._id || l?.id || l?.ID || l?.id_cliente || l?.idCliente || '').trim();
-          const bucketMonth = (l) => {
-            const dv = l.dia_venta || l.fecha_venta || '';
-            return dv >= startDate && dv <= endDate;
-          };
-
-          const inBuckets = (l) => bucketMonth(l);
-          const jonExtra = team1Leads.filter(l => !inBuckets(l));
-          const luisExtra = team2Leads.filter(l => !inBuckets(l));
-          if (jonExtra.length || luisExtra.length) {
-            console.warn('[loadEstadisticas][diagnostico] Leads en team pero fuera del mes (revisar formato de fechas):', {
-              jonExtra: jonExtra.length,
-              luisExtra: luisExtra.length
-            });
-            if (jonExtra.length) console.table(jonExtra.map(l => ({ id: getId(l), dia_venta: l.dia_venta || l.fecha_venta, dia_instalacion: l.dia_instalacion || l.fecha_instalacion, supervisor: l.supervisor, agente: l.agenteAsignado || l._collection })));
-            if (luisExtra.length) console.table(luisExtra.map(l => ({ id: getId(l), dia_venta: l.dia_venta || l.fecha_venta, dia_instalacion: l.dia_instalacion || l.fecha_instalacion, supervisor: l.supervisor, agente: l.agenteAsignado || l._collection })));
-          }
-        } catch (_) {}
-
-        // Si viene ?team=..., limitar la pantalla a ese team para comparar con COSTUMER-LINEAS
-        if (normalizedTeamParam) {
-          if (normalizedTeamParam === 'JONATHAN F') team2Leads = [];
-          if (normalizedTeamParam === 'LUIS G') team1Leads = [];
-        }
-
-
-        // Procesar datos y renderizar
-        if (team1Leads.length > 0) {
-          renderTeamData('JONATHAN F', team1Leads, 'chartJonathan', 'kpi-jonathan-');
-        } else {
-          console.warn('[loadEstadisticas] No hay datos para JONATHAN F en este mes');
-          // Mostrar mensaje en la gráfica
-          const loadingEl = document.getElementById('loading-jonathan');
-          if (loadingEl) {
-            loadingEl.innerHTML = '<p style="color: #6b7280; font-size: 14px;">No hay datos para este mes</p>';
-            loadingEl.style.display = 'block';
-          }
-          // Resetear KPIs
-          document.getElementById('kpi-jonathan-ventas').textContent = '0';
-          document.getElementById('kpi-jonathan-activas').textContent = '0';
-          document.getElementById('kpi-jonathan-lineas-pendientes').textContent = '0';
-          document.getElementById('kpi-jonathan-lineas-canceladas').textContent = '0';
-          document.getElementById('kpi-jonathan-ventas-lineas').textContent = '0';
-        }
-        
-        if (team2Leads.length > 0) {
-          renderTeamData('LUIS G', team2Leads, 'chartLuis', 'kpi-luis-');
-        } else {
-          console.warn('[loadEstadisticas] No hay datos para LUIS G en este mes');
-          // Mostrar mensaje en la gráfica
-          const loadingEl = document.getElementById('loading-luis');
-          if (loadingEl) {
-            loadingEl.innerHTML = '<p style="color: #6b7280; font-size: 14px;">No hay datos para este mes</p>';
-            loadingEl.style.display = 'block';
-          }
-          // Resetear KPIs
-          document.getElementById('kpi-luis-ventas').textContent = '0';
-          document.getElementById('kpi-luis-activas').textContent = '0';
-          document.getElementById('kpi-luis-lineas-pendientes').textContent = '0';
-          document.getElementById('kpi-luis-lineas-canceladas').textContent = '0';
-          document.getElementById('kpi-luis-ventas-lineas').textContent = '0';
-        }
-        
-        // Actualizar KPIs globales (suma de ambos teams)
-        updateGlobalKPIs(__dedupeLeads([...team1Leads, ...team2Leads]));
+        // KPIs globales = suma de todos los teams (sin duplicados)
+        updateGlobalKPIs(__dedupeLeads(teamLeadsAll));
 
       } catch (error) {
         console.error('[loadEstadisticas] Error fatal:', error);
@@ -930,31 +914,28 @@
       
     }
 
-    function renderTeamData(teamName, leads, canvasId, kpiPrefix) {
-      if (leads.length === 0) {
-        console.warn(`[renderTeamData] No hay leads para ${teamName}`);
+    function renderTeamData(teamName, leads, canvasId, kpiPrefix, loadingId, roster) {
+      roster = Array.isArray(roster) ? roster : [];
+      if (leads.length === 0 && roster.length === 0) {
+        console.warn(`[renderTeamData] No hay leads ni roster para ${teamName}`);
         return;
       }
 
-      
       // Ocultar spinner de carga
-      const loadingId = canvasId === 'chartJonathan' ? 'loading-jonathan' : 'loading-luis';
       const loadingEl = document.getElementById(loadingId);
       if (loadingEl) loadingEl.style.display = 'none';
 
       // Agrupar por agente (excluyendo supervisores)
       const agentData = {};
-      const supervisores = ['JONATHAN F', 'LUIS G', 'JONATHAN', 'LUIS'];
+      const supervisores = ['JONATHAN F', 'LUIS G', 'JONATHAN', 'LUIS', 'VICTOR HURTADO'];
 
-      const normalizeAgentName = (name) => {
-        return String(name || '')
-          .trim()
-          .replace(/_/g, ' ')
-          .replace(/\s+/g, ' ')
-          .toUpperCase();
-      };
-      
-      
+      // Sembrar TODOS los agentes del team (página de permisos) en 0,
+      // para que aparezcan en la gráfica aunque no tengan ventas este mes.
+      roster.forEach(name => {
+        if (name && !agentData[name]) agentData[name] = { ventas: 0, lineas: 0 };
+      });
+
+
       // Log de status de todos los leads para debugging
       const statusCount = {};
       leads.forEach(l => {
@@ -1190,7 +1171,10 @@
 
     document.addEventListener('DOMContentLoaded', function(){
       if (window.loadSidebar) window.loadSidebar();
-      
+
+      // Construir las tarjetas de team antes de cargar datos
+      renderTeamCards();
+
       // Configurar navegación mensual
       updateMonthDisplay();
       
