@@ -144,7 +144,4 @@ usuarios de prueba temporales (`admin_qa_test`, `agente_qa_test`, **eliminados a
 
 ## 7. Estado
 
-- **Validación:** sintaxis de todos los routers, carga de la app sin `DeprecationWarning`,
-  conexión TLS verificada a Aiven (MySQL 8.4.8), QA funcional de login y controles de rol contra
-  producción.
-- **Commit/push:** pendiente de confirmación del usuario al cierre de la sesión.
+

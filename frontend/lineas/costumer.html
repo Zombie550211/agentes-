@@ -981,6 +981,7 @@
             <button class="tt-btn tt-active" data-team="">Todos</button>
             <button class="tt-btn" data-team="JONATHAN F">Jonathan</button>
             <button class="tt-btn" data-team="LUIS G">Luis G</button>
+            <button class="tt-btn" data-team="VICTOR H">Victor</button>
           </div>
           <!-- Contador de registros -->
           <span id="leadCounter" class="lead-counter-badge">0 Registros Totales</span>
@@ -1413,6 +1414,7 @@
         if (!cleaned) return 'SIN TEAM';
         if (cleaned.includes('JONATHAN')) return 'JONATHAN F';
         if (cleaned.includes('LUIS')) return 'LUIS G';
+        if (cleaned.includes('VICTOR')) return 'VICTOR H';
         return cleaned;
       }
 
@@ -3657,10 +3659,31 @@
 
       const __llamadasModeLineas = /[?&]llamadas=1/.test(window.location.search || '');
 
+      // Preselecciona el team del toggle a partir de ?team=... en la URL
+      // (lo usa el botón "Ver Detalle Completo" de Estadísticas).
+      function _applyTeamFromURL(){
+        try {
+          const qp = new URLSearchParams(window.location.search || '');
+          const wanted = normalizeTeamKey(qp.get('team') || '');
+          if (!wanted || wanted === 'SIN TEAM') return;
+          const btns = document.querySelectorAll('#teamToggle .tt-btn');
+          let match = null;
+          btns.forEach(b => {
+            if (normalizeTeamKey(b.getAttribute('data-team') || '') === wanted && b.style.display !== 'none') match = b;
+          });
+          if (!match) return; // team no disponible para este usuario (restricción de rol)
+          btns.forEach(b => b.classList.remove('tt-active'));
+          match.classList.add('tt-active');
+          const tf = document.getElementById('teamFilter');
+          if (tf) tf.value = wanted;
+        } catch (_) {}
+      }
+
       async function load(){
         allItems = await fetchData();
         sortNewToOld(allItems);
         _restrictTeamToggle(allItems);
+        _applyTeamFromURL();
         // Modo llamadas pendientes: mostrar solo los clientes por llamar (sin filtro de fechas)
         if (__llamadasModeLineas) {
           try {

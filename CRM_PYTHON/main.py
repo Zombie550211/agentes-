@@ -27,7 +27,7 @@ from routers import auth as auth_router
 from routers import dashboard as dashboard_router
 from routers import (
     teams, premios, facturacion, chat, media, pre_leads, employees_month,
-    facturacion_lineas, llamadas_ventas_lineas, bulk_status,
+    facturacion_lineas, facturacion_lineas_pub, llamadas_ventas_lineas, bulk_status,
     users as users_router, lineas as lineas_router,
     ranking as ranking_router, equipo as equipo_router,
     leads as leads_router,
@@ -233,6 +233,10 @@ async def lifespan(app: FastAPI):
         await _seed_team_renames()
     except Exception as e:
         print(f"[team-renames] {e}")
+    try:
+        await facturacion_lineas_pub.ensure_table()
+    except Exception as e:
+        print(f"[facturacion-lineas-pub] ensure_table: {e}")
     yield
     await close_mysql()
 
@@ -318,6 +322,7 @@ app.include_router(teams.router)
 app.include_router(premios.router)
 app.include_router(facturacion.router)
 app.include_router(facturacion_lineas.router)
+app.include_router(facturacion_lineas_pub.router)
 app.include_router(llamadas_ventas_lineas.router)
 app.include_router(chat.router)
 app.include_router(media.router)
