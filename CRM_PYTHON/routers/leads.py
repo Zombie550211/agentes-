@@ -5,7 +5,7 @@ from sqlalchemy import text
 from deps import current_user, require_roles
 from datetime import datetime, timezone
 from typing import Optional, List, Any
-import re, unicodedata, time, json, calendar, traceback, asyncio
+import re, unicodedata, time, json, calendar, traceback, asyncio, os
 from geocoder import geocode_and_save
 import realtime
 
@@ -1379,6 +1379,16 @@ async def update_lead(
         where = "mongo_id = :mid"
 
     async with AsyncSessionLocal() as s:
+        # Control de acceso: un agente solo puede modificar SUS propios leads (lo que ve = lo que
+        # puede editar). admin/backoffice/supervisor mantienen el alcance amplio del listado.
+        if _is_agent(user):
+            uname = user.get("username", "")
+            own = await s.execute(text(
+                "SELECT 1 FROM leads WHERE (id = :id OR mongo_id = :mid) "
+                "AND (agente = :u OR agente_nombre = :u OR created_by = :u) LIMIT 1"
+            ), {"id": mysql_id or 0, "mid": mongo_id or "", "u": uname})
+            if own.first() is None:
+                raise HTTPException(403, "No autorizado para modificar este lead")
         extra_llamada = ""
         if "status" in data:
             pr = await s.execute(text("SELECT status FROM leads WHERE id = :id OR mongo_id = :mid LIMIT 1"),
@@ -1429,6 +1439,12 @@ async def delete_lead(lead_id: str, user: dict = Depends(current_user)):
 # ── DEBUG ──────────────────────────────────────────────────────────
 @router.get("/api/debug/search-lead/{lead_id}")
 async def debug_search_lead(lead_id: str, user: dict = Depends(current_user)):
+    # Endpoint de depuración: deshabilitado en producción y restringido a admin/backoffice.
+    # Evita el IDOR de lectura (un agente no debe consultar leads ajenos por aquí).
+    if os.getenv("NODE_ENV") == "production":
+        raise HTTPException(404, "Not found")
+    if not _is_admin_or_bo(user):
+        raise HTTPException(403, "No autorizado")
     mysql_id, mongo_id = _find_id(lead_id)
     async with AsyncSessionLocal() as s:
         if mysql_id:

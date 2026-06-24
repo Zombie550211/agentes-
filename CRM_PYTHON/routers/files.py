@@ -198,14 +198,21 @@ async def serve_image(file_id: str):
     if row["content"]:
         content_type = row["content_type"] or "image/jpeg"
         data = bytes(row["content"])
-        return Response(
-            content=data,
-            media_type=content_type,
-            headers={
-                "Cache-Control": "public, max-age=31536000, immutable",
-                "Content-Length": str(len(data)),
-            },
-        )
+        resp_headers = {
+            "Cache-Control": "public, max-age=31536000, immutable",
+            "Content-Length": str(len(data)),
+            "X-Content-Type-Options": "nosniff",
+        }
+        # Tipos activos (svg/html/xml/script) renderizados inline permiten XSS almacenado.
+        # Se fuerzan a descarga con content-type inerte (no se ejecuta en el navegador).
+        _ct_low = content_type.lower()
+        if any(t in _ct_low for t in ("svg", "html", "xml", "javascript", "script")):
+            return Response(
+                content=data,
+                media_type="application/octet-stream",
+                headers={**resp_headers, "Content-Disposition": "attachment"},
+            )
+        return Response(content=data, media_type=content_type, headers=resp_headers)
 
     # Imagen antigua en Cloudinary o disco → redirigir
     file_path = row["file_path"] or ""

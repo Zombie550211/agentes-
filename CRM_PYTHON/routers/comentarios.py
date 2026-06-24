@@ -13,6 +13,11 @@ def _utcnow() -> _dt.datetime:
 router = APIRouter(tags=["Comentarios"])
 
 
+def _is_admin_or_bo(user: dict) -> bool:
+    r = str(user.get("role", "")).lower()
+    return "admin" in r or "backoffice" in r or "back_office" in r
+
+
 def _fmt_comment(row) -> dict:
     r = dict(row)
     created = r.get("created_at")
@@ -134,6 +139,14 @@ async def update_comentario(lead_id: str, comentario_id: str, body: ComentarioUp
 
     now = _utcnow()
     async with AsyncSessionLocal() as s:
+        # Solo el autor del comentario o admin/backoffice puede editarlo.
+        chk = await s.execute(text("SELECT autor FROM lead_comments WHERE id = :cid AND lead_id = :lid LIMIT 1"),
+                              {"cid": cid, "lid": db_lead_id})
+        crow = chk.first()
+        if not crow:
+            raise HTTPException(404, "Comentario no encontrado")
+        if not (_is_admin_or_bo(user) or (crow[0] or "") == user.get("username", "")):
+            raise HTTPException(403, "Solo el autor o un administrador puede modificar este comentario")
         r = await s.execute(text("""
             UPDATE lead_comments SET texto = :texto, updated_at = :now
             WHERE id = :cid AND lead_id = :lid
@@ -160,6 +173,14 @@ async def delete_comentario(lead_id: str, comentario_id: str, user: dict = Depen
         raise HTTPException(404, "Lead no encontrado")
 
     async with AsyncSessionLocal() as s:
+        # Solo el autor del comentario o admin/backoffice puede borrarlo.
+        chk = await s.execute(text("SELECT autor FROM lead_comments WHERE id = :cid AND lead_id = :lid LIMIT 1"),
+                              {"cid": cid, "lid": db_lead_id})
+        crow = chk.first()
+        if not crow:
+            raise HTTPException(404, "Comentario no encontrado")
+        if not (_is_admin_or_bo(user) or (crow[0] or "") == user.get("username", "")):
+            raise HTTPException(403, "Solo el autor o un administrador puede borrar este comentario")
         r = await s.execute(text("DELETE FROM lead_comments WHERE id = :cid AND lead_id = :lid"), {"cid": cid, "lid": db_lead_id})
         await s.commit()
         if r.rowcount == 0:
