@@ -48,22 +48,30 @@ async def dashboard_home(user: dict = Depends(current_user)):
     try:
         async with AsyncSessionLocal() as s:
 
+            # Solo ventas válidas (excluye CANCELLED/HOLD/REPRO), igual que /api/ranking,
+            # para que "mejor vendedor" y los totales coincidan con Ranking y Promociones.
+            _status_validos = """UPPER(TRIM(COALESCE(status,''))) IN (
+                'PENDING','PENDIENTE','PENDIENTES',
+                'COMPLETED','ACTIVE','COMPLETADO','ACTIVO','ACTIVA','VENDIDO','CERRADO','CERRADA','VENTA CERRADA',
+                'RESERVA'
+            )"""
+
             # ── 1a. Total real del mes (sin LIMIT) ──────────────────────
-            r0 = await s.execute(text("""
+            r0 = await s.execute(text(f"""
                 SELECT COUNT(*) AS total, COALESCE(SUM(puntaje), 0) AS puntos
                 FROM leads
-                WHERE dia_venta >= :s AND dia_venta < :ex
+                WHERE dia_venta >= :s AND dia_venta < :ex AND {_status_validos}
             """), {"s": start, "ex": end_excl})
             totals_row = r0.mappings().first()
 
             # ── 1b. Ranking por agente (top 100 para mejores vendedor/team) ──
-            r1 = await s.execute(text("""
+            r1 = await s.execute(text(f"""
                 SELECT
                     COALESCE(agente_nombre, agente, 'Sin asignar') AS nombre,
                     COUNT(*)                                        AS ventas,
                     COALESCE(SUM(puntaje), 0)                      AS puntos
                 FROM leads
-                WHERE dia_venta >= :s AND dia_venta < :ex
+                WHERE dia_venta >= :s AND dia_venta < :ex AND {_status_validos}
                 GROUP BY agente_nombre, agente
                 ORDER BY puntos DESC
                 LIMIT 100
