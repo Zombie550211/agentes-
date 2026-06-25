@@ -86,12 +86,11 @@
                             
                             let supervisorTeam = '';
                             if (isSupervisorUser && !isAdminUser) {
-                                // Detectar por nombre o username
-                                if (fullName.includes('JONATHAN') || userName.includes('JONATHAN')) {
-                                    supervisorTeam = 'JONATHAN F';
-                                } else if (fullName.includes('LUIS') || userName.includes('LUIS')) {
-                                    supervisorTeam = 'LUIS G';
-                                }
+                                // Team del supervisor desde la página de permisos (payload.team).
+                                // Token = palabra distintiva (JONATHAN/LUIS/VICTOR/…). Sin hardcode.
+                                const _t = String(payload.team || '').toUpperCase()
+                                    .replace('TEAM LINEAS', '').replace('TEAM', '').trim();
+                                supervisorTeam = _t.split(/\s+/)[0] || '';
                                 setUserSupervisor(supervisorTeam);
                             }
                             
@@ -372,18 +371,29 @@
             const isSupervisor = userRole.includes('supervisor');
             
             
-            // Si es supervisor, solo mostrar su equipo
-            let teamJonathan = agentsLineas.filter(a => a.supervisor === 'JONATHAN F');
-            let teamLuis = agentsLineas.filter(a => a.supervisor === 'LUIS G');
-            
-            // Supervisores solo ven su propio equipo (no admins)
-            if (isSupervisor && !isAdmin) {
-                if (userSupervisor === 'JONATHAN F') {
-                    teamLuis = []; // No mostrar el otro equipo
-                } else if (userSupervisor === 'LUIS G') {
-                    teamJonathan = []; // No mostrar el otro equipo
-                } else {
-                }
+            // Agrupar agentes por su team ACTUAL (lo trae el backend desde permisos).
+            // Sin nombres hardcodeados: si se crea un team o se mueve un agente, sale solo.
+            const TEAM_COLORS = [
+                { bg: 'bg-indigo-100', text: 'text-indigo-600' },
+                { bg: 'bg-purple-100', text: 'text-purple-600' },
+                { bg: 'bg-amber-100',  text: 'text-amber-600' },
+                { bg: 'bg-teal-100',   text: 'text-teal-600' },
+                { bg: 'bg-rose-100',   text: 'text-rose-600' },
+            ];
+            const _groups = {};
+            agentsLineas.forEach(a => {
+                const label = a.team_label || 'Sin team';
+                (_groups[label] = _groups[label] || []).push(a);
+            });
+            let teamsToRender = Object.keys(_groups).sort().map((label, i) => ({
+                label, token: (_groups[label][0] && _groups[label][0].team_token) || '',
+                color: TEAM_COLORS[i % TEAM_COLORS.length], agents: _groups[label],
+            }));
+            // Supervisores (no admin) solo ven su propio team (por token de permisos)
+            if (isSupervisor && !isAdmin && userSupervisor) {
+                const su = String(userSupervisor).toUpperCase();
+                teamsToRender = teamsToRender.filter(t =>
+                    String(t.token).toUpperCase() === su || t.label.toUpperCase().includes(su));
             }
 
             if (loading) {
@@ -590,16 +600,15 @@
                         </div>
                     ) : (
                         <div className="space-y-8">
-                            {/* Team Jonathan F - solo mostrar si tiene agentes */}
-                            {teamJonathan.length > 0 && (
-                            <div>
+                            {teamsToRender.map(team => (
+                            <div key={team.label}>
                                 <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <span>📞</span> TEAM JONATHAN F
+                                    <span>📞</span> {team.label.toUpperCase()}
                                 </h2>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                    {teamJonathan.map(agent => (
-                                        <div 
-                                            key={agent.id} 
+                                    {team.agents.map(agent => (
+                                        <div
+                                            key={agent.id}
                                             className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow cursor-pointer select-none"
                                             onMouseDown={() => handleMouseDown(agent)}
                                             onMouseUp={handleMouseUp}
@@ -609,8 +618,8 @@
                                         >
                                             <div className="flex items-start justify-between mb-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-                                                        <span className="font-bold text-indigo-600">{getInitials(agent.name)}</span>
+                                                    <div className={`w-12 h-12 ${team.color.bg} rounded-full flex items-center justify-center`}>
+                                                        <span className={`font-bold ${team.color.text}`}>{getInitials(agent.name)}</span>
                                                     </div>
                                                     <div>
                                                         <h3 className="font-semibold text-gray-900">{agent.name}</h3>
@@ -641,60 +650,8 @@
                                     ))}
                                 </div>
                             </div>
-                            )}
+                            ))}
 
-                            {/* Team Luis G */}
-                            {teamLuis.length > 0 && (
-                            <div>
-                                <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <span>📞</span> TEAM LUIS G
-                                </h2>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                    {teamLuis.map(agent => (
-                                        <div 
-                                            key={agent.id} 
-                                            className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow cursor-pointer select-none"
-                                            onMouseDown={() => handleMouseDown(agent)}
-                                            onMouseUp={handleMouseUp}
-                                            onMouseLeave={handleMouseUp}
-                                            onTouchStart={() => handleTouchStart(agent)}
-                                            onTouchEnd={handleTouchEnd}
-                                        >
-                                            <div className="flex items-start justify-between mb-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                                                        <span className="font-bold text-purple-600">{getInitials(agent.name)}</span>
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="font-semibold text-gray-900">{agent.name}</h3>
-                                                        <p className="text-sm text-gray-500">{agent.sales} ventas</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-3">
-                                                <div className="flex justify-between text-sm">
-                                                    <span className="text-gray-600">Ventas</span>
-                                                    <span className="font-semibold text-gray-900">{agent.sales}</span>
-                                                </div>
-                                                <div className="flex justify-between text-sm">
-                                                    <span className="text-gray-600">Líneas Wireless</span>
-                                                    <span className="font-semibold text-gray-900">{agent.lineasWireless}</span>
-                                                </div>
-                                                <div className="flex justify-between text-sm">
-                                                    <span className="text-gray-600">Líneas sin Wireless</span>
-                                                    <span className="font-semibold text-gray-900">{agent.lineasSinWireless}</span>
-                                                </div>
-                                                <div className="flex justify-between text-sm pt-2 border-t">
-                                                    <span className="text-gray-600 font-semibold">Comisión</span>
-                                                    <span className="font-bold text-green-600">{formatUsd(agent.commission)}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                            )}
                         </div>
                     )}
                 </div>

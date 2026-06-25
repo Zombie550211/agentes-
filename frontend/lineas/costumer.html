@@ -977,11 +977,9 @@
             <select id="mesFilter" class="filter-select"></select>
           </div>
           <!-- Team Toggle -->
+          <!-- Botones de team generados desde /api/lineas/teams (permisos) -->
           <div class="team-toggle" id="teamToggle">
             <button class="tt-btn tt-active" data-team="">Todos</button>
-            <button class="tt-btn" data-team="JONATHAN F">Jonathan</button>
-            <button class="tt-btn" data-team="LUIS G">Luis G</button>
-            <button class="tt-btn" data-team="VICTOR H">Victor</button>
           </div>
           <!-- Contador de registros -->
           <span id="leadCounter" class="lead-counter-badge">0 Registros Totales</span>
@@ -997,8 +995,6 @@
           <input type="date" id="dateTo" style="display:none;">
           <select id="teamFilter" style="display:none;">
             <option value="">Todos los Teams</option>
-            <option value="JONATHAN F">Team Jonathan</option>
-            <option value="LUIS G">Team Luis</option>
           </select>
           <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" style="display:none;">
           <div id="analyzeExcelContainer" style="display:none;"><button id="btnAnalyzeExcel" style="display:none;"></button></div>
@@ -1068,7 +1064,7 @@
       return u.startsWith('/') ? u : '/' + u;
     }
 
-    document.addEventListener('DOMContentLoaded', function(){
+    document.addEventListener('DOMContentLoaded', async function(){
       if (window.loadSidebar) window.loadSidebar();
 
       // Lógica para el botón de seeding
@@ -1402,6 +1398,17 @@
 
       function normalizeDigits(v){ return String(v||'').replace(/\D+/g,''); }
 
+      // Teams de Líneas desde la página de permisos (/api/lineas/teams). Sin hardcode.
+      let LINEAS_TEAMS = [];
+      async function loadLineasTeams() {
+        try {
+          const r = await fetch('/api/lineas/teams', { credentials: 'include' });
+          const d = r.ok ? await r.json() : null;
+          LINEAS_TEAMS = (d && d.teams) || [];
+        } catch (_) { LINEAS_TEAMS = []; }
+      }
+
+      // Clave canónica de team = token del team (JONATHAN/LUIS/VICTOR/…), derivado de permisos.
       function normalizeTeamKey(v) {
         const raw = String(v || '').trim().toUpperCase();
         if (!raw) return 'SIN TEAM';
@@ -1410,12 +1417,34 @@
           .replace(/[^A-Z0-9\s]/g, ' ')
           .replace(/\s+/g, ' ')
           .trim();
-
         if (!cleaned) return 'SIN TEAM';
-        if (cleaned.includes('JONATHAN')) return 'JONATHAN F';
-        if (cleaned.includes('LUIS')) return 'LUIS G';
-        if (cleaned.includes('VICTOR')) return 'VICTOR H';
-        return cleaned;
+        const t = LINEAS_TEAMS.find(tt => tt.token && cleaned.includes(tt.token));
+        return t ? t.token : cleaned;
+      }
+
+      // Genera los botones del toggle de team y el select oculto desde permisos.
+      function renderTeamToggle() {
+        const tg = document.getElementById('teamToggle');
+        if (tg) {
+          tg.innerHTML = '<button class="tt-btn tt-active" data-team="">Todos</button>' +
+            LINEAS_TEAMS.map(t => `<button class="tt-btn" data-team="${t.token || ''}">${(t.label || ('Team ' + (t.token || ''))).replace(/^Team\s+/i, '')}</button>`).join('');
+        }
+        const tf = document.getElementById('teamFilter');
+        if (tf) {
+          tf.innerHTML = '<option value="">Todos los Teams</option>' +
+            LINEAS_TEAMS.map(t => `<option value="${t.token || ''}">${t.label || t.token}</option>`).join('');
+        }
+      }
+
+      // Opciones <option> de supervisor para el formulario de edición (desde permisos).
+      function supervisorOptionsHTML(currentSup) {
+        const cur = String(currentSup || '').toUpperCase();
+        return '<option value="">— Sin asignar —</option>' +
+          LINEAS_TEAMS.map(t => {
+            const val = (t.supervisor && t.supervisor.name) || t.token;
+            const sel = (t.token && cur.includes(t.token)) ? 'selected' : '';
+            return `<option value="${String(val).replace(/"/g,'&quot;')}" ${sel}>${String(val)}</option>`;
+          }).join('');
       }
 
       function extractLineStatus(item, i) {
@@ -1854,9 +1883,7 @@
                         <div>
                           <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Supervisor</label>
                           <select class="ile-supervisor" data-row="${idx}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
-                            <option value="">— Sin asignar —</option>
-                            <option value="LUIS G"      ${(it.supervisor||'').toUpperCase().includes('LUIS')?'selected':''}>LUIS G</option>
-                            <option value="JONATHAN F"  ${(it.supervisor||'').toUpperCase().includes('JONATHAN')?'selected':''}>JONATHAN F</option>
+                            ${supervisorOptionsHTML(it.supervisor)}
                           </select>
                         </div>
                       </div>
@@ -3628,18 +3655,12 @@
             .some(v => role === v || role.includes(v));
           if (isAdminBo) return; // Admin/BO ven todos los tabs
 
-          // Determinar el team desde los datos (fuente más fiable)
-          let userTeam = '';
-          if (items.length > 0) {
-            userTeam = String(items[0].supervisor || '').trim().toUpperCase();
+          // Team del usuario (token) — desde los datos o desde permisos. Sin hardcode.
+          let userTeam = items.length > 0 ? normalizeTeamKey(items[0].supervisor || '') : '';
+          if (!userTeam || userTeam === 'SIN TEAM') {
+            userTeam = normalizeTeamKey(user.supervisor || user.team || user.username || '');
           }
-          // Fallback desde localStorage
-          if (!userTeam) {
-            const sup = String(user.supervisor || user.team || user.username || '').toUpperCase();
-            if (sup.includes('JONATHAN')) userTeam = 'JONATHAN F';
-            else if (sup.includes('LUIS'))    userTeam = 'LUIS G';
-          }
-          if (!userTeam) return;
+          if (!userTeam || userTeam === 'SIN TEAM') return;
 
           // Ocultar "Todos" y tabs de otros equipos; activar el propio
           document.querySelectorAll('#teamToggle .tt-btn').forEach(btn => {
@@ -3797,14 +3818,15 @@
       if (teamFilter)     teamFilter.addEventListener('change', ()=>{ populateAgentFilterFromItems(allItems); applyAndRender(); });
       if (dateFrom)       dateFrom.addEventListener('change', ()=> applyAndRender());
       if (dateTo)         dateTo.addEventListener('change',   ()=> applyAndRender());
-      // Team toggle switch
-      document.querySelectorAll('#teamToggle .tt-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          document.querySelectorAll('#teamToggle .tt-btn').forEach(b => b.classList.remove('tt-active'));
-          btn.classList.add('tt-active');
-          populateAgentFilterFromItems(allItems);
-          applyAndRender();
-        });
+      // Team toggle switch (delegación: cubre botones generados dinámicamente)
+      const _teamToggleEl = document.getElementById('teamToggle');
+      if (_teamToggleEl) _teamToggleEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('.tt-btn');
+        if (!btn) return;
+        document.querySelectorAll('#teamToggle .tt-btn').forEach(b => b.classList.remove('tt-active'));
+        btn.classList.add('tt-active');
+        populateAgentFilterFromItems(allItems);
+        applyAndRender();
       });
       if (btnClearDates)  btnClearDates.addEventListener('click', ()=>{
         if (dateFrom) dateFrom.value = '';
@@ -3896,14 +3918,14 @@
         const isSupervisor = role.includes('supervisor');
         
         if (isSupervisor) {
-          if (name.includes('JONATHAN')) {
-            defaultSupervisor = 'JONATHAN F';
-            agentsList = ['VICTOR HURTADO','EDWARD RAMIREZ','CRISTIAN RIVERA','ANDREA ARDON','OSCAR RIVERA','JOCELYN REYES','NANCY LOPEZ','MELANIE HURTADO','ALEXIS RODRIGUEZ','DENNIS VASQUEZ','CESAR CLAROS','KARLA ORELLANA','KATHERINE LOPEZ','DIEGO FLORES'];
-          } else if (name.includes('GUTIERREZ') || name.includes('LUIS')) {
-            defaultSupervisor = 'LUIS G';
-            agentsList = ['DANIEL DEL CID','FERNANDO BELTRAN','KARLA RODRIGUEZ','KARLA PONCE','JOCELYN REYES','JONATHAN GARCIA','NANCY LOPEZ','MELANIE HURTADO','ALEXIS RODRIGUEZ','JOSUE HERNANDEZ'];
+          // Team y agentes del supervisor desde permisos (por token). Sin hardcode.
+          const myToken = normalizeTeamKey(user.team || user.supervisor || name);
+          const myTeam = LINEAS_TEAMS.find(t => t.token === myToken);
+          if (myTeam) {
+            defaultSupervisor = myTeam.token;
+            agentsList = (myTeam.agents || []).map(a => a.name);
           }
-          
+
           // Poblar filtro de agentes si es supervisor
           if (agentFilter && agentsList.length > 0) {
             const allowed = new Set(agentsList.map(a => normalizeAgentKey(a)));
@@ -4199,7 +4221,9 @@
       if (!document.getElementById('ile-caps-lineas-style')) {
         var st = document.createElement('style');
         st.id = 'ile-caps-lineas-style';
-        st.textContent = '.ile-caps-row-lineas::-webkit-scrollbar{display:none}';
+        st.textContent = '.ile-caps-row-lineas::-webkit-scrollbar{display:none}'
+          + '.ile-ll-nota::placeholder{color:rgba(255,255,255,0.45)}'
+          + '.ile-ll-nota:focus{outline:1px solid #fca5a5}';
         document.head.appendChild(st);
       }
       var llamadas = [];
@@ -4211,7 +4235,7 @@
         row.innerHTML = llamadas.length ? llamadas.map(function(c) {
           var tipo = c.tipo === 'seguimiento' ? 'Seguim.' : 'Verif.';
           return '<div style="flex-shrink:0;width:72px;">' +
-            '<div style="width:72px;height:54px;border:1px solid #dde3f0;border-radius:8px;overflow:hidden;cursor:zoom-in;background:#f8fafc;" onclick="_clImgLightbox(\'' + String(c.imagen_url || '').replace(/'/g, "\\'") + '\')" title="Llamada ' + c.numero_llamada + '/3">' +
+            '<div style="width:72px;height:54px;border:1px solid rgba(255,255,255,0.15);border-radius:8px;overflow:hidden;cursor:zoom-in;background:rgba(255,255,255,0.05);" onclick="_clImgLightbox(\'' + String(c.imagen_url || '').replace(/'/g, "\\'") + '\')" title="Llamada ' + c.numero_llamada + '/3">' +
               '<img src="' + String(c.imagen_url || '').replace(/"/g, '&quot;') + '" style="width:100%;height:100%;object-fit:cover;">' +
             '</div>' +
             '<div style="font-size:9px;font-weight:700;color:#64748b;text-align:center;margin-top:2px;white-space:nowrap;">📞 ' + c.numero_llamada + '/3 ' + tipo + '</div>' +
@@ -4225,12 +4249,12 @@
         var nNext = nDone + 1;
         var tipoNext = nDone === 0 ? 'verificación' : 'seguimiento';
         regWrap.innerHTML =
-          '<div style="border:1.5px solid #fca5a5;border-radius:10px;padding:9px;background:#fef2f2;">' +
-            '<div style="font-size:10px;font-weight:800;color:#dc2626;margin-bottom:6px;">Llamada ' + nNext + '/3 (' + tipoNext + ') pendiente — captura + nota</div>' +
-            '<div class="ile-ll-imgname" style="font-size:10px;color:#64748b;margin-bottom:4px;display:none;"></div>' +
-            '<button type="button" onclick="this.nextElementSibling.click()" style="width:100%;padding:6px;border:1px solid #dde3f0;border-radius:7px;background:#fff;font-size:11px;font-weight:700;cursor:pointer;color:#334155;margin-bottom:5px;">📷 Subir captura Xencall</button>' +
+          '<div style="border:1.5px solid rgba(248,113,113,0.45);border-radius:10px;padding:9px;background:rgba(127,29,29,0.22);">' +
+            '<div style="font-size:10px;font-weight:800;color:#fca5a5;margin-bottom:6px;">Llamada ' + nNext + '/3 (' + tipoNext + ') pendiente — captura + nota</div>' +
+            '<div class="ile-ll-imgname" style="font-size:10px;color:#cbd5e1;margin-bottom:4px;display:none;"></div>' +
+            '<button type="button" onclick="this.nextElementSibling.click()" style="width:100%;padding:6px;border:1px solid rgba(255,255,255,0.18);border-radius:7px;background:rgba(255,255,255,0.08);font-size:11px;font-weight:700;cursor:pointer;color:#e2e8f0;margin-bottom:5px;">📷 Subir captura Xencall</button>' +
             '<input type="file" accept="image/*" style="display:none" onchange="_llamadaLineasFileSelect(event,\'' + leadId + '\')">' +
-            '<textarea class="ile-ll-nota" rows="2" placeholder="La llamada se realizó. Respuesta del cliente…" style="width:100%;padding:6px 8px;border:1px solid #dde3f0;border-radius:7px;font-size:11px;resize:none;box-sizing:border-box;color:#1e293b;background:#fff;margin-bottom:5px;"></textarea>' +
+            '<textarea class="ile-ll-nota" rows="2" placeholder="La llamada se realizó. Respuesta del cliente…" style="width:100%;padding:6px 8px;border:1px solid rgba(255,255,255,0.18);border-radius:7px;font-size:11px;resize:none;box-sizing:border-box;color:#e6ebf5;background:rgba(255,255,255,0.06);margin-bottom:5px;"></textarea>' +
             '<button type="button" class="ile-ll-btn" onclick="_registrarLlamadaLineas(\'' + leadId + '\')" style="width:100%;padding:7px;border:none;border-radius:7px;background:#dc2626;color:#fff;font-size:11px;font-weight:800;cursor:pointer;">Registrar llamada ' + nNext + '/3</button>' +
             '<div class="ile-ll-msg" style="font-size:10px;margin-top:4px;text-align:center;"></div>' +
           '</div>';

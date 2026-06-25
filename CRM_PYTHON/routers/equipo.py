@@ -32,6 +32,7 @@ _TEAM_ALIAS = {
     "SANTANA":   "JOHANA",
     "JONATHAN":  "JONATHAN F",
     "LUIS":      "LUIS G",
+    "VICTOR":    "VICTOR H",
 }
 
 

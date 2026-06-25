@@ -14,8 +14,20 @@ const escH = s => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
+// Tokens de teams de Líneas según la página de permisos (sin hardcode).
+async function getLineasTokens() {
+  try {
+    const r = await fetch('/api/lineas/teams', { credentials: 'include' });
+    if (!r.ok) return [];
+    const d = await r.json();
+    return (d.teams || []).map(t => String(t.token || '').toUpperCase()).filter(Boolean);
+  } catch (_) { return []; }
+}
+
 async function loadRankingData() {
   try {
+    // Teams válidos de Líneas desde permisos
+    const lineasTokens = await getLineasTokens();
     // Obtener datos de líneas del endpoint
     const endpoint = `/api/leads-lineas?month=${currentYear}-${String(currentMonth).padStart(2, '0')}`;
     const response = await fetch(endpoint);
@@ -35,8 +47,9 @@ async function loadRankingData() {
       const agentName = lead.agenteAsignado || lead._collection || lead.agente || 'Sin asignar';
       const supervisor = lead.supervisor || 'Sin supervisor';
 
-      // Solo incluir si es de Team Lineas (JONATHAN F o LUIS G)
-      if (!supervisor || (!supervisor.includes('JONATHAN') && !supervisor.includes('LUIS'))) {
+      // Incluir solo si el supervisor del lead pertenece a un team de Líneas (permisos)
+      const __supU = String(supervisor || '').toUpperCase();
+      if (lineasTokens.length && !lineasTokens.some(tok => __supU.includes(tok))) {
         return;
       }
 

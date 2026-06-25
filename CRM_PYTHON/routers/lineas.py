@@ -60,22 +60,54 @@ def _cache_invalidate():
 
 router = APIRouter(tags=["Lineas"])
 
-TEAMS = {
-    "TEAM LINEAS JONATHAN": {"supervisor": "jonathan.figueroa", "supervisorKey": "JONATHAN F",
-                       "agents": ["VICTOR HURTADO","EDWARD RAMIREZ","CRISTIAN RIVERA","ANDREA ARDON","OSCAR RIVERA","MELANIE HURTADO","DENNIS VASQUEZ"]},
-    "TEAM LINEAS LUIS":     {"supervisor": "luis.g",            "supervisorKey": "LUIS G",
-                       "agents": ["DANIEL DEL CID","FERNANDO BELTRAN","KARLA RODRIGUEZ","JOCELYN REYES","JONATHAN GARCIA","NANCY LOPEZ","TATIANA GIRON","CESAR CLAROS","KARLA PONCE","MANUEL FLORES"]},
-    "TEAM IRANIA S":  {"supervisor": "irania.serrano",    "supervisorKey": "IRANIA S",
-                       "agents": ["JOSUE RENDEROS","TATIANA AYALA","GISELLE DIAZ","MIGUEL NUNEZ","ROXANA MARTINEZ"]},
-    "TEAM BRYAN P":   {"supervisor": "bryan.pleitez",     "supervisorKey": "BRYAN P",
-                       "agents": ["ABIGAIL GALDAMEZ","ALEXANDER RIVERA","DIEGO MEJIA","EVELIN GARCIA","FABRICIO PANAMENO","LUIS CHAVARRIA","STEVEN VARELA"]},
-    "TEAM ROBERTO V": {"supervisor": "roberto.velasquez", "supervisorKey": "ROBERTO V",
-                       "agents": ["CINDY FLORES","DANIELA BONILLA","FRANCISCO AGUILAR","LEVY CEREN","LISBETH CORTEZ","LUCIA FERMAN","NELSON CEREN"]},
-    "TEAM JOHANA":    {"supervisor": "johana",             "supervisorKey": "JOHANA",
-                       "agents": ["ANDERSON GUZMAN","CARLOS GRANDE","GUADALUPE SANTANA","JULIO CHAVEZ","PRISCILA HERNANDEZ","RIQUELMI TORRES"]},
-}
+def _team_token(team_name: str) -> str:
+    """'TEAM LINEAS JONATHAN' -> 'JONATHAN' (palabra distintiva del team).
+    Sirve para cruzar con lead.supervisor ('JONATHAN F', 'VICTOR H', …)."""
+    u = (team_name or "").upper().replace("TEAM LINEAS", "").replace("TEAM", "").strip()
+    parts = u.split()
+    return parts[0] if parts else ""
 
-SUPERVISOR_KEYS = ["JONATHAN F", "LUIS G"]
+
+async def get_lineas_teams() -> list:
+    """Teams de Líneas derivados de la tabla `users` (página de permisos).
+
+    Fuente ÚNICA de verdad de roles/teams/agentes — sin nombres hardcodeados.
+    Si en permisos se crea un team o se mueve/asciende un agente, esto lo refleja.
+    """
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            SELECT username, name, role, team
+            FROM users
+            WHERE UPPER(COALESCE(team,'')) LIKE 'TEAM LINEAS%'
+            ORDER BY team, name
+        """))
+        rows = r.mappings().all()
+    teams: dict = {}
+    for u in rows:
+        team_db = str(u["team"] or "").strip()
+        if not team_db:
+            continue
+        token = _team_token(team_db)
+        t = teams.setdefault(team_db, {
+            "team": team_db, "token": token,
+            "label": ("Team " + token.title()) if token else team_db.title(),
+            "supervisor": None, "agents": [],
+        })
+        role  = str(u["role"] or "").lower()
+        uname = str(u["username"] or "")
+        name  = str(u["name"] or uname).strip()
+        if "supervisor" in role:
+            t["supervisor"] = {"username": uname, "name": name}
+        elif not re.match(r"^lineas[\s-]", uname, re.I):  # excluir cuentas legacy duplicadas
+            t["agents"].append({"username": uname, "name": name})
+    return list(teams.values())
+
+
+@router.get("/api/lineas/teams")
+async def lineas_teams(user: dict = Depends(current_user)):
+    """Teams/agentes de Líneas según la página de permisos (tabla users).
+    Fuente única para todas las pantallas de Líneas — nada hardcodeado."""
+    return {"success": True, "teams": await get_lineas_teams()}
 
 
 # ── Autorización por alcance (visibilidad = permiso de edición) ──────
@@ -111,20 +143,13 @@ def _user_scope_clause(user: dict) -> tuple[str, dict]:
         return "", {}
 
     if is_supervisor:
-        sup_key = None
-        uname_low = username.lower()
-        for t in TEAMS.values():
-            if (t.get("supervisor", "").lower() == uname_low or
-                    t.get("supervisorKey", "").lower() == uname_low):
-                sup_key = t.get("supervisorKey")
-                break
-        if sup_key:
-            first_word = sup_key.split()[0].upper()
+        # Team del supervisor desde el JWT (poblado en login desde users/permisos)
+        token = _team_token(user.get("team", ""))
+        if token:
             return ("""(
-                UPPER(TRIM(supervisor)) = :sup
-                OR UPPER(TRIM(supervisor)) LIKE :sup_like
+                UPPER(TRIM(supervisor)) LIKE :sup_like
                 OR UPPER(REPLACE(supervisor, '.', ' ')) LIKE :sup_like
-            )""", {"sup": sup_key.upper(), "sup_like": f"{first_word}%"})
+            )""", {"sup_like": f"{token}%"})
         return "supervisor = '__none__'", {}
 
     display = username.replace(".", " ").replace("_", " ").upper()
@@ -255,14 +280,21 @@ async def _rr_pick(rr_key: str, choices: list):
 
 
 async def _pick_supervisor_key() -> str:
-    return await _rr_pick("rr_supervisor", SUPERVISOR_KEYS)
+    # Round-robin entre supervisores de Líneas que tienen agentes (desde permisos)
+    teams = [t for t in await get_lineas_teams() if t["agents"] and t.get("supervisor")]
+    if not teams:
+        return ""
+    keys = [t["supervisor"]["name"] for t in teams]
+    return await _rr_pick("rr_supervisor", keys)
 
 
 async def _pick_agent(supervisor_key: str) -> Optional[str]:
-    team = next((t for t in TEAMS.values() if t.get("supervisorKey", "").upper() == supervisor_key.upper()), None)
-    if not team or not team.get("agents"):
+    keyU = (supervisor_key or "").upper()
+    team = next((t for t in await get_lineas_teams()
+                 if t["token"] and t["token"] in keyU and t["agents"]), None)
+    if not team:
         return None
-    return await _rr_pick(f"rr_agent_{supervisor_key.upper()}", team["agents"])
+    return await _rr_pick(f"rr_agent_{team['token']}", [a["name"] for a in team["agents"]])
 
 
 # ── WEBHOOK ─────────────────────────────────────────────────────────
@@ -358,20 +390,11 @@ async def webhook_get(
     params: dict = {}
 
     if is_supervisor:
-        sup_key = None
-        uname_low = username.lower()
-        for t in TEAMS.values():
-            if (t.get("supervisor", "").lower() == uname_low or
-                    t.get("supervisorKey", "").lower() == uname_low):
-                sup_key = t.get("supervisorKey")
-                break
-        if sup_key:
-            first_word = sup_key.split()[0].upper()
-            where.append("""(UPPER(TRIM(supervisor)) = :sup
-                             OR UPPER(TRIM(supervisor)) LIKE :sup_like
+        token = _team_token(user.get("team", ""))
+        if token:
+            where.append("""(UPPER(TRIM(supervisor)) LIKE :sup_like
                              OR UPPER(REPLACE(supervisor,'.', ' ')) LIKE :sup_like)""")
-            params["sup"]      = sup_key.upper()
-            params["sup_like"] = f"{first_word}%"
+            params["sup_like"] = f"{token}%"
         else:
             where.append("supervisor = '__none__'")
     elif not is_admin_bo:
@@ -870,24 +893,14 @@ async def lineas_team_list(
     params: dict = {}
 
     if is_supervisor:
-        sup_key = None
-        uname_low = username.lower()
-        for t in TEAMS.values():
-            # Acepta match por username de login (luis.g) O por supervisorKey (LUIS G)
-            if (t.get("supervisor", "").lower() == uname_low or
-                    t.get("supervisorKey", "").lower() == uname_low):
-                sup_key = t.get("supervisorKey")
-                break
-        if sup_key:
-            # Match flexible: cubre "JONATHAN F", "JONATHAN FIGUEROA", "jonathan.figueroa", etc.
-            first_word = sup_key.split()[0].upper()  # "JONATHAN" ó "LUIS"
+        # Team del supervisor desde el JWT (poblado en login desde permisos)
+        token = _team_token(user.get("team", ""))
+        if token:
             where.append("""(
-                UPPER(TRIM(supervisor)) = :sup
-                OR UPPER(TRIM(supervisor)) LIKE :sup_like
+                UPPER(TRIM(supervisor)) LIKE :sup_like
                 OR UPPER(REPLACE(supervisor, '.', ' ')) LIKE :sup_like
             )""")
-            params["sup"]      = sup_key.upper()
-            params["sup_like"] = f"{first_word}%"
+            params["sup_like"] = f"{token}%"
         else:
             where.append("supervisor = '__none__'")
     elif not is_admin_bo:

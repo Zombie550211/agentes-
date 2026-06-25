@@ -300,19 +300,9 @@
         const escH = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
         const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
         
-        // Teams de Líneas (sin llamadas, solo calis y ventas)
-        const teams = [
-            { 
-                name: 'jonathan', 
-                title: 'TEAM JONATHAN F', 
-                agents: []
-            },
-            { 
-                name: 'luis', 
-                title: 'TEAM LUIS G', 
-                agents: []
-            }
-        ];
+        // Teams de Líneas — se cargan dinámicamente desde la página de permisos
+        // (/api/lineas/teams). Sin nombres hardcodeados.
+        let teams = [];
 
         let currentDate = new Date();
         let agentesData = {};
@@ -320,17 +310,25 @@
         // Cargar agentes desde la API
         async function loadAgentes() {
             try {
-                const headers = {};
-                
-                const res = await fetch('/api/comisiones/agentes-lineas', { headers, credentials: 'include' });
+                // Teams desde permisos (tabla users) — fuente única, sin hardcode
+                const tr = await fetch('/api/lineas/teams', { credentials: 'include' });
+                const td = tr.ok ? await tr.json() : null;
+                teams = ((td && td.teams) || []).map(t => ({
+                    name: String(t.token || '').toLowerCase(),
+                    title: (t.label || ('Team ' + (t.token || ''))).toUpperCase(),
+                    token: String(t.token || '').toUpperCase(),
+                    agents: []
+                }));
+
+                const res = await fetch('/api/comisiones/agentes-lineas', { credentials: 'include' });
                 const data = await res.json();
-                
-                
                 if ((data.success || data.ok) && Array.isArray(data.data)) {
-                    // Separar por supervisor (la API usa 'nombre' no 'name')
-                    teams[0].agents = data.data.filter(a => a.supervisor === 'JONATHAN F').map(a => a.nombre || a.name);
-                    teams[1].agents = data.data.filter(a => a.supervisor === 'LUIS G').map(a => a.nombre || a.name);
-                    
+                    // Asignar cada agente a su team ACTUAL (team_token que da el backend)
+                    teams.forEach(team => {
+                        team.agents = data.data
+                            .filter(a => String(a.team_token || '').toUpperCase() === team.token)
+                            .map(a => a.nombre || a.name);
+                    });
                 }
             } catch (e) {
                 console.error('Error cargando agentes:', e);

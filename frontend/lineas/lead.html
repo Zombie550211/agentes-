@@ -390,10 +390,8 @@
               </div>
               <div class="ll-field" style="min-width:200px;">
                 <label>Supervisor *</label>
-                <div class="ll-toggle-group">
-                  <div class="ll-pill active" data-group="supervisor" data-value="JONATHAN F">JONATHAN F.</div>
-                  <div class="ll-pill" data-group="supervisor" data-value="LUIS G">LUIS G.</div>
-                  <div class="ll-pill" data-group="supervisor" data-value="VICTOR H">VICTOR H.</div>
+                <div class="ll-toggle-group" id="supervisorPills">
+                  <!-- Pills de supervisor generadas desde /api/lineas/teams (permisos) -->
                 </div>
               </div>
             </div>
@@ -547,14 +545,32 @@
       setInterval(tick, 1000);
     })();
 
-    /* ── Toggle pills ── */
-    document.querySelectorAll('.ll-pill').forEach(function(pill) {
-      pill.addEventListener('click', function() {
-        var group = this.dataset.group;
-        document.querySelectorAll('.ll-pill[data-group="' + group + '"]').forEach(function(p){ p.classList.remove('active'); });
-        this.classList.add('active');
-      });
+    /* ── Toggle pills (delegación: cubre pills generadas dinámicamente) ── */
+    document.addEventListener('click', function(e) {
+      var pill = e.target && e.target.closest ? e.target.closest('.ll-pill') : null;
+      if (!pill) return;
+      var group = pill.dataset.group;
+      document.querySelectorAll('.ll-pill[data-group="' + group + '"]').forEach(function(p){ p.classList.remove('active'); });
+      pill.classList.add('active');
     });
+
+    /* Pills de supervisor desde la página de permisos (/api/lineas/teams) */
+    async function buildSupervisorPills() {
+      try {
+        var res = await fetch('/api/lineas/teams', { credentials: 'include' });
+        var data = res.ok ? await res.json() : null;
+        var teams = (data && data.teams) || [];
+        var cont = document.getElementById('supervisorPills');
+        if (!cont) return;
+        cont.innerHTML = teams.map(function(t, i) {
+          var sup = (t.supervisor && t.supervisor.name) || t.label || t.token;
+          var lbl = t.label || ('Team ' + (t.token || ''));
+          return '<div class="ll-pill' + (i === 0 ? ' active' : '') + '" data-group="supervisor" data-value="'
+                 + String(sup).replace(/"/g, '&quot;') + '">' + lbl + '</div>';
+        }).join('');
+      } catch (_) {}
+    }
+    buildSupervisorPills();
 
     function getToggleValue(group) {
       var active = document.querySelector('.ll-pill.active[data-group="' + group + '"]');
@@ -744,7 +760,7 @@
           telefonos: telefonos,
           id: document.getElementById('id_field').value,
           mercado: getToggleValue('mercado') || 'BAMO',
-          supervisor: getToggleValue('supervisor') || 'JONATHAN F',
+          supervisor: getToggleValue('supervisor') || ((document.querySelector('.ll-pill[data-group="supervisor"]')||{}).dataset||{}).value || '',
           agenteAsignado: (agentAssign && assignWrap && assignWrap.style.display !== 'none' ? String(agentAssign.value||'').trim() : ''),
           imagen_url: ''
         };
@@ -775,7 +791,7 @@
           setToggleValue('autopay', 'si');
           setToggleValue('status', 'pending');
           setToggleValue('mercado', 'BAMO');
-          setToggleValue('supervisor', 'JONATHAN F');
+          var _sp = document.querySelector('.ll-pill[data-group="supervisor"]'); if (_sp) setToggleValue('supervisor', _sp.dataset.value);
           document.querySelectorAll('.ll-num-btn').forEach(function(b){ b.classList.remove('active'); });
           document.querySelector('.ll-num-btn[data-num="1"]').classList.add('active');
           renderLines();

@@ -292,6 +292,9 @@ async def leads_bootstrap(
                 "JONATHAN":   "TEAM LINEAS JONATHAN",
                 "LUIS G":     "TEAM LINEAS LUIS",
                 "LUIS":       "TEAM LINEAS LUIS",
+                "VICTOR H":      "TEAM LINEAS VICTOR",
+                "VICTOR HURTADO":"TEAM LINEAS VICTOR",
+                "VICTOR":        "TEAM LINEAS VICTOR",
             }
             teams: dict = {}
             for row in rows:
@@ -830,7 +833,10 @@ async def comisiones_agentes_lineas(
                 SELECT
                   COALESCE(agente_nombre, agente) AS nombre,
                   COUNT(*) AS ventas,
-                  SUM(COALESCE(puntaje, 0)) AS puntos
+                  COALESCE(SUM(COALESCE(cantidad_lineas, 1)), 0) AS lineas_total,
+                  COALESCE(SUM(CASE WHEN UPPER(COALESCE(servicios,'')) LIKE '%WIRELESS%'
+                                    THEN COALESCE(cantidad_lineas, 1) ELSE 0 END), 0) AS lineas_wireless,
+                  COALESCE(SUM(puntaje), 0) AS puntos
                 FROM lineas_clientes
                 WHERE dia_venta BETWEEN :s AND :e
                 GROUP BY COALESCE(agente_nombre, agente)
@@ -839,6 +845,31 @@ async def comisiones_agentes_lineas(
             rows = [dict(row) for row in r.mappings().all()]
         except Exception:
             rows = []
+
+    # Team ACTUAL de cada agente desde la página de permisos (tabla users).
+    # Así un agente que se movió de team aparece bajo su team actual, sin hardcode.
+    from routers.lineas import get_lineas_teams
+    def _norm(s: str) -> str:
+        return re.sub(r"\s+", " ", str(s or "").replace("_", " ").strip()).upper()
+    name_to_team: dict = {}
+    try:
+        for t in await get_lineas_teams():
+            info = {"team": t["team"], "team_token": t["token"], "team_label": t["label"]}
+            for a in t.get("agents", []):
+                name_to_team[_norm(a["name"])] = info
+                name_to_team[_norm(a["username"])] = info
+    except Exception:
+        pass
+
+    for row in rows:
+        wl = float(row.pop("lineas_wireless", 0) or 0)
+        total = float(row.pop("lineas_total", 0) or 0)
+        row["lineasWireless"] = int(wl)
+        row["lineasSinWireless"] = int(max(total - wl, 0))
+        tm = name_to_team.get(_norm(row.get("nombre")))
+        row["team"] = tm["team"] if tm else ""
+        row["team_token"] = tm["team_token"] if tm else ""
+        row["team_label"] = tm["team_label"] if tm else "Sin team"
 
     return {"success": True, "data": rows}
 
