@@ -3694,11 +3694,13 @@
             allItems = allItems.filter(it => ids.includes(String(it.id || it._id)));
           } catch (_) {}
           populateAgentFilterFromItems(allItems);
-          const fl = applyFilters(allItems);
-          renderTable(fl);
-          updateLeadCounter(fl.length);
+          // Modo bloqueo: mostrar TODOS los pendientes por llamar SIN filtro de team/agente.
+          // Si se filtrara por team, al cambiar de team/rol los leads pendientes de otro
+          // team desaparecen y la lista sale vacía aunque la cuenta esté bloqueada.
+          renderTable(allItems);
+          updateLeadCounter(allItems.length);
           if (!statusChart || !agentChart) initCharts();
-          updateKPIs(fl, applyFilters(allItems, {ventaStricta:true}));
+          updateKPIs(allItems, allItems);
           return;
         }
         // Establecer mes actual como filtro por defecto si no hay fechas seleccionadas
@@ -4083,7 +4085,13 @@
             } catch(_){}
           }
           populateAgentFilterFromItems(allItems);
-          applyAndRender();
+          if (__llamadasModeLineas) {
+            // Bloqueo: pendientes sin filtro de team/agente (ver load()).
+            renderTable(allItems);
+            updateLeadCounter(allItems.length);
+          } else {
+            applyAndRender();
+          }
           try { await refreshMonthlyKPIs(); } catch(_){}
         } catch(_){}
       }
