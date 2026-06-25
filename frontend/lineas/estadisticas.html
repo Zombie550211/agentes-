@@ -25,7 +25,6 @@
     .main-content { flex: 1; overflow-y: auto; }
     .content-container { max-width: 1840px; margin: 0 auto; padding: 20px 36px; }
     h1 { color: #f0f4ff; margin-top: 0; margin-bottom: 30px; font-size: 28px; text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
-
     /* Team Section */
     .team-section { 
       margin-bottom: 40px; 
@@ -385,58 +384,50 @@
     // ===== Configuración de Teams de Líneas =====
     // Añadir un team nuevo = agregar un objeto aquí. La tarjeta, KPIs y gráfica
     // se generan automáticamente a partir de este array.
-    const TEAMS = [
-      { key: 'JONATHAN F', slug: 'jonathan', title: 'Team Jonathan F',     teamWord: 'JONATHAN' },
-      { key: 'LUIS G',     slug: 'luis',     title: 'Team Luis G',         teamWord: 'LUIS' },
-      { key: 'VICTOR H',   slug: 'victor',   title: 'Team Líneas Victor',  teamWord: 'VICTOR' },
-    ];
-    TEAMS.forEach(t => {
-      t.chartId   = `chart-${t.slug}`;
-      t.kpiPrefix = `kpi-${t.slug}-`;
-      t.loadingId = `loading-${t.slug}`;
-      t.roster    = []; // agentes del team según la página de permisos (tabla users)
-    });
-
-    // Normaliza el campo supervisor a la clave canónica del team.
-    function normalizeSupervisor(sup) {
-      const s = String(sup || '').trim().toUpperCase();
-      if (s.includes('JONATHAN')) return 'JONATHAN F';
-      if (s.includes('LUIS'))     return 'LUIS G';
-      if (s.includes('VICTOR'))   return 'VICTOR H';
-      return s;
-    }
+    // Teams de Líneas: se cargan desde la página de permisos (/api/lineas/teams).
+    // NADA hardcodeado — la lista de teams y sus agentes sale de la tabla `users`.
+    let TEAMS = [];
 
     // Normaliza nombre de agente (igual criterio que la gráfica) para cruzar roster ↔ leads.
     function normalizeAgentName(name) {
       return String(name || '').trim().replace(/_/g, ' ').replace(/\s+/g, ' ').toUpperCase();
     }
 
-    // Trae el roster de agentes por team desde la página de permisos (/api/users/agents),
-    // agrupando por la columna `team` (TEAM LINEAS JONATHAN/LUIS/VICTOR), excluyendo
-    // supervisores y cuentas sin nombre. Así la gráfica muestra TODOS los agentes,
-    // aunque tengan 0 ventas en el mes.
-    let __rostersLoaded = false;
-    async function loadRosters() {
-      if (__rostersLoaded) return;
+    // ¿el lead pertenece a este team? Por el token del supervisor CONGELADO en el lead
+    // (no por el team actual del agente) — así las ventas cuentan donde se hicieron.
+    function leadMatchesTeam(lead, team) {
+      return !!team.teamWord && String((lead && lead.supervisor) || '').toUpperCase().includes(team.teamWord);
+    }
+
+    // ¿el "agente" es en realidad un supervisor de Líneas? (para no pintarlo como barra)
+    // Se deriva de los supervisores que vienen de permisos, no de nombres fijos.
+    function isSupervisorName(agente) {
+      const a = normalizeAgentName(agente);
+      return !!a && TEAMS.some(t => t.supervisor && t.supervisor === a);
+    }
+
+    // Construye TEAMS (y el roster de cada uno) desde permisos. El roster sirve para
+    // mostrar TODOS los agentes del team aunque tengan 0 ventas en el mes.
+    let __teamsLoaded = false;
+    async function buildTeams() {
+      if (__teamsLoaded && TEAMS.length) return;
       try {
-        const res = await fetch('/api/users/agents');
-        if (!res.ok) return;
-        const data = await res.json();
-        const agents = Array.isArray(data.agents) ? data.agents : [];
-        TEAMS.forEach(t => { t.roster = []; });
-        agents.forEach(u => {
-          const role = String(u.role || '').toLowerCase();
-          if (role.includes('supervisor')) return;           // el supervisor no es barra de agente
-          const username = String(u.username || '');
-          if (/^lineas[\s-]/i.test(username)) return;        // saltar cuentas legacy duplicadas (Lineas-Edward, ...)
-          const display = normalizeAgentName(u.name || '');
-          if (!display) return;
-          const team = String(u.team || '').toUpperCase();
-          const t = TEAMS.find(tt => team.includes(tt.teamWord));
-          if (t && !t.roster.includes(display)) t.roster.push(display);
+        const res = await fetch('/api/lineas/teams', { credentials: 'include' });
+        const data = res.ok ? await res.json() : null;
+        const list = (data && data.teams) || [];
+        TEAMS = list.map(t => {
+          const token = String(t.token || '').toUpperCase();
+          const slug = (token.toLowerCase() || 'team').replace(/[^a-z0-9]+/g, '-');
+          return {
+            teamWord: token, key: token, slug,
+            title: t.label || ('Team ' + token),
+            chartId: `chart-${slug}`, kpiPrefix: `kpi-${slug}-`, loadingId: `loading-${slug}`,
+            roster: (t.agents || []).map(a => normalizeAgentName(a.name)).filter(Boolean),
+            supervisor: normalizeAgentName((t.supervisor && t.supervisor.name) || ''),
+          };
         });
-        __rostersLoaded = true;
-      } catch (_) { /* sin roster: la gráfica usa solo agentes con ventas */ }
+        __teamsLoaded = true;
+      } catch (_) { /* sin teams: la página queda vacía */ }
     }
 
     // Construye el esqueleto de cada tarjeta de team dentro de #teams-grid.
@@ -597,83 +588,6 @@
       });
       
 
-      try {
-        const normalizeSupervisor = (sup) => {
-          const s = String(sup || '').trim().toUpperCase();
-          if (s.includes('JONATHAN')) return 'JONATHAN F';
-          if (s.includes('LUIS')) return 'LUIS G';
-          return s || 'SIN SUPERVISOR';
-        };
-
-        const getLineCount = (lead) => {
-          try {
-            const fromField = Number(lead?.cantidad_lineas || 0) || 0;
-            const fromLines = Array.isArray(lead?.lines) ? lead.lines.length : (Array.isArray(lead?.lineas) ? lead.lineas.length : 0);
-            const fromPhones = Array.isArray(lead?.telefonos) ? lead.telefonos.length : 0;
-            return Math.max(fromField, fromLines, fromPhones, 1);
-          } catch (_) {
-            return 1;
-          }
-        };
-        const sumLines = (arr) => {
-          try { return (arr || []).reduce((a, l) => a + getLineCount(l), 0); } catch (_) { return 0; }
-        };
-
-        const monthLeads = filtered.filter(l => {
-          const dv = l.dia_venta || l.fecha_venta || '';
-          return dv >= startDate && dv <= endDate;
-        });
-
-        const toRow = (l) => ({
-          id: l?._id || l?.id || l?.ID || l?.id_cliente || l?.idCliente,
-          dia_venta: l.dia_venta || l.fecha_venta,
-          dia_instalacion: l.dia_instalacion || l.fecha_instalacion,
-          supervisor: normalizeSupervisor(l.supervisor),
-          agente: l.agenteAsignado || l._collection,
-          status: l.status
-        });
-
-        const splitByTeam = (arr) => {
-          const out = { 'JONATHAN F': [], 'LUIS G': [], 'OTROS': [] };
-          (arr || []).forEach(l => {
-            const sup = normalizeSupervisor(l.supervisor);
-            if (sup === 'JONATHAN F') out['JONATHAN F'].push(l);
-            else if (sup === 'LUIS G') out['LUIS G'].push(l);
-            else out['OTROS'].push(l);
-          });
-          return out;
-        };
-
-        const monthByTeam = splitByTeam(monthLeads);
-
-        console.groupCollapsed(`[filterLeadsByMonth] LISTADO MES ACTUAL (${monthLeads.length})`);
-        console.groupCollapsed(`[filterLeadsByMonth] MES ACTUAL - JONATHAN F (${monthByTeam['JONATHAN F'].length})`);
-        console.table(monthByTeam['JONATHAN F'].map(toRow));
-        console.groupEnd();
-        console.groupCollapsed(`[filterLeadsByMonth] MES ACTUAL - LUIS G (${monthByTeam['LUIS G'].length})`);
-        console.table(monthByTeam['LUIS G'].map(toRow));
-        console.groupEnd();
-        if (monthByTeam['OTROS'].length) {
-          console.groupCollapsed(`[filterLeadsByMonth] MES ACTUAL - OTROS (${monthByTeam['OTROS'].length})`);
-          console.table(monthByTeam['OTROS'].map(toRow));
-          console.groupEnd();
-        }
-        console.groupEnd();
-      } catch (e) {
-        console.warn('[filterLeadsByMonth] Error al imprimir logs:', e?.message);
-      }
-      
-      // Log específico para KARLA_RODRIGUEZ
-      const karlaLeads = filtered.filter(l => {
-        const col = (l._collection || '').toUpperCase();
-        const asig = (l.agenteAsignado || '').toUpperCase();
-        return col.includes('KARLA') || asig.includes('KARLA');
-      });
-      
-      // Mostrar muestra de leads de Karla para ver estructura
-      if (karlaLeads.length > 0) {
-      }
-      
       return filtered;
     }
 
@@ -755,16 +669,16 @@
         const leads = __dedupeLeads(filterLeadsByMonth(allLeads));
 
         // Roster de agentes por team (página de permisos) para mostrarlos todos
-        await loadRosters();
+        await buildTeams();
 
-        // Si viene ?team=... en la URL, limitar la pantalla a ese team
-        const normalizedTeamParam = __rangeTeam ? normalizeSupervisor(__rangeTeam) : '';
+        // Si viene ?team=... en la URL, limitar la pantalla a ese team (por token)
+        const __teamParamU = String(__rangeTeam || '').toUpperCase();
 
-        // Procesar y renderizar cada team (Jonathan, Luis, Victor, …)
+        // Procesar y renderizar cada team (dinámico desde permisos)
         const teamLeadsAll = [];
         TEAMS.forEach(t => {
-          let teamLeads = __dedupeLeads(leads.filter(l => normalizeSupervisor(l.supervisor) === t.key));
-          if (normalizedTeamParam && normalizedTeamParam !== t.key) teamLeads = [];
+          let teamLeads = __dedupeLeads(leads.filter(l => leadMatchesTeam(l, t)));
+          if (__teamParamU && !__teamParamU.includes(t.teamWord)) teamLeads = [];
 
           if (teamLeads.length > 0 || (t.roster && t.roster.length > 0)) {
             renderTeamData(t.title, teamLeads, t.chartId, t.kpiPrefix, t.loadingId, t.roster);
@@ -925,9 +839,8 @@
       const loadingEl = document.getElementById(loadingId);
       if (loadingEl) loadingEl.style.display = 'none';
 
-      // Agrupar por agente (excluyendo supervisores)
+      // Agrupar por agente (excluyendo supervisores, derivados de permisos)
       const agentData = {};
-      const supervisores = ['JONATHAN F', 'LUIS G', 'JONATHAN', 'LUIS', 'VICTOR HURTADO'];
 
       // Sembrar TODOS los agentes del team (página de permisos) en 0,
       // para que aparezcan en la gráfica aunque no tengan ventas este mes.
@@ -954,8 +867,8 @@
         }
         
         // Excluir supervisores de las gráficas (por si acaso)
-        const esSupervisor = supervisores.some(sup => agente.includes(sup));
-        
+        const esSupervisor = isSupervisorName(agente);
+
         if (esSupervisor) {
           return; // Skip este lead
         }
@@ -981,9 +894,8 @@
       leads.forEach(lead => {
         const agenteRaw = lead.agenteAsignado || lead._collection || 'Sin agente';
         const agente = normalizeAgentName(agenteRaw) || 'SIN AGENTE';
-        const supervisores = ['JONATHAN F', 'LUIS G', 'JONATHAN', 'LUIS'];
-        const esSupervisor = supervisores.some(sup => agente.includes(sup));
-        
+        const esSupervisor = isSupervisorName(agente);
+
         if (esSupervisor) return; // Excluir supervisores
         
         if (!ventasPorAgente[agente]) {
@@ -1169,10 +1081,11 @@
       });
     }
 
-    document.addEventListener('DOMContentLoaded', function(){
+    document.addEventListener('DOMContentLoaded', async function(){
       if (window.loadSidebar) window.loadSidebar();
 
-      // Construir las tarjetas de team antes de cargar datos
+      // Cargar teams desde permisos y construir las tarjetas antes de los datos
+      await buildTeams();
       renderTeamCards();
 
       // Configurar navegación mensual
