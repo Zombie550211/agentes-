@@ -40,6 +40,7 @@ from routers import (
     stream as stream_router,
     productos as productos_router,
     catalogos as catalogos_router,
+    schedule as schedule_router,
 )
 
 # ── Rutas base ──────────────────────────────────────────────────
@@ -253,6 +254,13 @@ async def lifespan(app: FastAPI):
             await ensure_catalogos(s)
     except Exception as e:
         print(f"[catalogos] ensure: {e}")
+    try:
+        from routers.schedule import ensure_schedule
+        from database_mysql import AsyncSessionLocal
+        async with AsyncSessionLocal() as s:
+            await ensure_schedule(s)
+    except Exception as e:
+        print(f"[schedule] ensure: {e}")
     yield
     await close_mysql()
 
@@ -360,6 +368,7 @@ app.include_router(misc_router.router)
 app.include_router(stream_router.router)
 app.include_router(productos_router.router)
 app.include_router(catalogos_router.router)
+app.include_router(schedule_router.router)
 
 # ── Archivos estáticos ───────────────────────────────────────────
 class _RevalidateStaticFiles(StaticFiles):

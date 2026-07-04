@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
-from deps import current_user, require_roles, ADMIN_ROLES
+from deps import current_user, require_roles, ADMIN_ROLES, team_seccion
 from pydantic import BaseModel
 from typing import Optional
 import re, unicodedata
@@ -71,17 +71,37 @@ async def delete_rename(rename_id: int, user: dict = Depends(current_user)):
 
 
 @router.get("/api/teams")
-async def list_teams(user: dict = Depends(current_user)):
+async def list_teams(seccion: str = "", sales: str = "", user: dict = Depends(current_user)):
+    # sales=1 → solo equipos de VENTA (los que tienen al menos un supervisor).
+    # Excluye Administración, Backoffice, TEAM BAMO/ICON, etc. (no tienen supervisor).
+    only_sales = str(sales or "").strip().lower() in ("1", "true", "yes")
     async with AsyncSessionLocal() as s:
-        # Todos los teams únicos registrados en la BD — fuente de verdad: página de permisos
-        r = await s.execute(text("""
-            SELECT DISTINCT TRIM(team) AS team FROM users
-            WHERE team IS NOT NULL AND TRIM(team) != ''
-            ORDER BY team
-        """))
+        if only_sales:
+            r = await s.execute(text("""
+                SELECT TRIM(team) AS team FROM users
+                WHERE team IS NOT NULL AND TRIM(team) != ''
+                GROUP BY TRIM(team)
+                HAVING SUM(LOWER(role) LIKE '%supervisor%') > 0
+                ORDER BY team
+            """))
+        else:
+            # Todos los teams únicos registrados en la BD — fuente de verdad: página de permisos
+            r = await s.execute(text("""
+                SELECT DISTINCT TRIM(team) AS team FROM users
+                WHERE team IS NOT NULL AND TRIM(team) != ''
+                ORDER BY team
+            """))
         rows = r.mappings().all()
 
-    teams = [{"value": row["team"], "label": row["team"]} for row in rows if row["team"]]
+    sec = (seccion or "").strip().lower()
+    teams = []
+    for row in rows:
+        if not row["team"]:
+            continue
+        tsec = team_seccion(row["team"])
+        if sec and tsec != sec:
+            continue
+        teams.append({"value": row["team"], "label": row["team"], "seccion": tsec})
     return {"success": True, "teams": teams}
 
 
@@ -138,7 +158,7 @@ async def list_agents(supervisor: str = "", user: dict = Depends(current_user)):
 
 @router.get("/api/supervisors-list")
 @router.get("/api/teams/supervisors-list")
-async def supervisors_list(user: dict = Depends(current_user)):
+async def supervisors_list(seccion: str = "", user: dict = Depends(current_user)):
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
             SELECT username, name, team, role FROM users
@@ -147,13 +167,18 @@ async def supervisors_list(user: dict = Depends(current_user)):
         """))
         supervisors = r.mappings().all()
 
+    sec = (seccion or "").strip().lower()
     normalized = []
     for s_row in supervisors:
+        tsec = team_seccion(s_row.get("team", ""), s_row.get("role", ""))
+        if sec and tsec != sec:
+            continue
         name = (s_row.get("name") or s_row.get("username") or "").strip()
         key = "".join(w[0].upper() for w in name.split() if w) or (s_row.get("username") or "").upper()
         normalized.append({
             "key": key, "name": name,
-            "username": s_row.get("username", ""), "team": s_row.get("team", "")
+            "username": s_row.get("username", ""), "team": s_row.get("team", ""),
+            "seccion": tsec,
         })
 
     return {"success": True, "supervisors": normalized}

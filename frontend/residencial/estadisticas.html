@@ -498,7 +498,7 @@
 
   async function fetchData(m){
     try{
-      var res=await fetch('/api/leads/bootstrap?stats=1&month='+encodeURIComponent(m),{credentials:'include'});
+      var res=await fetch('/api/leads/bootstrap?stats=1&seccion=residencial&salesTeams=1&month='+encodeURIComponent(m),{credentials:'include'});
       if(!res.ok)return null;
       var j=await res.json();
       return j.success?j:null;
@@ -574,6 +574,18 @@
         if(sv.username)_supTeam[normMatch(sv.username)]=team;
       });
     }catch(_){}
+  }
+
+  // Rotación de fin de semana: qué equipos trabajan HOY. null = sin filtro (entre
+  // semana o sin config). El backend calcula la rotación (/api/weekend-rotation).
+  var _weekendTeams = null;
+  async function loadWeekendRotation(){
+    try{
+      var res=await fetch('/api/weekend-rotation?date='+encodeURIComponent(todayStr()),{credentials:'include'});
+      if(!res||!res.ok)return;
+      var j=await res.json();
+      _weekendTeams = (j && j.today && j.today.teams) ? j.today.teams : null;
+    }catch(_){ _weekendTeams = null; }
   }
 
   // Renames cargados del API [{old_name, new_name, changed_at:'YYYY-MM-DD'}]
@@ -722,9 +734,15 @@
         '<td class="center" style="font-family:monospace">'+tB+'</td></tr>');
       tbody.innerHTML=rowsMes.join('');
 
-      // Tabla diaria
+      // Tabla diaria — en fin de semana solo los equipos que trabajan HOY (rotación
+      // gestionada por el backend). Entre semana (_weekendTeams=null): todos.
       var dailyTbody=document.getElementById('teams-daily-tbody');
-      var rowsDay=tNames.map(function(s){
+      var dayTNames=tNames;
+      if(_weekendTeams){
+        var _wt=_weekendTeams.map(function(x){return normMatch(x);});
+        dayTNames=tNames.filter(function(s){return _wt.indexOf(normMatch(teams[s].label||s))!==-1;});
+      }
+      var rowsDay=dayTNames.map(function(s){
         var t=teams[s]; var tr=teamRow(s,t);
         return '<tr><td><div class="t-name">'+tr.chip+'</div></td>'+
           '<td class="val-hoy">'+t.hoy+'</td>'+
@@ -732,9 +750,14 @@
           '<td class="val-icon">'+t.iconH+'</td>'+
         '</tr>';
       });
-      var tH=tNames.reduce(function(a,s){return a+teams[s].hoy;},0);
-      var tPH=tNames.reduce(function(a,s){return a+teams[s].ptsH;},0);
-      var tIH=tNames.reduce(function(a,s){return a+teams[s].iconH;},0);
+      if(!dayTNames.length){
+        rowsDay=['<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--t3)">Ningún equipo trabaja hoy</td></tr>'];
+      }
+      var tH=dayTNames.reduce(function(a,s){return a+teams[s].hoy;},0);
+      var tPH=dayTNames.reduce(function(a,s){return a+teams[s].ptsH;},0);
+      var tIH=dayTNames.reduce(function(a,s){return a+teams[s].iconH;},0);
+      // "Ventas Hoy" (resumen) coherente con la tabla del día
+      var _sHoy=document.getElementById('s-hoy'); if(_sHoy)_sHoy.textContent=tH;
       rowsDay.push('<tr class="total-row"><td><div class="t-name"><span style="font-size:.70rem;font-weight:900">TOTAL HOY</span></div></td>'+
         '<td class="center">'+tH+'</td><td class="center">'+tPH.toFixed(2)+'</td>'+
         '<td class="center" style="font-family:monospace">'+tIH+'</td></tr>');
@@ -910,7 +933,7 @@
     document.getElementById('btn-next').addEventListener('click',nextMonth);
     document.getElementById('btn-today').addEventListener('click',todayMonth);
     // Cargar el mapa supervisor->equipo ANTES del primer render (para agrupar bien)
-    loadSupervisors().then(load);
+    Promise.all([loadSupervisors(), loadWeekendRotation()]).then(load);
     // Tiempo real: refresca al cambiar datos de residencial o de líneas (esta
     // página muestra ambos). load() solo re-renderiza si los datos cambiaron.
     if (window.CRMRealtime) {

@@ -85,17 +85,9 @@
   function fmtDate(rawDate){if(!rawDate)return'—';try{const str=String(rawDate).trim();if(/^\d{4}-\d{2}-\d{2}$/.test(str)){const parts=str.split('-');const dt=new Date(parseInt(parts[0],10),parseInt(parts[1],10)-1,parseInt(parts[2],10));return dt.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});}return new Date(rawDate).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});}catch(_){return String(rawDate);}}
   function cell(txt){return'<td>'+(txt||'—')+'</td>';}
   function getUserData(){try{return JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');}catch(_){return{};}}
-  const SUPERVISOR_DISPLAY_MAP = {
-    'irania serrano':    'IRANIA',
-    'roberto velasquez': 'ROBERTO',
-    'marisol beltran':   'MARISOL',
-    'bryan pleitez':     'PLEITEZ',
-    'johana':            'JOHANA',
-  };
+  // Muestra el supervisor tal como lo guarda la BD (sin mapa de nombres hardcodeado).
   function fmtSupervisor(val){
-    if(!val) return '—';
-    const key = String(val).toLowerCase().trim();
-    return SUPERVISOR_DISPLAY_MAP[key] || val;
+    return val ? String(val).trim() : '—';
   }
 
   function isAdminOrBackoffice(role){const r=String(role||'').toLowerCase();return['admin','administrador','administrator','administrativo','backoffice','back office','back_office','bo','b.o','rol_icon','rol-icon','rol_bamo','icon','bamo'].some(function(v){return r===v||r.includes(v);});}
@@ -222,6 +214,25 @@
 
   // Teams normalization helpers
   let _teams = [];
+  // Mapa supervisor(nombre normalizado) -> equipo. Se arma del bootstrap (usuarios).
+  // Necesario porque el nombre del supervisor puede NO coincidir con el del equipo
+  // (ej. supervisor "Eduardo Nuñez" -> "TEAM MIGUEL NUÑEZ").
+  var _supTeamMap = {};
+  // Equipo efectivo de un lead: su team explícito o, si está vacío, el equipo de su supervisor.
+  function _leadEffectiveTeam(lead){
+    if(!lead) return '';
+    var t = lead.team ? String(lead.team).trim() : '';
+    if(t) return t;
+    var sup = String(lead.supervisor || '');
+    return _supTeamMap[normalizeStringForCompare(sup)] || sup || '';
+  }
+  // ¿El lead pertenece al equipo del filtro? (compara team efectivo, no el supervisor)
+  function _teamMatches(lead, fTeam){
+    if(!fTeam) return true;
+    var a = normalizeStringForCompare(_leadEffectiveTeam(lead));
+    var b = normalizeStringForCompare(fTeam);
+    return a === b || (a && b && (a.indexOf(b) !== -1 || b.indexOf(a) !== -1));
+  }
   function normalizeStringForCompare(s){
     try{ return String(s||'').normalize('NFD').replace(/\p{Diacritic}+/gu,'').trim().toLowerCase().replace(/\s+/g,' '); }
     catch{ return String(s||'').trim().toLowerCase(); }
@@ -229,7 +240,7 @@
   async function loadTeams(){
     if(!AUTH.check()) return;
     try{
-      const res = await AUTH.secureFetch('/api/teams');
+      const res = await AUTH.secureFetch('/api/teams?seccion=residencial&sales=1');
       if(!res||!res.ok) return;
       const data = await res.json();
       _teams = Array.isArray(data.teams) ? data.teams : (data.teams || []);
@@ -291,7 +302,7 @@
   var __usersFromAPI=[];
   async function fetchUsersForFilters(){
     if(!AUTH.check())return null;
-    const res=await AUTH.secureFetch('/api/users/agents');
+    const res=await AUTH.secureFetch('/api/users/agents?seccion=residencial');
     if(!res||!res.ok)return null;
     try{
       const data=await res.json();
@@ -510,13 +521,7 @@
         }
       }
       if(svc){const svcUp=svc.toUpperCase();const inSvc=String(lead.servicios||'').toUpperCase().indexOf(svcUp)!==-1;const inTipo=String(lead.tipo_servicio||'').toUpperCase().indexOf(svcUp)!==-1;if(!inSvc&&!inTipo)return false;}
-      if(team){
-        // Quitar prefijo "Team " para comparar sin importar si el lead lo trae o no
-        const normTeamStr=function(s){return String(s||'').toUpperCase().replace(/^TEAM\s+/,'').trim();};
-        const tNorm=normTeamStr(team);
-        const sNorm=normTeamStr(lead.supervisor);
-        if(tNorm&&sNorm.indexOf(tNorm)===-1&&tNorm.indexOf(sNorm)===-1)return false;
-      }
+      if(team && !_teamMatches(lead, team)) return false;
       if(agent){
         const normA=function(s){return String(s||'').replace(/[._]/g,' ').replace(/\s+/g,' ').trim().toLowerCase().split(' ').filter(Boolean).slice(0,2).join(' ');};
         const agentOk=normA(lead.agente)===normA(agent)||normA(lead.agenteNombre||'')===normA(agent)||normA(lead.createdBy||'')===normA(agent);
@@ -752,7 +757,7 @@
         if(!kws.concat(teamKws).some(function(kw){return leadSup.includes(kw);}))return;
       }
       // Filtros de selects
-      if(fTeam){const normTS=function(s){return String(s||'').toUpperCase().replace(/^TEAM\s+/,'').trim();};const tN=normTS(fTeam),sN=normTS(l.supervisor);if(tN&&sN.indexOf(tN)===-1&&tN.indexOf(sN)===-1)return;}
+      if(fTeam && !_teamMatches(l, fTeam)) return;
       if(fAgent&&normName(l.agente)!==normName(fAgent)&&normName(l.agenteNombre||'')!==normName(fAgent))return;
       if(fMercado&&l.mercado!==fMercado)return;
       if(fSvc){const su=fSvc.toUpperCase();if(String(l.servicios||'').toUpperCase().indexOf(su)===-1&&String(l.tipo_servicio||'').toUpperCase().indexOf(su)===-1)return;}
@@ -1015,7 +1020,6 @@
       '</div>'+
       '<input type="file" id="ile-file-'+lid+'" accept="image/*" style="display:none" onchange="_ileFileSelect(event,\''+lid+'\')">';
 
-    var svcOptions='<option value="">Elige</option><optgroup label="DIRECTV (Video)"><option>VIDEO DIRECTV VIA INTERNET</option><option>VIDEO DIRECTV VIA SATELITE</option></optgroup><optgroup label="AT&T Internet"><option>AIR</option><option>ATT 18 - 25 MB</option><option>ATT 50 - 100 MB</option><option>ATT 100 FIBRA</option><option>ATT 300</option><option>ATT 500</option><option>ATT 1G</option></optgroup><optgroup label="Spectrum"><option>SPECTRUM 400 MBPS</option><option>SPECTRUM 500</option><option>SPECTRUM 500MBPS+</option><option>SPECTRUM 1G</option><option>SPECTRUM 2G</option></optgroup><optgroup label="Frontier"><option>FRONTIER 200 MB</option><option>FRONTIER 500 MB</option><option>FRONTIER 1G</option><option>FRONTIER 2G</option></optgroup><optgroup label="Consolidated"><option>CONSOLIDATED 100 MB</option><option>CONSOLIDATED 300 MB</option><option>CONSOLIDATED 1G</option><option>CONSOLIDATED 2G</option><option>CONSOLIDATED</option></optgroup><optgroup label="Xfinity"><option>XFINITY 300</option><option>XFINITY 500</option><option>XFINITY 1G</option></optgroup><optgroup label="Brightspeed"><option>BRIGHTSPEED</option></optgroup><optgroup label="Earthlink"><option>INTERNET EARTHLINK 300 MB</option><option>EARTHLINK</option></optgroup><optgroup label="Ziply Fiber"><option>ZIPLY FIBER 10G</option><option>ZIPLY FIBER 5G</option><option>ZIPLY FIBER 2G</option><option>ZIPLY FIBER 1G</option><option>ZIPLY FIBER 300</option><option>ZIPLY FIBER 200</option></optgroup><optgroup label="Otros"><option>OPTIMUM</option><option>WOW</option><option>WINDSTREAM</option><option>HUGHESNET</option><option>VIASAT</option><option>STARLINK</option><option>CENTURYLINK</option><option>METRONET</option><option>HAWAIIAN</option><option>VIVINT</option><option>MOBILITY</option><option>ALTAFIBER</option><option>ALTAFIBER 100 MB</option><option>ALTAFIBER 200 MB</option><option>ALTAFIBER 300 MB</option><option>ALTAFIBER 400 MB</option><option>ALTAFIBER 500 MB</option><option>ALTAFIBER 600 MB</option><option>ALTAFIBER 800 MB</option><option>ALTAFIBER 1G</option></optgroup>';
 
     function _fieldIcon(ic){if(ic==='person')return'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';if(ic==='phone')return'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.77 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.5a16 16 0 0 0 5.59 5.59l1.06-1.06a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 16.92z"/></svg>';if(ic==='card')return'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>';if(ic==='location')return'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';if(ic==='calendar')return'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';if(ic==='tag')return'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>';return'';}
     function iField(lbl,id,val,type,ic){type=type||'text';return'<div><label style="font-size:.63rem;font-weight:700;text-transform:uppercase;color:var(--ink-3);letter-spacing:.06em;display:block;margin-bottom:4px;">'+lbl+'</label><div style="position:relative;"><input type="'+type+'" id="ile-'+id+'-'+lid+'" value="'+escHTML(String(val||''))+'" '+dis+' style="width:100%;padding:7px '+(ic?'30':'10')+'px 7px 10px;border:1px solid var(--line-1);border-radius:8px;font-size:.82rem;color:var(--ink-1);background:var(--sheet);box-sizing:border-box;'+opacity+'">'+(ic?'<span style="position:absolute;right:9px;top:50%;transform:translateY(-50%);color:var(--ink-4);pointer-events:none;display:inline-flex;align-items:center;">'+_fieldIcon(ic)+'</span>':'')+'</div></div>';}
@@ -1089,29 +1093,29 @@
           _mSec('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>','Información de cuenta',
             '<div style="display:grid;grid-template-columns:1fr 1fr 2fr 1fr;gap:10px;">'+
               _mField('No. cuenta','cuenta',lead.numero_cuenta,'text','')+
-              _mSel('Autopago','autopago','<option value="">—</option>'+selOpt([['Si','Si'],['No','No']],lead.autopago))+
+              _mSel('Autopago','autopago','<option value="">—</option>')/* poblado dinámico: /api/catalogos */+
               _mField('Dirección','dir',lead.direccion,'text','')+
               _mField('ZIP code','zip',lead.zip_code,'text','')+
             '</div>',
             'var(--a)')+
           _mSec('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>','Detalles del servicio',
             '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;">'+
-              _mSel('Tipo servicio','tipo','<option value="">Elige</option>'+selOpt(['VIDEO','INTERNET','AT&T AIR','WIRELESS','SINGLE INTERNET','DOUBLE PLAY','FRONTIER','WINDSTREAM','OPTIMUM','WOW','ALTAFIBER','CONSOLIDATE','HUGHESNET','VIASAT','STARLINK','CENTURYLINK','METRONET','ZIPLY FIBER','HAWAIIAN','VIVINT','EARTHLINK','XFINITY','BRIGHTSPEED','ATT 300','ATT 500','ATT 1G'],lead.tipo_servicio))+
-              '<div><label style="font-size:.65rem;font-weight:600;text-transform:uppercase;color:var(--ink-3);letter-spacing:.05em;display:block;margin-bottom:5px;">Servicio</label><select id="ile-svc-'+lid+'" '+dis+' style="width:100%;padding:9px 12px;border:1px solid var(--line-1);border-radius:8px;font-size:.85rem;color:var(--ink-1);background:var(--sheet);'+opacity+'">'+svcOptions+'</select></div>'+
-              _mSel('Sistema','sistema','<option value="">Elige</option>'+selOpt(['SARA','B.O','N/A','CHUZO'],lead.sistema))+
+              _mSel('Tipo servicio','tipo','<option value="">Elige</option>')/* poblado dinámico: /api/productos */+
+              '<div><label style="font-size:.65rem;font-weight:600;text-transform:uppercase;color:var(--ink-3);letter-spacing:.05em;display:block;margin-bottom:5px;">Servicio</label><select id="ile-svc-'+lid+'" '+dis+' style="width:100%;padding:9px 12px;border:1px solid var(--line-1);border-radius:8px;font-size:.85rem;color:var(--ink-1);background:var(--sheet);'+opacity+'"></select></div>'+
+              _mSel('Sistema','sistema','<option value="">Elige</option>')/* poblado dinámico: /api/productos */+
               _mSel('Riesgo','riesgo','<option value="">—</option>'+selOpt([['Alto','Alto'],['Medio','Medio'],['Bajo','Bajo'],['N/A','N/A']],lead.riesgo))+
             '</div>',
             '#f59e0b')+
           _mSec('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>','Estado y Gestión',
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">'+
               _mSel('Status','status',selOpt([['pending','Pending'],['completed','Active/Completed'],['oficina','Oficina'],['reserva','En Reserva'],['cancelled','Cancelled'],['hold','Hold'],['rescheduled','Rescheduled']],lead.status))+
-              _mSel('Mercado','mercado','<option value="">Elige</option>'+selOpt(['ICON','BAMO'],lead.mercado))+
+              _mSel('Mercado','mercado','<option value="">Elige</option>')/* poblado dinámico: /api/catalogos */+
             '</div>'+
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">'+
-              _mSel('Supervisor','sup','<option value="">—</option>'+selOpt([['Irania Serrano','IRANIA'],['Roberto Velasquez','ROBERTO'],['Marisol Beltran','MARISOL'],['Bryan Pleitez','PLEITEZ'],['Johana','JOHANA']],lead.supervisor))+
+              _mSel('Supervisor','sup','<option value="">—</option>')/* poblado dinámico: /api/teams/supervisors-list */+
               _mSel('Agente','agente','<option value="">— Agente —</option>')+
             '</div>'+
-            _mSel('Motivo llamada','motivo','<option value="">—</option>'+selOpt(['BILL ALTO','PROBLEMAS DE INTERNET','ADQUIRIR SERVICIOS','MUDANZA','CANCELAR SERVICIOS','PAGAR BILL','ATENCION AL CLIENTE'],lead.motivo_llamada)),
+            _mSel('Motivo llamada','motivo','<option value="">—</option>')/* poblado dinámico: /api/catalogos */,
             'var(--a)')+
         '</div>'+
 
@@ -1183,16 +1187,53 @@
     var modalEl=document.getElementById('editClienteModal');
     if(modalEl){modalEl.style.display='flex';document.body.style.overflow='hidden';}
 
-    // Set select values after inserting into DOM
-    var svcSel=document.getElementById('ile-svc-'+lid);
-    if(svcSel)svcSel.value=svcCurrent||'';
+    // ── Poblar selects del modal desde el BACKEND (sin hardcode) ──
+    // Servicios/tipo/sistema ← /api/productos ; mercado/autopago/motivo ← /api/catalogos ;
+    // supervisor ← /api/teams/supervisors-list (guarda el NOMBRE completo, como la BD).
+    (function(){
+      var byId=function(p){return document.getElementById('ile-'+p+'-'+lid);};
+      if(window.Productos){
+        Promise.all([window.Productos.load(), window.Catalogos?window.Catalogos.load():Promise.resolve()]).then(function(){
+          window.Productos.fillSelect(byId('svc'), (svcCurrent||lead.servicios||''), 'Elige');
+          window.Productos.fillEnum(byId('tipo'), window.Productos.tiposConExtra(), lead.tipo_servicio||'', 'Elige');
+          window.Productos.fillEnum(byId('sistema'), window.Productos.sistemas(), lead.sistema||'', 'Elige');
+        });
+      }
+      if(window.Catalogos){
+        window.Catalogos.fillSelect(byId('mercado'), 'mercado', lead.mercado||'', 'Elige');
+        window.Catalogos.fillSelect(byId('autopago'), 'autopago', lead.autopago||'', '—');
+        window.Catalogos.fillSelect(byId('motivo'), 'motivo', lead.motivo_llamada||'', '—');
+      }
+      // Supervisores desde el backend — el value es el NOMBRE completo (lo que guarda la BD)
+      var supSel=byId('sup');
+      if(supSel){
+        var cur=String(lead.supervisor||'');
+        fetch('/api/teams/supervisors-list?seccion=residencial',{credentials:'include'})
+          .then(function(r){return r&&r.ok?r.json():null;})
+          .then(function(d){
+            if(!d)return;
+            (d.supervisors||[]).forEach(function(sv){
+              var n=String(sv.name||sv.username||'').trim(); if(!n)return;
+              var o=document.createElement('option'); o.value=n;
+              o.textContent=n+(sv.team?(' — '+sv.team):'');
+              if(n.toLowerCase()===cur.toLowerCase())o.selected=true;
+              supSel.appendChild(o);
+            });
+            if(cur && !Array.prototype.some.call(supSel.options,function(o){return o.value.toLowerCase()===cur.toLowerCase();})){
+              var oo=document.createElement('option');oo.value=cur;oo.textContent=cur+' (actual)';oo.selected=true;supSel.appendChild(oo);
+            }
+          }).catch(function(){
+            if(cur){var o=document.createElement('option');o.value=cur;o.textContent=cur;o.selected=true;supSel.appendChild(o);}
+          });
+      }
+    })();
 
     // Poblar select de Agente desde la API
     (function(){
       var agenteSel=document.getElementById('ile-agente-'+lid);
       if(!agenteSel)return;
       var currentAgente=lead.agente||lead.agente_nombre||'';
-      AUTH.secureFetch('/api/users/agents').then(function(r){return r&&r.ok?r.json():null;}).then(function(data){
+      AUTH.secureFetch('/api/users/agents?seccion=residencial').then(function(r){return r&&r.ok?r.json():null;}).then(function(data){
         if(!data)return;
         var users=data.agents||data.data||data.users||[];
         var getName=function(u){return(u.name||u.fullName||u.nombre||u.username||'').trim();};
@@ -1764,6 +1805,8 @@
     var qs='';
     if(m==='__all')qs='?allData=true';
     else if(m)qs='?month='+encodeURIComponent(m);
+    // Solo equipos de VENTA residencial en los filtros (el backend clasifica la sección)
+    qs += (qs?'&':'?')+'seccion=residencial&salesTeams=1';
     var res=await AUTH.secureFetch('/api/leads/bootstrap'+qs);
     if(!res||!res.ok)return null;
     try{return await res.json();}catch(_){return null;}
@@ -1773,6 +1816,15 @@
     // Inicializar variables internas que el JS usa para normalización
     _teams = data.teams||[];
     __usersFromAPI = data.agents||[];
+    // Mapa supervisor -> equipo (para filtrar por equipo aunque el nombre del
+    // supervisor no coincida con el del equipo, ej. Eduardo Nuñez -> TEAM MIGUEL NUÑEZ).
+    _supTeamMap = {};
+    (__usersFromAPI||[]).forEach(function(u){
+      if(u && /supervisor/i.test(String(u.role||'')) && u.team){
+        var nm = String(u.name||u.username||'').trim();
+        if(nm) _supTeamMap[normalizeStringForCompare(nm)] = u.team;
+      }
+    });
     // Poblar liberar-agente-select
     var liberarSel=document.getElementById('liberar-agente-select');
     if(liberarSel&&__usersFromAPI.length){

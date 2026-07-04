@@ -895,6 +895,7 @@
         <button class="view-tab active" id="tab-usuarios" onclick="switchSection('usuarios')"><i class="fas fa-users"></i> Usuarios</button>
         <button class="view-tab" id="tab-servicios" onclick="switchSection('servicios')"><i class="fas fa-tags"></i> Servicios y Puntajes</button>
         <button class="view-tab" id="tab-catalogos" onclick="switchSection('catalogos')"><i class="fas fa-list-ul"></i> Catálogos</button>
+        <button class="view-tab" id="tab-finesemana" onclick="switchSection('finesemana')"><i class="fas fa-calendar-week"></i> Fines de Semana</button>
       </div>
       <div class="user-av-top" id="top-user-av" title="Mi perfil" style="width:30px;height:30px;font-size:.58rem;flex-shrink:0">??</div>
     </div>
@@ -1022,6 +1023,30 @@
       </div>
       <div class="form-hint" style="margin-bottom:6px"><span id="cat-count">0</span> valores</div>
       <div id="cat-list"></div>
+    </div>
+
+    <!-- ═══ SECCIÓN: FINES DE SEMANA (rotación de equipos) ═══ -->
+    <div id="section-finesemana" style="display:none;padding:18px 28px 60px">
+      <div class="form-hint" style="margin-bottom:12px">
+        De lunes a viernes trabajan todos los equipos. Los <b>sábados y domingos</b> rota:
+        definí el ciclo de fines de semana y qué equipos trabajan cada día. El sistema calcula
+        automáticamente qué mostrar en la tabla de <b>Ventas del Día</b> de Estadísticas.
+      </div>
+      <div class="form-row" style="align-items:end">
+        <div class="form-group" style="max-width:220px">
+          <label class="form-label">Sábado de referencia (inicio del ciclo)</label>
+          <input class="form-input" id="wk-anchor" type="date"/>
+        </div>
+        <div class="form-group">
+          <div class="form-hint">El “Finde 1” corresponde a ese sábado; luego el ciclo se repite en orden.</div>
+        </div>
+      </div>
+      <div id="wk-cycle" style="display:flex;flex-direction:column;gap:14px;margin:10px 0"></div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-ghost btn-sm" onclick="addWeekend()"><i class="fas fa-plus"></i> Agregar fin de semana</button>
+        <button class="btn btn-primary btn-sm" onclick="saveRotation()"><i class="fas fa-save"></i> Guardar rotación</button>
+      </div>
+      <div class="form-hint" id="wk-hint" style="margin-top:10px"></div>
     </div>
 
   </main>
@@ -1571,7 +1596,7 @@ function switchView(v){
 
 /* ── Secciones principales: Usuarios · Servicios y Puntajes · Catálogos ── */
 function switchSection(s){
-  ['usuarios','servicios','catalogos'].forEach(function(name){
+  ['usuarios','servicios','catalogos','finesemana'].forEach(function(name){
     var sec=document.getElementById('section-'+name);
     var tab=document.getElementById('tab-'+name);
     if(sec) sec.style.display = (name===s)?'block':'none';
@@ -1579,6 +1604,7 @@ function switchSection(s){
   });
   if(s==='servicios'){ resetProdForm(); loadProductos(); }
   else if(s==='catalogos'){ resetCatForm(); loadCatalogos(); }
+  else if(s==='finesemana'){ loadRotation(); }
 }
 
 /* ── Filter teams view ── */
@@ -3180,6 +3206,66 @@ async function deleteCat(id){
   const data = await res.json();
   if(res.ok && data.success!==false){ toast('Eliminado','ok'); loadCatalogos(); }
   else toast(data.message||'Error al eliminar','err');
+}
+
+/* ── Rotación de fines de semana ── */
+var _wkTeams = [];   // equipos de venta residencial (checkboxes)
+var _wkCycle = [];   // [{sat:[...], sun:[...]}]
+async function loadRotation(){
+  try{
+    var tr = await AUTH.sf('/api/teams?seccion=residencial&sales=1');
+    var td = tr ? await tr.json() : null;
+    _wkTeams = ((td && td.teams) ? td.teams : []).map(function(t){ return t.value || t; });
+    var rr = await AUTH.sf('/api/weekend-rotation');
+    var rd = rr ? await rr.json() : null;
+    var cfg = (rd && rd.config) || { anchor:'', cycle:[] };
+    var an = document.getElementById('wk-anchor'); if(an) an.value = cfg.anchor || '';
+    _wkCycle = (cfg.cycle || []).map(function(e){ return { sat:(e.sat||[]).slice(), sun:(e.sun||[]).slice() }; });
+    if(!_wkCycle.length) _wkCycle = [{ sat:[], sun:[] }];
+    renderCycle();
+  }catch(e){ toast('Error cargando la rotación','err'); }
+}
+function _teamChecks(dayArr, wi, day){
+  return _wkTeams.map(function(tm){
+    var on = dayArr.some(function(x){ return String(x).toUpperCase() === String(tm).toUpperCase(); });
+    return '<label style="display:inline-flex;align-items:center;gap:6px;font-size:.78rem;margin:0 14px 6px 0;white-space:nowrap">'
+      + '<input type="checkbox" class="wk-chk" data-wi="'+wi+'" data-day="'+day+'" value="'+String(tm).replace(/"/g,'&quot;')+'"'+(on?' checked':'')+'> '+tm+'</label>';
+  }).join('');
+}
+function renderCycle(){
+  var box = document.getElementById('wk-cycle'); if(!box) return;
+  box.innerHTML = _wkCycle.map(function(e, i){
+    return '<div style="border:1px solid var(--border2);border-radius:10px;padding:12px 14px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+        + '<b style="font-size:.82rem">Finde '+(i+1)+'</b>'
+        + (_wkCycle.length>1 ? '<button class="btn btn-icon danger" title="Quitar" onclick="removeWeekend('+i+')"><i class="fas fa-trash"></i></button>' : '')
+      + '</div>'
+      + '<div style="margin-bottom:8px"><div class="form-hint" style="margin-bottom:4px">🗓️ Sábado</div>'+_teamChecks(e.sat,i,'sat')+'</div>'
+      + '<div><div class="form-hint" style="margin-bottom:4px">🗓️ Domingo</div>'+_teamChecks(e.sun,i,'sun')+'</div>'
+    + '</div>';
+  }).join('');
+  var hint = document.getElementById('wk-hint');
+  if(hint) hint.textContent = _wkCycle.length + ' fin(es) de semana en el ciclo — se repite en orden desde el sábado de referencia.';
+}
+function _readCycle(){
+  var cyc = _wkCycle.map(function(){ return { sat:[], sun:[] }; });
+  document.querySelectorAll('#wk-cycle .wk-chk:checked').forEach(function(chk){
+    var wi = parseInt(chk.getAttribute('data-wi'),10), day = chk.getAttribute('data-day');
+    if(cyc[wi]) cyc[wi][day].push(chk.value);
+  });
+  return cyc;
+}
+function addWeekend(){ _wkCycle = _readCycle(); _wkCycle.push({ sat:[], sun:[] }); renderCycle(); }
+function removeWeekend(i){ _wkCycle = _readCycle(); _wkCycle.splice(i,1); if(!_wkCycle.length) _wkCycle=[{sat:[],sun:[]}]; renderCycle(); }
+async function saveRotation(){
+  var anchor = (document.getElementById('wk-anchor').value || '').trim();
+  if(!anchor){ toast('Elegí el sábado de referencia','err'); return; }
+  var cycle = _readCycle();
+  var res = await AUTH.sf('/api/weekend-rotation',{ method:'PUT', body:JSON.stringify({ anchor:anchor, cycle:cycle }) });
+  if(!res){ toast('Error de conexión','err'); return; }
+  var data = await res.json();
+  if(res.ok && data.success!==false){ toast('Rotación guardada ✓','ok'); _wkCycle = cycle; }
+  else toast(data.detail || data.message || 'Error al guardar','err');
 }
 </script>
 </body>

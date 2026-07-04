@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
-from deps import current_user, require_roles
+from deps import current_user, require_roles, team_seccion
 from datetime import datetime, timezone
 from typing import Optional, List, Any
 import re, unicodedata, time, json, calendar, traceback, asyncio, os
@@ -156,6 +156,8 @@ async def leads_bootstrap(
     noAutoMonth: Optional[str] = Query(None),
     allData:     Optional[str] = Query(None),
     stats:       Optional[str] = Query(None),
+    seccion:     Optional[str] = Query(None),   # 'residencial' | 'lineas' — filtra la lista de teams
+    salesTeams:  Optional[str] = Query(None),   # '1' → solo equipos con supervisor (venta)
     limit:       int           = Query(5000),
     user: dict = Depends(current_user),
 ):
@@ -226,9 +228,24 @@ async def leads_bootstrap(
             return [_ser(row) for row in r.mappings().all()], total_mes
 
     async def _get_teams():
+        only_sales = str(salesTeams or "").strip().lower() in ("1", "true", "yes")
         async with AsyncSessionLocal() as s:
-            r = await s.execute(text("SELECT DISTINCT team FROM users WHERE team IS NOT NULL AND team != '' ORDER BY team"))
-            return [row["team"] for row in r.mappings().all()]
+            if only_sales:
+                # Solo equipos de VENTA (con al menos un supervisor): excluye
+                # Administración, Backoffice, TEAM BAMO/ICON, etc.
+                r = await s.execute(text("""
+                    SELECT TRIM(team) AS team FROM users
+                    WHERE team IS NOT NULL AND TRIM(team) != ''
+                    GROUP BY TRIM(team) HAVING SUM(LOWER(role) LIKE '%supervisor%') > 0
+                    ORDER BY team
+                """))
+            else:
+                r = await s.execute(text("SELECT DISTINCT team FROM users WHERE team IS NOT NULL AND team != '' ORDER BY team"))
+            teams = [row["team"] for row in r.mappings().all()]
+        sec = str(seccion or "").strip().lower()
+        if sec:
+            teams = [t for t in teams if team_seccion(t) == sec]
+        return teams
 
     async def _get_agents():
         async with AsyncSessionLocal() as s:

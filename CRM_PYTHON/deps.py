@@ -24,6 +24,20 @@ COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax").lower()
 ADMIN_ROLES  = ("Administrador", "admin", "administrador", "Administrativo")
 
 
+def team_seccion(team: str = "", role: str = "") -> str:
+    """Clasifica un equipo/usuario en 'lineas' o 'residencial' (fuente única).
+
+    Convención de negocio: si el nombre del EQUIPO o el ROL contienen 'linea(s)',
+    pertenece a la sección de Líneas; en cualquier otro caso, a Residencial.
+    Se usa para que cada sección (costumer residencial vs líneas) solo muestre
+    supervisores/agentes/equipos de su propia área.
+    """
+    import unicodedata
+    def _n(x: str) -> str:
+        return unicodedata.normalize("NFD", str(x or "")).encode("ascii", "ignore").decode().lower()
+    return "lineas" if ("linea" in _n(team) or "linea" in _n(role)) else "residencial"
+
+
 def _get_token(request: Request) -> str | None:
     token = request.cookies.get("token")
     if not token:
