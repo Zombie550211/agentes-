@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Optional, List, Any
 import re, unicodedata, time, json, calendar, traceback, asyncio, os
 from geocoder import geocode_and_save
+from scoring import score_for
 import realtime
 
 
@@ -474,11 +475,15 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
         body.servicios if isinstance(body.servicios, list) else ([body.servicios] if body.servicios else [])
     )
     try:
-        puntaje_val = float(body.puntaje) if body.puntaje else 0.0
+        _client_puntaje = float(body.puntaje) if body.puntaje else 0.0
     except ValueError:
-        puntaje_val = 0.0
+        _client_puntaje = 0.0
+    _svc_key = body.servicios[0] if isinstance(body.servicios, list) and body.servicios else body.servicios
 
     async with AsyncSessionLocal() as s:
+        # Puntaje calculado en el BACKEND (tabla productos). Si el servicio no está
+        # en el catálogo, se respeta lo enviado para no perder datos.
+        puntaje_val = await score_for(s, str(_svc_key or ""), body.riesgo, body.tipo_servicio) or _client_puntaje
         r = await s.execute(text("""
             INSERT INTO leads
               (nombre_cliente, telefono_principal, telefono, telefono_alterno, direccion, zip_code, servicios,
@@ -1410,6 +1415,16 @@ async def update_lead(
         where = "mongo_id = :mid"
 
     async with AsyncSessionLocal() as s:
+        # Puntaje: si cambió servicio/riesgo/tipo, se RECALCULA en el backend (tabla productos).
+        if any(k in data for k in ("servicios", "riesgo", "tipo_servicio")):
+            _svc = data.get("servicios")
+            if isinstance(_svc, list):
+                _svc = _svc[0] if _svc else ""
+            _sc = await score_for(s, str(_svc or ""), data.get("riesgo", ""), data.get("tipo_servicio", ""))
+            if _sc > 0:
+                params["puntaje_val"] = _sc
+                if "puntaje = :puntaje_val" not in sets:
+                    sets.append("puntaje = :puntaje_val")
         # Control de acceso: un agente solo puede modificar SUS propios leads (lo que ve = lo que
         # puede editar). admin/backoffice/supervisor mantienen el alcance amplio del listado.
         if _is_agent(user):

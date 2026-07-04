@@ -7,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
   <script src="js/fetch-interceptor.js" defer></script>
-  <script src="js/sidebar-loader.js?v=20260611b" defer></script>
+  <script src="js/sidebar-loader.js?v=20260703" defer></script>
   <script src="/js/logout-handler.js" defer></script>
   <script src="/js/user-info.js" defer></script>
   <style>
@@ -809,20 +809,44 @@
     }
 
     /* ── Team cards / tcard ── */
+    /* OJO: el selector [class*="card"] es GLOTÓN — matchea también elementos
+       internos como .ucard-head, .ucard-time, .ucard-name, etc. Por eso NO se
+       pone aquí backdrop-filter: cada elemento interno se volvería su propio
+       contexto de apilamiento y taparía al dropdown del menú (que vive dentro
+       de .ucard-head). El glass se aplica solo a los contenedores más abajo. */
     .tcard, [class*="card"], [class*="-card"] {
       background: rgba(5,15,35,0.45) !important;
-      backdrop-filter: blur(12px) !important;
       border-color: rgba(255,255,255,0.10) !important;
+    }
+    /* Contenedores de tarjeta: fondo opaco (sin backdrop-filter para no romper
+       el apilamiento del menú desplegable). */
+    .ucard, .tcard, .team-card {
+      background: rgba(10,18,40,0.86) !important;
     }
 
     /* ── Dropdowns ── */
     .team-dropdown, .ucard-dropdown {
-      background: rgba(10,20,50,0.90) !important;
-      backdrop-filter: blur(16px) !important;
-      border-color: rgba(255,255,255,0.12) !important;
+      background: #111c3f !important;          /* opaco: sin bleed-through de la tarjeta */
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      border-color: rgba(255,255,255,0.14) !important;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.55) !important;
+      opacity: 1 !important;
     }
+    .team-dropdown-item, .ucard-dd-item {
+      color: #e7edf7 !important;               /* texto legible sobre fondo oscuro */
+    }
+    /* El menú abierto debe quedar POR ENCIMA de las tarjetas vecinas */
+    .ucard:has(.ucard-dropdown.open),
+    .tcard:has(.team-dropdown.open),
+    .team-card:has(.team-dropdown.open) {
+      z-index: 900 !important;
+      position: relative !important;
+    }
+    .ucard-dropdown.open, .team-dropdown.open { z-index: 950 !important; }
     .team-dropdown-item:hover, .ucard-dd-item:hover {
-      background: rgba(255,255,255,0.07) !important;
+      background: rgba(255,255,255,0.10) !important;
+      color: #ffffff !important;
     }
 
     /* ── Modales ── */
@@ -868,10 +892,21 @@
     <!-- Minimal header bar -->
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 18px;background:var(--surface);border-bottom:1px solid var(--border);gap:12px;flex-shrink:0">
       <div class="view-tabs" style="margin:0">
+        <button class="view-tab active" id="tab-usuarios" onclick="switchSection('usuarios')"><i class="fas fa-users"></i> Usuarios</button>
+        <button class="view-tab" id="tab-servicios" onclick="switchSection('servicios')"><i class="fas fa-tags"></i> Servicios y Puntajes</button>
+        <button class="view-tab" id="tab-catalogos" onclick="switchSection('catalogos')"><i class="fas fa-list-ul"></i> Catálogos</button>
+      </div>
+      <div class="user-av-top" id="top-user-av" title="Mi perfil" style="width:30px;height:30px;font-size:.58rem;flex-shrink:0">??</div>
+    </div>
+
+    <!-- ═══ SECCIÓN: USUARIOS (Por Equipos / Lista Completa) ═══ -->
+    <div id="section-usuarios">
+    <!-- Sub-toggle de la sección Usuarios -->
+    <div style="padding:10px 18px 0">
+      <div class="view-tabs" style="margin:0">
         <button class="view-tab active" id="tab-teams" onclick="switchView('teams')"><i class="fas fa-th-large"></i> Por Equipos</button>
         <button class="view-tab" id="tab-list" onclick="switchView('list')"><i class="fas fa-list"></i> Lista Completa</button>
       </div>
-      <div class="user-av-top" id="top-user-av" title="Mi perfil" style="width:30px;height:30px;font-size:.58rem;flex-shrink:0">??</div>
     </div>
     <!-- Input oculto para compatibilidad JS / ⌘K -->
     <input id="search-teams-input" style="display:none" type="text" oninput="filterTeamsView(this.value)"/>
@@ -938,6 +973,55 @@
         <button class="btn btn-ghost btn-sm" onclick="openModal('modal-create')"><i class="fas fa-user-plus"></i> Nuevo Usuario</button>
       </div>
       <div id="table-container"><div class="loader-wrap"><div class="box-of-star1"><div class="star star-position1"></div><div class="star star-position2"></div><div class="star star-position3"></div><div class="star star-position4"></div><div class="star star-position5"></div><div class="star star-position6"></div><div class="star star-position7"></div></div><div class="box-of-star2"><div class="star star-position1"></div><div class="star star-position2"></div><div class="star star-position3"></div><div class="star star-position4"></div><div class="star star-position5"></div><div class="star star-position6"></div><div class="star star-position7"></div></div><div class="box-of-star3"><div class="star star-position1"></div><div class="star star-position2"></div><div class="star star-position3"></div><div class="star star-position4"></div><div class="star star-position5"></div><div class="star star-position6"></div><div class="star star-position7"></div></div><div class="box-of-star4"><div class="star star-position1"></div><div class="star star-position2"></div><div class="star star-position3"></div><div class="star star-position4"></div><div class="star star-position5"></div><div class="star star-position6"></div><div class="star star-position7"></div></div><div data-js="astro" class="astronaut"><div class="head"></div><div class="arm arm-left"></div><div class="arm arm-right"></div><div class="body"><div class="panel"></div></div><div class="leg leg-left"></div><div class="leg leg-right"></div><div class="schoolbag"></div></div></div></div>
+    </div>
+    </div><!-- /#section-usuarios -->
+
+    <!-- ═══ SECCIÓN: SERVICIOS Y PUNTAJES ═══ -->
+    <div id="section-servicios" style="display:none;padding:18px 28px 60px">
+      <div class="form-hint" style="margin-bottom:12px">El catálogo lo gestiona el backend. Aquí agregas, editas o eliminas servicios y su puntaje; los formularios y el cálculo se actualizan solos.</div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label" id="prod-form-title">Agregar servicio</label><input class="form-input" id="prod-servicio" type="text" placeholder="Servicio (ej. HAWAIIAN 1G)"/></div>
+        <div class="form-group"><label class="form-label">Categoría</label><input class="form-input" id="prod-categoria" type="text" placeholder="Ej. HAWAIIAN"/></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Tipo</label><input class="form-input" id="prod-tipo" type="text" placeholder="Ej. HAWAIIAN"/></div>
+        <div class="form-group"><label class="form-label">Sistema</label><input class="form-input" id="prod-sistema" type="text" placeholder="Ej. SARA"/></div>
+        <div class="form-group"><label class="form-label">Puntaje</label><input class="form-input" id="prod-score" type="number" step="0.05" placeholder="0.35"/></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button class="btn btn-primary btn-sm" onclick="saveProducto()"><i class="fas fa-save"></i> Guardar</button>
+        <button class="btn btn-ghost btn-sm" onclick="resetProdForm()">Limpiar</button>
+      </div>
+      <input class="form-input" id="prod-search" type="text" placeholder="Buscar servicio..." oninput="renderProductos()" style="margin-bottom:10px"/>
+      <div class="form-hint" style="margin-bottom:6px"><span id="prod-count">0</span> servicios</div>
+      <div id="prod-list"></div>
+    </div>
+
+    <!-- ═══ SECCIÓN: CATÁLOGOS ═══ -->
+    <div id="section-catalogos" style="display:none;padding:18px 28px 60px">
+      <div class="form-hint" style="margin-bottom:12px">Listas del formulario gestionadas por el backend: mercados, motivos, riesgo, status, autopago y modalidades de tipo de servicio. Los formularios se actualizan solos.</div>
+      <div class="form-group">
+        <label class="form-label">Tipo de catálogo</label>
+        <select class="form-input" id="cat-tipo" onchange="renderCatalogos()">
+          <option value="mercado">Mercado</option>
+          <option value="motivo">Motivos (¿por qué llamó?)</option>
+          <option value="riesgo">Riesgo</option>
+          <option value="status">Status</option>
+          <option value="autopago">Autopago</option>
+          <option value="tipo_extra">Tipo de Servicio (modalidades: DOUBLE PLAY…)</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label" id="cat-form-title">Agregar valor</label><input class="form-input" id="cat-valor" type="text" placeholder="Valor (ej. NUEVO MERCADO)"/></div>
+        <div class="form-group"><label class="form-label">Etiqueta (opcional)</label><input class="form-input" id="cat-label" type="text" placeholder="Cómo se muestra"/></div>
+        <div class="form-group"><label class="form-label">Orden</label><input class="form-input" id="cat-orden" type="number" placeholder="0" style="max-width:90px"/></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button class="btn btn-primary btn-sm" onclick="saveCat()"><i class="fas fa-save"></i> Guardar</button>
+        <button class="btn btn-ghost btn-sm" onclick="resetCatForm()">Limpiar</button>
+      </div>
+      <div class="form-hint" style="margin-bottom:6px"><span id="cat-count">0</span> valores</div>
+      <div id="cat-list"></div>
     </div>
 
   </main>
@@ -1485,6 +1569,18 @@ function switchView(v){
   if(v==='list'&&_users.length) renderTable(_users);
 }
 
+/* ── Secciones principales: Usuarios · Servicios y Puntajes · Catálogos ── */
+function switchSection(s){
+  ['usuarios','servicios','catalogos'].forEach(function(name){
+    var sec=document.getElementById('section-'+name);
+    var tab=document.getElementById('tab-'+name);
+    if(sec) sec.style.display = (name===s)?'block':'none';
+    if(tab) tab.classList.toggle('active', name===s);
+  });
+  if(s==='servicios'){ resetProdForm(); loadProductos(); }
+  else if(s==='catalogos'){ resetCatForm(); loadCatalogos(); }
+}
+
 /* ── Filter teams view ── */
 function filterTeamsView(q){
   filterNavTeams(q);
@@ -1749,7 +1845,7 @@ function buildTeamCard(teamName, supervisor, agents){
         <button class="tcard-menu-btn" title="Opciones" onclick="_openTeamMenu(event,'${tid}')">
           <i class="fas fa-ellipsis-v"></i>
         </button>
-        <div class="team-dropdown" id="menu_${tid}">
+        <div class="team-dropdown" id="menu_${tid}" style="background:#111c3f !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;box-shadow:0 12px 32px rgba(0,0,0,.6) !important;">
           <button class="team-dropdown-item" onclick="_closeAllMenus();openRenameTeamModal('${teamName.replace(/'/g,"\\'")}')"><i class="fas fa-pencil-alt" style="width:14px"></i> Renombrar equipo</button>
           <div class="team-dropdown-sep"></div>
           <button class="team-dropdown-item danger" onclick="_closeAllMenus();deleteTeam('${teamName.replace(/'/g,"\\'")}')"><i class="fas fa-trash" style="width:14px"></i> Eliminar equipo</button>
@@ -2419,7 +2515,7 @@ function renderCards(users){
         <div class="ucard-av" style="background:${avBg}">${initials(displayName)}</div>
         <div style="position:relative">
           <button class="ucard-menu-btn" onclick="_toggleUCardMenu(event,'${menuId}')"><i class="fas fa-ellipsis-v"></i></button>
-          <div class="ucard-dropdown" id="${menuId}">
+          <div class="ucard-dropdown" id="${menuId}" style="background:#111c3f !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;box-shadow:0 12px 32px rgba(0,0,0,.6) !important;">
             <button class="ucard-dd-item" onclick="_closeUCardMenus();openRoleModal('${uid}')"><i class="fas fa-id-badge" style="width:13px"></i> Editar perfil</button>
             <button class="ucard-dd-item" onclick="_closeUCardMenus();openPermsModal('${uid}')"><i class="fas fa-key" style="width:13px"></i> Editar permisos</button>
             <button class="ucard-dd-item" style="color:#7c3aed" onclick="_closeUCardMenus();openMergeModal('${uid}')"><i class="fas fa-code-merge" style="width:13px"></i> Unificar usuario</button>
@@ -2960,6 +3056,131 @@ document.addEventListener('keydown',function(e){
     if(inp){ inp.focus(); inp.select(); }
   }
 });
+</script>
+<script>
+let _prodItems = [], _prodEditingId = null;
+function _escP(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+async function loadProductos(){
+  const res = await AUTH.sf('/api/productos');
+  if(!res){ toast('Error de conexión','err'); return; }
+  const data = await res.json();
+  _prodItems = (data && data.productos) || [];
+  renderProductos();
+}
+function renderProductos(){
+  const q = (document.getElementById('prod-search').value||'').toLowerCase();
+  const list = _prodItems.filter(p => !q || String(p.servicio||'').toLowerCase().includes(q));
+  document.getElementById('prod-list').innerHTML = list.map(function(p){
+    const sc = p.score_base!=null ? p.score_base : ('LOW '+p.score_low+' MED '+p.score_medium+' HIGH '+p.score_high+' N/A '+p.score_na);
+    return '<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border2)">'
+      +'<span style="flex:1">'+_escP(p.servicio)+'</span>'
+      +'<span class="form-hint" style="min-width:90px">'+_escP(p.categoria||'')+'</span>'
+      +'<span style="min-width:60px;text-align:right;font-weight:700">'+sc+'</span>'
+      +'<button class="btn btn-icon" title="Editar" onclick="editProducto('+p.id+')"><i class="fas fa-pen"></i></button>'
+      +'<button class="btn btn-icon danger" title="Eliminar" onclick="deleteProducto('+p.id+')"><i class="fas fa-trash"></i></button>'
+      +'</div>';
+  }).join('');
+  document.getElementById('prod-count').textContent = list.length;
+}
+function editProducto(id){
+  const p = _prodItems.find(x => x.id===id); if(!p) return;
+  _prodEditingId = id;
+  document.getElementById('prod-servicio').value = p.servicio||'';
+  document.getElementById('prod-categoria').value = p.categoria||'';
+  document.getElementById('prod-tipo').value = p.tipo||'';
+  document.getElementById('prod-sistema').value = p.sistema||'';
+  document.getElementById('prod-score').value = p.score_base!=null ? p.score_base : '';
+  document.getElementById('prod-form-title').textContent = 'Editar: '+p.servicio;
+}
+function resetProdForm(){
+  _prodEditingId = null;
+  ['prod-servicio','prod-categoria','prod-tipo','prod-sistema','prod-score'].forEach(function(id){ document.getElementById(id).value=''; });
+  document.getElementById('prod-form-title').textContent = 'Agregar servicio';
+}
+async function saveProducto(){
+  const servicio = document.getElementById('prod-servicio').value.trim();
+  if(!servicio){ toast('Servicio requerido','err'); return; }
+  const body = {
+    servicio: servicio,
+    categoria: document.getElementById('prod-categoria').value.trim(),
+    tipo: document.getElementById('prod-tipo').value.trim(),
+    sistema: document.getElementById('prod-sistema').value.trim(),
+    score_base: parseFloat(document.getElementById('prod-score').value) || 0
+  };
+  const res = _prodEditingId
+    ? await AUTH.sf('/api/productos/'+_prodEditingId,{ method:'PUT', body:JSON.stringify(body) })
+    : await AUTH.sf('/api/productos',{ method:'POST', body:JSON.stringify(body) });
+  if(!res){ toast('Error de conexión','err'); return; }
+  const data = await res.json();
+  if(res.ok && data.success!==false){ toast('Guardado','ok'); resetProdForm(); loadProductos(); }
+  else toast(data.message||'Error al guardar','err');
+}
+async function deleteProducto(id){
+  if(!confirm('¿Eliminar este servicio del catálogo?')) return;
+  const res = await AUTH.sf('/api/productos/'+id,{ method:'DELETE' });
+  if(!res){ toast('Error de conexión','err'); return; }
+  const data = await res.json();
+  if(res.ok && data.success!==false){ toast('Eliminado','ok'); loadProductos(); }
+  else toast(data.message||'Error al eliminar','err');
+}
+</script>
+<script>
+let _catData = {}, _catEditingId = null;
+async function loadCatalogos(){
+  const res = await AUTH.sf('/api/catalogos');
+  if(!res){ toast('Error de conexión','err'); return; }
+  const data = await res.json();
+  _catData = (data && data.catalogos) || {};
+  renderCatalogos();
+}
+function _catTipo(){ return document.getElementById('cat-tipo').value; }
+function renderCatalogos(){
+  const items = _catData[_catTipo()] || [];
+  document.getElementById('cat-list').innerHTML = items.map(function(it){
+    return '<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border2)">'
+      +'<span style="flex:1">'+_escP(it.valor)+'</span>'
+      +'<span class="form-hint" style="min-width:120px">'+_escP(it.label||'')+'</span>'
+      +'<span class="form-hint" style="min-width:30px;text-align:right">#'+(it.orden||0)+'</span>'
+      +'<button class="btn btn-icon" title="Editar" onclick="editCat('+it.id+')"><i class="fas fa-pen"></i></button>'
+      +'<button class="btn btn-icon danger" title="Eliminar" onclick="deleteCat('+it.id+')"><i class="fas fa-trash"></i></button>'
+      +'</div>';
+  }).join('');
+  document.getElementById('cat-count').textContent = items.length;
+}
+function editCat(id){
+  const items = _catData[_catTipo()] || [];
+  const it = items.find(x => x.id===id); if(!it) return;
+  _catEditingId = id;
+  document.getElementById('cat-valor').value = it.valor||'';
+  document.getElementById('cat-label').value = it.label||'';
+  document.getElementById('cat-orden').value = it.orden||0;
+  document.getElementById('cat-form-title').textContent = 'Editar: '+it.valor;
+}
+function resetCatForm(){
+  _catEditingId = null;
+  ['cat-valor','cat-label','cat-orden'].forEach(function(id){ document.getElementById(id).value=''; });
+  document.getElementById('cat-form-title').textContent = 'Agregar valor';
+}
+async function saveCat(){
+  const valor = document.getElementById('cat-valor').value.trim();
+  if(!valor){ toast('Valor requerido','err'); return; }
+  const body = { tipo:_catTipo(), valor:valor, label:document.getElementById('cat-label').value.trim()||valor, orden:parseInt(document.getElementById('cat-orden').value)||0 };
+  const res = _catEditingId
+    ? await AUTH.sf('/api/catalogos/'+_catEditingId,{ method:'PUT', body:JSON.stringify(body) })
+    : await AUTH.sf('/api/catalogos',{ method:'POST', body:JSON.stringify(body) });
+  if(!res){ toast('Error de conexión','err'); return; }
+  const data = await res.json();
+  if(res.ok && data.success!==false){ toast('Guardado','ok'); resetCatForm(); loadCatalogos(); }
+  else toast(data.message||'Error al guardar','err');
+}
+async function deleteCat(id){
+  if(!confirm('¿Eliminar este valor del catálogo?')) return;
+  const res = await AUTH.sf('/api/catalogos/'+id,{ method:'DELETE' });
+  if(!res){ toast('Error de conexión','err'); return; }
+  const data = await res.json();
+  if(res.ok && data.success!==false){ toast('Eliminado','ok'); loadCatalogos(); }
+  else toast(data.message||'Error al eliminar','err');
+}
 </script>
 </body>
 </html>

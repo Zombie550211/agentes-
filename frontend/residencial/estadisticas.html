@@ -475,7 +475,7 @@
 <script src="/js/fetch-interceptor.js" defer></script>
 <script src="/js/logout-handler.js" defer></script>
 <script src="/js/user-info.js?v=20260602" defer></script>
-<script src="/js/sidebar-loader.js?v=20260611b" defer></script>
+<script src="/js/sidebar-loader.js?v=20260703" defer></script>
 <script src="/js/realtime.js" defer></script>
 <script>
 (function(){
@@ -553,15 +553,28 @@
         }}});
   }
 
-  // ── Lista fija de equipos ──
-  var FIXED_TEAMS=[
-    'TEAM IRANIA SERRANO',
-    'TEAM ROBERTO VELASQUEZ',
-    'TEAM RANDAL MARTINEZ',
-    'TEAM GUADALUPE SANTANA',
-    'TEAM MARISOL BELTRAN'
-  ];
-  var _configTeams=FIXED_TEAMS.slice();
+  // ── Equipos: fuente ÚNICA = backend ──
+  // Se llenan desde /api/leads/bootstrap -> teams (DISTINCT de users.team, que se
+  // gestiona en la página de permisos). SIN lista hardcodeada: si un equipo se
+  // renombra o se crea en la BD, aquí se refleja solo, sin tocar código.
+  var _configTeams=[];
+
+  // Mapa dinámico supervisor -> su equipo (desde /api/teams/supervisors-list).
+  // El lead guarda el nombre del supervisor; aquí lo resolvemos a su TEAM actual.
+  var _supTeam={};
+  async function loadSupervisors(){
+    try{
+      var res=await fetch('/api/teams/supervisors-list',{credentials:'include'});
+      if(!res||!res.ok)return;
+      var j=await res.json();
+      (j.supervisors||[]).forEach(function(sv){
+        var team=String(sv.team||'').trim();
+        if(!team)return;
+        if(sv.name)_supTeam[normMatch(sv.name)]=team;
+        if(sv.username)_supTeam[normMatch(sv.username)]=team;
+      });
+    }catch(_){}
+  }
 
   // Renames cargados del API [{old_name, new_name, changed_at:'YYYY-MM-DD'}]
   var _renames=[];
@@ -571,26 +584,20 @@
     catch(_){return String(s||'').toLowerCase().trim();}
   }
 
-  // Mapa de corrección de inconsistencias de escritura (no renames de negocio)
-  var TEAM_MAP=[
-    {keys:['irania serrano','irania'],team:'TEAM IRANIA SERRANO'},
-    {keys:['roberto velasquez','roberto'],team:'TEAM ROBERTO VELASQUEZ'},
-    {keys:['randal martinez','randal'],team:'TEAM RANDAL MARTINEZ'},
-    {keys:['guadalupe santana','guadalupe','johana','team johana'],team:'TEAM GUADALUPE SANTANA'},
-    {keys:['marisol beltran','marisol'],team:'TEAM MARISOL BELTRAN'},
-    // Normalización histórica: cualquier variante de Bryan/Pleitez → nombre canónico histórico
-    // Luego resolveTeam aplica el rename Bryan→Randal por fecha
-    {keys:['bryan pleitez','bryan','pleitez'],team:'TEAM BRYAN PLEITEZ'},
-  ];
-
+  // Canoniza el team de un lead contra la lista REAL de equipos del backend
+  // (_configTeams). Sin mapa hardcodeado: si el texto del lead coincide (o contiene)
+  // el nombre de un equipo real, se usa ese. Los renombres de negocio (por fecha)
+  // los aplica resolveTeam con la tabla team_renames del backend.
   function matchTeam(raw){
     if(!raw)return null;
     var n=normMatch(raw);
-    for(var i=0;i<TEAM_MAP.length;i++){
-      var entry=TEAM_MAP[i];
-      for(var j=0;j<entry.keys.length;j++){
-        if(n.includes(normMatch(entry.keys[j])))return entry.team;
-      }
+    if(!n)return null;
+    // 1) coincidencia exacta con un equipo real del backend
+    for(var i=0;i<_configTeams.length;i++){ if(normMatch(_configTeams[i])===n)return _configTeams[i]; }
+    // 2) contención (el texto del lead contiene el nombre del equipo o viceversa)
+    for(var j=0;j<_configTeams.length;j++){
+      var t=normMatch(_configTeams[j]);
+      if(t&&(n.indexOf(t)>=0||t.indexOf(n)>=0))return _configTeams[j];
     }
     return null;
   }
@@ -599,8 +606,8 @@
   // Si existe un rename vigente (dia_venta >= changed_at), usa el nuevo nombre.
   function resolveTeam(teamRaw, diaVenta){
     if(!teamRaw)return null;
-    // 1. Normalizar inconsistencias de escritura primero
-    var canonical = matchTeam(teamRaw) || teamRaw;
+    // 1. supervisor -> su equipo actual (dinámico); si no, match por nombre de equipo
+    var canonical = _supTeam[normMatch(teamRaw)] || matchTeam(teamRaw) || teamRaw;
     if(!diaVenta)return canonical;
     var leadDate = diaVenta.slice(0,10); // 'YYYY-MM-DD'
     // 2. Aplicar renames por fecha: si la venta es DESPUÉS del cambio, usar nuevo nombre
@@ -616,8 +623,10 @@
   }
 
   function render(leads,configTeams,totalMes){
-    // Siempre usar la lista fija; ignorar configTeams del API
-    _configTeams=FIXED_TEAMS.slice();
+    // Equipos desde el backend (DISTINCT de users.team). Fuente única, sin hardcode.
+    if(configTeams&&configTeams.length){
+      _configTeams=configTeams.map(function(t){return typeof t==='string'?t:(t&&t.team)||'';}).filter(Boolean);
+    }
     var today=todayStr();
     var ms=mStr(cY,cM);
     var prevMo=cM===1?12:cM-1, prevYr=cM===1?cY-1:cY;
@@ -650,12 +659,10 @@
     document.getElementById('s-activacion').textContent=actRate;
 
     // ── Grupos por EQUIPO (no supervisor) ──
+    // Sin lista pre-cargada: los equipos salen de las ventas reales del mes,
+    // canonizados contra la lista del backend. Así no se cuelan equipos que no
+    // venden residencial (líneas, backoffice, admin) ni nombres viejos hardcodeados.
     var teams={};
-    // Pre-inicializar todos los equipos configurados con 0
-    _configTeams.forEach(function(t){
-      var k=t.toUpperCase();
-      if(!teams[k])teams[k]={v:0,pts:0,hoy:0,ptsH:0,icon:0,bamo:0,iconH:0,label:t};
-    });
     filtered.forEach(function(l){
       // Resolver equipo con normalización + historial de renames por fecha
       var teamRaw=String(l.team||'').trim();
@@ -902,7 +909,8 @@
     document.getElementById('btn-prev').addEventListener('click',prevMonth);
     document.getElementById('btn-next').addEventListener('click',nextMonth);
     document.getElementById('btn-today').addEventListener('click',todayMonth);
-    load();
+    // Cargar el mapa supervisor->equipo ANTES del primer render (para agrupar bien)
+    loadSupervisors().then(load);
     // Tiempo real: refresca al cambiar datos de residencial o de líneas (esta
     // página muestra ambos). load() solo re-renderiza si los datos cambiaron.
     if (window.CRMRealtime) {

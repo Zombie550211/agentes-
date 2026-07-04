@@ -369,7 +369,7 @@
   <script src="/js/fetch-interceptor.js"></script>
   <script src="/js/logout-handler.js"></script>
   <script src="/js/user-info.js"></script>
-  <script src="/js/sidebar-loader.js?v=20260612f"></script>
+  <script src="/js/sidebar-loader.js?v=20260703"></script>
   <script src="/js/realtime.js"></script>
   <script>
     // Variables para instancias de Highcharts
@@ -616,30 +616,6 @@
       }
     }
 
-    // Datos mock iniciales (reemplazar con datos reales después)
-    const mockLeads = [
-      // Team Jonathan F
-      { id: '1', nombre_cliente: 'Cliente A', telefono_principal: '532-1234', supervisor: 'Jonathan F', nombre_agente: 'Agente 1', status: 'active', dia_venta: '2026-01-05', cantidad_lineas: 3 },
-      { id: '2', nombre_cliente: 'Cliente B', telefono_principal: '532-1235', supervisor: 'Jonathan F', nombre_agente: 'Agente 1', status: 'active', dia_venta: '2026-01-10', cantidad_lineas: 2 },
-      { id: '3', nombre_cliente: 'Cliente C', telefono_principal: '532-1236', supervisor: 'Jonathan F', nombre_agente: 'Agente 2', status: 'pending', dia_venta: '2026-01-15', cantidad_lineas: 1 },
-      { id: '4', nombre_cliente: 'Cliente D', telefono_principal: '532-1237', supervisor: 'Jonathan F', nombre_agente: 'Agente 2', status: 'active', dia_venta: '2026-01-20', cantidad_lineas: 2 },
-      { id: '5', nombre_cliente: 'Cliente E', telefono_principal: '532-1238', supervisor: 'Jonathan F', nombre_agente: 'Agente 3', status: 'complete', dia_venta: '2026-01-25', cantidad_lineas: 5 },
-      { id: '6', nombre_cliente: 'Cliente F', telefono_principal: '532-1239', supervisor: 'Jonathan F', nombre_agente: 'Agente 1', status: 'active', dia_venta: '2026-02-05', cantidad_lineas: 2 },
-      { id: '7', nombre_cliente: 'Cliente G', telefono_principal: '532-1240', supervisor: 'Jonathan F', nombre_agente: 'Agente 2', status: 'pending', dia_venta: '2026-02-10', cantidad_lineas: 1 },
-      { id: '8', nombre_cliente: 'Cliente H', telefono_principal: '532-1241', supervisor: 'Jonathan F', nombre_agente: 'Agente 3', status: 'complete', dia_venta: '2026-02-15', cantidad_lineas: 3 },
-      { id: '9', nombre_cliente: 'Cliente I', telefono_principal: '532-1242', supervisor: 'Jonathan F', nombre_agente: 'Agente 1', status: 'active', dia_venta: '2026-02-20', cantidad_lineas: 2 },
-
-      // Team Luis G
-      { id: '10', nombre_cliente: 'Cliente J', telefono_principal: '532-2001', supervisor: 'Luis G', nombre_agente: 'Agente 4', status: 'active', dia_venta: '2026-01-05', cantidad_lineas: 4 },
-      { id: '11', nombre_cliente: 'Cliente K', telefono_principal: '532-2002', supervisor: 'Luis G', nombre_agente: 'Agente 4', status: 'complete', dia_venta: '2026-01-10', cantidad_lineas: 3 },
-      { id: '12', nombre_cliente: 'Cliente L', telefono_principal: '532-2003', supervisor: 'Luis G', nombre_agente: 'Agente 5', status: 'pending', dia_venta: '2026-01-15', cantidad_lineas: 2 },
-      { id: '13', nombre_cliente: 'Cliente M', telefono_principal: '532-2004', supervisor: 'Luis G', nombre_agente: 'Agente 5', status: 'active', dia_venta: '2026-01-20', cantidad_lineas: 1 },
-      { id: '14', nombre_cliente: 'Cliente N', telefono_principal: '532-2005', supervisor: 'Luis G', nombre_agente: 'Agente 6', status: 'complete', dia_venta: '2026-01-25', cantidad_lineas: 5 },
-      { id: '15', nombre_cliente: 'Cliente O', telefono_principal: '532-2006', supervisor: 'Luis G', nombre_agente: 'Agente 4', status: 'active', dia_venta: '2026-02-05', cantidad_lineas: 2 },
-      { id: '16', nombre_cliente: 'Cliente P', telefono_principal: '532-2007', supervisor: 'Luis G', nombre_agente: 'Agente 5', status: 'pending', dia_venta: '2026-02-10', cantidad_lineas: 3 },
-      { id: '17', nombre_cliente: 'Cliente Q', telefono_principal: '532-2008', supervisor: 'Luis G', nombre_agente: 'Agente 6', status: 'complete', dia_venta: '2026-02-15', cantidad_lineas: 2 },
-    ];
-
     async function loadEstadisticas() {
       try {
         let allLeads = [];
@@ -653,16 +629,16 @@
             allLeads = Array.isArray(result.data) ? result.data : (result.leads || []);
           } else {
             console.warn('[loadEstadisticas] Error en respuesta:', response.status);
-            allLeads = mockLeads;
+            allLeads = [];  // sin datos falsos: si la API falla, no se muestra nada inventado
           }
         } catch (err) {
           console.warn('[loadEstadisticas] No se pudieron obtener datos reales, usando mock:', err.message);
-          allLeads = mockLeads;
+          allLeads = [];  // sin datos falsos: si la API falla, no se muestra nada inventado
         }
 
         // Si aun así no hay datos, usar mock
         if (!allLeads || allLeads.length === 0) {
-          allLeads = mockLeads;
+          allLeads = [];  // sin datos falsos: si la API falla, no se muestra nada inventado
         }
 
         // Filtrar por mes/rango seleccionado y deduplicar

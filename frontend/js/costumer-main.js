@@ -843,7 +843,8 @@
     setSelectSafe('edit-tipo-servicio',pick(['tipo_servicio','serviceType']));
     setSelectSafe('edit-sistema',pick(['sistema','system']));
     setSelectSafe('edit-mercado',pick(['mercado','market']));
-    setSelectSafe('edit-servicios',pick(['servicios']));
+    if(window.Productos) window.Productos.fillSelect(document.getElementById('edit-servicios'), pick(['servicios']));
+    else setSelectSafe('edit-servicios',pick(['servicios']));
     setVal('edit-dia-venta',String(pick(['dia_venta','saleDate','fecha_venta'])).slice(0,10));
     setVal('edit-dia-instalacion',String(pick(['dia_instalacion','installDate'])).slice(0,10));
     setVal('edit-puntaje',lead.puntaje!==''?lead.puntaje:'');
@@ -949,57 +950,20 @@
 
   // Auto-fill tipo-servicio y sistema al cambiar servicios en el modal
   (function(){
-    var EDIT_TYPE_MAP={
-      'VIDEO DIRECTV VIA INTERNET':'VIDEO','VIDEO DIRECTV VIA SATELITE':'VIDEO',
-      'AIR':'AT&T AIR','ATT AIR':'AT&T AIR','ATT 18 - 25 MB':'INTERNET','ATT 50 - 100 MB':'INTERNET',
-      'ATT 100 FIBRA':'INTERNET','ATT 300':'ATT 300','ATT 500':'ATT 500','ATT 1G':'ATT 1G',
-      'SPECTRUM 400 MBPS':'INTERNET','SPECTRUM 500':'INTERNET','SPECTRUM 500MBPS+':'INTERNET',
-      'SPECTRUM 1G':'INTERNET','SPECTRUM 2G':'INTERNET',
-      'FRONTIER 200 MB':'FRONTIER','FRONTIER 500 MB':'FRONTIER','FRONTIER 1G':'FRONTIER','FRONTIER 2G':'FRONTIER',
-      'CONSOLIDATED 100 MB':'CONSOLIDATE','CONSOLIDATED 300 MB':'CONSOLIDATE','CONSOLIDATED 1G':'CONSOLIDATE','CONSOLIDATED 2G':'CONSOLIDATE','CONSOLIDATED':'CONSOLIDATE',
-      'XFINITY 300':'XFINITY','XFINITY 500':'XFINITY','XFINITY 1G':'XFINITY',
-      'BRIGHTSPEED':'BRIGHTSPEED',
-      'INTERNET EARTHLINK 300 MB':'EARTHLINK','EARTHLINK':'EARTHLINK',
-      'ZIPLY FIBER 10G':'ZIPLY FIBER','ZIPLY FIBER 5G':'ZIPLY FIBER','ZIPLY FIBER 2G':'ZIPLY FIBER',
-      'ZIPLY FIBER 1G':'ZIPLY FIBER','ZIPLY FIBER 300':'ZIPLY FIBER','ZIPLY FIBER 200':'ZIPLY FIBER',
-      'ZIPLY FIBER':'ZIPLY FIBER',
-      'OPTIMUM':'OPTIMUM','WOW':'WOW','ALTAFIBER':'ALTAFIBER','WINDSTREAM':'WINDSTREAM',
-      'HUGHESNET':'HUGHESNET','VIASAT':'VIASAT','CENTURYLINK':'CENTURYLINK','METRONET':'METRONET',
-      'HAWAIIAN':'HAWAIIAN','VIVINT':'VIVINT','MOBILITY':'WIRELESS'
-    };
-    var EDIT_SYS_MAP={
-      'VIDEO DIRECTV VIA INTERNET':'SARA','VIDEO DIRECTV VIA SATELITE':'SARA',
-      'AIR':'SARA','ATT AIR':'SARA','ATT 18 - 25 MB':'SARA','ATT 50 - 100 MB':'SARA','ATT 100 FIBRA':'SARA',
-      'ATT 300':'SARA','ATT 500':'SARA','ATT 1G':'SARA',
-      'SPECTRUM 400 MBPS':'SARA','SPECTRUM 500':'SARA','SPECTRUM 500MBPS+':'SARA','SPECTRUM 1G':'SARA','SPECTRUM 2G':'SARA',
-      'FRONTIER 200 MB':'SARA','FRONTIER 500 MB':'SARA','FRONTIER 1G':'SARA','FRONTIER 2G':'SARA',
-      'CONSOLIDATED 100 MB':'SARA','CONSOLIDATED 300 MB':'SARA','CONSOLIDATED 1G':'SARA','CONSOLIDATED 2G':'SARA','CONSOLIDATED':'SARA','XFINITY 300':'N/A','XFINITY 500':'N/A','XFINITY 1G':'N/A',
-      'BRIGHTSPEED':'SARA','INTERNET EARTHLINK 300 MB':'SARA','EARTHLINK':'SARA',
-      'ZIPLY FIBER 10G':'SARA','ZIPLY FIBER 5G':'SARA','ZIPLY FIBER 2G':'SARA',
-      'ZIPLY FIBER 1G':'SARA','ZIPLY FIBER 300':'SARA','ZIPLY FIBER 200':'SARA','ZIPLY FIBER':'SARA',
-      'OPTIMUM':'SARA','WOW':'SARA','ALTAFIBER':'SARA','WINDSTREAM':'SARA',
-      'HUGHESNET':'CHUZO','VIASAT':'CHUZO','CENTURYLINK':'SARA','METRONET':'SARA',
-      'HAWAIIAN':'SARA','VIVINT':'CHUZO','MOBILITY':'CHUZO'
-    };
-    var EDIT_SCORE_MAP={
-      'VIDEO DIRECTV VIA INTERNET':1.0,'VIDEO DIRECTV VIA SATELITE':1.0,
-      'AIR':0.45,'ATT AIR':0.45,'ATT 18 - 25 MB':0.25,'ATT 50 - 100 MB':0.35,'ATT 100 FIBRA':0.70,
-      'ATT 300':1.25,'ATT 500':1.25,'ATT 1G':1.5,
-      'XFINITY 300':0.35,'XFINITY 500':0.75,'XFINITY 1G':0.75,
-      'SPECTRUM 400 MBPS':0.75,'SPECTRUM 500':0.75,'SPECTRUM 500MBPS+':1.0,'SPECTRUM 1G':1.0,'SPECTRUM 2G':1.25,
-      'FRONTIER 200 MB':1.0,'FRONTIER 500 MB':1.0,'FRONTIER 1G':1.25,'FRONTIER 2G':1.5,
-      'CONSOLIDATED 100 MB':0.35,'CONSOLIDATED 300 MB':0.35,'CONSOLIDATED 1G':1.25,'CONSOLIDATED 2G':1.25,'CONSOLIDATED':0.35,'BRIGHTSPEED':1.0,'INTERNET EARTHLINK 300 MB':1.0,'EARTHLINK':1.0,
-      'ZIPLY FIBER 10G':1.25,'ZIPLY FIBER 5G':1.25,'ZIPLY FIBER 2G':1.0,'ZIPLY FIBER 1G':1.0,
-      'ZIPLY FIBER 300':0.35,'ZIPLY FIBER 200':0.35,'ZIPLY FIBER':0.35,
-      'WINDSTREAM':1.0,'WOW':1.0,'ALTAFIBER':1.0,'HUGHESNET':0.35,'VIASAT':0.75,
-      'CENTURYLINK':1.0,'METRONET':1.0,'HAWAIIAN':1.0,'OPTIMUM':1.0,'VIVINT':1.0,'MOBILITY':0.5
-    };
+    async function updateEditScore(){
+      var svc=getVal('edit-servicios'); if(!svc) return;
+      var sc = window.Productos ? await window.Productos.scoreFor(svc, getVal('edit-riesgo')||'', getVal('edit-tipo-servicio')||'') : 0;
+      setVal('edit-puntaje', sc);
+    }
     document.addEventListener('change',function(e){
-      if(e.target&&e.target.id==='edit-servicios'){
+      if(!e.target) return;
+      if(e.target.id==='edit-servicios'){
         var svc=e.target.value;
-        if(EDIT_TYPE_MAP[svc]) setSelectSafe('edit-tipo-servicio',EDIT_TYPE_MAP[svc]);
-        if(EDIT_SYS_MAP[svc])  setSelectSafe('edit-sistema',EDIT_SYS_MAP[svc]);
-        if(EDIT_SCORE_MAP[svc]!==undefined) setVal('edit-puntaje',EDIT_SCORE_MAP[svc]);
+        var meta = window.Productos && window.Productos.metaFor(svc);
+        if(meta){ if(meta.tipo) setSelectSafe('edit-tipo-servicio',meta.tipo); if(meta.sistema) setSelectSafe('edit-sistema',meta.sistema); }
+        updateEditScore();
+      } else if(e.target.id==='edit-riesgo'||e.target.id==='edit-tipo-servicio'){
+        updateEditScore();
       }
     });
   })();
