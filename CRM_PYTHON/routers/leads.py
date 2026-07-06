@@ -423,6 +423,41 @@ async def leads_kpis(
     return {"success": True, "data": kpi}
 
 
+# ── GET /api/productividad ────────────────────────────────────────
+# Devuelve SOLO conteos por agente y día (residencial + líneas) en un rango.
+# Payload liviano (unos KB) para que la página de Productividad cargue al instante,
+# en vez de bajar todos los leads/registros completos.
+@router.get("/api/productividad")
+async def productividad(
+    start: str = Query(..., description="YYYY-MM-DD inicio inclusive"),
+    end:   str = Query(..., description="YYYY-MM-DD fin inclusive"),
+    user: dict = Depends(current_user),
+):
+    if not (re.match(r"^\d{4}-\d{2}-\d{2}$", start or "") and re.match(r"^\d{4}-\d{2}-\d{2}$", end or "")):
+        return {"success": False, "error": "rango inválido", "residencial": [], "lineas": []}
+
+    agg_sql = """
+        SELECT COALESCE(agente_nombre, agente) AS agente,
+               DATE(dia_venta) AS dia,
+               COUNT(*) AS n
+        FROM {table}
+        WHERE dia_venta BETWEEN :s AND :e
+          AND COALESCE(agente_nombre, agente) IS NOT NULL
+          AND TRIM(COALESCE(agente_nombre, agente)) <> ''
+        GROUP BY COALESCE(agente_nombre, agente), DATE(dia_venta)
+    """
+    def _pack(rows):
+        return [{"agente": r["agente"], "dia": str(r["dia"]), "n": int(r["n"])} for r in rows]
+
+    async with AsyncSessionLocal() as s:
+        r1 = await s.execute(text(agg_sql.format(table="leads")),           {"s": start, "e": end})
+        resi = _pack(r1.mappings().all())
+        r2 = await s.execute(text(agg_sql.format(table="lineas_clientes")), {"s": start, "e": end})
+        lin  = _pack(r2.mappings().all())
+
+    return {"success": True, "residencial": resi, "lineas": lin}
+
+
 # ── POST /api/leads ───────────────────────────────────────────────
 class LeadCreateBody(BaseModel):
     nombre_cliente:     str = ""

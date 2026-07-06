@@ -588,6 +588,21 @@
     }catch(_){ _weekendTeams = null; }
   }
 
+  // Equipos de Líneas (para mostrar tarjetas placeholder cuando no hay datos).
+  // Dinámico desde el backend (/api/teams?seccion=lineas) — sin nombres hardcodeados.
+  var _lineasTeams = [];
+  async function loadLineasTeams(){
+    try{
+      var res=await fetch('/api/teams?seccion=lineas&sales=1',{credentials:'include'});
+      if(!res||!res.ok)return;
+      var j=await res.json();
+      _lineasTeams=(j.teams||[]).map(function(t){return t.value||t;});
+    }catch(_){}
+  }
+  function _lineasPlaceholder(){
+    return _lineasTeams.map(function(t){return {team:t,mesC:0,mesL:0,hoyC:0,hoyL:0};});
+  }
+
   // Renames cargados del API [{old_name, new_name, changed_at:'YYYY-MM-DD'}]
   var _renames=[];
 
@@ -832,14 +847,10 @@
       });
 
       var arr=Object.values(teams).sort(function(a,b){return b.mesC-a.mesC;});
-      if(!arr.length){
-        arr=[{team:'TEAM LINEAS JONATHAN',mesC:0,mesL:0,hoyC:0,hoyL:0},
-             {team:'TEAM LINEAS LUIS',mesC:0,mesL:0,hoyC:0,hoyL:0}];
-      }
+      if(!arr.length) arr=_lineasPlaceholder();
       renderLineasCards(arr);
     }catch(_){
-      renderLineasCards([{team:'TEAM LINEAS JONATHAN',mesC:0,mesL:0,hoyC:0,hoyL:0},
-                         {team:'TEAM LINEAS LUIS',mesC:0,mesL:0,hoyC:0,hoyL:0}]);
+      renderLineasCards(_lineasPlaceholder());
     }
   }
 
@@ -933,7 +944,7 @@
     document.getElementById('btn-next').addEventListener('click',nextMonth);
     document.getElementById('btn-today').addEventListener('click',todayMonth);
     // Cargar el mapa supervisor->equipo ANTES del primer render (para agrupar bien)
-    Promise.all([loadSupervisors(), loadWeekendRotation()]).then(load);
+    Promise.all([loadSupervisors(), loadWeekendRotation(), loadLineasTeams()]).then(load);
     // Tiempo real: refresca al cambiar datos de residencial o de líneas (esta
     // página muestra ambos). load() solo re-renderiza si los datos cambiaron.
     if (window.CRMRealtime) {

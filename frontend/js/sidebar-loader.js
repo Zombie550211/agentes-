@@ -35,6 +35,7 @@
     'premios': 'premios',
     'premio': 'premios',
     'estadisticas': 'estadisticas',
+    'productividad': 'productividad',
     'estadísticas': 'estadisticas',
     'stats': 'estadisticas',
     'facturacion': 'facturacion',
@@ -822,6 +823,7 @@
       { key: 'estadisticas-lineas', icon: 'fa-chart-bar', text: 'Estadísticas Líneas', href: '/lineas/estadisticas.html', roles: allRoles },
       { key: 'rankings', icon: 'fa-chart-line', text: 'Rankings', href: '/residencial/ranking-agente.html', roles: allRoles },
       { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: '/residencial/estadisticas.html', roles: allRoles },
+      { key: 'productividad', icon: 'fa-gauge-high', text: 'Productividad', href: '/residencial/productividad.html', roles: allRoles },
       { key: 'comisiones', icon: 'fa-coins', text: 'Comisiones', href: '/residencial/comisiones.html', roles: allRoles },
       { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: '/residencial/semaforo.html', roles: allRoles },
       { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: '/residencial/facturacion.html', roles: adminBackofficeRoles },
@@ -911,6 +913,7 @@
     // Sección 2: Estadísticas
     const estadisticasItems = [
       { key: 'estadisticas', icon: 'fa-chart-bar',          text: 'Estadísticas',       href: '/residencial/estadisticas.html' },
+      { key: 'productividad', icon: 'fa-gauge-high',        text: 'Productividad',      href: '/residencial/productividad.html' },
       { key: 'rankings',     icon: 'fa-chart-line',         text: 'Ranking',            href: '/residencial/ranking-agente.html' },
       { key: 'ranking',      icon: 'fa-trophy',             text: 'Ranking y Promociones', href: '/residencial/ranking.html' },
       { key: 'premios',      icon: 'fa-gift',               text: 'Premios',            href: '/residencial/premios.html' },
@@ -938,14 +941,9 @@
       { key: 'concurso-junio', icon: 'fa-trophy', text: 'Concurso de Líneas Mes de Junio', href: '/lineas/concurso-junio.html' }
     ];
 
-    const teams = [
-      { name: 'Oficina', team: 'oficina' },
-      { name: 'Team Irania', team: 'irania' },
-      { name: 'Team Johana', team: 'johana' },
-      { name: 'Team Marisol', team: 'marisol' },
-      { name: 'Team Pleitez', team: 'pleitez' },
-      { name: 'Team Roberto', team: 'roberto' }
-    ];
+    // Submenú de equipos: sin lista hardcodeada. (Actualmente ningún item usa
+    // hasSubmenu, así que queda vacío; si se reactiva, poblar desde /api/teams.)
+    const teams = [];
 
     const isAdmin = normalizedRole === 'admin' || normalizedRole === 'backoffice';
     const isProcesamiento = normalizedRole.startsWith('procesamiento');

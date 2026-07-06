@@ -97,16 +97,11 @@
   /* ── NORMALIZATION ── */
   function formatAutopago(val){const v=String(val===undefined||val===null?'':val).toLowerCase().trim();if(v==='true'||v==='1'||v==='sí'||v==='si'||v==='yes')return'Si';if(v==='false'||v==='0'||v==='no')return'No';return v;}
 
+  // Normaliza a mayúsculas (sin alias de nombres hardcodeados). El match de acceso
+  // principal es por keywords del nombre/equipo del usuario (dinámico); esto es solo
+  // el fallback de comparación exacta.
   function normalizeSupervisorName(name){
-    const s=String(name||'').trim().toUpperCase();
-    if(!s)return'';
-    if(s.includes('BRYAN')||s.includes('PLEITEZ'))return'PLEITEZ';
-    if(s.includes('IRANIA')||s.includes('SERRANO'))return'IRANIA';
-    if(s.includes('MARISOL')||s.includes('BELTRAN'))return'MARISOL';
-    if(s.includes('ROBERTO')||s.includes('VELASQUEZ'))return'ROBERTO';
-    if(s.includes('JOHANA')||s.includes('GUADALUPE')||s.includes('SANTANA'))return'JOHANA';
-    if(s.includes('JONATHAN')||s.includes('FIGUEROA'))return'JONATHAN';
-    return s;
+    return String(name||'').trim().toUpperCase();
   }
 
   function normalizePersonNameFull(v){

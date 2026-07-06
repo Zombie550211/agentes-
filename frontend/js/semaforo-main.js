@@ -53,13 +53,8 @@
   /* ════════════════════════════════════════════════════════════
      STATE
   ════════════════════════════════════════════════════════════ */
-  let equipos = [
-    { id:1, nombre:'Pleitez',  posicion:1, ventas:0, puntos:0 },
-    { id:2, nombre:'Roberto',  posicion:2, ventas:0, puntos:0 },
-    { id:3, nombre:'Marisol',  posicion:3, ventas:0, puntos:0 },
-    { id:4, nombre:'Johana',   posicion:4, ventas:0, puntos:0 },
-    { id:5, nombre:'Irania',   posicion:5, ventas:0, puntos:0 }
-  ];
+  // Sin leaderboard hardcodeado: se llena con datos reales (loadSemaforoMensual).
+  let equipos = [];
 
   let selectedMonthDate = (() => {
     const d = new Date(); d.setDate(1); d.setHours(12,0,0,0); return d;
@@ -493,17 +488,6 @@
       let teams = await fetchMonthSalesByTeam(selectedMonthDate);
       if (!Array.isArray(teams)||teams.length===0) { console.warn('[SEMAFORO] Dataset vacío.'); return; }
 
-      // Override manual (solo Enero 2026)
-      try {
-        if (monthKeyFromDate(selectedMonthDate)==='2026-01') {
-          const overrides = new Map([['IRANIA',199],['ROBERTO',197],['MARISOL',178],['JOHANA',149],['PLEITEZ',125]]);
-          const wantedOrder = ['IRANIA','ROBERTO','MARISOL','JOHANA','PLEITEZ'];
-          const byKey = new Map();
-          teams.forEach(t=>byKey.set(normalizeTeamName(t?.nombre).toUpperCase(),t));
-          teams = wantedOrder.map(k=>({...(byKey.get(k)||{nombre:formatTeamDisplayName(k),ventas:0}),nombre:formatTeamDisplayName(k),ventas:overrides.get(k)}));
-        }
-      } catch(_) {}
-
       equipos = teams.slice(0,5).map((t,idx)=>({
         id:idx+1, nombre:t.nombre, posicion:idx+1,
         ventas:Number(t.ventas||0), puntos:Number(t.puntos||0)
@@ -769,40 +753,29 @@
     return '';
   }
 
+  // Normaliza un nombre de equipo/supervisor a una clave común (sin alias hardcodeados).
+  // CRM y Excel usan la MISMA normalización, así que matchean por el nombre real.
+  function _normTeamKey(name){
+    var n=String(name||'').trim().toUpperCase().replace(/^TEAM\s+/,'').trim();
+    return n||'SIN TEAM';
+  }
+
   function getCrmTeam(lead) {
     try {
       const t=lead?.supervisor||lead?.team||lead?._raw?.supervisor||lead?._raw?.team||lead?.equipo||lead?._raw?.equipo;
-      const name=String(t||'').trim();
-      if (!name) return 'SIN TEAM';
-      const n=name.toLowerCase();
-      if (n.includes('santana')||n.includes('johana')) return 'SANTANA';
-      if (n.includes('pleitez')) return 'PLEITEZ';
-      if (n.includes('roberto')) return 'ROBERTO';
-      if (n.includes('marisol')) return 'MARISOL';
-      if (n.includes('irania')) return 'IRANIA';
-      return name.toUpperCase();
+      return _normTeamKey(t);
     } catch(_) { return 'SIN TEAM'; }
   }
 
   function getExcelTeam(row) {
     try {
-      const t=guessField(row,['Supervisor','supervisor']);
-      const name=String(t||'').trim();
-      if (!name) return 'SIN TEAM';
-      const n=name.toLowerCase();
-      if (n.includes('santana')||n.includes('johana')) return 'SANTANA';
-      if (n.includes('pleitez')) return 'PLEITEZ';
-      if (n.includes('roberto')) return 'ROBERTO';
-      if (n.includes('marisol')) return 'MARISOL';
-      if (n.includes('irania')) return 'IRANIA';
-      return name.toUpperCase();
+      return _normTeamKey(guessField(row,['Supervisor','supervisor']));
     } catch(_) { return 'SIN TEAM'; }
   }
 
   function getKnownTeamsForCuadratura() {
-    const set=new Set(['SANTANA','PLEITEZ','ROBERTO','MARISOL','IRANIA']);
-    (Array.isArray(equipos)?equipos:[]).forEach(e=>{ const n=String(e?.nombre||'').trim(); if (n) set.add(getExcelTeam({Supervisor:n})); });
-    set.delete('SIN TEAM');
+    const set=new Set();
+    (Array.isArray(equipos)?equipos:[]).forEach(e=>{ const n=_normTeamKey(e?.nombre); if (n && n!=='SIN TEAM') set.add(n); });
     return Array.from(set).filter(Boolean).sort((a,b)=>String(a).localeCompare(String(b)));
   }
 
