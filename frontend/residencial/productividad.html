@@ -17,7 +17,19 @@
       --pf-head:#2f5fd0; --pf-head2:#1e40af; --pf-accent:#0ea5e9;
       --pf-ok:#16a34a; --pf-zebra:rgba(255,255,255,.015);
     }
-    .main-content{font-family:'Outfit',sans-serif}
+    /* Fondo propio para que NO dependa del perfil/tema (algunos perfiles cargan
+       glass-cards.css que fuerza body a transparent → se veía blanco).
+       Capa fija por detrás de todo, igual que estadisticas.html. */
+    html,body{height:100%;margin:0;font-family:'Outfit',sans-serif;-webkit-font-smoothing:antialiased}
+    body{background:#0a1628;color:var(--pf-ink)}
+    body::before{
+      content:'';position:fixed;inset:0;z-index:-1;
+      background:linear-gradient(160deg,#0b1a33 0%,#0a1628 55%,#080f1f 100%);
+    }
+    .layout{display:flex;min-height:100vh;position:relative;z-index:1}
+    .sidebar{flex:0 0 auto}
+    .main-content{flex:1;min-width:0;font-family:'Outfit',sans-serif;background:transparent !important;color:var(--pf-ink);position:relative;z-index:1}
+    .main-content .pf-page{color:var(--pf-ink)}
     .pf-page{padding:20px 24px 60px;max-width:1200px;margin:0 auto}
     .pf-header{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px;flex-wrap:wrap}
     .pf-title{font-size:1.4rem;font-weight:800;color:var(--pf-ink);display:flex;align-items:center;gap:10px}
