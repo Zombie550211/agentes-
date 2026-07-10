@@ -524,8 +524,8 @@ async def post_lineas(body: LineasBody, user: dict = Depends(current_user)):
         errors.append("supervisor inválido (permitidos: JONATHAN F, LUIS G, VICTOR H)")
 
     cantidad_lineas = int(body.cantidad_lineas or 0)
-    if cantidad_lineas < 1 or cantidad_lineas > 5:
-        errors.append("cantidad_lineas debe ser 1-5")
+    if cantidad_lineas < 1 or cantidad_lineas > 10:
+        errors.append("cantidad_lineas debe ser 1-10")
 
     telefonos = [re.sub(r"\D+", "", t) for t in (body.telefonos or []) if t]
     if len(telefonos) != cantidad_lineas:

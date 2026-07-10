@@ -892,6 +892,7 @@ async def comisiones_agentes_lineas(
                   COUNT(*) AS ventas,
                   COALESCE(SUM(COALESCE(cantidad_lineas, 1)), 0) AS lineas_total,
                   COALESCE(SUM(CASE WHEN UPPER(COALESCE(servicios,'')) LIKE '%WIRELESS%'
+                                      OR UPPER(COALESCE(servicios,'')) LIKE '%LINEA + EQUIPO%'
                                     THEN COALESCE(cantidad_lineas, 1) ELSE 0 END), 0) AS lineas_wireless,
                   COALESCE(SUM(puntaje), 0) AS puntos
                 FROM lineas_clientes
