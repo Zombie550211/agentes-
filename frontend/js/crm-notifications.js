@@ -187,6 +187,51 @@
     }, 1500);
   }
 
+  // ── Cambios de status pendientes (ocurridos sin estar conectado) ──
+  // Al entrar tras el login se piden los cambios de status aplicados a los
+  // clientes del usuario desde su última visita y se muestran como
+  // notificación emergente. El timestamp de la última consulta se guarda en
+  // localStorage para que cada cambio se muestre una sola vez.
+  function initPendingStatusNotifs() {
+    var ud = getUserData();
+    if (!ud || !(ud.role || ud.rol)) return;
+
+    var KEY = 'crm_status_notif_since';
+    var since = localStorage.getItem(KEY) || '';
+    var url = '/api/notificaciones/status' + (since ? '?desde=' + encodeURIComponent(since) : '');
+
+    fetch(url, { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data || !data.success) return;
+        if (data.ahora) localStorage.setItem(KEY, data.ahora);
+        var items = data.items || [];
+        if (!items.length) return;
+
+        var MAX = 5;
+        items.slice(0, MAX).forEach(function (n, i) {
+          setTimeout(function () {
+            showCRMNotif('status', {
+              cliente: n.cliente,
+              actor:   n.actor,
+              detalle: 'Cambió el status' + (n.seccion === 'lineas' ? ' (Líneas)' : '') + ' mientras no estabas',
+              extra:   'Status: ' + (n.old_status ? n.old_status + ' → ' : '') + (n.new_status || '')
+            });
+          }, 900 + i * 750);
+        });
+        if (items.length > MAX) {
+          setTimeout(function () {
+            showCRMNotif('info', {
+              cliente: 'Cambios de status',
+              detalle: 'Y ' + (items.length - MAX) + ' cambio(s) más desde tu última visita',
+              actor: ''
+            });
+          }, 900 + MAX * 750);
+        }
+      })
+      .catch(function () { /* silencioso */ });
+  }
+
   // ── Socket.io ──────────────────────────────────────────────
   function initSocket() {
     if (window.__CRM_SOCKET__) return;
@@ -263,6 +308,7 @@
   function init() {
     initNotifPermission();
     initAnnouncement();
+    initPendingStatusNotifs();
     ensureSocketIO(initSocket);
   }
 

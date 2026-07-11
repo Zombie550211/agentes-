@@ -710,9 +710,13 @@ async def lineas_team_update(body: LineasTeamUpdateBody, user: dict = Depends(cu
     async with AsyncSessionLocal() as s:
         await _ensure_can_modify(s, mid, user)
         extra_llamada = ""
+        prev_status, notif_row = "", None
         if body.status:
-            pr = await s.execute(text("SELECT status FROM lineas_clientes WHERE id = :id LIMIT 1"), {"id": mid})
-            prev_status = (pr.first() or [""])[0] or ""
+            pr = await s.execute(text(
+                "SELECT status, nombre_cliente, agente_nombre, agente, agente_asignado, supervisor "
+                "FROM lineas_clientes WHERE id = :id LIMIT 1"), {"id": mid})
+            notif_row = pr.mappings().first() or {}
+            prev_status = notif_row.get("status") or ""
             extra_llamada = _llamada_sets_lineas(prev_status, body.status)
         r = await s.execute(
             text(f"UPDATE lineas_clientes SET {', '.join(sets)}{extra_llamada} WHERE id = :id"), params
@@ -720,6 +724,20 @@ async def lineas_team_update(body: LineasTeamUpdateBody, user: dict = Depends(cu
         await s.commit()
         if r.rowcount == 0:
             raise HTTPException(404, "Registro no encontrado")
+
+    # Notificación persistente de cambio de status (se muestra al entrar al CRM)
+    if body.status and notif_row is not None:
+        from notifications import record_status_change
+        asyncio.create_task(record_status_change(
+            seccion="lineas",
+            cliente=notif_row.get("nombre_cliente") or "Sin nombre",
+            old_status=prev_status,
+            new_status=_normalize_status(body.status).upper(),
+            actor=user.get("name") or user.get("username", ""),
+            target_agente=(notif_row.get("agente_nombre") or notif_row.get("agente")
+                           or notif_row.get("agente_asignado") or ""),
+            target_supervisor=notif_row.get("supervisor") or "",
+        ))
 
     _cache_invalidate()
     return {"success": True, "message": "Registro actualizado"}

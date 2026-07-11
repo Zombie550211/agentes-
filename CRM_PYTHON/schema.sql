@@ -121,6 +121,24 @@ CREATE TABLE IF NOT EXISTS activities (
     INDEX idx_type      (activity_type)
 ) ENGINE=InnoDB;
 
+-- ── NOTIFICACIONES DE CAMBIO DE STATUS ──────────────────────────
+-- El agente dueño y su supervisor las ven al entrar al CRM aunque no
+-- estuvieran conectados cuando ocurrió el cambio (migración 0037).
+CREATE TABLE IF NOT EXISTS status_notifications (
+    id                INT AUTO_INCREMENT PRIMARY KEY,
+    seccion           VARCHAR(20) NOT NULL DEFAULT 'residencial',  -- residencial | lineas
+    cliente           VARCHAR(200),
+    old_status        VARCHAR(50),
+    new_status        VARCHAR(50),
+    actor             VARCHAR(150),
+    target_agente     VARCHAR(150),
+    target_supervisor VARCHAR(150),
+    created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_sn_agente  (target_agente),
+    INDEX idx_sn_sup     (target_supervisor),
+    INDEX idx_sn_created (created_at)
+) ENGINE=InnoDB;
+
 -- ── MENSAJES DE CHAT ────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS messages (
     id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

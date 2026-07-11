@@ -397,32 +397,6 @@
         el.style.cssText += ';background:transparent!important;box-shadow:none!important';
       });
 
-      // Fallback post-render: si el primer <ul.menu> no tiene items, inyectar menú de agente
-      try {
-        const firstMenu = sidebarElement.querySelector('ul.menu');
-        if (firstMenu && firstMenu.querySelectorAll('li').length === 0) {
-          console.warn('⚠️ Sidebar sin items tras render. Inyectando menú de agente por fallback.');
-          const items = [
-            { icon:'fa-home', text:'Inicio', href:'\/residencial\/inicio.html' },
-            { icon:'fa-user-plus', text:'Nuevo Lead', href:'\/residencial\/formulario-registro.html' },
-            { icon:'fa-users', text:'Lista de Clientes', href:'\/residencial\/costumer.html' },
-            { icon:'fa-trophy', text:'Ranking y Promociones', href:'\/residencial\/ranking.html' },
-            { icon:'fa-chart-bar', text:'Estadísticas', href:'\/residencial\/estadisticas.html' }
-          ];
-            firstMenu.innerHTML = items.map(it => `
-              <li>
-                <a href="${safeHref(it.href)}" class="btn btn-sidebar" title="${it.text}">
-                  <i class="fas ${it.icon}"></i><span class="menu-label">${it.text}</span>
-                </a>
-              </li>
-            `).join('');
-          const roleSpan = sidebarElement.querySelector('#user-role');
-          if (roleSpan) roleSpan.textContent = 'Agente';
-        }
-      } catch (e) {
-        console.warn('Sidebar fallback post-render error:', e?.message);
-      }
-      
       // Inicializar event listener para el submenu de clientes
       try {
         const clientesToggle = sidebarElement.querySelector('#clientes-toggle');
@@ -806,101 +780,27 @@
     return roles[role] || roles[role2] || 'Usuario';
   }
 
-  // Obtener items del menú según rol
-  function getMenuItems(role, activePage, ctx = {}) {
-    const normalizedRole = normalizeRole(role);
-    const normalizedActive = normalizeActiveKey(activePage);
-    
-    // Array ordenado de items del menú (orden específico)
-    const allRoles = ['admin', 'supervisor', 'agente', 'backoffice'];
-    const adminBackofficeRoles = ['admin', 'backoffice'];
-    const menuItemsOrder = [
-      { key: 'inicio', icon: 'fa-home', text: 'Inicio', href: '/residencial/inicio.html', roles: allRoles },
-      { key: 'costumer', icon: 'fa-users', text: 'Lista de Clientes', href: '/residencial/costumer.html', roles: allRoles },
-      { key: 'ranking', icon: 'fa-trophy', text: 'Ranking y Promociones', href: '/residencial/ranking.html', roles: allRoles },
-      { key: 'premios', icon: 'fa-gift', text: 'Premios', href: '/residencial/premios.html', roles: allRoles },
-      { key: 'costumer-lineas', icon: 'fa-phone', text: 'Costumer Líneas', href: '/lineas/costumer.html', roles: adminBackofficeRoles },
-      { key: 'estadisticas-lineas', icon: 'fa-chart-bar', text: 'Estadísticas Líneas', href: '/lineas/estadisticas.html', roles: allRoles },
-      { key: 'rankings', icon: 'fa-chart-line', text: 'Rankings', href: '/residencial/ranking-agente.html', roles: allRoles },
-      { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: '/residencial/estadisticas.html', roles: allRoles },
-      { key: 'productividad', icon: 'fa-gauge-high', text: 'Productividad', href: '/residencial/productividad.html', roles: allRoles },
-      { key: 'comisiones', icon: 'fa-coins', text: 'Comisiones', href: '/residencial/comisiones.html', roles: allRoles },
-      { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: '/residencial/semaforo.html', roles: allRoles },
-      { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: '/residencial/facturacion.html', roles: adminBackofficeRoles },
-      { key: 'crm-dashboard', icon: 'fa-chart-pie', text: 'CRM Dashboard', href: '/residencial/inicio.html', roles: allRoles },
-      { key: 'empleado', icon: 'fa-medal', text: 'Empleado del Mes', href: '/residencial/empleado-mes.html', roles: allRoles },
-      { key: 'normativas', icon: 'fa-clipboard-list', text: 'Tipificación', href: '/residencial/normativas-tipificacion.html', roles: allRoles },
-      { key: 'tabla-puntaje', icon: 'fa-list', text: 'Tabla de puntaje', href: '/residencial/tabla-puntaje.html', roles: allRoles },
-      { key: 'multimedia', icon: 'fa-folder-open', text: 'Archivos', href: '/residencial/multimedia.html', roles: allRoles },
-      { key: 'reglas', icon: 'fa-book', text: 'Reglas y Puntajes', href: '/residencial/reglas.html', roles: allRoles },
-      { key: 'crearcuenta', icon: 'fa-user-plus', text: 'Crear Cuenta', href: '/crear-cuenta.html', roles: allRoles },
-      { key: 'chat', icon: 'fa-comments', text: 'Chat', href: '/chat.html', roles: allRoles }
-    ];
-
-    // Redirigir a páginas específicas de Team Líneas si corresponde
-    if (ctx && ctx.isLineas) {
-      menuItemsOrder.forEach(item => {
-        if (item.key === 'lead') item.href = '/lineas/lead.html';
-        if (item.key === 'costumer') item.href = '/lineas/costumer.html';
-        if (item.key === 'ranking') item.href = '/lineas/ranking.html';
-        if (item.key === 'estadisticas') item.href = '/residencial/estadisticas.html';
-      });
-    }
-
-    let menuHTML = '';
-    const visibleItems = [];
-    
-    // Iterar en el orden específico del array
-    for (const item of menuItemsOrder) {
-      // Verificar si el rol tiene acceso a este item (usar rol normalizado)
-      if (item.roles.includes(normalizedRole)) {
-        visibleItems.push(item.text);
-        const isActive = item.key === normalizedActive ? 'is-active' : '';
-        // Render del item normal
-        menuHTML += `
-          <li>
-            <a href="${safeHref(item.href)}" class="btn btn-sidebar ${isActive}" title="${item.text}">
-              <i class="fas ${item.icon}"></i><span class="menu-label">${item.text}</span>
-            </a>
-          </li>
-        `;
-      }
-    }
-
-    // Fallback de seguridad: si no hay items visibles, tratar como 'agente'
-    if (visibleItems.length === 0) {
-      console.warn('⚠️ Ningún item visible para rol:', normalizedRole, '— aplicando fallback AGENTE');
-      const agentKeys = ['inicio','lead','costumer','ranking','estadisticas','comisiones'];
-      // Mapeo manual para fallback
-      const fallbackMap = {
-          'inicio': { href: '/residencial/inicio.html', icon: 'fa-home', text: 'Inicio' },
-          'lead': { href: '/residencial/formulario-registro.html', icon: 'fa-user-plus', text: 'Nuevo Lead' },
-          'costumer': { href: '/residencial/costumer.html', icon: 'fa-users', text: 'Lista de Clientes' },
-          'ranking': { href: '/residencial/ranking.html', icon: 'fa-trophy', text: 'Ranking y Promociones' },
-          'rankings': { href: '/residencial/ranking-agente.html', icon: 'fa-chart-line', text: 'Rankings' },
-          'estadisticas': { href: '/residencial/estadisticas.html', icon: 'fa-chart-bar', text: 'Estadísticas' },
-          'comisiones': { href: '/residencial/comisiones.html', icon: 'fa-coins', text: 'Comisiones' }
-      };
-      
-      for (const key of agentKeys) {
-        const item = fallbackMap[key];
-        const isActive = key === normalizedActive ? 'is-active' : '';
-        menuHTML += `
-          <li>
-            <a href="${safeHref(item.href)}" class="btn btn-sidebar ${isActive}">
-              <i class="fas ${item.icon}"></i><span class="menu-label">${item.text}</span>
-            </a>
-          </li>
-        `;
-      }
-    }
-
-    return menuHTML;
-  }
-
-  // Generador de menú moderno con bloques separados
+  // ÚNICO generador del menú del sidebar (bloques con secciones).
+  // Si necesitas añadir/quitar enlaces, hazlo SOLO aquí.
   function getModernMenuBlocks(normalizedRole, normalizedActive, ctx = {}) {
     const isLineas = ctx.isLineas || false;
+
+    // En páginas bajo /lineas/, el data-active suele venir con la clave residencial
+    // ('lead', 'costumer', 'ranking'…): mapearla a su variante '-lineas' para que
+    // se resalte el ítem correcto de Servicios Móviles y no el residencial.
+    try {
+      const p = String(window.location?.pathname || '').toLowerCase();
+      if (p.startsWith('/lineas/')) {
+        const aLineas = {
+          'inicio': 'inicio-lineas', 'lead': 'lead-lineas', 'formulario': 'lead-lineas',
+          'costumer': 'costumer-lineas', 'estadisticas': 'estadisticas-lineas',
+          'ranking': 'ranking-lineas', 'rankings': 'ranking-lineas',
+          'facturacion': 'facturacion-lineas', 'comisiones': 'comisiones-lineas',
+          'reglas': 'reglas-lineas'
+        };
+        if (aLineas[normalizedActive]) normalizedActive = aLineas[normalizedActive];
+      }
+    } catch (_) {}
     
     // Sección 1: Principal (sin título)
     const principalItems = [
@@ -914,7 +814,7 @@
     const estadisticasItems = [
       { key: 'estadisticas', icon: 'fa-chart-bar',          text: 'Estadísticas',       href: '/residencial/estadisticas.html' },
       { key: 'productividad', icon: 'fa-gauge-high',        text: 'Productividad',      href: '/residencial/productividad.html' },
-      { key: 'rankings',     icon: 'fa-chart-line',         text: 'Ranking',            href: '/residencial/ranking-agente.html' },
+      { key: 'rankings',     icon: 'fa-chart-line',         text: 'Ranking de Agentes', href: '/residencial/ranking-agente.html' },
       { key: 'ranking',      icon: 'fa-trophy',             text: 'Ranking y Promociones', href: '/residencial/ranking.html' },
       { key: 'premios',      icon: 'fa-gift',               text: 'Premios',            href: '/residencial/premios.html' },
       { key: 'reglas',       icon: 'fa-book',               text: 'Reglas y Puntajes',  href: '/residencial/reglas.html' },
@@ -932,13 +832,16 @@
     ];
 
     // Sección 4: Servicios Móviles
+    // (El concurso de junio se ocultó en jul 2026; la página /lineas/concurso-junio.html sigue existiendo.)
     const movilesItems = [
       { key: 'inicio-lineas', icon: 'fa-home', text: 'Inicio', href: '/lineas/inicio.html' },
       { key: 'lead-lineas', icon: 'fa-user-plus', text: 'Nuevo Lead', href: '/lineas/lead.html' },
       { key: 'costumer-lineas', icon: 'fa-users', text: 'Costumer Líneas', href: '/lineas/costumer.html' },
       { key: 'estadisticas-lineas', icon: 'fa-chart-bar', text: 'Estadísticas Líneas', href: '/lineas/estadisticas.html' },
       { key: 'ranking-lineas', icon: 'fa-chart-line', text: 'Ranking Líneas', href: '/lineas/ranking.html' },
-      { key: 'concurso-junio', icon: 'fa-trophy', text: 'Concurso de Líneas Mes de Junio', href: '/lineas/concurso-junio.html' }
+      { key: 'facturacion-lineas', icon: 'fa-file-invoice-dollar', text: 'Facturación Líneas', href: '/lineas/facturacion.html' },
+      { key: 'comisiones-lineas', icon: 'fa-coins', text: 'Comisiones Líneas', href: '/lineas/comisiones.html' },
+      { key: 'reglas-lineas', icon: 'fa-book', text: 'Reglas Líneas', href: '/lineas/reglas.html' }
     ];
 
     // Submenú de equipos: sin lista hardcodeada. (Actualmente ningún item usa
@@ -1811,7 +1714,7 @@
   (function() {
     if (window.__CRM_NOTIF_LOADED__) return;
     var s = document.createElement('script');
-    s.src = '/js/crm-notifications.js';
+    s.src = '/js/crm-notifications.js?v=20260710';
     s.async = true;
     document.head.appendChild(s);
   })();
@@ -1822,6 +1725,15 @@
     window.__LLAMADAS_BLOQUEO_LOADED__ = true;
     var s = document.createElement('script');
     s.src = '/js/llamadas-bloqueo.js?v=20260611c';
+    s.async = true;
+    document.head.appendChild(s);
+  })();
+
+  // ── Alerta de instalaciones programadas para hoy ──
+  (function() {
+    if (window.__CRM_INSTALL_ALERT__) return;
+    var s = document.createElement('script');
+    s.src = '/js/instalaciones-hoy.js?v=20260710';
     s.async = true;
     document.head.appendChild(s);
   })();

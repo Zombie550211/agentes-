@@ -136,6 +136,22 @@ _MIGRATIONS: list[tuple[str, str]] = [
     ("0035_leads_status_comision",         "ALTER TABLE leads ADD COLUMN status_comision VARCHAR(50) NULL"),
     # Inicializar con el status actual para que la comisión no cambie al desplegar (transición transparente).
     ("0036_leads_status_comision_init",    "UPDATE leads SET status_comision = status WHERE status_comision IS NULL"),
+    # Notificaciones persistentes de cambio de status: el agente/supervisor las ve
+    # al entrar al CRM aunque no estuviera conectado cuando ocurrió el cambio.
+    ("0037_create_status_notifications", """CREATE TABLE IF NOT EXISTS status_notifications (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        seccion VARCHAR(20) NOT NULL DEFAULT 'residencial',
+        cliente VARCHAR(200),
+        old_status VARCHAR(50),
+        new_status VARCHAR(50),
+        actor VARCHAR(150),
+        target_agente VARCHAR(150),
+        target_supervisor VARCHAR(150),
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_sn_agente (target_agente),
+        INDEX idx_sn_sup (target_supervisor),
+        INDEX idx_sn_created (created_at)
+    )"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración
