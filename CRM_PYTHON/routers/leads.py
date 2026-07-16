@@ -1047,8 +1047,10 @@ async def llamadas_pendientes(
 ):
     """Leads del usuario actual con llamada de verificación/seguimiento vencida.
     Si hay alguno, el frontend bloquea el CRM hasta que registre todas las llamadas.
-    Con full=1 devuelve los leads completos (para la lista de costumer)."""
-    if _is_admin_or_bo(user):
+    Con full=1 devuelve los leads completos (para la lista de costumer).
+
+    El bloqueo aplica SOLO a agentes: admin, backoffice y supervisores quedan exentos."""
+    if _is_admin_or_bo(user) or _is_supervisor(user):
         return {"success": True, "blocked": False, "total": 0, "leads": []}
 
     want_full = str(full or "").lower() in ("1", "true")
@@ -1360,6 +1362,17 @@ async def update_lead_status_comision(
         await s.commit()
         if r.rowcount == 0:
             raise HTTPException(404, "Lead no encontrado")
+        cr = await s.execute(text(
+            "SELECT nombre_cliente FROM leads WHERE id = :id OR mongo_id = :mid LIMIT 1"),
+            {"id": mysql_id or 0, "mid": mongo_id or ""})
+        cn = (cr.first() or [None])[0] or "Sin nombre"
+
+    # Registro para Productividad B.O (Back Office trabaja sobre este status)
+    asyncio.create_task(_log_activity(
+        "Cambio de estado comisión", cn,
+        f"Estado → {body.status_comision}",
+        user
+    ))
     return {"success": True, "message": "Status de comisión actualizado",
             "data": {"id": lead_id, "status_comision": body.status_comision}}
 

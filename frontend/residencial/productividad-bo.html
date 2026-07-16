@@ -65,7 +65,7 @@
     .pb-today:hover{background:var(--pb-accent-soft)}
 
     /* KPIs */
-    .pb-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+    .pb-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
     .pb-kpi{background:var(--pb-card);border:1px solid var(--pb-bdr);border-radius:14px;padding:15px 18px;
       display:flex;align-items:center;gap:13px;box-shadow:var(--pb-sh)}
     .pb-kpi-ic{width:40px;height:40px;border-radius:11px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.95rem}
@@ -109,13 +109,24 @@
     .pb-pill.other{background:var(--pb-gray-soft);color:var(--pb-ink3)}
     .pb-total-cell{font-weight:900;color:var(--pb-accent)}
 
+    /* banda separadora por team + subtotal */
+    .pb-team-band{display:flex;align-items:center;gap:9px;padding:9px 14px;
+      background:linear-gradient(90deg,var(--pb-accent-soft),transparent 65%);
+      border-bottom:1px solid var(--pb-bdr-soft);border-top:1px solid var(--pb-bdr-soft);
+      font-size:.66rem;font-weight:800;color:var(--pb-accent);text-transform:uppercase;letter-spacing:.09em}
+    .pb-team-band i{font-size:.7rem}
+    .pb-team-count{margin-left:auto;font-size:.6rem;font-weight:600;color:var(--pb-ink3);text-transform:none;letter-spacing:0}
+    .pb-row.pb-subtotal{background:rgba(129,140,248,.05)}
+    .pb-row.pb-subtotal .pb-cell{font-weight:800;color:var(--pb-ink3);font-size:.72rem}
+    .pb-row.pb-subtotal .pb-agent{font-size:.62rem;text-transform:uppercase;letter-spacing:.07em}
+
     .pb-loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:46px;color:var(--pb-ink3);font-size:.82rem}
     .pb-spinner{width:18px;height:18px;border:2px solid var(--pb-bdr);border-top-color:var(--pb-accent);border-radius:50%;animation:pbSpin .7s linear infinite}
     @keyframes pbSpin{to{transform:rotate(360deg)}}
     .pb-empty{display:flex;flex-direction:column;align-items:center;gap:10px;padding:50px;color:var(--pb-ink3);font-size:.85rem}
     .pb-empty i{font-size:1.8rem;opacity:.35}
 
-    @media(max-width:1250px){.pb-kpis{grid-template-columns:repeat(3,1fr)}}
+    @media(max-width:1250px){.pb-kpis{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:900px){.pb-kpis{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:640px){#pb-app{padding:14px}.pb-header{flex-direction:column;align-items:flex-start}}
   </style>
@@ -144,14 +155,6 @@
 
       <div class="pb-kpis pb-fade">
         <div class="pb-kpi">
-          <div class="pb-kpi-ic" style="background:var(--pb-accent-soft)"><i class="fas fa-arrows-rotate" style="color:var(--pb-accent)"></i></div>
-          <div><div class="pb-kpi-lbl">Cambios del día</div><div class="pb-kpi-val" id="pb-k-total">0</div></div>
-        </div>
-        <div class="pb-kpi">
-          <div class="pb-kpi-ic" style="background:var(--pb-accent-soft)"><i class="fas fa-users" style="color:var(--pb-accent)"></i></div>
-          <div><div class="pb-kpi-lbl">Usuarios activos</div><div class="pb-kpi-val" id="pb-k-users">0</div></div>
-        </div>
-        <div class="pb-kpi">
           <div class="pb-kpi-ic" style="background:var(--pb-green-soft)"><i class="fas fa-circle-check" style="color:var(--pb-green)"></i></div>
           <div><div class="pb-kpi-lbl">Completed</div><div class="pb-kpi-val" id="pb-k-completed" style="color:var(--pb-green)">0</div></div>
         </div>
@@ -167,13 +170,17 @@
           <div class="pb-kpi-ic" style="background:var(--pb-green-soft)"><i class="fas fa-plug-circle-check" style="color:var(--pb-green)"></i></div>
           <div><div class="pb-kpi-lbl">Ventas instaladas</div><div class="pb-kpi-val" id="pb-k-install-done" style="color:var(--pb-green)">0/0</div></div>
         </div>
+        <div class="pb-kpi">
+          <div class="pb-kpi-ic" style="background:var(--pb-green-soft)"><i class="fas fa-circle-dollar-to-slot" style="color:var(--pb-green)"></i></div>
+          <div><div class="pb-kpi-lbl">Comisión → completed</div><div class="pb-kpi-val" id="pb-k-comision-done" style="color:var(--pb-green)">0</div></div>
+        </div>
       </div>
 
       <div class="pb-table-card pb-fade">
         <div class="pb-table-top">
           <div>
             <div class="pb-table-title"><i class="fas fa-table-list"></i> Cambios de status por usuario</div>
-            <div class="pb-table-sub">Cada celda = cuántos cambios a ese status hizo el usuario</div>
+            <div class="pb-table-sub">Cada celda = clientes cuyo último status del día lo dejó ese usuario (si un cliente se movió varias veces, solo cuenta el cambio final)</div>
           </div>
         </div>
         <div class="pb-scroll">
@@ -231,34 +238,25 @@
   function render(j){
     var cols=j.columns||[];
     var rows=j.rows||[];
-    set('pb-k-total',j.total_general||0);
-    set('pb-k-users',j.agentes||0);
     set('pb-k-completed',(j.totales&&j.totales.COMPLETED)||0);
     set('pb-k-cancelled',(j.totales&&j.totales.CANCELLED)||0);
     // Instalaciones: se instalan hoy (programadas) y ventas completadas hoy
     var instTotal=Number(j.instalan_hoy||0), instDone=Number(j.instaladas_hoy||0);
     set('pb-k-install-total',instTotal);
     set('pb-k-install-done',instDone+'/'+instTotal);
+    set('pb-k-comision-done',j.comisiones_completadas||0);
 
     var grid=document.getElementById('pb-grid');
-    if(!rows.length){
+    var teams=j.teams||[];
+    if(!teams.length&&!rows.length){
       grid.innerHTML='<div class="pb-empty"><i class="fas fa-inbox"></i>Sin cambios de status registrados este día</div>';
       return;
     }
+    if(!teams.length){teams=[{team:'',rows:rows,totales:j.totales||{},total:j.total_general||0}];}
     // grid-template-columns: agente + N status + total
     var tpl='minmax(190px,1.6fr) '+cols.map(function(){return '1fr';}).join(' ')+' 90px';
 
-    function rowHtml(cellsHtml){return '<div class="pb-row" style="grid-template-columns:'+tpl+'">'+cellsHtml+'</div>';}
-
-    var html='';
-    // encabezado
-    var head='<div class="pb-cell pb-agent">Agente</div>'+
-      cols.map(function(c){return '<div class="pb-cell">'+esc(c.label)+'</div>';}).join('')+
-      '<div class="pb-cell">Total</div>';
-    html+='<div class="pb-row pb-head" style="grid-template-columns:'+tpl+'">'+head+'</div>';
-
-    // filas
-    rows.forEach(function(fr){
+    function userRow(fr){
       var cnt=fr.counts||{};
       var cell='<div class="pb-cell pb-agent">'+
         '<div class="pb-avatar" style="background:'+color(fr.agente)+'">'+esc(initials(fr.nombre||fr.agente))+'</div>'+
@@ -270,10 +268,32 @@
         cell+='<div class="pb-cell"><span class="pb-pill '+(n?pillClass(c.key):'zero')+'">'+n+'</span></div>';
       });
       cell+='<div class="pb-cell pb-total-cell">'+(fr.total||0)+'</div>';
-      html+=rowHtml(cell);
+      return '<div class="pb-row" style="grid-template-columns:'+tpl+'">'+cell+'</div>';
+    }
+
+    var html='';
+    // encabezado
+    var head='<div class="pb-cell pb-agent">Agente</div>'+
+      cols.map(function(c){return '<div class="pb-cell">'+esc(c.label)+'</div>';}).join('')+
+      '<div class="pb-cell">Total</div>';
+    html+='<div class="pb-row pb-head" style="grid-template-columns:'+tpl+'">'+head+'</div>';
+
+    // secciones por team: banda con el nombre, filas y subtotal
+    teams.forEach(function(tm){
+      if(tm.team){
+        html+='<div class="pb-team-band"><i class="fas fa-people-group"></i>'+esc(tm.team)+
+          '<span class="pb-team-count">'+(tm.rows||[]).length+' usuarios</span></div>';
+      }
+      (tm.rows||[]).forEach(function(fr){html+=userRow(fr);});
+      if(tm.team&&teams.length>1){
+        var sub='<div class="pb-cell pb-agent">Subtotal '+esc(tm.team)+'</div>'+
+          cols.map(function(c){return '<div class="pb-cell">'+((tm.totales&&tm.totales[c.key])||0)+'</div>';}).join('')+
+          '<div class="pb-cell pb-total-cell">'+(tm.total||0)+'</div>';
+        html+='<div class="pb-row pb-subtotal" style="grid-template-columns:'+tpl+'">'+sub+'</div>';
+      }
     });
 
-    // totales
+    // totales generales
     var tot='<div class="pb-cell pb-agent">Totales</div>'+
       cols.map(function(c){return '<div class="pb-cell">'+((j.totales&&j.totales[c.key])||0)+'</div>';}).join('')+
       '<div class="pb-cell pb-total-cell">'+(j.total_general||0)+'</div>';
