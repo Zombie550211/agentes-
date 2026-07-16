@@ -497,8 +497,11 @@ def _parse_date_str(s: str) -> Optional[str]:
 
 
 async def _count_llamadas_vencidas(user: dict) -> int:
-    """Cuántos leads del usuario tienen llamada vencida (para bloqueo server-side)."""
-    if _is_admin_or_bo(user):
+    """Cuántos leads del usuario tienen llamada vencida (para bloqueo server-side).
+
+    El bloqueo aplica SOLO a agentes: admin, backoffice y supervisores exentos
+    (misma regla que /api/leads/llamadas-pendientes)."""
+    if _is_admin_or_bo(user) or _is_supervisor(user):
         return 0
     try:
         async with AsyncSessionLocal() as s:
