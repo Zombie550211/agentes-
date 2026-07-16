@@ -200,6 +200,7 @@
       if (/rankings\.html?$/.test(path)) return 'rankings';
       if (/rankingagente\.html?$/.test(path)) return 'rankings';
       if (/ranking-agente\.html?$/.test(path)) return 'rankings';
+      if (/productividad/.test(path)) return 'productividad-bo';
       if (/semaforo|semáforo/.test(path)) return 'semaforo';
       if (/llamadas/.test(path) && /team/.test(path)) return 'llamadas-team';
       if (/llamadas/.test(path) && /ventas/.test(path)) return 'llamadas-team';
@@ -818,10 +819,12 @@
       { key: 'costumer-lineas', icon: 'fa-phone', text: 'Costumer Líneas', href: '/lineas/costumer.html', roles: adminBackofficeRoles },
       { key: 'estadisticas-lineas', icon: 'fa-chart-bar', text: 'Estadísticas Líneas', href: '/lineas/estadisticas.html', roles: allRoles },
       { key: 'rankings', icon: 'fa-chart-line', text: 'Rankings', href: '/residencial/ranking-agente.html', roles: allRoles },
+      { key: 'productividad-bo', icon: 'fa-user-clock', text: 'Productividad B.O', href: '/residencial/productividad-bo.html', roles: allRoles },
       { key: 'estadisticas', icon: 'fa-chart-bar', text: 'Estadísticas', href: '/residencial/estadisticas.html', roles: allRoles },
       { key: 'comisiones', icon: 'fa-coins', text: 'Comisiones', href: '/residencial/comisiones.html', roles: allRoles },
       { key: 'semaforo', icon: 'fa-traffic-light', text: 'El Semáforo', href: '/residencial/semaforo.html', roles: allRoles },
       { key: 'facturacion', icon: 'fa-file-invoice-dollar', text: 'Facturación', href: '/residencial/facturacion.html', roles: adminBackofficeRoles },
+      { key: 'llamadas-team', icon: 'fa-phone', text: 'Llamadas y Ventas por Team', href: '/residencial/llamadas-ventas.html', roles: adminBackofficeRoles },
       { key: 'crm-dashboard', icon: 'fa-chart-pie', text: 'CRM Dashboard', href: '/residencial/inicio.html', roles: allRoles },
       { key: 'empleado', icon: 'fa-medal', text: 'Empleado del Mes', href: '/residencial/empleado-mes.html', roles: allRoles },
       { key: 'normativas', icon: 'fa-clipboard-list', text: 'Tipificación', href: '/residencial/normativas-tipificacion.html', roles: allRoles },
@@ -907,11 +910,13 @@
 
     // Sección 2: Estadísticas
     const estadisticasItems = [
+      { key: 'productividad-bo', icon: 'fa-user-clock',     text: 'Productividad B.O',  href: '/residencial/productividad-bo.html' },
       { key: 'estadisticas', icon: 'fa-chart-bar',          text: 'Estadísticas',       href: '/residencial/estadisticas.html' },
       { key: 'rankings',     icon: 'fa-chart-line',         text: 'Ranking',            href: '/residencial/ranking-agente.html' },
       { key: 'ranking',      icon: 'fa-trophy',             text: 'Ranking y Promociones', href: '/residencial/ranking.html' },
       { key: 'reglas',       icon: 'fa-book',               text: 'Reglas y Puntajes',  href: '/residencial/reglas.html' },
       { key: 'facturacion',  icon: 'fa-file-invoice-dollar', text: 'Facturación',       href: '/residencial/facturacion.html' },
+      { key: 'llamadas-team', icon: 'fa-phone',              text: 'Llamadas y Ventas por Team', href: '/residencial/llamadas-ventas.html', adminOnly: true },
       { key: 'comisiones',   icon: 'fa-coins',              text: 'Comisión',           href: '/residencial/comisiones.html' },
       { key: 'semaforo',     icon: 'fa-traffic-light',      text: 'El Semáforo',        href: '/residencial/semaforo.html' }
     ];

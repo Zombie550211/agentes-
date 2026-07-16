@@ -38,6 +38,8 @@ from routers import (
     avatars as avatars_router,
     misc as misc_router,
     stream as stream_router,
+    ui_config as ui_config_router,
+    productividad_bo as productividad_bo_router,
 )
 
 # ── Rutas base ──────────────────────────────────────────────────
@@ -342,6 +344,8 @@ app.include_router(files_router.router)
 app.include_router(avatars_router.router)
 app.include_router(misc_router.router)
 app.include_router(stream_router.router)
+app.include_router(ui_config_router.router)
+app.include_router(productividad_bo_router.router)
 
 # ── Archivos estáticos ───────────────────────────────────────────
 # Condicionales: no crashea si el directorio no existe (ej. en Render sin frontend)

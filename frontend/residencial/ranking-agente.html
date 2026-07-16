@@ -15,7 +15,7 @@
   <script src="/js/fetch-interceptor.js" defer></script>
   <script src="/js/logout-handler.js" defer></script>
   <script src="/js/user-info.js" defer></script>
-  <script src="/js/sidebar-loader.js?v=20260611b" defer></script>
+  <script src="/js/sidebar-loader.js?v=20260715a" defer></script>
   <script src="/js/crm-config.js" defer></script>
   <script src="/js/inactivity-manager.js?v=20260611a" defer></script>
   <script src="/js/crm-init.js" defer></script>
@@ -70,7 +70,7 @@
     #rank-period-label{font-size:.78rem;font-weight:700;color:var(--t1)}
 
     /* KPIs */
-    .rk-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+    .rk-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
     .rk-kpi{background:var(--card);border:1px solid var(--bdr);border-radius:16px;padding:16px 18px;display:flex;align-items:center;gap:14px;box-shadow:var(--sh);transition:transform .2s,box-shadow .2s}
     .rk-kpi:hover{transform:translateY(-2px);box-shadow:var(--sh-md)}
     .rk-kpi-icon{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
@@ -248,6 +248,10 @@
         <div class="rk-kpi-icon" style="background:#fef3c7"><i class="fas fa-sigma" style="color:#dc2626"></i></div>
         <div><div class="rk-kpi-label">Total de Ventas Activas</div><div class="rk-kpi-val" id="kpi-total-val" style="color:#dc2626">—</div><div class="rk-kpi-sub">Del período</div></div>
       </div>
+      <div class="rk-kpi">
+        <div class="rk-kpi-icon" style="background:#ecfeff"><i class="fas fa-plug-circle-check" style="color:#0891b2"></i></div>
+        <div><div class="rk-kpi-label">Activas del Día</div><div class="rk-kpi-val" id="kpi-activas-dia" style="color:#0891b2">—</div><div class="rk-kpi-sub">Instalaciones de hoy</div></div>
+      </div>
     </div>
 
     <div class="rk-table-card drop" style="animation-delay:.28s">
@@ -329,6 +333,17 @@
 
   function render(){updateKpis();renderList();}
 
+  async function loadActivasDia(){
+    try{
+      var d=new Date();
+      var f=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      var r=await fetch('/api/ranking/instalaciones-dia?fecha='+f,{credentials:'include'});
+      if(!r.ok)throw new Error(r.status);
+      var j=await r.json();
+      set('kpi-activas-dia',Number(j.completadas||0)+'/'+Number(j.total||0));
+    }catch(e){console.warn('[activas-dia]',e);set('kpi-activas-dia','—');}
+  }
+
   function updateKpis(){
     var totalPts=_data.reduce(function(s,a){return s+Number(a.puntaje||a.puntos||a.sum_puntaje||a.score||0);},0);
     var totalV=_data.reduce(function(s,a){return s+Number(a.ventas||0);},0);
@@ -392,7 +407,8 @@
   document.getElementById('btn-view-agente').addEventListener('click',function(){_view='agente';this.classList.add('active');document.getElementById('btn-view-team').classList.remove('active');render();});
   document.getElementById('btn-view-team').addEventListener('click',function(){_view='team';this.classList.add('active');document.getElementById('btn-view-agente').classList.remove('active');render();});
 
-  updateLabel();load();
+  updateLabel();load();loadActivasDia();
+  setInterval(loadActivasDia,120000);
   document.addEventListener('themeChanged',function(){localStorage.setItem('theme',document.body.classList.contains('dark-theme')?'dark':'light');});
 })();
 </script>

@@ -769,9 +769,11 @@
       const isNormalMon=(dvYM===refMon);
       if(!isColForMon&&!isNormalMon)return;
       if(isColForMon){
-        // Colchón: suma a colchon, y a activas si está completed/active
+        // Colchón: SIEMPRE suma al KPI de colchón. Solo se suma a "activas"
+        // si el usuario marca el checkbox "Sumar colchón a activas" (inclCol).
+        // Así los KPIs del mes muestran solo ventas del mes por defecto.
         kpi.colchon++;
-        if(st==='completed'||st==='active')kpi.activas++;
+        if(inclCol&&(st==='completed'||st==='active'))kpi.activas++;
         return;
       }
       // Lead normal (dia_venta en el mes)

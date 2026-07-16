@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Productividad B.O — CRM</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="/css/sidebar-shared.css?v=20260606f">
+  <link rel="stylesheet" href="/css/sidebar-modern.css?v=20260609b">
+  <script src="/js/fetch-interceptor.js" defer></script>
+  <script src="/js/logout-handler.js" defer></script>
+  <script src="/js/user-info.js" defer></script>
+  <script src="/js/sidebar-loader.js?v=20260715a" defer></script>
+  <script src="/js/crm-config.js" defer></script>
+  <script src="/js/inactivity-manager.js?v=20260611a" defer></script>
+  <script src="/js/crm-init.js" defer></script>
+  <style>
+    /* Página autocontenida con tokens PROPIOS (--pb-*) para no colisionar con
+       el sistema global de tema (dark-mode.css redefine --bg/--card/etc.). */
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    #pb-app{
+      --pb-bg:#0B1220; --pb-card:#151F32; --pb-bdr:#26344C; --pb-bdr-soft:#1C2A40;
+      --pb-ink:#F1F5F9; --pb-ink2:#CBD5E1; --pb-ink3:#93A1B8;
+      --pb-accent:#818CF8; --pb-accent-soft:rgba(129,140,248,.16);
+      --pb-green:#34D399; --pb-green-soft:rgba(16,185,129,.16);
+      --pb-red:#FB7185;   --pb-red-soft:rgba(244,63,94,.16);
+      --pb-amber:#FBBF24; --pb-amber-soft:rgba(217,119,6,.18);
+      --pb-blue:#38BDF8;  --pb-blue-soft:rgba(2,132,199,.18);
+      --pb-gray-soft:rgba(148,163,184,.14);
+      --pb-sh:0 1px 2px rgba(0,0,0,.3),0 8px 22px rgba(0,0,0,.28);
+      font-family:'Inter',system-ui,sans-serif;
+    }
+    #pb-app button,#pb-app input,#pb-app select{font-family:'Inter',system-ui,sans-serif}
+
+    /* El contenedor pinta su propio fondo claro (el body global puede ser oscuro) */
+    #pb-app{background:var(--pb-bg);min-height:100vh;padding:22px 30px;color:var(--pb-ink);
+      display:flex;flex-direction:column;gap:16px}
+
+    @keyframes pbFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    .pb-fade{animation:pbFade .25s ease-out both}
+    @media(prefers-reduced-motion:reduce){.pb-fade{animation:none}}
+
+    /* HEADER */
+    .pb-header{background:var(--pb-card);border:1px solid var(--pb-bdr);border-radius:16px;
+      padding:18px 22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;box-shadow:var(--pb-sh)}
+    .pb-title-wrap{display:flex;align-items:center;gap:14px;flex:1;min-width:0}
+    .pb-icon{width:46px;height:46px;border-radius:13px;flex-shrink:0;display:flex;align-items:center;
+      justify-content:center;background:linear-gradient(135deg,#4F46E5,#7C3AED);box-shadow:0 6px 16px rgba(79,70,229,.32)}
+    .pb-icon i{color:#fff;font-size:1.1rem}
+    .pb-title{font-size:1.2rem;font-weight:800;color:var(--pb-ink);letter-spacing:-.01em}
+    .pb-sub{font-size:.72rem;color:var(--pb-ink3);margin-top:2px}
+
+    .pb-daynav{display:flex;align-items:center;border:1px solid var(--pb-bdr);border-radius:12px;overflow:hidden;background:var(--pb-card)}
+    .pb-daynav button{width:36px;height:40px;border:none;background:transparent;color:var(--pb-ink3);cursor:pointer;font-size:.8rem;transition:all .15s}
+    .pb-daynav button:hover{background:var(--pb-accent-soft);color:var(--pb-accent)}
+    .pb-daylabel{display:flex;align-items:center;gap:8px;padding:0 14px;min-width:190px;justify-content:center;
+      font-size:.8rem;font-weight:700;color:var(--pb-ink);white-space:nowrap;text-transform:capitalize}
+    .pb-daylabel i{color:var(--pb-accent);font-size:.75rem}
+    .pb-today{padding:9px 15px;border:none;border-left:1px solid var(--pb-bdr);background:var(--pb-card);
+      color:var(--pb-accent);font-weight:700;font-size:.74rem;cursor:pointer;font-family:inherit}
+    .pb-today:hover{background:var(--pb-accent-soft)}
+
+    /* KPIs */
+    .pb-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+    .pb-kpi{background:var(--pb-card);border:1px solid var(--pb-bdr);border-radius:14px;padding:15px 18px;
+      display:flex;align-items:center;gap:13px;box-shadow:var(--pb-sh)}
+    .pb-kpi-ic{width:40px;height:40px;border-radius:11px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.95rem}
+    .pb-kpi-lbl{font-size:.56rem;font-weight:700;color:var(--pb-ink3);text-transform:uppercase;letter-spacing:.09em}
+    .pb-kpi-val{font-size:1.55rem;font-weight:800;line-height:1.1;color:var(--pb-ink);margin-top:2px;font-variant-numeric:tabular-nums}
+
+    /* TABLA (grid de divs) */
+    .pb-table-card{background:var(--pb-card);border:1px solid var(--pb-bdr);border-radius:16px;box-shadow:var(--pb-sh);
+      overflow:hidden;flex:1;min-height:0;display:flex;flex-direction:column}
+    .pb-table-top{padding:15px 22px;border-bottom:1px solid var(--pb-bdr);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .pb-table-title{font-size:.9rem;font-weight:800;color:var(--pb-ink);display:flex;align-items:center;gap:9px}
+    .pb-table-title i{color:var(--pb-accent)}
+    .pb-table-sub{font-size:.64rem;color:var(--pb-ink3);margin-top:2px}
+    .pb-scroll{overflow:auto;flex:1;min-height:0}
+    .pb-scroll::-webkit-scrollbar{width:8px;height:8px}
+    .pb-scroll::-webkit-scrollbar-thumb{background:#CBD3E3;border-radius:8px}
+
+    .pb-grid{min-width:640px}
+    .pb-row{display:grid;align-items:center;gap:0;border-bottom:1px solid var(--pb-bdr-soft)}
+    .pb-row.pb-head{position:sticky;top:0;background:var(--pb-bg);z-index:1;border-bottom:1px solid var(--pb-bdr)}
+    .pb-row.pb-head .pb-cell{font-size:.58rem;font-weight:800;color:var(--pb-ink3);text-transform:uppercase;letter-spacing:.08em;padding:11px 12px}
+    .pb-cell{padding:11px 12px;text-align:center;font-size:.82rem;font-weight:700;color:var(--pb-ink2);font-variant-numeric:tabular-nums}
+    .pb-cell.pb-agent{text-align:left;display:flex;align-items:center;gap:11px;min-width:0}
+    .pb-row:not(.pb-head):hover{background:var(--pb-accent-soft)}
+    .pb-row.pb-total{background:var(--pb-bg);border-top:2px solid var(--pb-bdr);border-bottom:none;position:sticky;bottom:0}
+    .pb-row.pb-total .pb-cell{font-weight:900;color:var(--pb-ink)}
+    .pb-row.pb-total .pb-agent{color:var(--pb-ink3);font-size:.6rem;text-transform:uppercase;letter-spacing:.1em}
+
+    .pb-avatar{width:34px;height:34px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+      font-size:.68rem;font-weight:800;color:#fff}
+    .pb-agent-name{font-size:.82rem;font-weight:700;color:var(--pb-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pb-agent-sub{font-size:.62rem;font-weight:500;color:var(--pb-ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+    /* píldoras de conteo por status */
+    .pb-pill{display:inline-flex;min-width:30px;justify-content:center;padding:4px 9px;border-radius:8px;font-size:.8rem;font-weight:800;font-variant-numeric:tabular-nums}
+    .pb-pill.zero{background:transparent;color:var(--pb-bdr);font-weight:600}
+    .pb-pill.completed{background:var(--pb-green-soft);color:var(--pb-green)}
+    .pb-pill.cancelled{background:var(--pb-red-soft);color:var(--pb-red)}
+    .pb-pill.hold{background:var(--pb-amber-soft);color:var(--pb-amber)}
+    .pb-pill.pending{background:var(--pb-blue-soft);color:var(--pb-blue)}
+    .pb-pill.other{background:var(--pb-gray-soft);color:var(--pb-ink3)}
+    .pb-total-cell{font-weight:900;color:var(--pb-accent)}
+
+    .pb-loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:46px;color:var(--pb-ink3);font-size:.82rem}
+    .pb-spinner{width:18px;height:18px;border:2px solid var(--pb-bdr);border-top-color:var(--pb-accent);border-radius:50%;animation:pbSpin .7s linear infinite}
+    @keyframes pbSpin{to{transform:rotate(360deg)}}
+    .pb-empty{display:flex;flex-direction:column;align-items:center;gap:10px;padding:50px;color:var(--pb-ink3);font-size:.85rem}
+    .pb-empty i{font-size:1.8rem;opacity:.35}
+
+    @media(max-width:1250px){.pb-kpis{grid-template-columns:repeat(3,1fr)}}
+    @media(max-width:900px){.pb-kpis{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:640px){#pb-app{padding:14px}.pb-header{flex-direction:column;align-items:flex-start}}
+  </style>
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar sidebar-inicio" data-active="productividad-bo"></nav>
+  <main class="main-content" style="padding:0">
+    <div id="pb-app">
+
+      <div class="pb-header pb-fade">
+        <div class="pb-title-wrap">
+          <div class="pb-icon"><i class="fas fa-user-clock"></i></div>
+          <div>
+            <div class="pb-title">Productividad B.O</div>
+            <div class="pb-sub">Cambios de status por usuario · registro diario</div>
+          </div>
+        </div>
+        <div class="pb-daynav">
+          <button id="pb-prev" title="Día anterior"><i class="fas fa-chevron-left"></i></button>
+          <div class="pb-daylabel"><i class="fas fa-calendar-day"></i><span id="pb-daylabel">—</span></div>
+          <button id="pb-next" title="Día siguiente"><i class="fas fa-chevron-right"></i></button>
+          <button class="pb-today" id="pb-today">Hoy</button>
+        </div>
+      </div>
+
+      <div class="pb-kpis pb-fade">
+        <div class="pb-kpi">
+          <div class="pb-kpi-ic" style="background:var(--pb-accent-soft)"><i class="fas fa-arrows-rotate" style="color:var(--pb-accent)"></i></div>
+          <div><div class="pb-kpi-lbl">Cambios del día</div><div class="pb-kpi-val" id="pb-k-total">0</div></div>
+        </div>
+        <div class="pb-kpi">
+          <div class="pb-kpi-ic" style="background:var(--pb-accent-soft)"><i class="fas fa-users" style="color:var(--pb-accent)"></i></div>
+          <div><div class="pb-kpi-lbl">Usuarios activos</div><div class="pb-kpi-val" id="pb-k-users">0</div></div>
+        </div>
+        <div class="pb-kpi">
+          <div class="pb-kpi-ic" style="background:var(--pb-green-soft)"><i class="fas fa-circle-check" style="color:var(--pb-green)"></i></div>
+          <div><div class="pb-kpi-lbl">Completed</div><div class="pb-kpi-val" id="pb-k-completed" style="color:var(--pb-green)">0</div></div>
+        </div>
+        <div class="pb-kpi">
+          <div class="pb-kpi-ic" style="background:var(--pb-red-soft)"><i class="fas fa-circle-xmark" style="color:var(--pb-red)"></i></div>
+          <div><div class="pb-kpi-lbl">Cancelled</div><div class="pb-kpi-val" id="pb-k-cancelled" style="color:var(--pb-red)">0</div></div>
+        </div>
+        <div class="pb-kpi">
+          <div class="pb-kpi-ic" style="background:var(--pb-blue-soft)"><i class="fas fa-calendar-day" style="color:var(--pb-blue)"></i></div>
+          <div><div class="pb-kpi-lbl">Ventas que se instalan hoy</div><div class="pb-kpi-val" id="pb-k-install-total" style="color:var(--pb-blue)">0</div></div>
+        </div>
+        <div class="pb-kpi">
+          <div class="pb-kpi-ic" style="background:var(--pb-green-soft)"><i class="fas fa-plug-circle-check" style="color:var(--pb-green)"></i></div>
+          <div><div class="pb-kpi-lbl">Ventas instaladas</div><div class="pb-kpi-val" id="pb-k-install-done" style="color:var(--pb-green)">0/0</div></div>
+        </div>
+      </div>
+
+      <div class="pb-table-card pb-fade">
+        <div class="pb-table-top">
+          <div>
+            <div class="pb-table-title"><i class="fas fa-table-list"></i> Cambios de status por usuario</div>
+            <div class="pb-table-sub">Cada celda = cuántos cambios a ese status hizo el usuario</div>
+          </div>
+        </div>
+        <div class="pb-scroll">
+          <div class="pb-grid" id="pb-grid">
+            <div class="pb-loading"><div class="pb-spinner"></div> Cargando…</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var API='/api/productividad-bo';
+  var MONTHS=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  var DAYS=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  var PAL=['#4F46E5','#7C3AED','#0284C7','#059669','#D97706','#E11D48','#0EA5E9','#9333EA'];
+
+  // fecha local seleccionada (YYYY-MM-DD)
+  var sel=new Date();
+
+  function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function esc(s){var d=document.createElement('div');d.textContent=String(s==null?'':s);return d.innerHTML;}
+  function set(id,v){var e=document.getElementById(id);if(e)e.textContent=v;}
+  function initials(n){return String(n||'').split(/\s+/).filter(Boolean).map(function(w){return w[0];}).join('').toUpperCase().slice(0,2)||'?';}
+  function color(n){var h=0;for(var i=0;i<n.length;i++)h=(h*31+n.charCodeAt(i))&0x7fffffff;return PAL[h%PAL.length];}
+  function pillClass(key){key=String(key||'').toLowerCase();return ['completed','cancelled','hold','pending'].indexOf(key)>=0?key:'other';}
+
+  function updateLabel(){
+    var isToday=ymd(sel)===ymd(new Date());
+    var lbl=DAYS[sel.getDay()]+' '+sel.getDate()+' '+MONTHS[sel.getMonth()]+(isToday?' · hoy':'');
+    set('pb-daylabel',lbl);
+    document.getElementById('pb-next').disabled=isToday;
+    document.getElementById('pb-next').style.opacity=isToday?'.4':'1';
+  }
+
+  async function load(){
+    updateLabel();
+    var grid=document.getElementById('pb-grid');
+    grid.innerHTML='<div class="pb-loading"><div class="pb-spinner"></div> Cargando…</div>';
+    try{
+      var r=await fetch(API+'?fecha='+ymd(sel),{credentials:'include'});
+      if(!r.ok)throw new Error(r.status);
+      var j=await r.json();
+      render(j);
+    }catch(e){
+      console.warn('[productividad-bo]',e);
+      grid.innerHTML='<div class="pb-empty"><i class="fas fa-triangle-exclamation"></i>No se pudo cargar la información</div>';
+    }
+  }
+
+  function render(j){
+    var cols=j.columns||[];
+    var rows=j.rows||[];
+    set('pb-k-total',j.total_general||0);
+    set('pb-k-users',j.agentes||0);
+    set('pb-k-completed',(j.totales&&j.totales.COMPLETED)||0);
+    set('pb-k-cancelled',(j.totales&&j.totales.CANCELLED)||0);
+    // Instalaciones: se instalan hoy (programadas) y ventas completadas hoy
+    var instTotal=Number(j.instalan_hoy||0), instDone=Number(j.instaladas_hoy||0);
+    set('pb-k-install-total',instTotal);
+    set('pb-k-install-done',instDone+'/'+instTotal);
+
+    var grid=document.getElementById('pb-grid');
+    if(!rows.length){
+      grid.innerHTML='<div class="pb-empty"><i class="fas fa-inbox"></i>Sin cambios de status registrados este día</div>';
+      return;
+    }
+    // grid-template-columns: agente + N status + total
+    var tpl='minmax(190px,1.6fr) '+cols.map(function(){return '1fr';}).join(' ')+' 90px';
+
+    function rowHtml(cellsHtml){return '<div class="pb-row" style="grid-template-columns:'+tpl+'">'+cellsHtml+'</div>';}
+
+    var html='';
+    // encabezado
+    var head='<div class="pb-cell pb-agent">Agente</div>'+
+      cols.map(function(c){return '<div class="pb-cell">'+esc(c.label)+'</div>';}).join('')+
+      '<div class="pb-cell">Total</div>';
+    html+='<div class="pb-row pb-head" style="grid-template-columns:'+tpl+'">'+head+'</div>';
+
+    // filas
+    rows.forEach(function(fr){
+      var cnt=fr.counts||{};
+      var cell='<div class="pb-cell pb-agent">'+
+        '<div class="pb-avatar" style="background:'+color(fr.agente)+'">'+esc(initials(fr.nombre||fr.agente))+'</div>'+
+        '<div style="min-width:0"><div class="pb-agent-name">'+esc(fr.agente)+'</div>'+
+        (fr.nombre?'<div class="pb-agent-sub">'+esc(fr.nombre)+'</div>':(fr.rol?'<div class="pb-agent-sub">'+esc(fr.rol)+'</div>':''))+
+        '</div></div>';
+      cols.forEach(function(c){
+        var n=cnt[c.key]||0;
+        cell+='<div class="pb-cell"><span class="pb-pill '+(n?pillClass(c.key):'zero')+'">'+n+'</span></div>';
+      });
+      cell+='<div class="pb-cell pb-total-cell">'+(fr.total||0)+'</div>';
+      html+=rowHtml(cell);
+    });
+
+    // totales
+    var tot='<div class="pb-cell pb-agent">Totales</div>'+
+      cols.map(function(c){return '<div class="pb-cell">'+((j.totales&&j.totales[c.key])||0)+'</div>';}).join('')+
+      '<div class="pb-cell pb-total-cell">'+(j.total_general||0)+'</div>';
+    html+='<div class="pb-row pb-total" style="grid-template-columns:'+tpl+'">'+tot+'</div>';
+
+    grid.innerHTML=html;
+  }
+
+  document.getElementById('pb-prev').addEventListener('click',function(){sel.setDate(sel.getDate()-1);load();});
+  document.getElementById('pb-next').addEventListener('click',function(){if(ymd(sel)>=ymd(new Date()))return;sel.setDate(sel.getDate()+1);load();});
+  document.getElementById('pb-today').addEventListener('click',function(){sel=new Date();load();});
+
+  load();
+})();
+</script>
+</body>
+</html>
