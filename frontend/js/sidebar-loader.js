@@ -815,9 +815,9 @@
 
     // Sección 2: Estadísticas
     const estadisticasItems = [
+      { key: 'productividad-bo', icon: 'fa-user-clock',     text: 'Productividad B.O',  href: '/residencial/productividad-bo.html' },
       { key: 'estadisticas', icon: 'fa-chart-bar',          text: 'Estadísticas',       href: '/residencial/estadisticas.html' },
       { key: 'productividad', icon: 'fa-gauge-high',        text: 'Productividad',      href: '/residencial/productividad.html' },
-      { key: 'productividad-bo', icon: 'fa-user-check',     text: 'PRODUCTIVIDAD B.O',  href: '/residencial/productividad-bo.html', adminOnly: true },
       { key: 'rankings',     icon: 'fa-chart-line',         text: 'Ranking de Agentes', href: '/residencial/ranking-agente.html' },
       { key: 'ranking',      icon: 'fa-trophy',             text: 'Ranking y Promociones', href: '/residencial/ranking.html' },
       { key: 'premios',      icon: 'fa-gift',               text: 'Premios',            href: '/residencial/premios.html' },
