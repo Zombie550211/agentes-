@@ -1297,10 +1297,24 @@ async def update_lead_status(
         await s.commit()
         if r.rowcount == 0:
             raise HTTPException(404, "Lead no encontrado")
-        # Obtener nombre del cliente para el log
-        cr = await s.execute(text("SELECT nombre_cliente FROM leads WHERE id = :id OR mongo_id = :mid LIMIT 1"),
-                             {"id": mysql_id or 0, "mid": mongo_id or ""})
-        cn = (cr.first() or [None])[0] or "Sin nombre"
+        # Obtener nombre del cliente (y dueños para la notificación) para el log
+        cr = await s.execute(text(
+            "SELECT nombre_cliente, agente, agente_nombre, created_by, supervisor "
+            "FROM leads WHERE id = :id OR mongo_id = :mid LIMIT 1"),
+            {"id": mysql_id or 0, "mid": mongo_id or ""})
+        _row = cr.mappings().first() or {}
+        cn = _row.get("nombre_cliente") or "Sin nombre"
+
+    # Notificación persistente + log de productividad B.O. del cambio de status
+    from notifications import record_status_change
+    asyncio.create_task(record_status_change(
+        seccion="residencial", cliente=cn,
+        old_status=prev_status,
+        new_status=str(body.status or ""),
+        actor=user.get("name") or user.get("username", ""),
+        target_agente=_row.get("agente_nombre") or _row.get("agente") or _row.get("created_by") or "",
+        target_supervisor=_row.get("supervisor") or "",
+    ))
 
     asyncio.create_task(_log_activity(
         "Cambio de estado", cn,

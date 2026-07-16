@@ -41,6 +41,7 @@ from routers import (
     productos as productos_router,
     catalogos as catalogos_router,
     schedule as schedule_router,
+    productividad_bo as productividad_bo_router,
 )
 
 # ── Rutas base ──────────────────────────────────────────────────
@@ -152,6 +153,24 @@ _MIGRATIONS: list[tuple[str, str]] = [
         INDEX idx_sn_sup (target_supervisor),
         INDEX idx_sn_created (created_at)
     )"""),
+    # Log de TODOS los cambios de status con su autor (productividad Back Office).
+    # A diferencia de status_notifications no filtra por destinatario ni se purga a 14 días.
+    ("0038_create_status_change_log", """CREATE TABLE IF NOT EXISTS status_change_log (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        seccion VARCHAR(20) NOT NULL DEFAULT 'residencial',
+        cliente VARCHAR(200),
+        old_status VARCHAR(50),
+        new_status VARCHAR(50),
+        actor VARCHAR(150),
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_scl_actor (actor),
+        INDEX idx_scl_created (created_at)
+    )"""),
+    # Semilla con el histórico disponible en status_notifications (≤14 días).
+    ("0039_seed_status_change_log", """INSERT INTO status_change_log
+        (seccion, cliente, old_status, new_status, actor, created_at)
+        SELECT seccion, cliente, old_status, new_status, actor, created_at
+        FROM status_notifications WHERE COALESCE(actor,'') <> ''"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración
@@ -385,6 +404,7 @@ app.include_router(stream_router.router)
 app.include_router(productos_router.router)
 app.include_router(catalogos_router.router)
 app.include_router(schedule_router.router)
+app.include_router(productividad_bo_router.router)
 
 # ── Archivos estáticos ───────────────────────────────────────────
 class _RevalidateStaticFiles(StaticFiles):

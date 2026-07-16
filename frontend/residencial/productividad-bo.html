@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Productividad B.O — Cambios de Status</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/sidebar-shared.css?v=20260606f"/>
+  <link rel="stylesheet" href="/css/sidebar-modern.css?v=20260609b"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root{
+      --pf-ink:#f1f5f9; --pf-ink2:#cbd5e1; --pf-ink3:#94a3b8;
+      --pf-line:rgba(255,255,255,.10); --pf-surface:rgba(255,255,255,.03);
+      --pf-head:#2f5fd0; --pf-head2:#1e40af; --pf-accent:#0ea5e9;
+      --pf-ok:#16a34a; --pf-warn:#f59e0b; --pf-stop:#ef4444; --pf-zebra:rgba(255,255,255,.015);
+    }
+    html,body{height:100%;margin:0;font-family:'Outfit',sans-serif;-webkit-font-smoothing:antialiased}
+    body{background:#0a1628;color:var(--pf-ink)}
+    body::before{
+      content:'';position:fixed;inset:0;z-index:-1;
+      background:linear-gradient(160deg,#0b1a33 0%,#0a1628 55%,#080f1f 100%);
+    }
+    .layout{display:flex;min-height:100vh;position:relative;z-index:1}
+    .sidebar{flex:0 0 auto}
+    .main-content{flex:1;min-width:0;font-family:'Outfit',sans-serif;background:transparent !important;color:var(--pf-ink);position:relative;z-index:1}
+    .pf-page{padding:20px 24px 60px;max-width:1100px;margin:0 auto}
+    .pf-header{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+    .pf-title{font-size:1.4rem;font-weight:800;color:var(--pf-ink);display:flex;align-items:center;gap:10px}
+    .pf-title i{color:var(--pf-accent)}
+    .pf-sub{font-size:.8rem;color:var(--pf-ink3);margin-top:2px}
+
+    .wk-ctrl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .wk-btn{background:var(--pf-surface);border:1px solid var(--pf-line);color:var(--pf-ink2);width:34px;height:34px;border-radius:9px;cursor:pointer;font-size:.9rem;display:flex;align-items:center;justify-content:center;transition:all .12s}
+    .wk-btn:hover{background:rgba(255,255,255,.08);color:var(--pf-ink)}
+    .wk-pill{background:var(--pf-surface);border:1px solid var(--pf-line);border-radius:9px;padding:7px 14px;font-size:.82rem;font-weight:700;color:var(--pf-ink);min-width:150px;text-align:center;text-transform:capitalize}
+    .wk-today{font-size:.72rem;font-weight:700;color:var(--pf-ink3);background:rgba(255,255,255,.05);border:1px solid var(--pf-line);border-radius:8px;padding:6px 11px;cursor:pointer}
+    .wk-today:hover{color:var(--pf-ink)}
+    .wk-sec{background:var(--pf-surface);border:1px solid var(--pf-line);color:var(--pf-ink);border-radius:8px;padding:6px 10px;font-size:.75rem;font-weight:700;font-family:'Outfit',sans-serif;cursor:pointer}
+    .wk-sec option{background:#0b1a33;color:var(--pf-ink)}
+
+    /* KPI cards */
+    .bo-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:18px}
+    .bo-kpi{background:var(--pf-surface);border:1px solid var(--pf-line);border-radius:12px;padding:12px 14px;text-align:center}
+    .bo-kpi .v{font-size:1.5rem;font-weight:900;line-height:1.1}
+    .bo-kpi .l{font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--pf-ink3);margin-top:4px}
+    .bo-kpi.k-total .v{color:var(--pf-accent)}
+    .bo-kpi.k-activas .v{color:var(--pf-ok)}
+    .bo-kpi.k-cancel .v{color:var(--pf-stop)}
+    .bo-kpi.k-hold .v{color:var(--pf-warn)}
+    .bo-kpi.k-inst .v{color:#a78bfa}
+    .bo-kpi.k-users .v{color:var(--pf-ink)}
+
+    .pf-team{margin-bottom:22px;border:1px solid var(--pf-line);border-radius:12px;overflow:hidden;overflow-x:auto}
+    table.pf-tbl{width:100%;border-collapse:collapse;font-size:.82rem;min-width:720px}
+    table.pf-tbl th, table.pf-tbl td{border:1px solid var(--pf-line);padding:0}
+    .pf-tbl thead th{background:linear-gradient(180deg,var(--pf-head),var(--pf-head2));color:#fff;font-weight:800;text-align:center;height:36px;letter-spacing:.03em;font-size:.72rem;text-transform:uppercase;padding:0 10px}
+    .pf-tbl thead th.pf-usercell{text-align:left;padding-left:14px;font-size:.8rem;min-width:200px}
+    .pf-tbl tbody td{height:36px;text-align:center;font-size:.9rem}
+    .pf-tbl tbody td.pf-agent{padding:0 14px;color:var(--pf-ink);font-weight:600;white-space:nowrap;text-align:left}
+    .pf-tbl tbody tr:nth-child(even){background:var(--pf-zebra)}
+    .pf-tbl tbody tr:hover{background:rgba(255,255,255,.04)}
+    .c-act{color:var(--pf-ok);font-weight:800}
+    .c-can{color:var(--pf-stop);font-weight:800}
+    .c-hold{color:var(--pf-warn);font-weight:800}
+    .c-dim{color:var(--pf-ink2);font-weight:600}
+    .c-tot{color:var(--pf-accent);font-weight:900;background:rgba(255,255,255,.03)}
+    .pf-tbl tfoot tr.pf-foot{background:rgba(47,95,208,.14)}
+    .pf-tbl tfoot tr.pf-foot td{height:36px;font-weight:800;color:var(--pf-ink);border-top:2px solid rgba(47,95,208,.5);text-align:center}
+    .pf-tbl tfoot tr.pf-foot td.pf-agent{text-align:left;text-transform:uppercase;letter-spacing:.04em;font-size:.78rem}
+    .pf-loading{text-align:center;color:var(--pf-ink3);padding:60px 0;font-size:.9rem}
+    .pf-empty{padding:24px;color:var(--pf-ink3);font-style:italic;font-size:.85rem;text-align:center}
+    .pf-note{font-size:.72rem;color:var(--pf-ink3);margin-top:10px}
+  </style>
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar sidebar-inicio" data-active="productividad-bo"></nav>
+  <main class="main-content">
+    <div class="pf-page">
+      <div class="pf-header">
+        <div>
+          <div class="pf-title"><i class="fas fa-user-check"></i> Productividad B.O</div>
+          <div class="pf-sub">Cambios de status por usuario — quién movió cada lead y a qué status</div>
+        </div>
+        <div class="wk-ctrl">
+          <select class="wk-sec" id="bo-sec" title="Sección">
+            <option value="">Todas las secciones</option>
+            <option value="residencial">Residencial</option>
+            <option value="lineas">Líneas</option>
+          </select>
+          <button class="wk-btn" id="bo-prev" title="Día anterior">◀</button>
+          <div class="wk-pill" id="bo-label">— —</div>
+          <button class="wk-btn" id="bo-next" title="Día siguiente">▶</button>
+          <button class="wk-today" id="bo-cur">Hoy</button>
+        </div>
+      </div>
+
+      <div class="bo-kpis" id="bo-kpis"></div>
+
+      <div id="bo-content"><div class="pf-loading">Cargando…</div></div>
+      <div class="pf-note">Se contabiliza cada cambio de status realizado en el CRM (residencial y líneas) con el usuario que lo hizo. El registro comenzó a guardarse con esta versión; el histórico anterior se limita a los últimos días disponibles.</div>
+    </div>
+  </main>
+</div>
+
+<script src="/js/fetch-interceptor.js" defer></script>
+<script src="/js/logout-handler.js" defer></script>
+<script src="/js/user-info.js?v=20260703" defer></script>
+<script src="/js/sidebar-loader.js?v=20260715" defer></script>
+<script>
+(function(){
+  'use strict';
+  var MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  var DIAS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  var COLS = [
+    { key:'activas', label:'Activas',  cls:'c-act'  },
+    { key:'cancel',  label:'Cancel',   cls:'c-can'  },
+    { key:'hold',    label:'Hold',     cls:'c-hold' },
+    { key:'pending', label:'Pendiente',cls:'c-dim'  },
+    { key:'repro',   label:'Repro',    cls:'c-dim'  },
+    { key:'reserva', label:'Reserva',  cls:'c-dim'  },
+    { key:'oficina', label:'Oficina',  cls:'c-dim'  },
+    { key:'otros',   label:'Otros',    cls:'c-dim'  }
+  ];
+
+  var _day = new Date();  // día visible
+
+  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function ymd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function fmtDay(d){ return DIAS[d.getDay()]+' '+d.getDate()+' '+MESES[d.getMonth()]+' '+d.getFullYear(); }
+
+  function kpiCard(cls, val, label){
+    return '<div class="bo-kpi '+cls+'"><div class="v">'+val+'</div><div class="l">'+label+'</div></div>';
+  }
+
+  function render(data){
+    document.getElementById('bo-label').textContent = fmtDay(_day);
+    var kpis = document.getElementById('bo-kpis');
+    var box = document.getElementById('bo-content');
+    if(!data){
+      kpis.innerHTML='';
+      box.innerHTML='<div class="pf-empty">No se pudo cargar (¿sin permisos? Solo Admin/Back Office).</div>';
+      return;
+    }
+    var t = data.totales || {};
+    var inst = data.instaladas || {completed:0,total:0};
+    kpis.innerHTML =
+      kpiCard('k-total',  t.total||0,   'Cambios totales') +
+      kpiCard('k-activas',t.activas||0, 'Activas') +
+      kpiCard('k-cancel', t.cancel||0,  'Canceladas') +
+      kpiCard('k-hold',   t.hold||0,    'Hold') +
+      kpiCard('k-inst',   (inst.completed||0)+'/'+(inst.total||0), 'Instaladas del día') +
+      kpiCard('k-users',  (data.rows||[]).length, 'Usuarios');
+
+    var rows = data.rows||[];
+    if(!rows.length){
+      box.innerHTML='<div class="pf-team"><div class="pf-empty">Sin cambios de status registrados en este período.</div></div>';
+      return;
+    }
+    var head = '<tr><th class="pf-usercell">Usuario</th>'+
+      COLS.map(function(c){return '<th>'+c.label+'</th>';}).join('')+
+      '<th>Total</th></tr>';
+    var body = rows.map(function(r){
+      return '<tr><td class="pf-agent">'+esc(r.usuario)+'</td>'+
+        COLS.map(function(c){
+          var v = r[c.key]||0;
+          return '<td class="'+(v?c.cls:'')+'">'+(v||'')+'</td>';
+        }).join('')+
+        '<td class="c-tot">'+(r.total||0)+'</td></tr>';
+    }).join('');
+    var foot = '<tr class="pf-foot"><td class="pf-agent">Total</td>'+
+      COLS.map(function(c){var v=t[c.key]||0;return '<td>'+(v||'')+'</td>';}).join('')+
+      '<td class="c-tot">'+(t.total||0)+'</td></tr>';
+    box.innerHTML = '<div class="pf-team"><table class="pf-tbl"><thead>'+head+'</thead><tbody>'+body+'</tbody><tfoot>'+foot+'</tfoot></table></div>';
+  }
+
+  async function load(){
+    document.getElementById('bo-content').innerHTML='<div class="pf-loading">Cargando…</div>';
+    var d = ymd(_day);
+    var sec = document.getElementById('bo-sec').value;
+    var url = '/api/productividad-bo?start='+d+'&end='+d+(sec?'&seccion='+sec:'');
+    var data = null;
+    try{
+      var resp = await fetch(url, {credentials:'include'});
+      if(resp.ok) data = await resp.json();
+    }catch(e){}
+    render(data);
+  }
+
+  document.getElementById('bo-prev').addEventListener('click', function(){ _day.setDate(_day.getDate()-1); load(); });
+  document.getElementById('bo-next').addEventListener('click', function(){ _day.setDate(_day.getDate()+1); load(); });
+  document.getElementById('bo-cur').addEventListener('click', function(){ _day = new Date(); load(); });
+  document.getElementById('bo-sec').addEventListener('change', load);
+
+  document.addEventListener('DOMContentLoaded', load);
+  // Refresco automático cada 90s para ver el avance del día sin recargar
+  setInterval(load, 90000);
+})();
+</script>
+</body>
+</html>

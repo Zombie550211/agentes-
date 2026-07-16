@@ -111,7 +111,14 @@ async def bulk_status_by_phone(body: BulkByPhoneBody, user: dict = Depends(curre
         for i, lid in enumerate(lead_ids):
             params[f"id{i}"] = lid
         r2 = await s.execute(text(f"""
-            UPDATE leads SET status = :status, updated_at = :now, updated_by = :by
+            UPDATE leads SET
+                fecha_completed = CASE WHEN LOWER(:status) LIKE 'complet%'
+                        AND LOWER(COALESCE(status,'')) NOT LIKE 'complet%'
+                    THEN UTC_TIMESTAMP() ELSE fecha_completed END,
+                llamada_cliente = CASE WHEN LOWER(:status) LIKE 'complet%'
+                        AND LOWER(COALESCE(status,'')) NOT LIKE 'complet%'
+                    THEN 'Pendiente' ELSE llamada_cliente END,
+                status = :status, updated_at = :now, updated_by = :by
             WHERE id IN ({placeholders})
         """), params)
         await s.commit()
@@ -192,7 +199,14 @@ async def bulk_status_by_name(body: BulkByNameBody, user: dict = Depends(current
         for i, lid in enumerate(lead_ids):
             params[f"id{i}"] = lid
         r2 = await s.execute(text(f"""
-            UPDATE leads SET status = :status, updated_at = :now, updated_by = :by
+            UPDATE leads SET
+                fecha_completed = CASE WHEN LOWER(:status) LIKE 'complet%'
+                        AND LOWER(COALESCE(status,'')) NOT LIKE 'complet%'
+                    THEN UTC_TIMESTAMP() ELSE fecha_completed END,
+                llamada_cliente = CASE WHEN LOWER(:status) LIKE 'complet%'
+                        AND LOWER(COALESCE(status,'')) NOT LIKE 'complet%'
+                    THEN 'Pendiente' ELSE llamada_cliente END,
+                status = :status, updated_at = :now, updated_by = :by
             WHERE id IN ({placeholders})
         """), params)
         await s.commit()
