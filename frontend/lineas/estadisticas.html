@@ -23,7 +23,18 @@
     .layout { display: flex; min-height: 100vh; }
     .sidebar { flex: 0 0 auto; }
     .main-content { flex: 1; overflow-y: auto; }
-    .content-container { max-width: 1840px; margin: 0 auto; padding: 20px 36px; }
+    /* Sin tope de ancho: la página aprovecha todo el monitor (los grids internos
+       son auto-adaptables, así que en pantallas chicas siguen apilándose bien). */
+    .content-container { max-width: none; margin: 0 auto; padding: 20px 48px; }
+
+    /* KPIs globales: una sola fila en monitores anchos; en pantallas menores
+       las tarjetas van bajando solas (auto-fit). */
+    .kpi-global-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 32px;
+    }
     h1 { color: #f0f4ff; margin-top: 0; margin-bottom: 30px; font-size: 28px; text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
     /* Team Section */
     .team-section { 
@@ -225,6 +236,18 @@
     .tstat-green { color: #22c55e; }
     .tstat-red { color: #f87171; }
 
+    /* Franja de tipos de servicio del team (LÍNEA + EQUIPO / ESIM / WEARABLE) */
+    .team-svc-strip {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 4px; margin: -10px 0 18px 0;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 12px; padding: 12px 8px;
+    }
+    .tstat-indigo { color: #818cf8; }
+    .tstat-cyan   { color: #22d3ee; }
+    .tstat-amber  { color: #fbbf24; }
+
     /* Gráfica del team */
     .team-chart-wrap { position: relative; height: 460px; }
     .team-chart { width: 100%; height: 100%; }
@@ -247,6 +270,12 @@
 
     @media (max-width: 1100px) {
       .teams-grid { grid-template-columns: 1fr; }
+    }
+    /* Monitores anchos: gráficas más altas y con más aire */
+    @media (min-width: 2200px) {
+      .teams-grid { gap: 28px; }
+      .team-chart-wrap { height: 600px; }
+      .tstat-val { font-size: 26px; }
     }
   </style>
   <link rel="stylesheet" href="/css/glass-cards.css?v=20260605">
@@ -280,8 +309,8 @@
           </div>
         </div>
 
-        <!-- KPIs Globales -->
-        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; margin-bottom: 32px;">
+        <!-- KPIs Globales (8 tarjetas: 5 de status + 3 de tipo de servicio) -->
+        <div class="kpi-global-grid">
           <div class="kpi-global-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; color: white;">
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
               <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
@@ -341,6 +370,41 @@
               </div>
             </div>
           </div>
+          <div class="kpi-global-card" style="background: linear-gradient(135deg, #4f46e5 0%, #312e81 100%); border-radius: 12px; padding: 24px; color: white;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-mobile-alt" style="font-size: 24px;"></i>
+              </div>
+              <div>
+                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">Línea + Equipo</p>
+                <p style="margin: 0; font-size: 32px; font-weight: 700;" id="kpi-global-svc-equipo">-</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="kpi-global-card" style="background: linear-gradient(135deg, #0891b2 0%, #164e63 100%); border-radius: 12px; padding: 24px; color: white;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-sim-card" style="font-size: 24px;"></i>
+              </div>
+              <div>
+                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">eSIM Card</p>
+                <p style="margin: 0; font-size: 32px; font-weight: 700;" id="kpi-global-svc-esim">-</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="kpi-global-card" style="background: linear-gradient(135deg, #d97706 0%, #78350f 100%); border-radius: 12px; padding: 24px; color: white;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-stopwatch" style="font-size: 24px;"></i>
+              </div>
+              <div>
+                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">Wearable</p>
+                <p style="margin: 0; font-size: 32px; font-weight: 700;" id="kpi-global-svc-wearable">-</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Rendimiento por Agente -->
@@ -369,7 +433,7 @@
   <script src="/js/fetch-interceptor.js"></script>
   <script src="/js/logout-handler.js"></script>
   <script src="/js/user-info.js"></script>
-  <script src="/js/sidebar-loader.js?v=20260715a"></script>
+  <script src="/js/sidebar-loader.js?v=20260703"></script>
   <script src="/js/realtime.js"></script>
   <script>
     // Variables para instancias de Highcharts
@@ -447,6 +511,11 @@
             <div class="tstat"><span class="tstat-label">Pendientes</span><span class="tstat-val" id="${t.kpiPrefix}lineas-pendientes">-</span></div>
             <div class="tstat"><span class="tstat-label">Canceladas</span><span class="tstat-val tstat-red" id="${t.kpiPrefix}lineas-canceladas">-</span></div>
           </div>
+          <div class="team-svc-strip">
+            <div class="tstat"><span class="tstat-label">Línea + Equipo</span><span class="tstat-val tstat-indigo" id="${t.kpiPrefix}svc-equipo">-</span></div>
+            <div class="tstat"><span class="tstat-label">eSIM Card</span><span class="tstat-val tstat-cyan" id="${t.kpiPrefix}svc-esim">-</span></div>
+            <div class="tstat"><span class="tstat-label">Wearable</span><span class="tstat-val tstat-amber" id="${t.kpiPrefix}svc-wearable">-</span></div>
+          </div>
           <div class="team-chart-wrap">
             <div class="loading" id="${t.loadingId}"><div class="spinner"></div></div>
             <div id="${t.chartId}" class="team-chart"></div>
@@ -467,7 +536,8 @@
         try { window[t.chartId + 'Instance'].destroy(); } catch (_) {}
         window[t.chartId + 'Instance'] = null;
       }
-      ['ventas', 'ventas-lineas', 'activas', 'lineas-pendientes', 'lineas-canceladas'].forEach(suffix => {
+      ['ventas', 'ventas-lineas', 'activas', 'lineas-pendientes', 'lineas-canceladas',
+       'svc-equipo', 'svc-esim', 'svc-wearable'].forEach(suffix => {
         const el = document.getElementById(t.kpiPrefix + suffix);
         if (el) el.textContent = '0';
       });
@@ -616,30 +686,6 @@
       }
     }
 
-    // Datos mock iniciales (reemplazar con datos reales después)
-    const mockLeads = [
-      // Team Jonathan F
-      { id: '1', nombre_cliente: 'Cliente A', telefono_principal: '532-1234', supervisor: 'Jonathan F', nombre_agente: 'Agente 1', status: 'active', dia_venta: '2026-01-05', cantidad_lineas: 3 },
-      { id: '2', nombre_cliente: 'Cliente B', telefono_principal: '532-1235', supervisor: 'Jonathan F', nombre_agente: 'Agente 1', status: 'active', dia_venta: '2026-01-10', cantidad_lineas: 2 },
-      { id: '3', nombre_cliente: 'Cliente C', telefono_principal: '532-1236', supervisor: 'Jonathan F', nombre_agente: 'Agente 2', status: 'pending', dia_venta: '2026-01-15', cantidad_lineas: 1 },
-      { id: '4', nombre_cliente: 'Cliente D', telefono_principal: '532-1237', supervisor: 'Jonathan F', nombre_agente: 'Agente 2', status: 'active', dia_venta: '2026-01-20', cantidad_lineas: 2 },
-      { id: '5', nombre_cliente: 'Cliente E', telefono_principal: '532-1238', supervisor: 'Jonathan F', nombre_agente: 'Agente 3', status: 'complete', dia_venta: '2026-01-25', cantidad_lineas: 5 },
-      { id: '6', nombre_cliente: 'Cliente F', telefono_principal: '532-1239', supervisor: 'Jonathan F', nombre_agente: 'Agente 1', status: 'active', dia_venta: '2026-02-05', cantidad_lineas: 2 },
-      { id: '7', nombre_cliente: 'Cliente G', telefono_principal: '532-1240', supervisor: 'Jonathan F', nombre_agente: 'Agente 2', status: 'pending', dia_venta: '2026-02-10', cantidad_lineas: 1 },
-      { id: '8', nombre_cliente: 'Cliente H', telefono_principal: '532-1241', supervisor: 'Jonathan F', nombre_agente: 'Agente 3', status: 'complete', dia_venta: '2026-02-15', cantidad_lineas: 3 },
-      { id: '9', nombre_cliente: 'Cliente I', telefono_principal: '532-1242', supervisor: 'Jonathan F', nombre_agente: 'Agente 1', status: 'active', dia_venta: '2026-02-20', cantidad_lineas: 2 },
-
-      // Team Luis G
-      { id: '10', nombre_cliente: 'Cliente J', telefono_principal: '532-2001', supervisor: 'Luis G', nombre_agente: 'Agente 4', status: 'active', dia_venta: '2026-01-05', cantidad_lineas: 4 },
-      { id: '11', nombre_cliente: 'Cliente K', telefono_principal: '532-2002', supervisor: 'Luis G', nombre_agente: 'Agente 4', status: 'complete', dia_venta: '2026-01-10', cantidad_lineas: 3 },
-      { id: '12', nombre_cliente: 'Cliente L', telefono_principal: '532-2003', supervisor: 'Luis G', nombre_agente: 'Agente 5', status: 'pending', dia_venta: '2026-01-15', cantidad_lineas: 2 },
-      { id: '13', nombre_cliente: 'Cliente M', telefono_principal: '532-2004', supervisor: 'Luis G', nombre_agente: 'Agente 5', status: 'active', dia_venta: '2026-01-20', cantidad_lineas: 1 },
-      { id: '14', nombre_cliente: 'Cliente N', telefono_principal: '532-2005', supervisor: 'Luis G', nombre_agente: 'Agente 6', status: 'complete', dia_venta: '2026-01-25', cantidad_lineas: 5 },
-      { id: '15', nombre_cliente: 'Cliente O', telefono_principal: '532-2006', supervisor: 'Luis G', nombre_agente: 'Agente 4', status: 'active', dia_venta: '2026-02-05', cantidad_lineas: 2 },
-      { id: '16', nombre_cliente: 'Cliente P', telefono_principal: '532-2007', supervisor: 'Luis G', nombre_agente: 'Agente 5', status: 'pending', dia_venta: '2026-02-10', cantidad_lineas: 3 },
-      { id: '17', nombre_cliente: 'Cliente Q', telefono_principal: '532-2008', supervisor: 'Luis G', nombre_agente: 'Agente 6', status: 'complete', dia_venta: '2026-02-15', cantidad_lineas: 2 },
-    ];
-
     async function loadEstadisticas() {
       try {
         let allLeads = [];
@@ -653,16 +699,16 @@
             allLeads = Array.isArray(result.data) ? result.data : (result.leads || []);
           } else {
             console.warn('[loadEstadisticas] Error en respuesta:', response.status);
-            allLeads = mockLeads;
+            allLeads = [];  // sin datos falsos: si la API falla, no se muestra nada inventado
           }
         } catch (err) {
           console.warn('[loadEstadisticas] No se pudieron obtener datos reales, usando mock:', err.message);
-          allLeads = mockLeads;
+          allLeads = [];  // sin datos falsos: si la API falla, no se muestra nada inventado
         }
 
         // Si aun así no hay datos, usar mock
         if (!allLeads || allLeads.length === 0) {
-          allLeads = mockLeads;
+          allLeads = [];  // sin datos falsos: si la API falla, no se muestra nada inventado
         }
 
         // Filtrar por mes/rango seleccionado y deduplicar
@@ -739,6 +785,45 @@
       
       // Último recurso: retornar 1 por defecto
       return 1;
+    }
+
+    // ── Tipos de servicio por línea (LÍNEA + EQUIPO / ESIM CARD / WEARABLE) ──
+    // Acepta también los nombres antiguos (WIRELESS, SIM WIRELES, TABLETS, RELOJ)
+    // por si queda algún dato sin migrar.
+    function __svcTipo(v) {
+      const s = String(v || '').toUpperCase();
+      if (!s) return '';
+      if (s.includes('EQUIPO') || s.includes('WIRELESS')) return 'equipo';
+      if (s.includes('ESIM') || s.includes('SIM WIRELES')) return 'esim';
+      if (s.includes('WEARABLE') || s.includes('TABLET') || s.includes('RELOJ')) return 'wearable';
+      return '';
+    }
+
+    // Servicio de cada línea del lead: preferir lines_data (por línea); fallback servicios[].
+    function __getLineServices(lead) {
+      try {
+        let ld = lead?.lines_data;
+        if (ld && typeof ld === 'object' && !Array.isArray(ld)) ld = Object.values(ld);
+        if (Array.isArray(ld) && ld.length) {
+          const vals = ld.map(x => (x && typeof x === 'object') ? (x.servicio || x.svc || '') : '');
+          if (vals.some(Boolean)) return vals;
+        }
+        const sv = lead?.servicios;
+        if (Array.isArray(sv) && sv.length) return sv;
+      } catch (_) {}
+      return [];
+    }
+
+    // Suma las líneas de `leads` por tipo de servicio → {equipo, esim, wearable}.
+    function __countServiceTypes(leads) {
+      const acc = { equipo: 0, esim: 0, wearable: 0 };
+      (leads || []).forEach(lead => {
+        __getLineServices(lead).forEach(v => {
+          const t = __svcTipo(v);
+          if (t) acc[t]++;
+        });
+      });
+      return acc;
     }
 
     function __getLineStatus(lead, idx) {
@@ -825,6 +910,15 @@
       document.getElementById('kpi-global-lineas-pendientes').textContent = totalLineasPendientes;
       document.getElementById('kpi-global-lineas-canceladas').textContent = totalLineasCanceladas;
       document.getElementById('kpi-global-ventas-lineas').textContent = totalVentasLineas;
+
+      // KPIs globales por tipo de servicio
+      const svcGlobal = __countServiceTypes(allLeads);
+      const gEquipo = document.getElementById('kpi-global-svc-equipo');
+      const gEsim = document.getElementById('kpi-global-svc-esim');
+      const gWear = document.getElementById('kpi-global-svc-wearable');
+      if (gEquipo) gEquipo.textContent = svcGlobal.equipo;
+      if (gEsim) gEsim.textContent = svcGlobal.esim;
+      if (gWear) gWear.textContent = svcGlobal.wearable;
       
     }
 
@@ -845,7 +939,7 @@
       // Sembrar TODOS los agentes del team (página de permisos) en 0,
       // para que aparezcan en la gráfica aunque no tengan ventas este mes.
       roster.forEach(name => {
-        if (name && !agentData[name]) agentData[name] = { ventas: 0, lineas: 0 };
+        if (name && !agentData[name]) agentData[name] = { ventas: 0, lineas: 0, equipo: 0, esim: 0, wearable: 0 };
       });
 
 
@@ -876,7 +970,10 @@
         if (!agentData[agente]) {
           agentData[agente] = {
             ventas: 0,
-            lineas: 0
+            lineas: 0,
+            equipo: 0,
+            esim: 0,
+            wearable: 0
           };
         }
 
@@ -885,6 +982,12 @@
 
         // Sumar líneas usando la misma lógica que los KPI
         agentData[agente].lineas += __getLineCount(lead);
+
+        // Sumar líneas por tipo de servicio (misma lógica que los KPI de servicio)
+        __getLineServices(lead).forEach(v => {
+          const t = __svcTipo(v);
+          if (t) agentData[agente][t]++;
+        });
       });
       
       
@@ -959,10 +1062,22 @@
       document.getElementById(kpiPrefix + 'lineas-canceladas').textContent = canceladas;
       document.getElementById(kpiPrefix + 'ventas-lineas').textContent = ventasLineas;
 
+      // KPIs por tipo de servicio (no tocan Clientes/Líneas: conteo independiente)
+      const svc = __countServiceTypes(leads);
+      const svcEquipoEl = document.getElementById(kpiPrefix + 'svc-equipo');
+      const svcEsimEl = document.getElementById(kpiPrefix + 'svc-esim');
+      const svcWearEl = document.getElementById(kpiPrefix + 'svc-wearable');
+      if (svcEquipoEl) svcEquipoEl.textContent = svc.equipo;
+      if (svcEsimEl) svcEsimEl.textContent = svc.esim;
+      if (svcWearEl) svcWearEl.textContent = svc.wearable;
+
       // Preparar datos para gráfica de barras
       const agentes = Object.keys(agentData).sort();
       const ventasData = agentes.map(a => agentData[a].ventas);
       const lineasData = agentes.map(a => agentData[a].lineas);
+      const equipoData = agentes.map(a => agentData[a].equipo || 0);
+      const esimData = agentes.map(a => agentData[a].esim || 0);
+      const wearableData = agentes.map(a => agentData[a].wearable || 0);
 
 
       // Renderizar gráfica con Highcharts 3D
@@ -1026,6 +1141,10 @@
         },
         plotOptions: {
           column: {
+            // Cada serie con su propio `stack`: Ventas y Líneas quedan como columnas
+            // sueltas (igual que antes) y los 3 tipos de servicio se apilan en una
+            // tercera columna cuya altura total ≈ Líneas del agente.
+            stacking: 'normal',
             depth: 70,
             dataLabels: {
               enabled: true,
@@ -1056,6 +1175,7 @@
           {
             name: 'Ventas',
             data: ventasData,
+            stack: 'ventas',
             color: {
               linearGradient: { x1: 0, x2: 0, y1: 0, y2: 1 },
               stops: [
@@ -1068,6 +1188,7 @@
           {
             name: 'Líneas',
             data: lineasData,
+            stack: 'lineas',
             color: {
               linearGradient: { x1: 0, x2: 0, y1: 0, y2: 1 },
               stops: [
@@ -1076,6 +1197,29 @@
                 [1, '#059669']
               ]
             }
+          },
+          // Columna apilada de tipos de servicio (por agente). Sin etiquetas por
+          // segmento para no saturar: los valores se ven en el tooltip.
+          {
+            name: 'Línea + Equipo',
+            data: equipoData,
+            stack: 'servicios',
+            color: '#8b5cf6',
+            dataLabels: { enabled: false }
+          },
+          {
+            name: 'eSIM',
+            data: esimData,
+            stack: 'servicios',
+            color: '#22d3ee',
+            dataLabels: { enabled: false }
+          },
+          {
+            name: 'Wearable',
+            data: wearableData,
+            stack: 'servicios',
+            color: '#fbbf24',
+            dataLabels: { enabled: false }
           }
         ]
       });

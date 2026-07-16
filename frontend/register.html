@@ -346,97 +346,7 @@
       border-bottom: 1px solid #e9ecef;
     }
 
-    /* Estilos específicos por team con iconos y colores */
-    select.form-control option[value*="IRANIA"] {
-      background: linear-gradient(135deg, rgba(255, 107, 107, 0.15), rgba(255, 107, 107, 0.05));
-      border-left: 4px solid #ff6b6b;
-      color: #d63031;
-    }
-
-    select.form-control option[value*="BRYAN"] {
-      background: linear-gradient(135deg, rgba(54, 215, 183, 0.15), rgba(54, 215, 183, 0.05));
-      border-left: 4px solid #36d7b7;
-      color: #00b894;
-    }
-
-    select.form-control option[value*="MARISOL"] {
-      background: linear-gradient(135deg, rgba(255, 159, 67, 0.15), rgba(255, 159, 67, 0.05));
-      border-left: 4px solid #ff9f43;
-      color: #e17055;
-    }
-
-    select.form-control option[value*="ROBERTO"] {
-      background: linear-gradient(135deg, rgba(123, 104, 238, 0.15), rgba(123, 104, 238, 0.05));
-      border-left: 4px solid #7b68ee;
-      color: #6c5ce7;
-    }
-
-    select.form-control option[value*="RANDAL"] {
-      background: linear-gradient(135deg, rgba(255, 71, 87, 0.15), rgba(255, 71, 87, 0.05));
-      border-left: 4px solid #ff4757;
-      color: #e84393;
-    }
-
-    select.form-control option[value*="LINEAS"] {
-      background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(102, 126, 234, 0.05));
-      border-left: 4px solid #667eea;
-      color: var(--primary);
-      font-weight: 700;
-    }
-
-    select.form-control option[value="Backoffice"] {
-      background: linear-gradient(135deg, rgba(108, 92, 231, 0.15), rgba(108, 92, 231, 0.05));
-      border-left: 4px solid #6c5ce7;
-      color: #6c5ce7;
-    }
-
-    select.form-control option[value="Administración"] {
-      background: linear-gradient(135deg, rgba(255, 193, 7, 0.15), rgba(255, 193, 7, 0.05));
-      border-left: 4px solid #ffc107;
-      color: #f39c12;
-      font-weight: 700;
-    }
-
-    /* Efectos hover específicos por team */
-    select.form-control option[value*="IRANIA"]:hover {
-      background: linear-gradient(135deg, rgba(255, 107, 107, 0.25), rgba(255, 107, 107, 0.1));
-      color: #d63031;
-    }
-
-    select.form-control option[value*="BRYAN"]:hover {
-      background: linear-gradient(135deg, rgba(54, 215, 183, 0.25), rgba(54, 215, 183, 0.1));
-      color: #00b894;
-    }
-
-    select.form-control option[value*="MARISOL"]:hover {
-      background: linear-gradient(135deg, rgba(255, 159, 67, 0.25), rgba(255, 159, 67, 0.1));
-      color: #e17055;
-    }
-
-    select.form-control option[value*="ROBERTO"]:hover {
-      background: linear-gradient(135deg, rgba(123, 104, 238, 0.25), rgba(123, 104, 238, 0.1));
-      color: #6c5ce7;
-    }
-
-    select.form-control option[value*="RANDAL"]:hover {
-      background: linear-gradient(135deg, rgba(255, 71, 87, 0.25), rgba(255, 71, 87, 0.1));
-      color: #e84393;
-    }
-
-    select.form-control option[value*="LINEAS"]:hover {
-      background: linear-gradient(135deg, rgba(102, 126, 234, 0.25), rgba(102, 126, 234, 0.1));
-      color: var(--primary);
-    }
-
-    select.form-control option[value="Backoffice"]:hover {
-      background: linear-gradient(135deg, rgba(108, 92, 231, 0.25), rgba(108, 92, 231, 0.1));
-      color: #6c5ce7;
-    }
-
-    select.form-control option[value="Administración"]:hover {
-      background: linear-gradient(135deg, rgba(255, 193, 7, 0.25), rgba(255, 193, 7, 0.1));
-      color: #f39c12;
-    }
+    /* (colores por-equipo removidos: los equipos vienen de /api/teams, sin nombres hardcodeados) */
 
     /* Efectos adicionales para el selector */
     select.form-control:focus {
@@ -1033,7 +943,7 @@
 
   <script src="js/auth-logout.js"></script>
   <script src="js/user-info-updater.js"></script>
-  <script src="js/sidebar-loader.js?v=20260715a"></script>
+  <script src="js/sidebar-loader.js?v=20260703"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       const registerForm = document.getElementById('registerForm');
@@ -1064,21 +974,8 @@
         teamsToShow.forEach(team => {
           const option = document.createElement('option');
           option.value = team.value;
-
-          // Agregar iconos/emojis por team (case-insensitive)
-          const tv = String(team.value || '');
-          const tu = tv.toUpperCase();
-          let icon = '';
-          if (tu.includes('IRANIA')) icon = '🔴 ';
-          else if (tu.includes('BRYAN')) icon = '🟢 ';
-          else if (tu.includes('MARISOL')) icon = '🟠 ';
-          else if (tu.includes('ROBERTO')) icon = '🟣 ';
-          else if (tu.includes('RANDAL')) icon = '🔴 ';
-          else if (tu.includes('LINEAS')) icon = '📞 ';
-          else if (tv === 'Backoffice') icon = '💼 ';
-          else if (tv === 'Administración') icon = '⚙️ ';
-
-          option.textContent = icon + team.label;
+          // Sin emojis por nombre de equipo hardcodeado: se muestra el label tal cual.
+          option.textContent = team.label;
           option.dataset.supervisor = team.supervisor || '';
           option.dataset.supervisorName = team.supervisorName || '';
           teamSelect.appendChild(option);

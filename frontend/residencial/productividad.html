@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Productividad — Ventas por Semana</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/sidebar-shared.css?v=20260606f"/>
+  <link rel="stylesheet" href="/css/sidebar-modern.css?v=20260609b"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root{
+      --pf-ink:#f1f5f9; --pf-ink2:#cbd5e1; --pf-ink3:#94a3b8;
+      --pf-line:rgba(255,255,255,.10); --pf-surface:rgba(255,255,255,.03);
+      --pf-head:#2f5fd0; --pf-head2:#1e40af; --pf-accent:#0ea5e9;
+      --pf-ok:#16a34a; --pf-zebra:rgba(255,255,255,.015);
+    }
+    /* Fondo propio para que NO dependa del perfil/tema (algunos perfiles cargan
+       glass-cards.css que fuerza body a transparent → se veía blanco).
+       Capa fija por detrás de todo, igual que estadisticas.html. */
+    html,body{height:100%;margin:0;font-family:'Outfit',sans-serif;-webkit-font-smoothing:antialiased}
+    body{background:#0a1628;color:var(--pf-ink)}
+    body::before{
+      content:'';position:fixed;inset:0;z-index:-1;
+      background:linear-gradient(160deg,#0b1a33 0%,#0a1628 55%,#080f1f 100%);
+    }
+    .layout{display:flex;min-height:100vh;position:relative;z-index:1}
+    .sidebar{flex:0 0 auto}
+    .main-content{flex:1;min-width:0;font-family:'Outfit',sans-serif;background:transparent !important;color:var(--pf-ink);position:relative;z-index:1}
+    .main-content .pf-page{color:var(--pf-ink)}
+    .pf-page{padding:20px 24px 60px;max-width:1200px;margin:0 auto}
+    .pf-header{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+    .pf-title{font-size:1.4rem;font-weight:800;color:var(--pf-ink);display:flex;align-items:center;gap:10px}
+    .pf-title i{color:var(--pf-accent)}
+    .pf-sub{font-size:.8rem;color:var(--pf-ink3);margin-top:2px}
+    .wk-ctrl{display:flex;align-items:center;gap:8px}
+    .wk-btn{background:var(--pf-surface);border:1px solid var(--pf-line);color:var(--pf-ink2);width:34px;height:34px;border-radius:9px;cursor:pointer;font-size:.9rem;display:flex;align-items:center;justify-content:center;transition:all .12s}
+    .wk-btn:hover{background:rgba(255,255,255,.08);color:var(--pf-ink)}
+    .wk-pill{background:var(--pf-surface);border:1px solid var(--pf-line);border-radius:9px;padding:7px 14px;font-size:.82rem;font-weight:700;color:var(--pf-ink);min-width:190px;text-align:center}
+    .wk-today{font-size:.72rem;font-weight:700;color:var(--pf-ink3);background:rgba(255,255,255,.05);border:1px solid var(--pf-line);border-radius:8px;padding:6px 11px;cursor:pointer}
+    .wk-today:hover{color:var(--pf-ink)}
+    .wk-mode{font-size:.72rem;font-weight:700;color:var(--pf-ink2);background:rgba(14,165,233,.10);border:1px solid rgba(14,165,233,.35);border-radius:8px;padding:6px 12px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .12s}
+    .wk-mode:hover{background:rgba(14,165,233,.18);color:var(--pf-ink)}
+    .wk-mode.active{background:var(--pf-accent);border-color:var(--pf-accent);color:#04121f}
+
+    .pf-team{margin-bottom:22px;border:1px solid var(--pf-line);border-radius:12px;overflow:hidden}
+    /* Animación de entrada escalonada — igual que formulario-registro.html */
+    @keyframes fsu { from{opacity:0;transform:translateY(44px)} to{opacity:1;transform:translateY(0)} }
+    .fsu    { opacity:0; animation:fsu 1.8s cubic-bezier(.16,1,.3,1) forwards; animation-play-state:paused; }
+    .fsu.go { animation-play-state:running; }
+    @media (prefers-reduced-motion: reduce){ .fsu{opacity:1;animation:none} }
+    table.pf-tbl{width:100%;border-collapse:collapse;font-size:.82rem}
+    table.pf-tbl th, table.pf-tbl td{border:1px solid var(--pf-line);padding:0}
+    .pf-tbl thead th{background:linear-gradient(180deg,var(--pf-head),var(--pf-head2));color:#fff;font-weight:800;text-align:center;height:34px;letter-spacing:.02em}
+    .pf-tbl thead th.pf-teamcell{text-align:left;padding-left:14px;font-size:.86rem;text-transform:uppercase;letter-spacing:.05em;min-width:220px}
+    .pf-tbl thead th.pf-day{width:56px}
+    .pf-tbl tbody td{height:34px}
+    .pf-tbl tbody td.pf-agent{padding:0 12px;color:var(--pf-ink);font-weight:600;white-space:nowrap;text-align:left}
+    .pf-tbl tbody td.pf-cell{text-align:center;font-size:.95rem}
+    .pf-tbl tbody tr:nth-child(even){background:var(--pf-zebra)}
+    .pf-tbl tbody tr:hover{background:rgba(255,255,255,.04)}
+    .pf-ok{color:var(--pf-ok);font-weight:900}
+    .pf-num{color:var(--pf-accent);font-weight:800}
+    .pf-tbl thead th.pf-tot{width:60px;background:linear-gradient(180deg,#1e3a8a,#172554)}
+    .pf-tbl tbody td.pf-totcell{font-weight:800;color:var(--pf-ink);background:rgba(255,255,255,.03)}
+    .pf-tbl tfoot tr.pf-foot{background:rgba(47,95,208,.14)}
+    .pf-tbl tfoot tr.pf-foot td{height:34px;font-weight:800;color:var(--pf-ink);border-top:2px solid rgba(47,95,208,.5)}
+    .pf-tbl tfoot tr.pf-foot td.pf-agent{text-transform:uppercase;letter-spacing:.04em;font-size:.78rem}
+    .pf-tbl tfoot tr.pf-foot td.pf-cell{text-align:center}
+    .pf-tbl tfoot tr.pf-foot td.pf-grand{background:rgba(47,95,208,.28);color:#fff}
+    .pf-team-empty{padding:14px;color:var(--pf-ink3);font-style:italic;font-size:.8rem}
+    .pf-loading{text-align:center;color:var(--pf-ink3);padding:60px 0;font-size:.9rem}
+    .pf-section-label{font-size:.68rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--pf-ink3);margin:20px 0 8px 2px;display:flex;align-items:center;gap:8px}
+    .pf-section-label::after{content:'';flex:1;height:1px;background:var(--pf-line)}
+  </style>
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar sidebar-inicio" data-active="productividad"></nav>
+  <main class="main-content">
+    <div class="pf-page">
+      <div class="pf-header">
+        <div>
+          <div class="pf-title"><i class="fas fa-gauge-high"></i> Productividad</div>
+          <div class="pf-sub">Ventas por agente y día — Residencial y Líneas</div>
+        </div>
+        <div class="wk-ctrl">
+          <button class="wk-btn" id="wk-prev" title="Semana anterior">◀</button>
+          <div class="wk-pill" id="wk-label">— —</div>
+          <button class="wk-btn" id="wk-next" title="Semana siguiente">▶</button>
+          <button class="wk-today" id="wk-cur">Esta semana</button>
+          <button class="wk-mode" id="wk-mode" title="Alternar entre check y número de ventas"><i class="fas fa-hashtag"></i> Ver N° de ventas</button>
+        </div>
+      </div>
+      <div id="pf-content"><div class="pf-loading">Cargando…</div></div>
+    </div>
+  </main>
+</div>
+
+<script src="/js/fetch-interceptor.js" defer></script>
+<script src="/js/logout-handler.js" defer></script>
+<script src="/js/user-info.js?v=20260703" defer></script>
+<script src="/js/sidebar-loader.js?v=20260703" defer></script>
+<script src="/js/realtime.js" defer></script>
+<script>
+(function(){
+  'use strict';
+  var C = { credentials:'include' };
+  var DIAS = ['L','M','M','J','V','S','D'];
+  var MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+
+  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function isAgent(role){ var r=String(role||'').toLowerCase(); return r.includes('agente')||r.includes('vendedor')||r.includes('agent'); }
+  function normName(s){ return String(s||'').replace(/[._]+/g,' ').replace(/\s+/g,' ').trim().toLowerCase(); }
+  function ymd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function mondayOf(date){ var d=new Date(date); d.setHours(0,0,0,0); var wd=(d.getDay()+6)%7; d.setDate(d.getDate()-wd); return d; }
+  async function jget(u){ try{ var r=await fetch(u,C); return r.ok?await r.json():null; }catch(e){ return null; } }
+
+  var _teams=[], _agentsByTeam={}, _sold={}, _weekMonday=mondayOf(new Date());
+  var _mode='check';   // 'check' = ✅ ·  'num' = cantidad de ventas
+
+  function addSale(agente, dateStr, n){
+    var d=String(dateStr||'').slice(0,10);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+    var k=normName(agente); if(!k) return;
+    var m=(_sold[k]||(_sold[k]=Object.create(null)));
+    m[d]=(m[d]||0)+(n||1);
+  }
+  function agentCountOn(user, day){
+    var k1=normName(user.name), k2=normName(user.username);
+    return ((_sold[k1]&&_sold[k1][day])||0) + (k2!==k1?((_sold[k2]&&_sold[k2][day])||0):0);
+  }
+
+  // Equipos + agentes: cambian poco, se cargan una sola vez.
+  async function loadStatic(){
+    var results = await Promise.all([
+      jget('/api/teams?sales=1'),     // equipos de venta (resi + líneas)
+      jget('/api/users/agents')       // agentes (todos)
+    ]);
+    var teamsR=results[0], agentsR=results[1];
+
+    _teams = ((teamsR&&teamsR.teams)||[]).slice().sort(function(a,b){
+      var sa=(a.seccion==='lineas')?1:0, sb=(b.seccion==='lineas')?1:0;
+      if(sa!==sb) return sa-sb;
+      return String(a.value||a).localeCompare(String(b.value||b));
+    });
+
+    _agentsByTeam={};
+    ((agentsR&&agentsR.agents)||[]).forEach(function(u){
+      if(!isAgent(u.role)) return;
+      var t=String(u.team||'').trim(); if(!t) return;
+      (_agentsByTeam[t.toUpperCase()]||(_agentsByTeam[t.toUpperCase()]=[])).push(u);
+    });
+  }
+
+  // Ventas de la semana visible: agregado liviano (solo conteos por agente/día).
+  async function loadWeek(){
+    var days=weekDates();
+    var res = await jget('/api/productividad?start='+days[0]+'&end='+days[6]);
+    _sold={};
+    if(res){
+      (res.residencial||[]).forEach(function(r){ addSale(r.agente, r.dia, r.n); });
+      (res.lineas||[]).forEach(function(r){ addSale(r.agente, r.dia, r.n); });
+    }
+  }
+
+  function weekDates(){
+    var arr=[]; for(var i=0;i<7;i++){ var d=new Date(_weekMonday); d.setDate(d.getDate()+i); arr.push(ymd(d)); } return arr;
+  }
+  function fmtRange(){
+    var end=new Date(_weekMonday); end.setDate(end.getDate()+6);
+    return _weekMonday.getDate()+' '+MESES[_weekMonday.getMonth()]+' – '+end.getDate()+' '+MESES[end.getMonth()]+' '+end.getFullYear();
+  }
+
+  function teamTable(team, animate){
+    var name = team.value||team;
+    var agents = (_agentsByTeam[String(name).toUpperCase()]||[]).slice().sort(function(a,b){
+      return String(a.name||a.username||'').localeCompare(String(b.name||b.username||''));
+    });
+    var days = weekDates();
+    var head = '<tr><th class="pf-teamcell">'+esc(name)+'</th>'+
+      DIAS.map(function(d){return '<th class="pf-day">'+d+'</th>';}).join('')+
+      '<th class="pf-tot">Total</th></tr>';
+    var body, foot='';
+    if(!agents.length){
+      body = '<tr><td class="pf-team-empty" colspan="9">Sin agentes asignados</td></tr>';
+    } else {
+      var dayTot=days.map(function(){return 0;}), grand=0;
+      body = agents.map(function(a){
+        var nm=a.name||a.username||'', total=0;
+        var cells=days.map(function(day,i){
+          var n=agentCountOn(a,day); total+=n; dayTot[i]+=n;
+          var content = !n ? '' : (_mode==='num'
+            ? '<span class="pf-num">'+n+'</span>'
+            : '<span class="pf-ok">✔</span>');
+          return '<td class="pf-cell">'+content+'</td>';
+        }).join('');
+        grand+=total;
+        return '<tr><td class="pf-agent">'+esc(nm)+'</td>'+cells+
+          '<td class="pf-cell pf-totcell">'+(total||'')+'</td></tr>';
+      }).join('');
+      foot = '<tr class="pf-foot"><td class="pf-agent">Total</td>'+
+        dayTot.map(function(v){return '<td class="pf-cell">'+(v||'')+'</td>';}).join('')+
+        '<td class="pf-cell pf-grand">'+(grand||'')+'</td></tr>';
+    }
+    return '<div class="pf-team'+(animate?' fsu':'')+'"><table class="pf-tbl"><thead>'+head+'</thead><tbody>'+body+'</tbody>'+
+      (foot?'<tfoot>'+foot+'</tfoot>':'')+'</table></div>';
+  }
+
+  function render(animate){
+    document.getElementById('wk-label').textContent = fmtRange();
+    var box=document.getElementById('pf-content');
+    if(!_teams.length){ box.innerHTML='<div class="pf-loading">No hay equipos de venta.</div>'; return; }
+    var resi=_teams.filter(function(t){return t.seccion!=='lineas';});
+    var lin =_teams.filter(function(t){return t.seccion==='lineas';});
+    var tt=function(t){return teamTable(t,animate);};
+    var html='';
+    if(resi.length){ html+='<div class="pf-section-label">Residencial</div>'+resi.map(tt).join(''); }
+    if(lin.length){ html+='<div class="pf-section-label">Líneas Móviles</div>'+lin.map(tt).join(''); }
+    box.innerHTML=html;
+    if(animate){
+      box.querySelectorAll('.fsu').forEach(function(el,i){
+        setTimeout(function(){ el.classList.add('go'); }, i*140);
+      });
+    }
+  }
+
+  async function gotoWeek(){ render(false); await loadWeek(); render(true); }
+  document.getElementById('wk-prev').addEventListener('click',function(){ _weekMonday.setDate(_weekMonday.getDate()-7); gotoWeek(); });
+  document.getElementById('wk-next').addEventListener('click',function(){ _weekMonday.setDate(_weekMonday.getDate()+7); gotoWeek(); });
+  document.getElementById('wk-cur').addEventListener('click',function(){ _weekMonday=mondayOf(new Date()); gotoWeek(); });
+  document.getElementById('wk-mode').addEventListener('click',function(){
+    _mode = (_mode==='num') ? 'check' : 'num';
+    this.innerHTML = (_mode==='num')
+      ? '<i class="fas fa-check"></i> Ver checks'
+      : '<i class="fas fa-hashtag"></i> Ver N° de ventas';
+    this.classList.toggle('active', _mode==='num');
+    render();
+  });
+
+  async function bgRefresh(){ await loadWeek(); render(false); }
+
+  document.addEventListener('DOMContentLoaded', async function(){
+    await Promise.all([loadStatic(), loadWeek()]);  // en paralelo: no dependen entre sí
+    render(true);
+    // Tiempo real: al cargarse una venta (residencial o líneas) se re-consulta la
+    // semana visible y el ✅/número aparece solo, sin recargar la página.
+    if(window.CRMRealtime && CRMRealtime.connect){
+      CRMRealtime.connect('residencial', bgRefresh);
+      CRMRealtime.connect('lineas', bgRefresh);
+    }
+    // Respaldo: refresco periódico por si el canal en vivo se cae.
+    setInterval(bgRefresh, 90000);
+  });
+})();
+</script>
+</body>
+</html>

@@ -74,11 +74,15 @@ async function loadRankingData() {
       // Contar líneas totales
       agentMap[agentName].lineasTotal += cantidadLineas;
 
-      // Determinar si es Wireless o Sin Wireless basado en servicios/status
+      // Determinar si es Wireless o Sin Wireless basado en servicios/status.
+      // 'LINEA + EQUIPO' es el nombre nuevo de 'WIRELESS' (datos antiguos conservan el valor viejo).
       const servicios = lead.servicios || [];
-      const isWireless = servicios.some(s =>
-        s && String(s).toLowerCase().includes('wireless')
-      ) || status.includes('wireless');
+      const _esWireless = v => {
+        const t = String(v || '').toLowerCase();
+        return t.includes('wireless') || t.includes('linea + equipo');
+      };
+      const isWireless = servicios.some(s => s && _esWireless(s)) ||
+        _esWireless(status);
 
       if (isWireless) {
         agentMap[agentName].lineasWireless += cantidadLineas;

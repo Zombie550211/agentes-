@@ -176,7 +176,7 @@
     }
 
     /* ── Circular line number buttons ── */
-    .ll-line-nums { display: flex; gap: 12px; margin-top: 4px; }
+    .ll-line-nums { display: flex; gap: 12px; margin-top: 4px; flex-wrap: wrap; }
     .ll-num-btn {
       width: 46px;
       height: 46px;
@@ -372,6 +372,11 @@
                 <div class="ll-num-btn" data-num="3">3</div>
                 <div class="ll-num-btn" data-num="4">4</div>
                 <div class="ll-num-btn" data-num="5">5</div>
+                <div class="ll-num-btn" data-num="6">6</div>
+                <div class="ll-num-btn" data-num="7">7</div>
+                <div class="ll-num-btn" data-num="8">8</div>
+                <div class="ll-num-btn" data-num="9">9</div>
+                <div class="ll-num-btn" data-num="10">10</div>
               </div>
             </div>
             <div id="linesContainer"></div>
@@ -456,7 +461,7 @@
   <script src="/js/fetch-interceptor.js"></script>
   <script src="/js/logout-handler.js"></script>
   <script src="/js/user-info.js"></script>
-  <script src="/js/sidebar-loader.js?v=20260715a"></script>
+  <script src="/js/sidebar-loader.js?v=20260703"></script>
 
   <script>
     /* ── Imagen del Lead ── */
@@ -598,9 +603,15 @@
     }
 
     function buildSvcOptions(selected) {
-      var opts = ['WIRELESS','SIM WIRELES','TABLETS','RELOJ'];
+      // Valores guardados en BD sin acentos (consistencia con filtros/consultas).
+      // WEARABLE agrupa lo que antes eran TABLETS y RELOJ (tablets, smartwatch, otros).
+      var opts = [
+        { v: 'LINEA + EQUIPO', t: 'LÍNEA + EQUIPO' },
+        { v: 'ESIM CARD',      t: 'ESIM CARD' },
+        { v: 'WEARABLE',       t: 'WEARABLE (TABLETS / SMARTWATCH / OTROS)' }
+      ];
       return opts.map(function(o){
-        return '<option value="' + o + '"' + (selected === o ? ' selected' : '') + '>' + o + '</option>';
+        return '<option value="' + o.v + '"' + (selected === o.v ? ' selected' : '') + '>' + o.t + '</option>';
       }).join('');
     }
 
@@ -608,14 +619,14 @@
       var n = getCantidadLineas();
       var container = document.getElementById('linesContainer');
       var saved = {};
-      for (var i = 1; i <= 5; i++) {
+      for (var i = 1; i <= 10; i++) {
         var telEl = document.getElementById('tel_' + i);
         var svcEl = document.getElementById('svc_' + i);
-        if (telEl) saved[i] = { tel: telEl.value, svc: svcEl ? svcEl.value : 'WIRELESS' };
+        if (telEl) saved[i] = { tel: telEl.value, svc: svcEl ? svcEl.value : 'LINEA + EQUIPO' };
       }
       container.innerHTML = '';
       for (var i = 1; i <= n; i++) {
-        var val = saved[i] || { tel: '', svc: 'WIRELESS' };
+        var val = saved[i] || { tel: '', svc: 'LINEA + EQUIPO' };
         var div = document.createElement('div');
         div.className = 'll-line-block open';
         div.innerHTML =
@@ -738,7 +749,7 @@
 
         for (var i = 1; i <= n; i++) {
           var v = _cleanTel(document.getElementById('tel_'+i).value);
-          var s = (document.getElementById('svc_'+i)||{}).value || 'WIRELESS';
+          var s = (document.getElementById('svc_'+i)||{}).value || 'LINEA + EQUIPO';
           telefonos.push(v);
           servicios.push(s);
           lines.push({ telefono: v, servicio: s, estado: defaultLineStatus });

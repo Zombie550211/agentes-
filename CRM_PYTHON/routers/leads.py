@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
-from deps import current_user, require_roles
+from deps import current_user, require_roles, team_seccion
 from datetime import datetime, timezone
 from typing import Optional, List, Any
 import re, unicodedata, time, json, calendar, traceback, asyncio, os
 from geocoder import geocode_and_save
+from scoring import score_for
 import realtime
 
 
@@ -155,6 +156,8 @@ async def leads_bootstrap(
     noAutoMonth: Optional[str] = Query(None),
     allData:     Optional[str] = Query(None),
     stats:       Optional[str] = Query(None),
+    seccion:     Optional[str] = Query(None),   # 'residencial' | 'lineas' — filtra la lista de teams
+    salesTeams:  Optional[str] = Query(None),   # '1' → solo equipos con supervisor (venta)
     limit:       int           = Query(5000),
     user: dict = Depends(current_user),
 ):
@@ -225,9 +228,24 @@ async def leads_bootstrap(
             return [_ser(row) for row in r.mappings().all()], total_mes
 
     async def _get_teams():
+        only_sales = str(salesTeams or "").strip().lower() in ("1", "true", "yes")
         async with AsyncSessionLocal() as s:
-            r = await s.execute(text("SELECT DISTINCT team FROM users WHERE team IS NOT NULL AND team != '' ORDER BY team"))
-            return [row["team"] for row in r.mappings().all()]
+            if only_sales:
+                # Solo equipos de VENTA (con al menos un supervisor): excluye
+                # Administración, Backoffice, TEAM BAMO/ICON, etc.
+                r = await s.execute(text("""
+                    SELECT TRIM(team) AS team FROM users
+                    WHERE team IS NOT NULL AND TRIM(team) != ''
+                    GROUP BY TRIM(team) HAVING SUM(LOWER(role) LIKE '%supervisor%') > 0
+                    ORDER BY team
+                """))
+            else:
+                r = await s.execute(text("SELECT DISTINCT team FROM users WHERE team IS NOT NULL AND team != '' ORDER BY team"))
+            teams = [row["team"] for row in r.mappings().all()]
+        sec = str(seccion or "").strip().lower()
+        if sec:
+            teams = [t for t in teams if team_seccion(t) == sec]
+        return teams
 
     async def _get_agents():
         async with AsyncSessionLocal() as s:
@@ -405,6 +423,41 @@ async def leads_kpis(
     return {"success": True, "data": kpi}
 
 
+# ── GET /api/productividad ────────────────────────────────────────
+# Devuelve SOLO conteos por agente y día (residencial + líneas) en un rango.
+# Payload liviano (unos KB) para que la página de Productividad cargue al instante,
+# en vez de bajar todos los leads/registros completos.
+@router.get("/api/productividad")
+async def productividad(
+    start: str = Query(..., description="YYYY-MM-DD inicio inclusive"),
+    end:   str = Query(..., description="YYYY-MM-DD fin inclusive"),
+    user: dict = Depends(current_user),
+):
+    if not (re.match(r"^\d{4}-\d{2}-\d{2}$", start or "") and re.match(r"^\d{4}-\d{2}-\d{2}$", end or "")):
+        return {"success": False, "error": "rango inválido", "residencial": [], "lineas": []}
+
+    agg_sql = """
+        SELECT COALESCE(agente_nombre, agente) AS agente,
+               DATE(dia_venta) AS dia,
+               COUNT(*) AS n
+        FROM {table}
+        WHERE dia_venta BETWEEN :s AND :e
+          AND COALESCE(agente_nombre, agente) IS NOT NULL
+          AND TRIM(COALESCE(agente_nombre, agente)) <> ''
+        GROUP BY COALESCE(agente_nombre, agente), DATE(dia_venta)
+    """
+    def _pack(rows):
+        return [{"agente": r["agente"], "dia": str(r["dia"]), "n": int(r["n"])} for r in rows]
+
+    async with AsyncSessionLocal() as s:
+        r1 = await s.execute(text(agg_sql.format(table="leads")),           {"s": start, "e": end})
+        resi = _pack(r1.mappings().all())
+        r2 = await s.execute(text(agg_sql.format(table="lineas_clientes")), {"s": start, "e": end})
+        lin  = _pack(r2.mappings().all())
+
+    return {"success": True, "residencial": resi, "lineas": lin}
+
+
 # ── POST /api/leads ───────────────────────────────────────────────
 class LeadCreateBody(BaseModel):
     nombre_cliente:     str = ""
@@ -474,11 +527,15 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
         body.servicios if isinstance(body.servicios, list) else ([body.servicios] if body.servicios else [])
     )
     try:
-        puntaje_val = float(body.puntaje) if body.puntaje else 0.0
+        _client_puntaje = float(body.puntaje) if body.puntaje else 0.0
     except ValueError:
-        puntaje_val = 0.0
+        _client_puntaje = 0.0
+    _svc_key = body.servicios[0] if isinstance(body.servicios, list) and body.servicios else body.servicios
 
     async with AsyncSessionLocal() as s:
+        # Puntaje calculado en el BACKEND (tabla productos). Si el servicio no está
+        # en el catálogo, se respeta lo enviado para no perder datos.
+        puntaje_val = await score_for(s, str(_svc_key or ""), body.riesgo, body.tipo_servicio) or _client_puntaje
         r = await s.execute(text("""
             INSERT INTO leads
               (nombre_cliente, telefono_principal, telefono, telefono_alterno, direccion, zip_code, servicios,
@@ -835,6 +892,7 @@ async def comisiones_agentes_lineas(
                   COUNT(*) AS ventas,
                   COALESCE(SUM(COALESCE(cantidad_lineas, 1)), 0) AS lineas_total,
                   COALESCE(SUM(CASE WHEN UPPER(COALESCE(servicios,'')) LIKE '%WIRELESS%'
+                                      OR UPPER(COALESCE(servicios,'')) LIKE '%LINEA + EQUIPO%'
                                     THEN COALESCE(cantidad_lineas, 1) ELSE 0 END), 0) AS lineas_wireless,
                   COALESCE(SUM(puntaje), 0) AS puntos
                 FROM lineas_clientes
@@ -1410,6 +1468,16 @@ async def update_lead(
         where = "mongo_id = :mid"
 
     async with AsyncSessionLocal() as s:
+        # Puntaje: si cambió servicio/riesgo/tipo, se RECALCULA en el backend (tabla productos).
+        if any(k in data for k in ("servicios", "riesgo", "tipo_servicio")):
+            _svc = data.get("servicios")
+            if isinstance(_svc, list):
+                _svc = _svc[0] if _svc else ""
+            _sc = await score_for(s, str(_svc or ""), data.get("riesgo", ""), data.get("tipo_servicio", ""))
+            if _sc > 0:
+                params["puntaje_val"] = _sc
+                if "puntaje = :puntaje_val" not in sets:
+                    sets.append("puntaje = :puntaje_val")
         # Control de acceso: un agente solo puede modificar SUS propios leads (lo que ve = lo que
         # puede editar). admin/backoffice/supervisor mantienen el alcance amplio del listado.
         if _is_agent(user):
@@ -1430,9 +1498,25 @@ async def update_lead(
         await s.commit()
         if r.rowcount == 0:
             raise HTTPException(404, "Lead no encontrado")
-        cr = await s.execute(text("SELECT nombre_cliente FROM leads WHERE id = :id OR mongo_id = :mid LIMIT 1"),
-                             {"id": mysql_id or 0, "mid": mongo_id or ""})
-        cn = (cr.first() or [None])[0] or "Sin nombre"
+        cr = await s.execute(text(
+            "SELECT nombre_cliente, agente, agente_nombre, created_by, supervisor "
+            "FROM leads WHERE id = :id OR mongo_id = :mid LIMIT 1"),
+            {"id": mysql_id or 0, "mid": mongo_id or ""})
+        _row = cr.mappings().first() or {}
+        cn = _row.get("nombre_cliente") or "Sin nombre"
+
+    # Notificación persistente de cambio de status: el agente dueño y su
+    # supervisor la verán al entrar al CRM aunque no estén conectados ahora.
+    if "status" in data:
+        from notifications import record_status_change
+        asyncio.create_task(record_status_change(
+            seccion="residencial", cliente=cn,
+            old_status=prev_status,
+            new_status=str(data["status"] or ""),
+            actor=user.get("name") or user.get("username", ""),
+            target_agente=_row.get("agente_nombre") or _row.get("agente") or _row.get("created_by") or "",
+            target_supervisor=_row.get("supervisor") or "",
+        ))
 
     # Determinar tipo de actividad según campos modificados
     if "dia_venta" in data and data.get("dia_venta"):

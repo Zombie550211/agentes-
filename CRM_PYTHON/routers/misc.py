@@ -12,6 +12,11 @@ _ADMIN_ROLES = {"admin", "administrador", "administrator", "administrativo"}
 _BO_ROLES    = {"backoffice", "bo"}
 
 
+def _utcnow() -> _dt.datetime:
+    """UTC naive (reemplazo de datetime.utcnow() deprecado en Python 3.12+)."""
+    return _dt.datetime.now(_dt.timezone.utc).replace(tzinfo=None)
+
+
 def _role_lower(user: dict) -> str:
     return (user.get("role") or "").strip().lower()
 
@@ -364,10 +369,6 @@ async def clear_all_caches(user: dict = Depends(current_user)):
     if not _is_admin(_role_lower(user)):
         raise HTTPException(403, "No autorizado")
     import sys
-
-def _utcnow() -> _dt.datetime:
-    """UTC naive (reemplazo de datetime.utcnow() deprecado en Python 3.12+)."""
-    return _dt.datetime.now(_dt.timezone.utc).replace(tzinfo=None)
     cleared = []
     for mod_name, attr in [
         ("routers.dashboard", "_cache"),
@@ -394,3 +395,178 @@ async def rename_att_air(user: dict = Depends(current_user)):
         await s.commit()
         modified = r.rowcount
     return {"success": True, "results": {"leads": {"matched": modified, "modified": modified}}}
+
+
+# ── GET /api/instalaciones/hoy ────────────────────────────────────
+@router.get("/api/instalaciones/hoy")
+async def instalaciones_hoy(
+    fecha: Optional[str] = Query(None),
+    user: dict = Depends(current_user),
+):
+    """Clientes con instalación programada para HOY (residencial + líneas).
+
+    Alcance por rol, alineado con los listados de cada sección:
+    - Agente: solo sus propios clientes.
+    - Supervisor: los de su equipo.
+    - Admin/Backoffice: todos.
+    `fecha` (YYYY-MM-DD) la manda el frontend con el día local del usuario;
+    si no llega, se usa CURDATE() del servidor.
+    """
+    if fecha and not re.match(r"^\d{4}-\d{2}-\d{2}$", str(fecha)):
+        raise HTTPException(400, "Parámetro fecha inválido (YYYY-MM-DD)")
+
+    role     = _role_lower(user)
+    username = str(user.get("username") or "").strip()
+    name     = str(user.get("name") or username).strip()
+    display  = username.replace(".", " ").replace("_", " ").upper().strip()
+    team     = str(user.get("team") or "").upper().strip()
+
+    # ── Alcance en residencial (tabla leads) ──
+    res_where, res_params = "1=1", {}
+    if not _is_adm_or_bo(role):
+        if _is_supervisor(role):
+            res_where = """(
+                UPPER(TRIM(COALESCE(supervisor,''))) IN (:sn, :su, :sd)
+                OR (:tm <> '' AND UPPER(TRIM(COALESCE(team,''))) = :tm)
+                OR (:tm <> '' AND UPPER(TRIM(COALESCE(equipo,''))) = :tm)
+            )"""
+            res_params = {"sn": name.upper(), "su": username.upper(), "sd": display, "tm": team}
+        else:
+            res_where  = "(agente_nombre = :u OR agente = :u OR created_by = :u)"
+            res_params = {"u": username}
+
+    # ── Alcance en líneas (misma cláusula que GET /api/lineas-team) ──
+    from routers.lineas import _user_scope_clause
+    lin_where, lin_params = _user_scope_clause(user)
+    if not lin_where:
+        lin_where = "1=1"
+
+    fecha_expr = ":f" if fecha else "CURDATE()"
+    params_common = {"f": fecha} if fecha else {}
+
+    residencial, lineas = [], []
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text(f"""
+            SELECT id, nombre_cliente, telefono_principal, telefono, direccion,
+                   status, agente_nombre, agente, supervisor, servicios, mercado
+            FROM leads
+            WHERE dia_instalacion = {fecha_expr}
+              AND LOWER(COALESCE(status,'')) NOT LIKE '%cancel%'
+              AND {res_where}
+            ORDER BY nombre_cliente
+            LIMIT 200
+        """), {**params_common, **res_params})
+        for row in r.mappings().all():
+            d = dict(row)
+            residencial.append({
+                "_id":      str(d["id"]),
+                "nombre":   d.get("nombre_cliente") or "",
+                "telefono": d.get("telefono_principal") or d.get("telefono") or "",
+                "direccion": d.get("direccion") or "",
+                "status":   d.get("status") or "",
+                "agente":   d.get("agente_nombre") or d.get("agente") or "",
+            })
+
+        r = await s.execute(text(f"""
+            SELECT id, nombre_cliente, telefono_principal, direccion, status,
+                   agente_nombre, agente, agente_asignado, supervisor, cantidad_lineas
+            FROM lineas_clientes
+            WHERE dia_instalacion = {fecha_expr}
+              AND LOWER(COALESCE(status,'')) NOT LIKE '%cancel%'
+              AND {lin_where}
+            ORDER BY nombre_cliente
+            LIMIT 200
+        """), {**params_common, **lin_params})
+        for row in r.mappings().all():
+            d = dict(row)
+            lineas.append({
+                "_id":      str(d["id"]),
+                "nombre":   d.get("nombre_cliente") or "",
+                "telefono": d.get("telefono_principal") or "",
+                "direccion": d.get("direccion") or "",
+                "status":   d.get("status") or "",
+                "agente":   d.get("agente_nombre") or d.get("agente") or d.get("agente_asignado") or "",
+                "lineas":   int(d.get("cantidad_lineas") or 1),
+            })
+
+    return {
+        "success": True,
+        "fecha": fecha or str(_dt.date.today()),
+        "total": len(residencial) + len(lineas),
+        "residencial": residencial,
+        "lineas": lineas,
+    }
+
+
+# ── GET /api/notificaciones/status ────────────────────────────────
+@router.get("/api/notificaciones/status")
+async def notificaciones_status(
+    desde: Optional[str] = Query(None),
+    user: dict = Depends(current_user),
+):
+    """Cambios de status pendientes de ver por el usuario actual.
+
+    El frontend las pide al entrar al CRM (tras el login) y muestra la
+    notificación emergente de cada una. `desde` es el timestamp que el cliente
+    guardó la última vez (campo `ahora` de la respuesta anterior); sin él se
+    devuelven las últimas 48 h. Los cambios hechos por el propio usuario no
+    se le devuelven.
+    """
+    now = _utcnow()
+    lim_min = now - _dt.timedelta(days=7)
+    since = None
+    if desde:
+        try:
+            since = _dt.datetime.fromisoformat(str(desde).replace("Z", "").strip()[:26])
+        except ValueError:
+            since = None
+    if since is None:
+        since = now - _dt.timedelta(hours=48)
+    if since < lim_min:
+        since = lim_min
+
+    role     = _role_lower(user)
+    username = str(user.get("username") or "").strip()
+    name     = str(user.get("name") or username).strip()
+    display  = username.replace(".", " ").replace("_", " ").upper().strip()
+
+    where  = ["created_at > :since"]
+    params = {"since": since, "me1": username.lower(), "me2": name.lower()}
+    # No mostrar al usuario sus propios cambios
+    where.append("LOWER(COALESCE(actor,'')) NOT IN (:me1, :me2)")
+
+    if not _is_adm_or_bo(role):
+        if _is_supervisor(role):
+            from routers.lineas import _team_token
+            token = _team_token(str(user.get("team") or ""))
+            params.update({"sn": name.upper(), "su": username.upper(), "sd": display,
+                           "tok": f"{token}%" if token else "__none__"})
+            where.append("""(
+                UPPER(TRIM(COALESCE(target_supervisor,''))) IN (:sn, :su, :sd)
+                OR UPPER(TRIM(COALESCE(target_supervisor,''))) LIKE :tok
+            )""")
+        else:
+            params.update({"an": name, "au": username, "ad": display})
+            where.append("""(
+                target_agente = :au OR target_agente = :an
+                OR UPPER(TRIM(COALESCE(target_agente,''))) = :ad
+            )""")
+
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text(f"""
+            SELECT seccion, cliente, old_status, new_status, actor, created_at
+            FROM status_notifications
+            WHERE {' AND '.join(where)}
+            ORDER BY created_at DESC
+            LIMIT 30
+        """), params)
+        items = [{
+            "seccion":    row["seccion"],
+            "cliente":    row["cliente"],
+            "old_status": row["old_status"],
+            "new_status": row["new_status"],
+            "actor":      row["actor"],
+            "fecha":      str(row["created_at"]),
+        } for row in r.mappings().all()]
+
+    return {"success": True, "ahora": now.isoformat(), "items": items}

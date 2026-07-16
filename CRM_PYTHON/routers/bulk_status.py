@@ -6,7 +6,29 @@ from deps import current_user
 from datetime import datetime, timezone
 from typing import List
 import re
+import asyncio
 import realtime
+from notifications import record_status_changes
+
+
+def _notify_bulk(found_rows, new_status: str, user: dict) -> None:
+    """Encola notificaciones persistentes para los agentes/supervisores dueños."""
+    seen, items = set(), []
+    for row in found_rows:
+        if row["id"] in seen:
+            continue
+        seen.add(row["id"])
+        items.append({
+            "seccion": "residencial",
+            "cliente": row.get("nombre_cliente") or "Sin nombre",
+            "old_status": row.get("status") or "",
+            "new_status": new_status,
+            "actor": user.get("name") or user.get("username", ""),
+            "target_agente": row.get("agente_nombre") or row.get("agente") or row.get("created_by") or "",
+            "target_supervisor": row.get("supervisor") or "",
+        })
+    if items:
+        asyncio.create_task(record_status_changes(items))
 
 def _utcnow() -> datetime:
     """UTC naive (reemplazo de _utcnow() deprecado en Python 3.12+)."""
@@ -66,7 +88,8 @@ async def bulk_status_by_phone(body: BulkByPhoneBody, user: dict = Depends(curre
     async with AsyncSessionLocal() as s:
         for phone in input_phones:
             r = await s.execute(text("""
-                SELECT id, nombre_cliente, telefono, telefono_principal, telefono_alterno, status
+                SELECT id, nombre_cliente, telefono, telefono_principal, telefono_alterno, status,
+                       agente, agente_nombre, created_by, supervisor
                 FROM leads
                 WHERE telefono_principal LIKE :p
                    OR telefono LIKE :p
@@ -93,6 +116,8 @@ async def bulk_status_by_phone(body: BulkByPhoneBody, user: dict = Depends(curre
         """), params)
         await s.commit()
         updated = r2.rowcount
+
+    _notify_bulk(found_rows, body.newStatus, user)
 
     found_phones_set = set()
     for row in found_rows:
@@ -147,7 +172,8 @@ async def bulk_status_by_name(body: BulkByNameBody, user: dict = Depends(current
     async with AsyncSessionLocal() as s:
         for name in normalized_names[:300]:
             r = await s.execute(text("""
-                SELECT id, nombre_cliente, telefono, telefono_principal, status
+                SELECT id, nombre_cliente, telefono, telefono_principal, status,
+                       agente, agente_nombre, created_by, supervisor
                 FROM leads WHERE LOWER(nombre_cliente) = :name
             """), {"name": name})
             found_rows.extend(r.mappings().all())
@@ -171,6 +197,8 @@ async def bulk_status_by_name(body: BulkByNameBody, user: dict = Depends(current
         """), params)
         await s.commit()
         updated = r2.rowcount
+
+    _notify_bulk(found_rows, body.newStatus, user)
 
     found_names_set = {_normalize_name(row.get("nombre_cliente") or "") for row in found_rows}
     not_found_names = [n for n in normalized_names if n not in found_names_set]

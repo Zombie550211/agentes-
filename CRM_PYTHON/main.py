@@ -38,8 +38,9 @@ from routers import (
     avatars as avatars_router,
     misc as misc_router,
     stream as stream_router,
-    ui_config as ui_config_router,
-    productividad_bo as productividad_bo_router,
+    productos as productos_router,
+    catalogos as catalogos_router,
+    schedule as schedule_router,
 )
 
 # ── Rutas base ──────────────────────────────────────────────────
@@ -135,6 +136,22 @@ _MIGRATIONS: list[tuple[str, str]] = [
     ("0035_leads_status_comision",         "ALTER TABLE leads ADD COLUMN status_comision VARCHAR(50) NULL"),
     # Inicializar con el status actual para que la comisión no cambie al desplegar (transición transparente).
     ("0036_leads_status_comision_init",    "UPDATE leads SET status_comision = status WHERE status_comision IS NULL"),
+    # Notificaciones persistentes de cambio de status: el agente/supervisor las ve
+    # al entrar al CRM aunque no estuviera conectado cuando ocurrió el cambio.
+    ("0037_create_status_notifications", """CREATE TABLE IF NOT EXISTS status_notifications (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        seccion VARCHAR(20) NOT NULL DEFAULT 'residencial',
+        cliente VARCHAR(200),
+        old_status VARCHAR(50),
+        new_status VARCHAR(50),
+        actor VARCHAR(150),
+        target_agente VARCHAR(150),
+        target_supervisor VARCHAR(150),
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_sn_agente (target_agente),
+        INDEX idx_sn_sup (target_supervisor),
+        INDEX idx_sn_created (created_at)
+    )"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración
@@ -239,6 +256,27 @@ async def lifespan(app: FastAPI):
         await facturacion_lineas_pub.ensure_table()
     except Exception as e:
         print(f"[facturacion-lineas-pub] ensure_table: {e}")
+    try:
+        from scoring import ensure_productos
+        from database_mysql import AsyncSessionLocal
+        async with AsyncSessionLocal() as s:
+            await ensure_productos(s)
+    except Exception as e:
+        print(f"[productos] ensure: {e}")
+    try:
+        from catalogos import ensure_catalogos
+        from database_mysql import AsyncSessionLocal
+        async with AsyncSessionLocal() as s:
+            await ensure_catalogos(s)
+    except Exception as e:
+        print(f"[catalogos] ensure: {e}")
+    try:
+        from routers.schedule import ensure_schedule
+        from database_mysql import AsyncSessionLocal
+        async with AsyncSessionLocal() as s:
+            await ensure_schedule(s)
+    except Exception as e:
+        print(f"[schedule] ensure: {e}")
     yield
     await close_mysql()
 
@@ -344,16 +382,30 @@ app.include_router(files_router.router)
 app.include_router(avatars_router.router)
 app.include_router(misc_router.router)
 app.include_router(stream_router.router)
-app.include_router(ui_config_router.router)
-app.include_router(productividad_bo_router.router)
+app.include_router(productos_router.router)
+app.include_router(catalogos_router.router)
+app.include_router(schedule_router.router)
 
 # ── Archivos estáticos ───────────────────────────────────────────
+class _RevalidateStaticFiles(StaticFiles):
+    """Sirve assets con Cache-Control: no-cache — el navegador SIEMPRE revalida
+    (vía ETag → 304 si no cambió). Así, editar un .js/.css se refleja al recargar
+    la página SIN tener que bumpear ?v= en cada archivo HTML. nosniff por seguridad."""
+    async def get_response(self, path, scope):
+        resp = await super().get_response(path, scope)
+        resp.headers["Cache-Control"] = "no-cache"
+        resp.headers["X-Content-Type-Options"] = "nosniff"
+        return resp
+
 # Condicionales: no crashea si el directorio no existe (ej. en Render sin frontend)
+# css/js se revalidan siempre (evita la pelea de la caché); images/vendor cachean normal.
 _static_dirs = {"images": "images", "css": "css", "js": "js", "vendor": "vendor"}
+_revalidate_dirs = {"css", "js"}
 for _name, _rel in _static_dirs.items():
     _d = FRONTEND_DIR / _rel
     if _d.exists():
-        app.mount(f"/{_name}", StaticFiles(directory=str(_d)), name=_name)
+        _cls = _RevalidateStaticFiles if _name in _revalidate_dirs else StaticFiles
+        app.mount(f"/{_name}", _cls(directory=str(_d)), name=_name)
 
 class _UploadsStaticFiles(StaticFiles):
     """Sirve /uploads con nosniff; contenido activo (html/svg/js/xml) se fuerza
@@ -373,7 +425,7 @@ if UPLOADS_DIR.exists():
     app.mount("/uploads", _UploadsStaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
 if COMPONENTS.exists():
-    app.mount("/components", StaticFiles(directory=str(COMPONENTS)), name="components")
+    app.mount("/components", _RevalidateStaticFiles(directory=str(COMPONENTS)), name="components")
 
 # Archivos de frontend/agentes/js accesibles en /agentes/js
 agentes_js = FRONTEND_DIR / "agentes" / "js"

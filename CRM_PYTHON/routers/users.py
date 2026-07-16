@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
-from deps import current_user
+from deps import current_user, team_seccion
 from datetime import datetime, timezone
 from typing import Optional, List
 import unicodedata, json
@@ -210,10 +210,13 @@ async def admin_list(user: dict = Depends(current_user)):
 
 
 @router.get("/agents")
-async def agents_list(user: dict = Depends(current_user)):
+async def agents_list(seccion: str = "", user: dict = Depends(current_user)):
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("SELECT id, username, name, email, role, team, supervisor, avatar_url, permissions FROM users ORDER BY name"))
         users = [_row_to_user(row) for row in r.mappings().all()]
+    sec = (seccion or "").strip().lower()
+    if sec:
+        users = [u for u in users if team_seccion(u.get("team", ""), u.get("role", "")) == sec]
     return {"success": True, "agents": [_serialize(u) for u in users], "count": len(users)}
 
 
