@@ -329,6 +329,52 @@ async def get_ranking(
     return response
 
 
+@router.get("/instalaciones-dia")
+async def instalaciones_dia(
+    fecha: Optional[str] = Query(None),
+    user: dict = Depends(current_user),
+):
+    """Instalaciones del día: total de leads con dia_instalacion = fecha
+    y cuántos ya tienen status activo/completed. Para el KPI 'Activas del Día'."""
+    if fecha and re.match(r"^\d{4}-\d{2}-\d{2}$", fecha):
+        f = fecha
+    else:
+        f = _utcnow().strftime("%Y-%m-%d")
+
+    total = 0
+    completadas = 0
+    try:
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(text("""
+                SELECT
+                    COUNT(*) AS total,
+                    COALESCE(SUM(CASE
+                        WHEN UPPER(COALESCE(status,'')) LIKE '%COMPLET%'
+                          OR UPPER(COALESCE(status,'')) LIKE '%ACTIV%'
+                          OR UPPER(COALESCE(status,'')) LIKE '%VENDIDO%'
+                          OR UPPER(COALESCE(status,'')) LIKE '%CERRAD%'
+                        THEN 1 ELSE 0 END), 0) AS completadas
+                FROM leads
+                WHERE LEFT(dia_instalacion, 10) = :f
+                  AND (excluir_de_reporte = FALSE OR excluir_de_reporte IS NULL)
+            """), {"f": f})
+            row = r.mappings().first()
+            if row:
+                total = int(row["total"] or 0)
+                completadas = int(row["completadas"] or 0)
+    except Exception as exc:
+        import logging
+        logging.getLogger("ranking").error("instalaciones-dia query error: %s", exc)
+
+    return {
+        "success": True,
+        "fecha": f,
+        "total": total,
+        "completadas": completadas,
+        "pendientes": max(total - completadas, 0),
+    }
+
+
 @router.get("/init")
 async def ranking_init(
     fechaInicio: Optional[str] = Query(None),

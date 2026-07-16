@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Llamadas y Ventas — CRM</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="/css/sidebar-shared.css?v=20260606f">
+  <link rel="stylesheet" href="/css/sidebar-modern.css?v=20260609b">
+  <script src="/js/fetch-interceptor.js" defer></script>
+  <script src="/js/logout-handler.js" defer></script>
+  <script src="/js/user-info.js" defer></script>
+  <script src="/js/sidebar-loader.js?v=20260715b" defer></script>
+  <script src="/js/crm-config.js" defer></script>
+  <script src="/js/inactivity-manager.js?v=20260611a" defer></script>
+  <script src="/js/crm-init.js" defer></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;font-family:'Nunito Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+
+    /* Tokens por defecto (tema Vantage claro). El backend puede
+       sobreescribirlos vía GET /api/ui-config → variables CSS en :root */
+    :root{
+      --bg:#F5F3FB;
+      --panel:#FFFFFF;
+      --card:#FFFFFF;
+      --bdr:#E7E3F5;
+      --bdr-soft:#F0EDF9;
+      --t1:#211D2E;
+      --t2:#4A415F;
+      --t3:#716A8B;
+      --accent:#6D54D6;
+      --accent-2:#8A6FE8;
+      --accent-soft:#ECE7FB;
+      --cyan:#0891B2;
+      --green:#059669;
+      --red:#D1477C;
+      --amber:#D97706;
+      --purple:#8A6FE8;
+      --radius:20px;
+      --radius-sm:12px;
+      --shadow:0 14px 30px -10px rgba(109,84,214,.18);
+      --shadow-btn:0 8px 18px -6px rgba(109,84,214,.55);
+      --ring:0 0 0 3px rgba(109,84,214,.20);
+    }
+
+    body{background:var(--bg);color:var(--t1)}
+
+    .layout{display:flex;height:100vh;overflow:hidden;padding:16px;gap:16px;background:var(--bg)}
+    .main-content{flex:1;overflow-y:auto;min-width:0;display:flex;flex-direction:column;gap:16px;background:transparent;padding:6px 4px 10px}
+    .main-content::-webkit-scrollbar{width:8px}
+    .main-content::-webkit-scrollbar-thumb{background:#D8D2EC;border-radius:8px}
+
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    .drop{animation:fadeIn .22s ease-out both}
+    @media(prefers-reduced-motion:reduce){
+      *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+    }
+
+    /* ── SIDEBAR estilo Vantage: tarjeta blanca flotante ── */
+    .sidebar,.sidebar.sidebar-inicio{
+      flex:0 0 auto;height:calc(100vh - 32px)!important;
+      background:var(--panel)!important;border:none!important;
+      border-radius:24px!important;box-shadow:var(--shadow)!important;
+      overflow:hidden;
+    }
+    .sidebar .nav-content{padding:6px 12px}
+    .sidebar .nav-item,.sidebar .btn-sidebar{
+      border-radius:var(--radius-sm)!important;background:transparent!important;box-shadow:none!important;
+      color:var(--t3)!important;font-family:'Nunito Sans',system-ui,sans-serif!important;
+      font-weight:700!important;font-size:13.5px!important;
+    }
+    .sidebar .nav-item .item-icon,.sidebar .nav-item .item-label{color:inherit!important}
+    .sidebar .nav-item:hover{background:var(--accent-soft)!important;color:var(--accent)!important}
+    .sidebar .nav-item.active-res,.sidebar .btn-sidebar.is-active{
+      background:var(--accent)!important;color:#fff!important;
+      box-shadow:var(--shadow-btn)!important;font-weight:800!important;
+    }
+    .sidebar .nav-item.active-res .item-icon,.sidebar .nav-item.active-res .item-label{color:#fff!important}
+    .sidebar .block-header{padding:6px 13px 2px}
+    .sidebar .block-label{
+      font-family:'Nunito Sans',system-ui,sans-serif!important;font-weight:800!important;font-size:10.5px!important;
+      letter-spacing:1.2px!important;color:var(--t3)!important;opacity:.7;text-transform:uppercase;
+    }
+    .sidebar .sidebar-footer{border-top:1px solid var(--bdr)!important;background:transparent!important}
+    .sidebar .footer-action.logout{
+      color:var(--red)!important;font-weight:800!important;font-size:13.5px!important;
+      font-family:'Nunito Sans',system-ui,sans-serif!important;background:transparent!important;
+    }
+    .sidebar .footer-action.logout i,.sidebar .footer-action.logout .item-label{color:var(--red)!important}
+    .sidebar .sidebar-quote{
+      font-family:'Nunito Sans',system-ui,sans-serif!important;font-weight:600!important;font-size:11px!important;
+      font-style:italic;color:var(--t3)!important;line-height:1.4!important;opacity:.9;
+    }
+    .sidebar .sidebar-footer img[alt="Pelota"]{display:none!important}
+    .sidebar .sb-brand-img img{border-radius:12px}
+
+    /* ── HEADER ─────────────────────────────────────────── */
+    .lv-header{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+    .lv-title-wrap{display:flex;align-items:center;gap:14px;min-width:0}
+    .lv-icon-wrap{
+      width:44px;height:44px;border-radius:14px;background:var(--accent-soft);
+      display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow);flex-shrink:0;
+    }
+    .lv-icon-wrap i{color:var(--accent);font-size:1rem}
+    .lv-title{font-size:24px;font-weight:800;color:var(--t1);line-height:1.15}
+    .lv-sub{font-size:12.5px;font-weight:600;color:var(--t3);margin-top:2px}
+    .lv-header-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+
+    .lv-tabs{display:flex;background:var(--accent-soft);border-radius:16px;padding:4px}
+    .lv-tab{
+      padding:9px 20px;border-radius:12px;border:none;background:transparent;color:var(--accent);
+      font-size:13px;font-weight:800;cursor:pointer;font-family:'Nunito Sans',system-ui,sans-serif;
+      transition:all .18s ease;white-space:nowrap;display:flex;align-items:center;gap:7px;
+    }
+    .lv-tab.active{background:var(--accent);color:#fff;box-shadow:0 8px 16px -6px rgba(109,84,214,.6)}
+
+    .lv-month{display:flex;align-items:center;border-radius:16px;background:var(--card);box-shadow:var(--shadow)}
+    .lv-nav-btn{width:36px;height:42px;border:none;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--t3);transition:color .15s;font-size:.72rem;border-radius:12px}
+    .lv-nav-btn:hover{color:var(--accent)}
+    .lv-month-label{display:flex;align-items:center;gap:8px;padding:0 10px;font-size:13px;font-weight:700;color:var(--t1);white-space:nowrap;min-width:112px;justify-content:center}
+    .lv-month-label i{font-size:.72rem;color:var(--accent)}
+
+    /* ── DAY STRIP ──────────────────────────────────────── */
+    .lv-days{display:flex;gap:7px;overflow-x:auto;padding:4px 2px 12px;scrollbar-width:thin}
+    .lv-days::-webkit-scrollbar{height:5px}
+    .lv-days::-webkit-scrollbar-thumb{background:#D8D2EC;border-radius:5px}
+    .day-chip{
+      position:relative;flex-shrink:0;min-width:46px;padding:10px 15px;border-radius:14px;border:none;
+      background:var(--card);color:var(--t3);font-size:12px;font-weight:700;cursor:pointer;text-align:center;
+      font-family:'Nunito Sans',system-ui,sans-serif;transition:all .15s ease;box-shadow:var(--shadow);
+    }
+    .day-chip small{display:block;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+    .day-chip .num{color:var(--t1);font-weight:800;font-size:12.5px}
+    .day-chip:hover{color:var(--accent);transform:translateY(-1px)}
+    .day-chip:hover small{color:var(--accent)}
+    .day-chip.active{background:var(--accent);box-shadow:var(--shadow-btn)}
+    .day-chip.active small,.day-chip.active .num{color:#fff}
+    .day-chip.has-data::after{content:'';position:absolute;top:6px;right:6px;width:6px;height:6px;border-radius:50%;background:var(--green)}
+    .day-chip.active.has-data::after{background:#fff}
+
+    /* ── KPIs ───────────────────────────────────────────── */
+    .lv-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+    .lv-kpi{background:var(--card);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);transition:transform .18s ease}
+    .lv-kpi:hover{transform:translateY(-2px)}
+    .lv-kpi-label{font-size:10.5px;font-weight:800;letter-spacing:.6px;color:var(--t3);text-transform:uppercase}
+    .lv-kpi-val{font-size:30px;font-weight:800;color:var(--t1);margin-top:6px;line-height:1.05;font-variant-numeric:tabular-nums}
+    .lv-kpi.highlight{background:linear-gradient(155deg,var(--accent),var(--accent-2));box-shadow:0 16px 28px -8px rgba(109,84,214,.5)}
+    .lv-kpi.highlight .lv-kpi-label{color:#E7E0FB}
+    .lv-kpi.highlight .lv-kpi-val{color:#fff}
+    .lv-kpi-input{
+      width:100%;max-width:110px;font-size:26px;font-weight:800;font-family:'Nunito Sans',system-ui,sans-serif;font-variant-numeric:tabular-nums;
+      border:none;border-bottom:2px solid var(--bdr);background:transparent;color:var(--t1);
+      padding:2px 2px 4px;margin-top:6px;outline:none;transition:border-color .15s;
+    }
+    .lv-kpi-input:focus{border-bottom-color:var(--accent)}
+
+    /* ── TEAM CARDS ─────────────────────────────────────── */
+    .lv-section-bar{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .lv-section-title{font-size:15px;font-weight:800;color:var(--t1)}
+    .btn-add{
+      display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:14px;border:none;
+      background:var(--accent);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer;
+      font-family:'Nunito Sans',system-ui,sans-serif;box-shadow:var(--shadow-btn);transition:all .18s ease;
+    }
+    .btn-add:hover{transform:translateY(-1px)}
+
+    .lv-teams{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
+    .team-card{flex:1 1 360px;min-width:340px;background:var(--card);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+    .team-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+    .team-head-avatar{
+      width:28px;height:28px;border-radius:9px;background:var(--accent-soft);color:var(--accent);
+      font-size:11.5px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;
+    }
+    .team-head-name{font-size:14px;font-weight:800;color:var(--t1)}
+    .team-head-count{font-size:10.5px;font-weight:600;color:var(--t3)}
+    .team-head .conv{
+      margin-left:auto;font-size:10.5px;font-weight:800;color:var(--accent);white-space:nowrap;
+      background:var(--accent-soft);border-radius:9px;padding:4px 9px;font-variant-numeric:tabular-nums;
+    }
+
+    .team-table{width:100%;border-collapse:collapse}
+    .team-table th{
+      font-size:9.5px;font-weight:800;color:var(--t3);letter-spacing:.4px;text-transform:uppercase;
+      padding:5px 4px;text-align:left;border-bottom:1px solid var(--bdr);
+    }
+    .team-table th:not(:first-child){width:62px}
+    .team-table td{padding:4px;text-align:left;border-bottom:none}
+    .team-table td:first-child{
+      font-size:12px;font-weight:700;color:var(--t1);
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;padding:7px 4px;
+    }
+    .team-table tbody tr{transition:background .12s;border-radius:8px}
+    .team-table tbody tr:hover{background:var(--bdr-soft)}
+    .hist-chip{display:inline-block;font-size:9px;font-weight:800;color:var(--amber);border:1px solid #F0D5A8;background:#FDF6E9;border-radius:6px;padding:1px 5px;margin-left:6px;vertical-align:middle;letter-spacing:.04em}
+    .btn-del-agent{border:none;background:transparent;color:var(--red);cursor:pointer;font-size:.66rem;margin-right:6px;opacity:.5;transition:opacity .15s}
+    .btn-del-agent:hover{opacity:1}
+
+    .cell-input{
+      width:56px;font-size:12px;font-weight:700;text-align:left;font-family:'Nunito Sans',system-ui,sans-serif;font-variant-numeric:tabular-nums;
+      border:1px solid transparent;border-radius:8px;background:transparent;color:var(--t1);
+      padding:5px 6px;outline:none;transition:all .15s;-moz-appearance:textfield;appearance:textfield;
+    }
+    .cell-input::-webkit-outer-spin-button,.cell-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+    .cell-input:hover{border-color:var(--bdr);background:var(--panel)}
+    .cell-input:focus{border-color:var(--accent);background:var(--panel);box-shadow:var(--ring)}
+    .cell-input.saved{border-color:var(--green);box-shadow:0 0 0 3px rgba(5,150,105,.14)}
+
+    .team-foot{
+      display:grid;grid-template-columns:1fr repeat(3,62px);gap:0;padding:8px 4px 2px;margin-top:4px;
+      border-top:1px solid var(--bdr);font-size:10.5px;font-weight:800;letter-spacing:.4px;color:var(--accent);
+      font-variant-numeric:tabular-nums;
+    }
+    .team-foot span{text-align:left}
+
+    /* ── RESUMEN ────────────────────────────────────────── */
+    .lv-table-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;flex:1;min-height:0;display:flex;flex-direction:column}
+    .lv-table-top{padding:16px 22px;border-bottom:1px solid var(--bdr);flex-shrink:0}
+    .lv-table-title{font-size:15px;font-weight:800;color:var(--t1);display:flex;align-items:center;gap:9px}
+    .lv-table-sub{font-size:11px;font-weight:600;color:var(--t3);margin-top:2px}
+    .lv-table-scroll{overflow:auto;flex:1;min-height:0}
+    .lv-table-scroll::-webkit-scrollbar{width:8px;height:8px}
+    .lv-table-scroll::-webkit-scrollbar-thumb{background:#D8D2EC;border-radius:8px}
+    .resumen-table{width:100%;border-collapse:collapse;min-width:760px}
+    .resumen-table th{
+      font-size:9.5px;font-weight:800;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;
+      padding:9px 8px;border-bottom:1px solid var(--bdr);text-align:center;white-space:nowrap;
+      position:sticky;top:0;background:var(--card);z-index:1;
+    }
+    .resumen-table td{font-size:12px;font-weight:700;color:var(--t2);padding:9px 8px;border-bottom:1px solid var(--bdr-soft);text-align:center;font-variant-numeric:tabular-nums}
+    .resumen-table tbody tr{transition:background .12s}
+    .resumen-table tbody tr:hover{background:var(--bdr-soft)}
+    .resumen-table td:first-child,.resumen-table th:first-child{text-align:left;padding-left:20px;font-weight:800;color:var(--t1)}
+    .resumen-table tr.total-row td{font-weight:800;color:var(--accent);background:var(--accent-soft);border-top:1px solid var(--bdr)}
+
+    .lv-loading{display:flex;align-items:center;justify-content:center;padding:44px;color:var(--t3);font-size:12.5px;font-weight:600;gap:10px}
+    .lv-spinner{width:18px;height:18px;border:2px solid var(--bdr);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ── MODAL ──────────────────────────────────────────── */
+    .modal{display:none;position:fixed;inset:0;background:rgba(33,29,46,.40);z-index:200;align-items:center;justify-content:center}
+    .modal.active{display:flex}
+    .modal-content{
+      background:var(--panel);border-radius:var(--radius);padding:26px;
+      width:min(400px,92vw);box-shadow:0 24px 60px rgba(33,29,46,.25);
+      animation:fadeIn .18s ease-out both;
+    }
+    .modal-title{font-size:15px;font-weight:800;color:var(--t1);margin-bottom:16px}
+    .form-group{margin-bottom:14px}
+    .form-group label{display:block;font-size:10.5px;font-weight:800;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
+    .form-group input,.form-group select{
+      width:100%;padding:11px 13px;border-radius:12px;border:1px solid var(--bdr);
+      background:var(--panel);color:var(--t1);font-size:13px;font-weight:600;font-family:'Nunito Sans',system-ui,sans-serif;outline:none;transition:all .15s;
+    }
+    .form-group input:focus,.form-group select:focus{border-color:var(--accent);box-shadow:var(--ring)}
+    .modal-buttons{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+    .btn-cancel{padding:10px 18px;border-radius:12px;border:1px solid var(--bdr);background:var(--panel);color:var(--t2);font-size:12.5px;font-weight:800;cursor:pointer;font-family:'Nunito Sans',system-ui,sans-serif;transition:border-color .15s}
+    .btn-cancel:hover{border-color:var(--t3)}
+    .btn-submit{padding:10px 18px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer;font-family:'Nunito Sans',system-ui,sans-serif;box-shadow:var(--shadow-btn)}
+
+    @media(max-width:1200px){.lv-kpis{grid-template-columns:repeat(3,1fr)}}
+    @media(max-width:780px){
+      .lv-kpis{grid-template-columns:repeat(2,1fr)}
+      .lv-header{flex-direction:column;align-items:flex-start}
+      .team-card{min-width:100%}
+      .layout{padding:10px;gap:10px}
+    }
+
+    /* Tema oscuro opcional, activable desde el backend (theme:"dark") */
+    body.theme-dark{
+      --bg:#171422;--panel:#211D31;--card:#211D31;
+      --bdr:#332D49;--bdr-soft:#2A2540;
+      --t1:#F4F1FE;--t2:#CFC8E8;--t3:#948CB4;
+      --accent-soft:rgba(109,84,214,.20);
+      --shadow:0 14px 30px -10px rgba(0,0,0,.45);
+      --shadow-btn:0 8px 18px -6px rgba(109,84,214,.5);
+    }
+    body.theme-dark .hist-chip{background:rgba(217,119,6,.12);border-color:rgba(217,119,6,.4)}
+    body.theme-dark .main-content::-webkit-scrollbar-thumb,
+    body.theme-dark .lv-days::-webkit-scrollbar-thumb,
+    body.theme-dark .lv-table-scroll::-webkit-scrollbar-thumb{background:#3A3355}
+  </style>
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar sidebar-inicio" data-active="llamadas-team"></nav>
+  <main class="main-content">
+
+    <div class="lv-header drop">
+      <div class="lv-title-wrap">
+        <div class="lv-icon-wrap"><i class="fas fa-phone-volume"></i></div>
+        <div>
+          <div class="lv-title">Llamadas y Ventas</div>
+          <div class="lv-sub">Registro diario de llamadas, calis y ventas por team</div>
+        </div>
+      </div>
+      <div class="lv-header-right">
+        <div class="lv-tabs">
+          <button class="lv-tab active" data-view="teams">Teams</button>
+          <button class="lv-tab" data-view="resumen">Resumen del Mes</button>
+        </div>
+        <div class="lv-month">
+          <button class="lv-nav-btn" id="month-prev"><i class="fas fa-chevron-left"></i></button>
+          <div class="lv-month-label"><i class="fas fa-calendar-alt"></i><span id="month-label">—</span></div>
+          <button class="lv-nav-btn" id="month-next"><i class="fas fa-chevron-right"></i></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="lv-days drop" id="day-strip"></div>
+
+    <div class="lv-kpis drop">
+      <div class="lv-kpi">
+        <div class="lv-kpi-label">Llamadas</div><div class="lv-kpi-val" id="kpi-llamadas">0</div>
+      </div>
+      <div class="lv-kpi">
+        <div class="lv-kpi-label">Calis</div><div class="lv-kpi-val" id="kpi-calis">0</div>
+      </div>
+      <div class="lv-kpi highlight">
+        <div class="lv-kpi-label">Ventas</div><div class="lv-kpi-val" id="kpi-ventas">0</div>
+      </div>
+      <div class="lv-kpi">
+        <div class="lv-kpi-label">Pérdidas</div><input type="number" min="0" class="lv-kpi-input" id="kpi-perdidas" value="0">
+      </div>
+      <div class="lv-kpi">
+        <div class="lv-kpi-label">Recicladas</div><input type="number" min="0" class="lv-kpi-input" id="kpi-recicladas" value="0">
+      </div>
+      <div class="lv-kpi">
+        <div class="lv-kpi-label">Total Global</div><div class="lv-kpi-val" id="kpi-total">0</div>
+      </div>
+    </div>
+
+    <div id="view-teams" class="drop" style="display:flex;flex-direction:column;gap:14px">
+      <div class="lv-section-bar">
+        <div class="lv-section-title">Teams</div>
+        <button class="btn-add" id="btn-add-agent">+ Agregar Agente</button>
+      </div>
+      <div class="lv-teams" id="teams-grid">
+        <div class="lv-loading"><div class="lv-spinner"></div> Cargando equipos…</div>
+      </div>
+    </div>
+
+    <div id="view-resumen" class="lv-table-card drop" style="display:none">
+      <div class="lv-table-top">
+        <div class="lv-table-title"><i class="fas fa-table-list" style="color:var(--accent)"></i> Resumen de Llamadas y Ventas por Fechas</div>
+        <div class="lv-table-sub">Totales por team de cada día registrado del mes</div>
+      </div>
+      <div class="lv-table-scroll">
+        <table class="resumen-table" id="resumen-table"></table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-title"><i class="fas fa-user-plus" style="margin-right:9px;color:var(--accent)"></i>Agregar Agente</div>
+    <div class="form-group">
+      <label>Nombre del agente</label>
+      <input type="text" id="new-agent-name" placeholder="Nombre completo" maxlength="80">
+    </div>
+    <div class="form-group">
+      <label>Team</label>
+      <select id="new-agent-team"><option value="">— Seleccionar —</option></select>
+    </div>
+    <div class="modal-buttons">
+      <button class="btn-cancel" id="btn-modal-cancel">Cancelar</button>
+      <button class="btn-submit" id="btn-modal-ok">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  var API='/api/llamadas-ventas-excel';
+  var MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  var now=new Date();
+  var curY=now.getFullYear(), curM=now.getMonth(); // mes visible (0-based)
+  var selDay=now.getDate();                        // día seleccionado
+  var view='teams';
+
+  var teams=[];          // [{token,label,agents:[{name,manual,sup}]}]
+  var sheetsByDate={};   // 'D/M/YYYY' -> {id,name}
+  var currentSheetId=null;
+  var cells={};          // token -> PERSON -> {LL,CA,V}
+  var globals={perdidas:0,recicladas:0};
+  var sheetCache={};     // sheetId -> respuesta GET sheet (para resumen)
+  var pendingSaves={};
+  var creatingSheet=null;
+
+  // ── tema controlado desde el backend ─────────────────────
+  async function applyUiConfig(){
+    try{
+      var r=await fetch('/api/ui-config',{credentials:'include'});
+      if(!r.ok)return;
+      var j=await r.json();
+      if(!j.success)return;
+      document.body.classList.toggle('theme-dark',j.theme==='dark');
+      var tokens=j.tokens||{};
+      Object.keys(tokens).forEach(function(k){
+        if(/^[a-z0-9-]+$/.test(k))document.documentElement.style.setProperty('--'+k,tokens[k]);
+      });
+    }catch(e){/* sin backend: quedan los tokens por defecto */}
+  }
+
+  // ── helpers ──────────────────────────────────────────────
+  function esc(s){var d=document.createElement('div');d.textContent=String(s==null?'':s);return d.innerHTML;}
+  function set(id,v){var e=document.getElementById(id);if(e)e.textContent=v;}
+  function normTok(label){
+    var n=String(label||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+    n=n.replace(/^\s*team\s+/,'').replace(/[^a-z0-9]/g,'');
+    return n;
+  }
+  function initials(n){return String(n||'').split(/\s+/).filter(Boolean).map(function(w){return w[0];}).join('').toUpperCase().slice(0,2)||'?';}
+  function dateKey(d,m,y){return d+'/'+m+'/'+y;} // día/mes/año (clave interna)
+  function daysInMonth(y,m){return new Date(y,m+1,0).getDate();}
+
+  // Nombres de sheet legacy: "M/D/YYYY" (con o sin ceros)
+  function parseSheetName(name){
+    var p=String(name||'').split('/');
+    if(p.length!==3)return null;
+    var mo=parseInt(p[0],10),d=parseInt(p[1],10),y=parseInt(p[2],10);
+    if(!mo||!d||!y||mo>12||d>31)return null;
+    return {day:d,month:mo,year:y};
+  }
+
+  // ── carga inicial ────────────────────────────────────────
+  async function loadTeams(){
+    try{
+      var r=await fetch('/api/users/agents',{credentials:'include'});
+      var j=await r.json();
+      var byTeam={};
+      (j.agents||[]).forEach(function(u){
+        var label=String(u.team||'').trim();
+        if(!label)return;
+        if(/linea/.test(normTok(label)))return; // Líneas tiene su propia página
+        var role=String(u.role||'').toLowerCase();
+        if(!/agente|vendedor|agent|seller|supervisor/.test(role))return;
+        var tok=normTok(label);
+        if(!tok)return;
+        if(!byTeam[tok])byTeam[tok]={token:tok,label:label,agents:[]};
+        var nm=String(u.name||u.username||'').trim().toUpperCase();
+        if(nm&&!byTeam[tok].agents.some(function(a){return a.name===nm;})){
+          byTeam[tok].agents.push({name:nm,manual:false,sup:/supervisor/.test(role)});
+        }
+      });
+      teams=Object.values(byTeam).sort(function(a,b){return a.label.localeCompare(b.label);});
+      teams.forEach(function(t){t.agents.sort(function(a,b){return (b.sup?1:0)-(a.sup?1:0)||a.name.localeCompare(b.name);});});
+    }catch(e){console.warn('[lv] teams',e);teams=[];}
+    var sel=document.getElementById('new-agent-team');
+    sel.innerHTML='<option value="">— Seleccionar —</option>'+teams.map(function(t){
+      return '<option value="'+esc(t.token)+'">'+esc(t.label)+'</option>';
+    }).join('');
+  }
+
+  async function loadSheets(){
+    try{
+      var r=await fetch(API+'/sheets',{credentials:'include'});
+      var j=await r.json();
+      sheetsByDate={};
+      (j.data||[]).forEach(function(s){
+        var p=parseSheetName(s.name);
+        if(p)sheetsByDate[dateKey(p.day,p.month,p.year)]={id:s._id,name:s.name};
+      });
+    }catch(e){console.warn('[lv] sheets',e);}
+  }
+
+  async function ensureSheet(){
+    if(currentSheetId)return currentSheetId;
+    if(creatingSheet)return creatingSheet;
+    var d=selDay,m=curM+1,y=curY;
+    creatingSheet=(async function(){
+      try{
+        var r=await fetch(API+'/sheets',{
+          method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',
+          body:JSON.stringify({name:m+'/'+d+'/'+y})
+        });
+        var j=await r.json();
+        if(j.success&&j.data){
+          sheetsByDate[dateKey(d,m,y)]={id:j.data._id,name:j.data.name};
+          currentSheetId=j.data._id;
+          renderDayStrip();
+          return currentSheetId;
+        }
+      }catch(e){console.warn('[lv] createSheet',e);}
+      return null;
+    })();
+    var id=await creatingSheet;
+    creatingSheet=null;
+    return id;
+  }
+
+  async function fetchSheet(sheetId,force){
+    if(!force&&sheetCache[sheetId])return sheetCache[sheetId];
+    var r=await fetch(API+'/sheets/'+encodeURIComponent(sheetId),{credentials:'include'});
+    var j=await r.json();
+    if(j.success){sheetCache[sheetId]=j;return j;}
+    return null;
+  }
+
+  // ── día seleccionado ─────────────────────────────────────
+  async function loadDay(){
+    cells={};globals={perdidas:0,recicladas:0};
+    // limpiar agentes manuales del día anterior
+    teams.forEach(function(t){t.agents=t.agents.filter(function(a){return !a.manual;});});
+    var key=dateKey(selDay,curM+1,curY);
+    var sh=sheetsByDate[key];
+    currentSheetId=sh?sh.id:null;
+    if(sh){
+      try{
+        var j=await fetchSheet(sh.id,true);
+        if(j){
+          (j.data||[]).forEach(function(c){
+            if(c.kind!=='cell')return;
+            var tok=String(c.team||'').trim(),person=String(c.person||'').trim().toUpperCase();
+            var col=String(c.col||'').toUpperCase(),val=parseInt(c.value,10)||0;
+            if(tok==='GLOBAL'){
+              if(col==='PERDIDAS')globals.perdidas=val;
+              else if(col==='RECICLADAS')globals.recicladas=val;
+              return;
+            }
+            if(!cells[tok])cells[tok]={};
+            if(!cells[tok][person])cells[tok][person]={LL:0,CA:0,V:0};
+            if(col==='LL'||col==='CA'||col==='V')cells[tok][person][col]=val;
+          });
+          (j.users||[]).forEach(function(u){
+            var tok=String(u.team||'').trim(),nm=String(u.name||'').trim().toUpperCase();
+            var t=teams.find(function(t){return t.token===tok;});
+            if(t&&nm&&!t.agents.some(function(a){return a.name===nm;}))t.agents.push({name:nm,manual:true});
+          });
+        }
+      }catch(e){console.warn('[lv] loadDay',e);}
+    }
+    document.getElementById('kpi-perdidas').value=globals.perdidas;
+    document.getElementById('kpi-recicladas').value=globals.recicladas;
+    renderTeams();
+  }
+
+  // ── render ───────────────────────────────────────────────
+  function renderDayStrip(){
+    var wrap=document.getElementById('day-strip');
+    var n=daysInMonth(curY,curM);
+    var html='';
+    for(var d=1;d<=n;d++){
+      var key=dateKey(d,curM+1,curY);
+      var cl='day-chip';
+      if(sheetsByDate[key])cl+=' has-data';
+      if(d===selDay)cl+=' active';
+      var wd=new Date(curY,curM,d).toLocaleDateString('es',{weekday:'short'});
+      html+='<button class="'+cl+'" data-day="'+d+'"><small>'+esc(wd)+'</small><span class="num">'+d+'</span></button>';
+    }
+    wrap.innerHTML=html;
+    wrap.querySelectorAll('.day-chip').forEach(function(b){
+      b.addEventListener('click',function(){selDay=parseInt(b.dataset.day,10);renderDayStrip();loadDay();});
+    });
+    var act=wrap.querySelector('.day-chip.active');
+    if(act)act.scrollIntoView({inline:'center',block:'nearest'});
+  }
+
+  function getCell(tok,person){
+    return (cells[tok]&&cells[tok][person])||{LL:0,CA:0,V:0};
+  }
+
+  function renderTeams(){
+    var grid=document.getElementById('teams-grid');
+    if(!teams.length){grid.innerHTML='<div class="lv-loading">Sin teams configurados en la tabla de usuarios</div>';updateKpis();return;}
+    var html=teams.map(function(t){
+      // filas: roster actual + personas con datos guardados que ya no están en el roster
+      var names=t.agents.map(function(a){return a.name;});
+      var extra=Object.keys(cells[t.token]||{}).filter(function(p){return names.indexOf(p)===-1;});
+      var rows='';
+      t.agents.forEach(function(a){rows+=rowHtml(t.token,a.name,a.manual,false);});
+      extra.forEach(function(p){rows+=rowHtml(t.token,p,false,true);});
+      var tot=teamTotals(t);
+      var conv=tot.LL>0?Math.round((tot.V/tot.LL)*100)+'%':'—';
+      return '<div class="team-card" data-token="'+esc(t.token)+'">'+
+        '<div class="team-head">'+
+          '<div class="team-head-avatar">'+esc(initials(t.label))+'</div>'+
+          '<div><div class="team-head-name">'+esc(t.label)+'</div>'+
+          '<div class="team-head-count">'+(t.agents.length+extra.length)+' agentes</div></div>'+
+          '<div class="conv" title="Conversión ventas/llamadas">'+conv+'</div>'+
+        '</div>'+
+        '<table class="team-table"><thead><tr><th>Agente</th><th>Llam.</th><th>Calis</th><th>Ventas</th></tr></thead>'+
+        '<tbody>'+rows+'</tbody></table>'+
+        '<div class="team-foot"><span>TOTAL</span><span id="tot-'+esc(t.token)+'-LL">'+tot.LL+'</span><span id="tot-'+esc(t.token)+'-CA">'+tot.CA+'</span><span id="tot-'+esc(t.token)+'-V">'+tot.V+'</span></div>'+
+      '</div>';
+    }).join('');
+    grid.innerHTML=html;
+    grid.querySelectorAll('.cell-input').forEach(function(inp){
+      inp.addEventListener('input',onCellInput);
+    });
+    grid.querySelectorAll('.btn-del-agent').forEach(function(btn){
+      btn.addEventListener('click',onDeleteAgent);
+    });
+    updateKpis();
+  }
+
+  function rowHtml(tok,person,manual,hist){
+    var c=getCell(tok,person);
+    var del=manual?'<button class="btn-del-agent" data-token="'+esc(tok)+'" data-person="'+esc(person)+'" title="Quitar agente"><i class="fas fa-xmark"></i></button>':'';
+    var chip=hist?'<span class="hist-chip" title="Ya no está en el roster; datos guardados de este día">HIST</span>':'';
+    function inp(col,val){
+      return '<td><input type="number" min="0" class="cell-input" data-token="'+esc(tok)+'" data-person="'+esc(person)+'" data-col="'+col+'" value="'+val+'"></td>';
+    }
+    return '<tr>'+
+      '<td title="'+esc(person)+'">'+del+esc(person)+chip+'</td>'+
+      inp('LL',c.LL)+inp('CA',c.CA)+inp('V',c.V)+
+    '</tr>';
+  }
+
+  function teamTotals(t){
+    var tot={LL:0,CA:0,V:0};
+    var names=t.agents.map(function(a){return a.name;});
+    Object.keys(cells[t.token]||{}).forEach(function(p){if(names.indexOf(p)===-1)names.push(p);});
+    names.forEach(function(p){
+      var c=getCell(t.token,p);
+      tot.LL+=c.LL;tot.CA+=c.CA;tot.V+=c.V;
+    });
+    return tot;
+  }
+
+  function updateKpis(){
+    var ll=0,ca=0,v=0;
+    teams.forEach(function(t){var x=teamTotals(t);ll+=x.LL;ca+=x.CA;v+=x.V;});
+    set('kpi-llamadas',ll);set('kpi-calis',ca);set('kpi-ventas',v);
+    var per=parseInt(document.getElementById('kpi-perdidas').value,10)||0;
+    var rec=parseInt(document.getElementById('kpi-recicladas').value,10)||0;
+    set('kpi-total',ll+per+rec);
+    // refrescar totales y conversión de cada card sin re-render completo
+    teams.forEach(function(t){
+      var x=teamTotals(t);
+      set('tot-'+t.token+'-LL',x.LL);set('tot-'+t.token+'-CA',x.CA);set('tot-'+t.token+'-V',x.V);
+      var conv=document.querySelector('.team-card[data-token="'+t.token+'"] .conv');
+      if(conv)conv.textContent=x.LL>0?Math.round((x.V/x.LL)*100)+'%':'—';
+    });
+  }
+
+  // ── edición de celdas ────────────────────────────────────
+  function onCellInput(ev){
+    var inp=ev.target;
+    var tok=inp.dataset.token,person=inp.dataset.person,col=inp.dataset.col;
+    var val=Math.max(0,parseInt(inp.value,10)||0);
+    if(!cells[tok])cells[tok]={};
+    if(!cells[tok][person])cells[tok][person]={LL:0,CA:0,V:0};
+    cells[tok][person][col]=val;
+    updateKpis();
+    queueSave(tok,person,col,val,inp);
+  }
+
+  function queueSave(tok,person,col,val,inp){
+    var key=tok+'|'+person+'|'+col;
+    if(pendingSaves[key])clearTimeout(pendingSaves[key]);
+    pendingSaves[key]=setTimeout(async function(){
+      delete pendingSaves[key];
+      var sid=await ensureSheet();
+      if(!sid)return;
+      try{
+        var r=await fetch(API+'/cell',{
+          method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',
+          body:JSON.stringify({sheetId:String(sid),team:tok,person:person,col:col,value:String(val)})
+        });
+        var j=await r.json();
+        delete sheetCache[sid];
+        if(j.success&&inp){inp.classList.add('saved');setTimeout(function(){inp.classList.remove('saved');},900);}
+      }catch(e){console.warn('[lv] saveCell',e);}
+    },500);
+  }
+
+  function bindGlobalInput(id,colName,prop){
+    document.getElementById(id).addEventListener('input',function(){
+      var val=Math.max(0,parseInt(this.value,10)||0);
+      globals[prop]=val;
+      updateKpis();
+      queueSave('GLOBAL','RESUMEN',colName,val,this);
+    });
+  }
+
+  // ── agentes manuales ─────────────────────────────────────
+  async function onDeleteAgent(ev){
+    var btn=ev.currentTarget;
+    var tok=btn.dataset.token,person=btn.dataset.person;
+    if(!confirm('¿Quitar a '+person+' de este día? Se borran sus datos de la hoja.'))return;
+    var sid=currentSheetId;
+    if(sid){
+      try{
+        await fetch(API+'/user-delete',{
+          method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',
+          body:JSON.stringify({sheetId:String(sid),name:person,team:tok})
+        });
+        delete sheetCache[sid];
+      }catch(e){console.warn('[lv] user-delete',e);}
+    }
+    var t=teams.find(function(t){return t.token===tok;});
+    if(t)t.agents=t.agents.filter(function(a){return !(a.manual&&a.name===person);});
+    if(cells[tok])delete cells[tok][person];
+    renderTeams();
+  }
+
+  async function addAgent(){
+    var nm=document.getElementById('new-agent-name').value.trim().toUpperCase();
+    var tok=document.getElementById('new-agent-team').value;
+    if(!nm||!tok){alert('Completa nombre y team');return;}
+    var t=teams.find(function(t){return t.token===tok;});
+    if(!t)return;
+    if(t.agents.some(function(a){return a.name===nm;})){alert('Ese agente ya está en el team');closeModal();return;}
+    var sid=await ensureSheet();
+    if(!sid){alert('No se pudo crear la hoja del día');return;}
+    try{
+      var r=await fetch(API+'/user',{
+        method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',
+        body:JSON.stringify({sheetId:String(sid),name:nm,team:tok,role:''})
+      });
+      var j=await r.json();
+      if(!j.success)throw new Error(j.message||'error');
+      delete sheetCache[sid];
+      t.agents.push({name:nm,manual:true});
+      closeModal();
+      renderTeams();
+    }catch(e){console.warn('[lv] addAgent',e);alert('No se pudo agregar el agente');}
+  }
+
+  function openModal(){document.getElementById('modal').classList.add('active');document.getElementById('new-agent-name').value='';document.getElementById('new-agent-name').focus();}
+  function closeModal(){document.getElementById('modal').classList.remove('active');}
+
+  // ── resumen del mes ──────────────────────────────────────
+  async function renderResumen(){
+    var table=document.getElementById('resumen-table');
+    table.innerHTML='<tbody><tr><td><div class="lv-loading"><div class="lv-spinner"></div> Cargando resumen…</div></td></tr></tbody>';
+    var m=curM+1,y=curY;
+    var days=[];
+    for(var d=1;d<=daysInMonth(curY,curM);d++){
+      var key=dateKey(d,m,y);
+      if(sheetsByDate[key])days.push({day:d,sheet:sheetsByDate[key]});
+    }
+    if(!days.length){
+      table.innerHTML='<tbody><tr><td><div class="lv-loading"><i class="fas fa-inbox" style="opacity:.3;margin-right:8px"></i>Sin registros este mes</div></td></tr></tbody>';
+      return;
+    }
+    var results=await Promise.all(days.map(function(x){return fetchSheet(x.sheet.id).catch(function(){return null;});}));
+    var perDay={}; // day -> tok -> {LL,V}  (+_ll/_v totales)
+    days.forEach(function(x,i){
+      var j=results[i];
+      var agg={_ll:0,_v:0};
+      if(j)(j.data||[]).forEach(function(c){
+        if(c.kind!=='cell'||c.team==='GLOBAL')return;
+        var tok=String(c.team||'').trim(),col=String(c.col||'').toUpperCase(),val=parseInt(c.value,10)||0;
+        if(!agg[tok])agg[tok]={LL:0,V:0};
+        if(col==='LL'){agg[tok].LL+=val;agg._ll+=val;}
+        else if(col==='V'){agg[tok].V+=val;agg._v+=val;}
+      });
+      perDay[x.day]=agg;
+    });
+    // columnas: teams actuales + tokens históricos con datos este mes
+    var toks=teams.map(function(t){return t.token;});
+    var labels={};teams.forEach(function(t){labels[t.token]=t.label;});
+    Object.keys(perDay).forEach(function(d){
+      Object.keys(perDay[d]).forEach(function(k){
+        if(k[0]!=='_'&&toks.indexOf(k)===-1){toks.push(k);labels[k]=k.toUpperCase();}
+      });
+    });
+    var thead='<thead><tr><th>Fecha</th>'+toks.map(function(tk){
+      return '<th colspan="3">'+esc(labels[tk])+'</th>';
+    }).join('')+'<th colspan="2">Totales</th></tr>'+
+    '<tr><th></th>'+toks.map(function(){return '<th>LL</th><th>V</th><th>Tot</th>';}).join('')+'<th>Total LL</th><th>Total V</th></tr></thead>';
+    var totCols={};toks.forEach(function(tk){totCols[tk]={LL:0,V:0};});
+    var gLL=0,gV=0;
+    var rows=days.map(function(x){
+      var agg=perDay[x.day];
+      var tds='<td>'+x.day+'/'+m+'</td>';
+      toks.forEach(function(tk){
+        var c=agg[tk]||{LL:0,V:0};
+        tds+='<td>'+c.LL+'</td><td>'+c.V+'</td><td style="font-weight:800">'+(c.LL+c.V)+'</td>';
+        totCols[tk].LL+=c.LL;totCols[tk].V+=c.V;
+      });
+      tds+='<td style="font-weight:800">'+agg._ll+'</td><td style="font-weight:800">'+agg._v+'</td>';
+      gLL+=agg._ll;gV+=agg._v;
+      return '<tr>'+tds+'</tr>';
+    }).join('');
+    var totRow='<tr class="total-row"><td>TOTALES</td>'+toks.map(function(tk){
+      return '<td>'+totCols[tk].LL+'</td><td>'+totCols[tk].V+'</td><td>'+(totCols[tk].LL+totCols[tk].V)+'</td>';
+    }).join('')+'<td>'+gLL+'</td><td>'+gV+'</td></tr>';
+    table.innerHTML=thead+'<tbody>'+rows+totRow+'</tbody>';
+  }
+
+  // ── navegación ───────────────────────────────────────────
+  function updateMonthLabel(){set('month-label',MONTHS[curM]+' '+curY);}
+
+  function switchMonth(delta){
+    curM+=delta;
+    if(curM<0){curM=11;curY--;}
+    if(curM>11){curM=0;curY++;}
+    var isCur=(curY===now.getFullYear()&&curM===now.getMonth());
+    selDay=isCur?now.getDate():1;
+    // en meses pasados, preferir el último día con datos
+    if(!isCur){
+      for(var d=daysInMonth(curY,curM);d>=1;d--){
+        if(sheetsByDate[dateKey(d,curM+1,curY)]){selDay=d;break;}
+      }
+    }
+    updateMonthLabel();renderDayStrip();
+    if(view==='teams')loadDay();else renderResumen();
+  }
+
+  function switchView(v){
+    view=v;
+    document.querySelectorAll('.lv-tab').forEach(function(b){b.classList.toggle('active',b.dataset.view===v);});
+    document.getElementById('view-teams').style.display=v==='teams'?'flex':'none';
+    document.getElementById('view-resumen').style.display=v==='resumen'?'flex':'none';
+    document.getElementById('day-strip').style.display=v==='teams'?'flex':'none';
+    if(v==='resumen')renderResumen();
+  }
+
+  // ── init ─────────────────────────────────────────────────
+  document.getElementById('month-prev').addEventListener('click',function(){switchMonth(-1);});
+  document.getElementById('month-next').addEventListener('click',function(){switchMonth(1);});
+  document.querySelectorAll('.lv-tab').forEach(function(b){b.addEventListener('click',function(){switchView(b.dataset.view);});});
+  document.getElementById('btn-add-agent').addEventListener('click',openModal);
+  document.getElementById('btn-modal-cancel').addEventListener('click',closeModal);
+  document.getElementById('btn-modal-ok').addEventListener('click',addAgent);
+  document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
+  bindGlobalInput('kpi-perdidas','PERDIDAS','perdidas');
+  bindGlobalInput('kpi-recicladas','RECICLADAS','recicladas');
+
+  (async function init(){
+    updateMonthLabel();
+    applyUiConfig(); // tema desde el backend (no bloquea la carga)
+    await Promise.all([loadTeams(),loadSheets()]);
+    renderDayStrip();
+    await loadDay();
+  })();
+})();
+</script>
+</body>
+</html>

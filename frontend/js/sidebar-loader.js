@@ -204,6 +204,8 @@
       if (/rankings\.html?$/.test(path)) return 'rankings';
       if (/rankingagente\.html?$/.test(path)) return 'rankings';
       if (/ranking-agente\.html?$/.test(path)) return 'rankings';
+      if (/productividad-bo/.test(path)) return 'productividad-bo';
+      if (/productividad/.test(path)) return 'productividad';
       if (/semaforo|semáforo/.test(path)) return 'semaforo';
       if (/llamadas/.test(path) && /team/.test(path)) return 'llamadas-team';
       if (/llamadas/.test(path) && /ventas/.test(path)) return 'llamadas-team';
@@ -821,6 +823,7 @@
       { key: 'premios',      icon: 'fa-gift',               text: 'Premios',            href: '/residencial/premios.html' },
       { key: 'reglas',       icon: 'fa-book',               text: 'Reglas y Puntajes',  href: '/residencial/reglas.html' },
       { key: 'facturacion',  icon: 'fa-file-invoice-dollar', text: 'Facturación',       href: '/residencial/facturacion.html' },
+      { key: 'llamadas-team', icon: 'fa-phone',              text: 'Llamadas y Ventas por Team', href: '/residencial/llamadas-ventas.html', adminOnly: true },
       { key: 'comisiones',   icon: 'fa-coins',              text: 'Comisión',           href: '/residencial/comisiones.html' },
       { key: 'semaforo',     icon: 'fa-traffic-light',      text: 'El Semáforo',        href: '/residencial/semaforo.html' }
     ];
