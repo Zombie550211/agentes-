@@ -715,14 +715,15 @@
 
   /* ── KPIs ── */
   // KPIs respetan filtros activos (mes, team, agente, servicio, mercado)
-  // pero NO la pestaña de status activa
+  // pero NO la pestaña de status activa.
+  // Mes/Activas/Canceladas cuentan solo ventas del mes de referencia;
+  // el colchón (instalado este mes, vendido antes) solo cuenta en su KPI.
   function updateKPIs(){
     const d=new Date(),pad=function(n){return String(n).padStart(2,'0');};
     const today=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
     const selectedMonth=(document.getElementById('monthFilter')&&document.getElementById('monthFilter').value)||'';
     const curMon=selectedMonth||(d.getFullYear()+'-'+pad(d.getMonth()+1));
     const refMon=curMon;
-    const inclCol=document.getElementById('check-colchon-activas')&&document.getElementById('check-colchon-activas').checked;
     let kpi={hoy:0,mes:0,activas:0,colchon:0,pend:0,cancel:0,oficina:0,reserva:0,hold:0};
     const toYM=function(v){if(!v)return'';const s=String(v).trim();return/^\d{4}-\d{2}/.test(s)?s.slice(0,7):'';};
 
@@ -769,9 +770,8 @@
       const isNormalMon=(dvYM===refMon);
       if(!isColForMon&&!isNormalMon)return;
       if(isColForMon){
-        // Colchón: suma a colchon, y a activas si está completed/active
+        // Colchón: solo cuenta en su propio KPI (no suma a activas)
         kpi.colchon++;
-        if(st==='completed'||st==='active')kpi.activas++;
         return;
       }
       // Lead normal (dia_venta en el mes)
@@ -792,7 +792,6 @@
   }
   function animateCount(id,to){const el=document.getElementById(id);if(!el)return;const from=parseInt(el.textContent,10)||0;const dur=500,start=performance.now();function step(now){const p=Math.min((now-start)/dur,1);el.textContent=Math.round(from+(to-from)*p);if(p<1)requestAnimationFrame(step);}requestAnimationFrame(step);}
   window.updateKPIsWithColchon=function(){updateKPIs();};
-  window.toggleColchonInActivas=function(){};
 
   /* ── INLINE STATUS ── */
   window.inlineStatusChange=async function(selectEl){
@@ -2069,9 +2068,6 @@
       tmBtn.textContent=onlyTwoMonths?'Todos los meses':'Solo 2 meses';
       tmBtn.classList.toggle('active',onlyTwoMonths);
     }
-
-    const colchonCb=document.getElementById('check-colchon-activas');
-    if(colchonCb)colchonCb.addEventListener('change',function(){updateKPIs();});
 
     const searchEl=document.getElementById('costumer-search');if(searchEl)searchEl.addEventListener('input',applyFiltersDebounced);
     const refreshBtn=document.getElementById('refresh-table');

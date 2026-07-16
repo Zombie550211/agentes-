@@ -43,7 +43,7 @@
   <script src="/js/fetch-interceptor.js" defer></script>
   <script src="/js/logout-handler.js" defer></script>
   <script src="/js/user-info.js?v=20260602" defer></script>
-  <script src="/js/sidebar-loader.js?v=20260703" defer></script>
+  <script src="/js/sidebar-loader.js?v=20260715" defer></script>
   <script src="/utils/productos.js?v=20260702" defer></script>
   <script src="/utils/catalogos.js?v=20260702" defer></script>
   <script src="/js/realtime.js" defer></script>
@@ -161,15 +161,7 @@
       display: flex; align-items: center; gap: 6px;
       padding: 5px 14px;
       border-right: 1px solid var(--line-1);
-      cursor: pointer;
-      transition: background .12s;
     }
-    .cls-item--colchon:hover { background: var(--a-bg); }
-    .cls-item--colchon:has(#check-colchon-activas:checked) { background: var(--a-bg); }
-    .cls-item--colchon:has(#check-colchon-activas:checked) #cls-dot-colchon { background: var(--a) !important; }
-    .cls-item--colchon:has(#check-colchon-activas:checked) .cls-val,
-    .cls-item--colchon:has(#check-colchon-activas:checked) .cls-lbl { color: var(--a); }
-    #check-colchon-activas { accent-color: var(--a); width: 13px; height: 13px; cursor: pointer; flex-shrink: 0; }
 
     .cmd-actions { display:flex; align-items:center; gap:7px; }
 
@@ -990,14 +982,11 @@
             <span class="cls-val" id="costumer-reserva">0</span>
             <span class="cls-lbl">reserva</span>
           </div>
-          <label class="cls-item cls-item--colchon" for="check-colchon-activas" title="Sumar colchón a activas">
+          <div class="cls-item cls-item--colchon" title="Ventas colchón del mes (instaladas este mes, vendidas el anterior)">
             <span class="cls-dot" id="cls-dot-colchon" style="background:var(--ink-4)"></span>
             <span class="cls-val" id="costumer-colchon">0</span>
             <span class="cls-lbl">colchón</span>
-            <input type="checkbox" id="check-colchon-activas"
-                   style="margin-left:6px;cursor:pointer;accent-color:var(--a);width:13px;height:13px;"
-                   aria-label="Sumar colchón a activas"/>
-          </label>
+          </div>
         </div>
         <div class="cmd-actions">
           <button class="btn" id="enable-notifications-btn" title="Activar notificaciones" aria-label="Notificaciones">🔔</button>
@@ -1620,7 +1609,7 @@
 </style>
 
 <!-- CRM CORE SCRIPT -->
-<script src="/js/costumer-main.js?v=20260622b" defer></script>
+<script src="/js/costumer-main.js?v=20260715" defer></script>
 
 <script>
 (function(){
