@@ -1591,21 +1591,22 @@
       try { document.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme } })); } catch (_) {}
     };
 
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    applyTheme(savedTheme);
+    // Tema dark SIEMPRE: se ignora cualquier preferencia guardada en claro
+    try { localStorage.setItem('theme', 'dark'); } catch (_) {}
+    applyTheme('dark');
 
     checkbox.addEventListener('change', () => {
-      const newTheme = checkbox.checked ? 'dark' : 'light';
-      localStorage.setItem('theme', newTheme);
-      applyTheme(newTheme);
+      // Tema dark permanente: el switch no cambia el tema
+      try { localStorage.setItem('theme', 'dark'); } catch (_) {}
+      applyTheme('dark');
     });
 
     const iconEl = document.getElementById('theme-icon-collapsed');
     if (iconEl) {
       iconEl.addEventListener('click', () => {
-        const newTheme = body.classList.contains('dark-theme') ? 'light' : 'dark';
-        localStorage.setItem('theme', newTheme);
-        applyTheme(newTheme);
+        // Tema dark permanente
+        try { localStorage.setItem('theme', 'dark'); } catch (_) {}
+        applyTheme('dark');
       });
     }
   }
