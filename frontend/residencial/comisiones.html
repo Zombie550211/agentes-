@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Comisiones · Residencial</title>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <script src="/js/fetch-interceptor.js" defer></script>
   <script src="/js/sidebar-loader.js?v=20260715b" defer></script>
   <script src="/js/logout-handler.js" defer></script>
@@ -499,7 +499,7 @@
     pointer-events: none;
   }
   </style>
-  <link rel="stylesheet" href="/css/glass-cards.css?v=20260605">
+  <link rel="stylesheet" href="/css/glass-cards.css?v=20260716">
   <style>
     /* ── Base transparente ── */
     body, html { background: transparent !important; }
@@ -649,6 +649,71 @@
     .sv-comm-amount.no-meta {
       color: rgba(255,255,255,0.45) !important;
     }
+
+    /* ══════════════════════════════════════════════════════
+       DASHBOARD COMISIONES (diseño Claude Design "Dashboard Comisiones")
+       Tokens propios .dcb-* — IBM Plex + oklch, tema claro
+    ══════════════════════════════════════════════════════ */
+    /* Paleta glass oscura integrada con el tema de la página. El override
+       global de glass-cards.css excluye .dcb, así que estos colores mandan. */
+    .dcb { font-family:'IBM Plex Sans',sans-serif;
+      --dcb-card:rgba(5,15,35,.45); --dcb-bdr:rgba(255,255,255,.13); --dcb-bdr2:rgba(255,255,255,.08);
+      --dcb-t1:#f1f5f9; --dcb-t2:#dbe4f0; --dcb-t3:#aab8cf; --dcb-t4:#8fa0b8;
+      --dcb-track:rgba(255,255,255,.12);
+    }
+    .dcb .mono, .dcb .dcb-mono { font-family:'IBM Plex Mono',monospace; }
+    .dcb .dcb-t1 { color:var(--dcb-t1); }
+    .dcb .dcb-t2 { color:var(--dcb-t2); }
+    .dcb .dcb-t3 { color:var(--dcb-t3); }
+    .dcb .dcb-t4 { color:var(--dcb-t4); }
+
+    .dcb-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; margin-bottom:20px; }
+    .dcb .dcb-kpi { background:var(--dcb-card); border:1px solid var(--dcb-bdr); border-radius:10px; padding:16px 18px;
+      backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+    .dcb .dcb-kpi-lbl { display:flex; align-items:center; gap:6px; font-size:10.5px; font-weight:700; letter-spacing:.09em; color:var(--dcb-t4); }
+    .dcb .dcb-kpi-val { font-family:'IBM Plex Mono',monospace; font-size:27px; font-weight:700; color:var(--dcb-t1); margin-top:6px; }
+    .dcb .dcb-kpi-sub { font-size:12px; color:var(--dcb-t4); margin-top:3px; }
+    .dcb-prog { height:4px; background:var(--dcb-track); border-radius:2px; margin-top:10px; overflow:hidden; }
+    .dcb-prog > div { height:100%; border-radius:2px; }
+
+    .dcb-charts { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; margin-bottom:16px; }
+    .dcb .dcb-card { background:var(--dcb-card); border:1px solid var(--dcb-bdr); border-radius:10px; padding:20px; min-width:0;
+      backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+    .dcb-card-head { display:flex; justify-content:space-between; align-items:baseline; }
+    .dcb .dcb-card-head h3 { margin:0; font-size:14.5px; font-weight:700; color:var(--dcb-t1); font-family:'IBM Plex Sans',sans-serif; }
+    .dcb .dcb-card-tag { font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--dcb-t4); }
+
+    .dcb-radial-wrap { display:flex; align-items:center; gap:18px; margin-top:12px; flex-wrap:wrap; }
+    @keyframes dcbPop { from { opacity:0; transform:rotate(-90deg) scale(.9); } to { opacity:1; transform:rotate(-90deg) scale(1); } }
+    .dcb-arc {
+      transition: stroke-width .15s, opacity .15s, filter .15s;
+      animation: dcbPop .7s cubic-bezier(.34,1.3,.5,1) both;
+      transform-origin: 150px 150px;
+      transform-box: view-box;
+      cursor: pointer;
+    }
+    .dcb-radial-wrap svg:has(.dcb-arc:hover) .dcb-arc { opacity:.3; }
+    .dcb-radial-wrap svg .dcb-arc:hover { opacity:1; stroke-width:48; filter:drop-shadow(0 0 8px currentColor); }
+    .dcb-radial-wrap svg.dcb-hl .dcb-arc { opacity:.3; }
+    .dcb-radial-wrap svg.dcb-hl .dcb-arc.is-hl { opacity:1; stroke-width:48; filter:drop-shadow(0 0 8px currentColor); }
+    .dcb-legend { display:flex; flex-direction:column; gap:6px; flex:1; min-width:150px; }
+    .dcb-legend-row { display:flex; align-items:center; gap:8px; font-size:12px; padding:3px 6px; border-radius:6px; cursor:pointer; transition:background .12s; }
+    .dcb-legend-row:hover, .dcb-legend-row.is-hl { background:rgba(255,255,255,.07); }
+    .dcb-legend-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; box-shadow:0 0 6px currentColor; }
+    .dcb-legend-sub { display:flex; align-items:center; gap:8px; font-size:11px; padding:1px 6px 1px 22px; }
+    .dcb-otros-toggle { font-size:10px; opacity:.8; margin-left:4px; }
+
+    .dcb-teams { display:flex; flex-direction:column; gap:11px; margin-top:14px; }
+    .dcb-team-lbl { display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:4px; }
+    .dcb-bullet { position:relative; height:16px; background:var(--dcb-track); border-radius:3px; }
+    .dcb-bullet-fill { position:absolute; top:0; left:0; height:100%; background:oklch(65% 0.14 255); border-radius:3px; transition:background .12s; }
+    .dcb-bullet-fill:hover { background:oklch(72% 0.14 255); }
+    .dcb-bullet-tick { position:absolute; top:-3px; width:2px; height:22px; background:rgba(255,255,255,.75); }
+
+    .dcb-top-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+    .dcb .dcb-top-card { border:1px solid var(--dcb-bdr2); border-radius:8px; padding:13px; min-width:0; background:rgba(255,255,255,.03); }
+    .dcb-rank { width:26px; height:26px; border-radius:5px; display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px; flex-shrink:0; }
+    .dcb .dcb-loading { padding:30px; text-align:center; font-size:12px; color:var(--dcb-t4); font-family:'IBM Plex Mono',monospace; }
   </style>
 </head>
 <body>
@@ -1163,34 +1228,13 @@ function renderAdminView(){
   const ym = getYM(_month.year, _month.month);
   // Cambiar el "tipo" de agente recalcula la comisión → solo admin; el supervisor es solo lectura.
   const canEditTipo = isAdmin(_user?.role);
-  const totalPuntos = _agents.reduce((s,a)=>s+a.puntos,0).toFixed(2);
-  const totalComision = _agents.reduce((s,a)=>s+a.comision,0);
-  const totalVentas = _agents.reduce((s,a)=>s+a.totalVentas,0);
-  const conMeta = _agents.filter(a=>a.comision>0).length;
-
-  const kpis = `
-  <div class="kpi-strip">
-    <div class="kpi-card">
-      <div class="kpi-lbl">Agentes</div>
-      <div class="kpi-val">${_agents.length}</div>
-      <div class="kpi-sub">${conMeta} con meta</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-lbl">Ventas</div>
-      <div class="kpi-val">${totalVentas}</div>
-      <div class="kpi-sub">Completed del mes</div>
-    </div>
-    <div class="kpi-card gold">
-      <div class="kpi-lbl">Puntos totales</div>
-      <div class="kpi-val gold">${totalPuntos}</div>
-      <div class="kpi-sub">Suma de puntajes</div>
-    </div>
-    <div class="kpi-card green">
-      <div class="kpi-lbl">Comisión total</div>
-      <div class="kpi-val green">${fmtUSD(totalComision)}</div>
-      <div class="kpi-sub">A pagar este mes</div>
-    </div>
-  </div>`;
+  // Vista admin = SOLO el dashboard (diseño "Dashboard Comisiones").
+  // Las antiguas secciones de cards y tabla quedan para el supervisor,
+  // que no ve las gráficas.
+  if(isAdmin(_user?.role)){
+    return renderDcbKpis() + renderDashboard();
+  }
+  const kpis = renderDcbKpis();
 
   const cards = _agents.length === 0
     ? `<div class="empty"><div class="empty-icon">📋</div><span>Sin ventas completed para ${ym}</span></div>`
@@ -1601,6 +1645,289 @@ function renderAgentSelfView(){
   return heroSection + buildSelfViewHTML(agentData, ym);
 }
 
+/* ══════════════════════════════════════════════════════
+   DASHBOARD COMISIONES (diseño "Dashboard Comisiones")
+   Gráficas con datos reales del mes activo. Solo admin.
+══════════════════════════════════════════════════════ */
+const DCB_COLORS = ['oklch(68% 0.13 255)','oklch(72% 0.13 150)','oklch(72% 0.13 300)','oklch(78% 0.13 80)','oklch(72% 0.12 190)','oklch(68% 0.16 20)','oklch(75% 0.02 255)'];
+const DCB_MESES = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+let _dashCache = {};   // ym → { pts, ventas, teamVentas:{team:n} } (meses ya consultados)
+let _dashToken = 0;    // invalida cargas en vuelo al cambiar de mes
+
+function esc(s){ const d=document.createElement('div'); d.textContent=String(s==null?'':s); return d.innerHTML; }
+
+function dcbServiceName(lead){
+  let s = lead.servicios;
+  if(typeof s === 'string'){ try{ const j=JSON.parse(s); if(Array.isArray(j)) s=j; }catch(_){} }
+  if(Array.isArray(s) && s.length) return String(s[0]||'').trim();
+  return String(lead.tipo_servicio||lead.tipoServicio||'').trim();
+}
+
+// Agregados de un array de leads para un mes (mismo criterio que la comisión)
+function dcbAggregates(leads, ym){
+  let pts=0, ventas=0; const teamVentas={}; const productos={};
+  (leads||[]).forEach(l=>{
+    if(!cuentaParaComision(l, ym)) return;
+    ventas++;
+    const p = parseFloat(l.puntaje||l.score||l.puntos||0)||0;
+    pts += p;
+    const t = normalizeTeam(String(l.supervisor||l.equipo||l.team||'').trim()) || 'Sin equipo';
+    teamVentas[t] = (teamVentas[t]||0)+1;
+    const svc = dcbServiceName(l) || 'Sin producto';
+    if(!productos[svc]) productos[svc] = { n:0, pts:0 };
+    productos[svc].n++;
+    productos[svc].pts += p;
+  });
+  return { pts: parseFloat(pts.toFixed(2)), ventas, teamVentas, productos };
+}
+
+function renderDcbKpis(){
+  const totalPuntos = _agents.reduce((s,a)=>s+a.puntos,0).toFixed(2);
+  const totalComision = _agents.reduce((s,a)=>s+a.comision,0);
+  const totalVentas = _agents.reduce((s,a)=>s+a.totalVentas,0);
+  const conMeta = _agents.filter(a=>a.comision>0).length;
+  const metaPct = _agents.length ? Math.round(conMeta/_agents.length*100) : 0;
+  const k = (label,value,sub,accent,progressPct)=>`
+    <div class="dcb-kpi" style="border-top:3px solid ${accent};">
+      <div class="dcb-kpi-lbl">${label}</div>
+      <div class="dcb-kpi-val">${value}</div>
+      <div class="dcb-kpi-sub">${sub}</div>
+      ${progressPct==null?'':`<div class="dcb-prog"><div style="width:${progressPct}%;background:${accent};"></div></div>`}
+    </div>`;
+  return `<div class="dcb dcb-kpis">
+    ${k('AGENTES ACTIVOS', _agents.length, conMeta+' con meta de comisión', 'oklch(68% 0.13 255)', metaPct)}
+    ${k('VENTAS TOTALES', totalVentas, 'completadas este mes', 'oklch(72% 0.13 150)', null)}
+    ${k('PUNTOS TOTALES', totalPuntos, 'suma de puntajes', 'oklch(78% 0.13 80)', null)}
+    ${k('COMISIÓN TOTAL', fmtUSD(totalComision), 'a pagar este mes', 'oklch(75% 0.02 255)', null)}
+  </div>`;
+}
+
+let _dcbProd = [];        // datos de la gráfica para los handlers de hover
+let _dcbProdTotal = 0;
+let _dcbOtrosOpen = false;
+
+window.dcbProdHover = function(i){
+  const svg=document.getElementById('dcb-prod-svg'); if(!svg) return;
+  svg.classList.add('dcb-hl');
+  svg.querySelectorAll('.dcb-arc').forEach((el,idx)=>el.classList.toggle('is-hl', idx===i));
+  document.querySelectorAll('#dcb-prod-legend .dcb-legend-row').forEach((el,idx)=>el.classList.toggle('is-hl', idx===i));
+  const p=_dcbProd[i]; if(!p) return;
+  const v=document.getElementById('dcb-prod-val'), l=document.getElementById('dcb-prod-lbl');
+  if(v){ v.textContent=p.value; v.setAttribute('fill', '#f1f5f9'); }
+  if(l) l.textContent=(p.name.length>18?p.name.slice(0,17)+'…':p.name)+' · '+p.pts.toFixed(2)+' pts';
+};
+window.dcbProdLeave = function(){
+  const svg=document.getElementById('dcb-prod-svg'); if(!svg) return;
+  svg.classList.remove('dcb-hl');
+  svg.querySelectorAll('.dcb-arc.is-hl').forEach(el=>el.classList.remove('is-hl'));
+  document.querySelectorAll('#dcb-prod-legend .dcb-legend-row.is-hl').forEach(el=>el.classList.remove('is-hl'));
+  const v=document.getElementById('dcb-prod-val'), l=document.getElementById('dcb-prod-lbl');
+  if(v) v.textContent=_dcbProdTotal;
+  if(l) l.textContent='ventas totales';
+};
+window.dcbToggleOtros = function(ev){
+  if(ev) ev.stopPropagation();
+  _dcbOtrosOpen = !_dcbOtrosOpen;
+  const box=document.getElementById('dcb-otros-list');
+  const tog=document.getElementById('dcb-otros-toggle');
+  if(box) box.style.display=_dcbOtrosOpen?'block':'none';
+  if(tog) tog.textContent=_dcbOtrosOpen?'▲ ocultar':'▼ detalle';
+};
+
+function renderDcbProductos(){
+  const ym = getYM(_month.year, _month.month);
+  const agg = dcbAggregates(_leads, ym);
+  const entries = Object.entries(agg.productos).sort((a,b)=>b[1].n-a[1].n);
+  const top = entries.slice(0,6);
+  const otros = entries.slice(6);
+  const restosN = otros.reduce((s,e)=>s+e[1].n,0);
+  const restosPts = otros.reduce((s,e)=>s+e[1].pts,0);
+  const total = entries.reduce((s,e)=>s+e[1].n,0);
+  if(!total) return `<div class="dcb-card"><div class="dcb-card-head"><h3>Ventas por Producto</h3><span class="dcb-card-tag">RADIAL</span></div><div class="dcb-loading">Sin ventas completed este mes</div></div>`;
+
+  const items = top.map(([name,d])=>({name, value:d.n, pts:d.pts}));
+  if(restosN>0) items.push({name:'Otros productos', value:restosN, pts:restosPts, esOtros:true});
+
+  // Donut segmentado: TODAS las porciones juntas cierran el círculo completo.
+  const R=104, W=42, C=2*Math.PI*R, GAP=Math.min(5, C*0.008);
+  let cum=0;
+  _dcbProd = items.map((p,i)=>{
+    const frac = p.value/total, pct = frac*100;
+    const arc = Math.max(frac*C - GAP, 2);
+    const start = cum*C; cum += frac;
+    const color = p.esOtros ? 'oklch(75% 0.02 255)' : DCB_COLORS[i%DCB_COLORS.length];
+    return { ...p, pct, color, arc, start };
+  });
+  _dcbProdTotal = total;
+
+  const bg = `<circle cx="150" cy="150" r="${R}" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="${W}"></circle>
+    <circle cx="150" cy="150" r="${R-W/2-9}" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="1.5"></circle>`;
+  const arcs = _dcbProd.map((p,i)=>`<circle class="dcb-arc" cx="150" cy="150" r="${R}" fill="none" stroke="${p.color}" stroke-width="${W}"
+    stroke-dasharray="${p.arc.toFixed(1)} ${(C-p.arc).toFixed(1)}" stroke-dashoffset="${(-p.start-GAP/2).toFixed(1)}" transform="rotate(-90 150 150)"
+    style="animation-delay:${(i*90)}ms;color:${p.color};"
+    onmouseenter="dcbProdHover(${i})" onmouseleave="dcbProdLeave()">
+    <title>${esc(p.name)}: ${p.value} ventas · ${p.pts.toFixed(2)} pts (${p.pct.toFixed(1)}% del total)</title></circle>`).join('');
+
+  const legend = _dcbProd.map((p,i)=>{
+    const otrosBtn = p.esOtros
+      ? `<span id="dcb-otros-toggle" class="dcb-otros-toggle dcb-t4" onclick="dcbToggleOtros(event)">${_dcbOtrosOpen?'▲ ocultar':'▼ detalle'}</span>` : '';
+    const row = `
+    <div class="dcb-legend-row" onmouseenter="dcbProdHover(${i})" onmouseleave="dcbProdLeave()" ${p.esOtros?'onclick="dcbToggleOtros(event)"':''}>
+      <span class="dcb-legend-dot" style="background:${p.color};color:${p.color};"></span>
+      <span class="dcb-t2" style="flex:1;">${esc(p.name)}${otrosBtn}</span>
+      <span class="dcb-mono dcb-t3">${p.value}</span>
+      <span class="dcb-mono dcb-t4" style="width:74px;text-align:right;">${p.pts.toFixed(2)} pts</span>
+    </div>`;
+    // Desglose exacto de "Otros productos"
+    if(p.esOtros){
+      const subs = otros.map(([n,d])=>`
+        <div class="dcb-legend-sub">
+          <span class="dcb-t3" style="flex:1;">${esc(n)}</span>
+          <span class="dcb-mono dcb-t4">${d.n}</span>
+          <span class="dcb-mono dcb-t4" style="width:74px;text-align:right;">${d.pts.toFixed(2)} pts</span>
+        </div>`).join('');
+      return row + `<div id="dcb-otros-list" style="display:${_dcbOtrosOpen?'block':'none'};border-left:2px solid rgba(255,255,255,.12);margin-left:9px;">${subs}</div>`;
+    }
+    return row;
+  }).join('');
+
+  return `<div class="dcb-card">
+    <div class="dcb-card-head"><h3>Ventas por Producto</h3><span class="dcb-card-tag">RADIAL · ${entries.length} PRODUCTOS</span></div>
+    <div class="dcb-radial-wrap">
+      <svg id="dcb-prod-svg" width="210" height="210" viewBox="0 0 300 300" style="flex:0 0 auto;">
+        ${bg}${arcs}
+        <text id="dcb-prod-val" x="150" y="146" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-weight="700" font-size="30" fill="#f1f5f9">${total}</text>
+        <text id="dcb-prod-lbl" x="150" y="168" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="#8fa0b8">ventas totales</text>
+      </svg>
+      <div class="dcb-legend" id="dcb-prod-legend">${legend}</div>
+    </div>
+  </div>`;
+}
+
+function renderDcbTeamsBody(){
+  const ym = getYM(_month.year, _month.month);
+  const agg = dcbAggregates(_leads, ym);
+  // puntos por team desde _agents (ya agregados y con scope aplicado)
+  const teamPts = {};
+  _agents.forEach(a=>{ const t=a.team||'Sin equipo'; teamPts[t]=(teamPts[t]||0)+a.puntos; });
+  const prev = (()=>{ let m=_month.month-1, y=_month.year; if(m<1){m=12;y--;} return _dashCache[getYM(y,m)]; })();
+  const rows = Object.entries(agg.teamVentas).sort((a,b)=>b[1]-a[1]);
+  if(!rows.length) return `<div class="dcb-loading">Sin ventas completed este mes</div>`;
+  const maxScale = Math.max(...rows.map(([t,v])=>Math.max(v, (prev&&prev.teamVentas&&prev.teamVentas[t])||0))) || 1;
+  return `<div class="dcb-teams">${rows.map(([t,v])=>{
+    const meta = prev && prev.teamVentas ? (prev.teamVentas[t]||0) : null;
+    const pts = (teamPts[t]||0).toFixed(2);
+    const tip = `${t}: ${v} ventas · ${pts} pts${meta!=null?` (mes anterior ${meta})`:''}`;
+    return `<div>
+      <div class="dcb-team-lbl">
+        <span class="dcb-t2" style="font-weight:600;">${esc(t)}</span>
+        <span class="dcb-mono dcb-t3">${v} vtas · ${pts} pts</span>
+      </div>
+      <div class="dcb-bullet">
+        <div class="dcb-bullet-fill" style="width:${(v/maxScale*100).toFixed(1)}%" title="${esc(tip)}"></div>
+        ${meta!=null&&meta>0?`<div class="dcb-bullet-tick" style="left:${(meta/maxScale*100).toFixed(1)}%" title="Mes anterior: ${meta} ventas"></div>`:''}
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function renderDcbTrendBody(){
+  // 6 meses terminando en el mes activo; usa _dashCache (el mes activo se calcula de _leads)
+  const yms=[]; let y=_month.year, m=_month.month;
+  for(let i=0;i<6;i++){ yms.unshift({ym:getYM(y,m), m}); m--; if(m<1){m=12;y--;} }
+  const curYM = getYM(_month.year, _month.month);
+  const vals = yms.map(o=> o.ym===curYM ? dcbAggregates(_leads,o.ym).pts : (_dashCache[o.ym]?_dashCache[o.ym].pts:null));
+  if(vals.some(v=>v===null)) return `<div class="dcb-loading">Cargando tendencia…</div>`;
+
+  const W=640,H=180,PX=14,PT=12,PB=30;
+  const min=Math.min(...vals), max=Math.max(...vals), range=(max-min)||1;
+  const pts = vals.map((v,i)=>({ x:PX+i*(W-2*PX)/(vals.length-1), y:PT+(1-(v-min)/range)*(H-PT-PB), v }));
+  const line = pts.map((p,i)=>(i===0?`M${p.x},${p.y}`:`L${p.x},${p.y}`)).join(' ');
+  const area = `${line} L${pts[pts.length-1].x},${H} L${pts[0].x},${H} Z`;
+  const first = vals[0]||0;
+  const delta = first>0 ? ((vals[vals.length-1]-first)/first*100) : 0;
+  const deltaTxt = (delta>=0?'▲ ':'▼ ')+Math.abs(delta).toFixed(1)+'% vs. '+DCB_MESES[yms[0].m-1];
+  const tagEl = document.getElementById('dcb-trend-delta'); if(tagEl) tagEl.textContent = deltaTxt;
+
+  return `<svg width="100%" height="160" viewBox="0 0 640 180" preserveAspectRatio="none" style="margin-top:8px;overflow:visible;">
+    ${[0.25,0.5,0.75,1].map(f=>`<line x1="0" x2="640" y1="${PT+f*(H-PT-PB)}" y2="${PT+f*(H-PT-PB)}" stroke="rgba(255,255,255,.08)" stroke-width="1"></line>`).join('')}
+    <path d="${area}" fill="oklch(78% 0.13 80 / 0.16)"></path>
+    <path d="${line}" fill="none" stroke="oklch(78% 0.13 80)" stroke-width="2.5"></path>
+    ${pts.map((p,i)=>`
+      <circle cx="${p.x}" cy="${p.y}" r="4.5" fill="#0b1526" stroke="oklch(78% 0.13 80)" stroke-width="2.5"><title>${DCB_MESES[yms[i].m-1]}: ${p.v.toFixed(2)} pts</title></circle>
+      <text x="${p.x}" y="176" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#8fa0b8">${DCB_MESES[yms[i].m-1]}</text>`).join('')}
+  </svg>`;
+}
+
+let _dcbTopAll = false;
+window.dcbToggleTop = function(){ _dcbTopAll = !_dcbTopAll; render(); };
+
+function renderDcbTopAgentes(){
+  const RANK1={bg:'oklch(80% 0.13 80)',color:'oklch(25% 0.05 80)'};
+  const RANK2={bg:'oklch(88% 0.006 250)',color:'oklch(35% 0.02 255)'};
+  const RANK3={bg:'oklch(78% 0.1 50)',color:'oklch(28% 0.05 50)'};
+  const RANKN={bg:'rgba(255,255,255,.10)',color:'#cbd5e1'};
+  const RANKS=i=> i===0?RANK1 : i===1?RANK2 : i===2?RANK3 : RANKN;
+  const sorted = _agents.slice().sort((a,b)=>b.puntos-a.puntos);
+  const top = _dcbTopAll ? sorted : sorted.slice(0,6);
+  if(!top.length) return '';
+  return `<div class="dcb-card" style="margin-bottom:16px;">
+    <div class="dcb-card-head" style="margin-bottom:12px;"><h3>Top Agentes por Puntos</h3>
+      <a href="#" class="dcb-card-tag" style="text-decoration:none;cursor:pointer;" onclick="dcbToggleTop();return false;">${_dcbTopAll?'Ver top 6 ←':'Ver todos →'}</a></div>
+    <div class="dcb-top-grid">${top.map((a,i)=>`
+      <div class="dcb-top-card">
+        <div style="display:flex;align-items:center;gap:9px;">
+          <div class="dcb-rank" style="background:${RANKS(i).bg};color:${RANKS(i).color};">${i+1}</div>
+          <div style="min-width:0;">
+            <div class="dcb-t1" style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(a.name)}</div>
+            <div class="dcb-t4" style="font-size:10.5px;">${esc(a.team||'Sin equipo')}</div>
+          </div>
+        </div>
+        <div class="dcb-mono dcb-t1" style="font-size:19px;font-weight:700;margin-top:10px;">${a.puntos.toFixed(2)}<span class="dcb-t4" style="font-size:11px;font-weight:500;"> pts</span></div>
+        <div class="dcb-mono dcb-t4" style="display:flex;justify-content:space-between;font-size:10.5px;margin-top:6px;">
+          <span class="dcb-t4">${a.totalVentas} vtas</span><span class="dcb-t4">${fmtUSD(a.comision)}</span>
+        </div>
+      </div>`).join('')}</div>
+  </div>`;
+}
+
+function renderDashboard(){
+  return `<div class="dcb">
+    <div class="dcb-charts">
+      ${renderDcbProductos()}
+      <div class="dcb-card">
+        <div class="dcb-card-head"><h3>Ventas y Puntos por Equipo</h3><span class="dcb-card-tag">BULLET · VS MES ANTERIOR</span></div>
+        <div id="dcb-teams-body">${renderDcbTeamsBody()}</div>
+      </div>
+    </div>
+    <div class="dcb-card" style="margin-bottom:16px;">
+      <div class="dcb-card-head"><h3>Tendencia de Puntaje — Últimos 6 Meses</h3><span class="dcb-card-tag" id="dcb-trend-delta"></span></div>
+      <div id="dcb-trend-body">${renderDcbTrendBody()}</div>
+    </div>
+    ${renderDcbTopAgentes()}
+  </div>`;
+}
+
+// Carga en segundo plano los 5 meses previos (tendencia + metas de team)
+async function loadDashDeferred(){
+  const token = ++_dashToken;
+  const months=[]; let y=_month.year, m=_month.month;
+  for(let i=0;i<5;i++){ m--; if(m<1){m=12;y--;} months.push({y,m,ym:getYM(y,m)}); }
+  const adminScope = isAdmin(_user?.role) ? '&scope=ranking' : '';
+  await Promise.all(months.filter(mo=>!_dashCache[mo.ym]).map(async mo=>{
+    try{
+      const res = await AUTH.sf(`/api/leads?year=${mo.y}&month=${mo.m}${adminScope}`);
+      if(!res||!res.ok) return;
+      const data = await res.json();
+      const leads = Array.isArray(data)?data:(data.data||data.leads||[]);
+      _dashCache[mo.ym] = dcbAggregates(leads, mo.ym);
+    }catch(_){}
+  }));
+  if(token!==_dashToken) return; // cambió el mes: descartar
+  const tb=document.getElementById('dcb-trend-body'); if(tb) tb.innerHTML=renderDcbTrendBody();
+  const teams=document.getElementById('dcb-teams-body'); if(teams) teams.innerHTML=renderDcbTeamsBody();
+}
+
 function render(){
   const container = document.getElementById('main-content');
   if(!container) return;
@@ -1623,6 +1950,10 @@ function render(){
       </div>
     </div>
     ${showAdminView ? renderAdminView() : renderAgentSelfView()}`;
+  // Dashboard (admin): completar tendencia y metas de team en segundo plano
+  if(!_loading && showAdminView && userIsAdmin){
+    setTimeout(loadDashDeferred, 0);
+  }
   // Inicializar KPIs de pago DESPUÉS de que el DOM esté listo
   if(!_loading && !showAdminView){
     const ym = getYM(_month.year, _month.month);
