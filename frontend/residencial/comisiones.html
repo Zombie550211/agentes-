@@ -4,9 +4,9 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Comisiones · Residencial</title>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="/js/fetch-interceptor.js" defer></script>
-  <script src="/js/sidebar-loader.js?v=20260715b" defer></script>
+  <script src="/js/sidebar-loader.js?v=20260716a" defer></script>
   <script src="/js/logout-handler.js" defer></script>
   <script src="/js/user-info.js" defer></script>
   <style>
@@ -48,27 +48,34 @@
     .sidebar { width: var(--nav-w); min-height: 100vh; position: fixed; top:0; left:0; z-index:200; background:var(--ink); }
     .main { margin-left: var(--nav-w); flex:1; padding: 28px 32px 60px; max-width: 1400px; }
 
-    /* ── Header ── */
+    /* ── Header — tipografía Arial, sin fondo, sin colapsos ── */
     .page-header {
       display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 32px; gap: 16px; flex-wrap: wrap;
+      margin-bottom: 28px; gap: 18px; flex-wrap: wrap;
+      background: transparent !important;
+      border: none !important; box-shadow: none !important;
+      padding: 0 !important;
+      font-family: Arial, Helvetica, sans-serif;
     }
-    .page-title-block { display: flex; flex-direction: column; gap: 4px; }
+    .page-title-block { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
     .page-eyebrow {
       font-size: .68rem; font-weight: 700; letter-spacing: .15em;
-      text-transform: uppercase; color: var(--gold); font-family: var(--fm);
+      text-transform: uppercase; color: var(--gold);
+      font-family: Arial, Helvetica, sans-serif;
     }
     .page-title {
-      font-size: 1.8rem; font-weight: 800; letter-spacing: -.03em; color: var(--ink);
-      line-height: 1;
+      font-size: 1.8rem; font-weight: 800; letter-spacing: -.01em; color: var(--ink);
+      line-height: 1.1;
+      font-family: Arial, Helvetica, sans-serif;
     }
-    .page-subtitle { font-size: .8rem; color: var(--ink2); margin-top: 2px; }
+    .page-subtitle { font-size: .8rem; color: var(--ink2); margin-top: 2px; font-family: Arial, Helvetica, sans-serif; }
 
     /* ── Month picker ── */
     .month-nav {
       display: flex; align-items: center; gap: 6px;
       background: var(--surface2); border: 1px solid var(--border2);
       border-radius: var(--r); padding: 4px;
+      flex-shrink: 0;
     }
     .month-btn {
       width: 30px; height: 30px; border-radius: 6px; border: none;
@@ -85,11 +92,13 @@
     .view-toggle {
       display: flex; gap: 4px; background: var(--surface2);
       border: 1px solid var(--border2); border-radius: var(--r); padding: 4px;
+      flex-shrink: 0;
     }
     .vtab {
-      padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer;
-      font-family: var(--f); font-size: .75rem; font-weight: 700;
+      padding: 7px 16px; border-radius: 6px; border: none; cursor: pointer;
+      font-family: Arial, Helvetica, sans-serif; font-size: .75rem; font-weight: 700;
       color: var(--ink2); background: transparent; transition: all .12s; letter-spacing: .03em;
+      white-space: nowrap;
     }
     .vtab.active { background: var(--gold); color: #000; }
 
@@ -494,19 +503,19 @@
   body::before {
     content: '';
     position: fixed; inset: 0; z-index: 0;
-    background: url('/images/ESTADIOOO.jpeg') center center / cover no-repeat;
+    background: linear-gradient(160deg,#0b1a33 0%,#0a1628 55%,#080f1f 100%);
   opacity: 0.55;
     pointer-events: none;
   }
   </style>
-  <link rel="stylesheet" href="/css/glass-cards.css?v=20260716">
+  <link rel="stylesheet" href="/css/glass-cards.css?v=20260716a">
   <style>
     /* ── Base transparente ── */
     body, html { background: transparent !important; }
     .main, .layout { background: transparent !important; }
 
-    /* ── Jerarquía de texto ── */
-    body * { color: rgba(255,255,255,0.92) !important; }
+    /* ── Jerarquía de texto (los bloques .dcb/.mv traen su propia paleta) ── */
+    body *:not(.dcb):not(.dcb *):not(.mv):not(.mv *) { color: rgba(255,255,255,0.92) !important; }
     .kpi-lbl, .agent-team, .page-subtitle,
     .section-title, .sv-hero-role, .sv-agent-meta,
     .kpi-sub, .sv-stat-sub, .sv-comm-basis,
@@ -545,11 +554,12 @@
       background: rgba(255,255,255,0.12) !important;
     }
 
-    /* ── Topbar / header ── */
-    .topbar, .page-header {
-      background: rgba(255,255,255,0.16) !important;
-      backdrop-filter: blur(16px) !important;
-      border-color: rgba(255,255,255,0.08) !important;
+    /* ── Topbar / header — sin fondo: el título va directo sobre la página ── */
+    .topbar { background: rgba(255,255,255,0.16) !important; backdrop-filter: blur(16px) !important; }
+    .page-header {
+      background: transparent !important;
+      backdrop-filter: none !important;
+      border: none !important; box-shadow: none !important;
     }
 
     /* ── Controles: mes, view-toggle ── */
@@ -684,24 +694,95 @@
     .dcb .dcb-card-tag { font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--dcb-t4); }
 
     .dcb-radial-wrap { display:flex; align-items:center; gap:18px; margin-top:12px; flex-wrap:wrap; }
-    @keyframes dcbPop { from { opacity:0; transform:rotate(-90deg) scale(.9); } to { opacity:1; transform:rotate(-90deg) scale(1); } }
+    @keyframes dcbPop { from { opacity:0; transform:scale(.85); } to { opacity:1; transform:scale(1); } }
     .dcb-arc {
-      transition: stroke-width .15s, opacity .15s, filter .15s;
-      animation: dcbPop .7s cubic-bezier(.34,1.3,.5,1) both;
+      transition: transform .18s cubic-bezier(.34,1.4,.5,1), opacity .15s, filter .15s;
+      animation: dcbPop .6s cubic-bezier(.3,1.1,.4,1) backwards;
       transform-origin: 150px 150px;
       transform-box: view-box;
       cursor: pointer;
     }
     .dcb-radial-wrap svg:has(.dcb-arc:hover) .dcb-arc { opacity:.3; }
-    .dcb-radial-wrap svg .dcb-arc:hover { opacity:1; stroke-width:48; filter:drop-shadow(0 0 8px currentColor); }
+    .dcb-radial-wrap svg .dcb-arc:hover { opacity:1; transform:translate(var(--tx,0),var(--ty,0)); filter:drop-shadow(0 0 8px currentColor); }
     .dcb-radial-wrap svg.dcb-hl .dcb-arc { opacity:.3; }
-    .dcb-radial-wrap svg.dcb-hl .dcb-arc.is-hl { opacity:1; stroke-width:48; filter:drop-shadow(0 0 8px currentColor); }
+    .dcb-radial-wrap svg.dcb-hl .dcb-arc.is-hl { opacity:1; transform:translate(var(--tx,0),var(--ty,0)); filter:drop-shadow(0 0 8px currentColor); }
     .dcb-legend { display:flex; flex-direction:column; gap:6px; flex:1; min-width:150px; }
     .dcb-legend-row { display:flex; align-items:center; gap:8px; font-size:12px; padding:3px 6px; border-radius:6px; cursor:pointer; transition:background .12s; }
     .dcb-legend-row:hover, .dcb-legend-row.is-hl { background:rgba(255,255,255,.07); }
     .dcb-legend-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; box-shadow:0 0 6px currentColor; }
     .dcb-legend-sub { display:flex; align-items:center; gap:8px; font-size:11px; padding:1px 6px 1px 22px; }
     .dcb-otros-toggle { font-size:10px; opacity:.8; margin-left:4px; }
+
+    /* puntos de la tendencia — clicables, crecen al hover */
+    .dcb-tr-pt { cursor:pointer; transition:transform .12s; transform-box:fill-box; transform-origin:center; }
+    .dcb-tr-pt:hover { transform:scale(1.55); filter:drop-shadow(0 0 6px #8b90f5); }
+
+    /* ══════════════════════════════════════════════════════
+       MI VISTA (diseño Claude Design "Comisiones") — .mv-*
+       Paleta oklch oscura propia, tipografía Inter
+    ══════════════════════════════════════════════════════ */
+    .mv { font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+      display:flex; flex-direction:column; gap:20px; color:oklch(0.94 0.01 250);
+      --mv-card:oklch(0.19 0.018 250); --mv-bdr:oklch(0.29 0.02 250);
+      --mv-t1:oklch(0.97 0.005 250); --mv-t2:oklch(0.7 0.02 250); --mv-t3:oklch(0.58 0.02 250); --mv-t4:oklch(0.5 0.02 250);
+      --mv-cyan:oklch(0.7 0.13 210); --mv-green:oklch(0.78 0.13 160); --mv-red:oklch(0.75 0.13 30); --mv-amber:oklch(0.78 0.11 45);
+    }
+    .mv input[type=number]::-webkit-inner-spin-button { opacity:1; }
+
+    .mv-bar { display:flex; align-items:center; gap:16px; background:var(--mv-card);
+      border:1px solid var(--mv-bdr); border-radius:16px; padding:8px 28px; flex-wrap:wrap; }
+    .mv-nav-btn { width:36px; height:36px; flex-shrink:0; border-radius:50%;
+      border:1px solid oklch(0.34 0.02 250); background:oklch(0.23 0.02 250);
+      color:oklch(0.85 0.01 250); font-size:16px; cursor:pointer; transition:background .12s; }
+    .mv-nav-btn:hover { background:oklch(0.27 0.02 250); }
+    .mv-nav-btn:disabled { opacity:.35; cursor:default; }
+    .mv-bar-main { flex:1; display:flex; align-items:center; gap:20px; padding:20px 0; flex-wrap:wrap; min-width:0; }
+    .mv-avatar { width:60px; height:60px; border-radius:14px; flex-shrink:0;
+      background:oklch(0.7 0.13 210 / 0.16); border:1px solid oklch(0.7 0.13 210 / 0.4);
+      display:flex; align-items:center; justify-content:center;
+      font-size:18px; font-weight:700; color:oklch(0.78 0.11 210); }
+    .mv-agent-name { font-size:22px; font-weight:700; color:var(--mv-t1); }
+    .mv-agent-sub { font-size:13px; color:oklch(0.6 0.02 250); }
+    .mv-pill { display:inline-flex; align-items:center; gap:6px; width:fit-content;
+      padding:4px 10px; border-radius:999px; }
+    .mv-pill span.dot { width:6px; height:6px; border-radius:50%; }
+    .mv-pill span.lbl { font-size:11px; font-weight:700; letter-spacing:.06em; }
+    .mv-com-lbl { font-size:11px; font-weight:600; letter-spacing:.1em; color:var(--mv-t3); }
+    .mv-com-val { font-size:38px; font-weight:800; color:var(--mv-t1); font-variant-numeric:tabular-nums; }
+    .mv-com-hint { font-size:12px; color:oklch(0.55 0.02 250); }
+    .mv-bar-side { display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; }
+    .mv-bar-count { font-size:12px; color:oklch(0.6 0.02 250); }
+
+    .mv-grid6 { display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:14px; }
+    .mv-grid4 { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; }
+    .mv-kpi { background:var(--mv-card); border:1px solid var(--mv-bdr); border-radius:14px;
+      padding:18px 20px; display:flex; flex-direction:column; gap:8px; min-width:0; }
+    .mv-kpi-lbl { font-size:11px; font-weight:700; letter-spacing:.08em; color:var(--mv-t3); }
+    .mv-kpi-val { font-size:26px; font-weight:700; color:oklch(0.95 0.01 250); font-variant-numeric:tabular-nums; }
+    .mv-kpi-sub { font-size:11px; color:var(--mv-t4); }
+    .mv-kpi.hl { background:oklch(0.7 0.13 210 / 0.14); border-color:oklch(0.7 0.13 210 / 0.5); }
+    .mv-kpi.hl .mv-kpi-lbl { color:oklch(0.8 0.11 210); }
+    .mv-kpi.hl .mv-kpi-val { font-weight:800; color:var(--mv-t1); }
+    .mv-kpi.hl .mv-kpi-sub { color:oklch(0.75 0.08 210); }
+    .mv-input-wrap { display:flex; align-items:baseline; gap:2px; }
+    .mv-input-wrap .pfx { font-size:20px; font-weight:600; color:oklch(0.6 0.02 250); }
+    .mv-num { width:100%; background:transparent; border:none; outline:none;
+      font-size:26px; font-weight:700; color:oklch(0.95 0.01 250);
+      font-variant-numeric:tabular-nums; font-family:inherit; }
+
+    .mv-scale { background:var(--mv-card); border:1px solid var(--mv-bdr); border-radius:16px;
+      padding:28px 36px 32px; display:flex; flex-direction:column; gap:26px; }
+    .mv-scale-head { display:flex; align-items:center; gap:10px; }
+    .mv-scale-head .dash { width:14px; height:3px; border-radius:2px; background:var(--mv-cyan); }
+    .mv-scale-head .ttl { font-size:12px; font-weight:700; letter-spacing:.1em; color:oklch(0.8 0.01 250); }
+    .mv-steps { position:relative; display:flex; justify-content:space-between; align-items:center; padding:0 6px; }
+    .mv-steps .rail { position:absolute; left:6px; right:6px; top:9px; height:2px; background:oklch(0.32 0.02 250); border-radius:2px; }
+    .mv-steps .fill { position:absolute; left:6px; top:9px; height:2px; background:var(--mv-cyan); border-radius:2px; }
+    .mv-step { position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; gap:14px; }
+    .mv-step .dot { width:20px; height:20px; border-radius:50%; }
+    .mv-step .min { font-size:14px; font-weight:700; color:oklch(0.9 0.01 250); }
+    .mv-step .rate { font-size:11px; color:oklch(0.55 0.02 250); }
+    @media (max-width:760px){ .mv-bar { padding:8px 14px; } .mv-com-val { font-size:30px; } }
 
     .dcb-teams { display:flex; flex-direction:column; gap:11px; margin-top:14px; }
     .dcb-team-lbl { display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:4px; }
@@ -1167,6 +1248,7 @@ window.toggleExcluido = function(payKey, totalCom) {
   if(excluido){
     const el = id => document.getElementById(id);
     if(el('kpi-total-com'))   el('kpi-total-com').textContent   = '$0.00';
+    if(el('kpi-total-com-2')) el('kpi-total-com-2').textContent = '$0.00';
     if(el('kpi-subtotal'))    el('kpi-subtotal').textContent    = '$0.00';
     if(el('kpi-renta'))       el('kpi-renta').textContent       = '−$0.00';
     if(el('kpi-total-pagar')) el('kpi-total-pagar').textContent = '$0.00';
@@ -1174,6 +1256,8 @@ window.toggleExcluido = function(payKey, totalCom) {
     window.updatePayKPIs(payKey, totalCom);
     const el = document.getElementById('kpi-total-com');
     if(el) el.textContent = fmtUSD2(totalCom);
+    const el2 = document.getElementById('kpi-total-com-2');
+    if(el2) el2.textContent = fmtUSD2(totalCom);
   }
 };
 let _month = { year: new Date().getFullYear(), month: new Date().getMonth()+1 };
@@ -1371,278 +1455,175 @@ function resolveAgentData(){
   return { data: found, isAdmin: false, idx: -1, total: 0 };
 }
 
-function buildSelfViewHTML(agentData, ym){
-  const p = agentData.puntos;
-  const tipo = agentData.tipo || 0;
-  const noMeta = agentData.comision === 0;
-  const canEditPay = typeof isAdmin === 'function' ? isAdmin(_user?.role) : (_user && (_user.role === 'Administrador' || _user.role === 'admin'));
-  const agKey = (agentData.rawName||agentData.name||'').toLowerCase().replace(/\s+/g,'_');
-  const payKey = ym+'_'+agKey; // clave única por agente y mes
-  const excluido = !!_excluidos[payKey];
-  const bonus = agentData.comision - (Math.floor(p) * agentData.tasa);
-  const fracStr = String(parseFloat((p - Math.floor(p)).toFixed(2))).split('.')[1] || '00';
-
-  // ── Ventas del mes para este agente ──
-  const agentKey = agentData.rawName.toLowerCase().replace(/\./g,' ').trim();
-  const agentLeads = _leads.filter(lead => {
-    if(!cuentaParaComision(lead, ym)) return false;
-    const n = String(lead.agenteNombre||lead.agente||lead.createdBy||lead.creadoPor||lead.usuario||'')
-                .trim().toLowerCase().replace(/\./g,' ').trim();
-    return n === agentKey;
-  }).sort((a,b) => {
-    const da = String(a.dia_instalacion||a.dia_venta||'');
-    const db = String(b.dia_instalacion||b.dia_venta||'');
-    return db.localeCompare(da);
-  });
-
-  const ventasRows = agentLeads.map((lead, i) => {
-    const esColchon = isColchon(lead, ym);
-    const pts = parseFloat(lead.puntaje||lead.score||lead.puntos||0)||0;
-    const cliente = String(lead.nombre_cliente||lead.nombre||lead.nombreCliente||lead.name||lead.cliente||'—').trim();
-    const servicio = String(lead.servicios||lead.servicio||lead.service||'—').trim();
-    const dv = String(lead.dia_venta||lead.diaVenta||'').slice(0,10)||'—';
-    const di = String(lead.dia_instalacion||lead.diaInstalacion||'').slice(0,10)||'—';
-    return `<tr>
-      <td style="color:var(--ink3);font-family:var(--fm)">${i+1}</td>
-      <td style="color:var(--ink);font-weight:600">${cliente}</td>
-      <td>${servicio}</td>
-      <td style="font-family:var(--fm)">${dv}</td>
-      <td style="font-family:var(--fm)">${di}</td>
-      <td style="font-family:var(--fm);color:var(--gold);font-weight:600">${pts.toFixed(2)}</td>
-      <td><span class="sv-vbadge ${esColchon?'colchon':'venta'}">${esColchon?'Colchón':'Venta'}</span></td>
-    </tr>`;
-  }).join('');
-
-  const ventasTable = `
-  <div class="sv-ventas-card">
-    <div class="sv-ventas-head">Ventas del mes · ${ym} <span style="margin-left:auto;font-weight:400;letter-spacing:0;text-transform:none;font-size:.7rem;color:var(--ink3)">${agentLeads.length} registros</span></div>
-    ${agentLeads.length === 0
-      ? `<div style="padding:32px;text-align:center;color:var(--ink3);font-size:.8rem">Sin ventas completed para este mes</div>`
-      : `<table class="sv-vtable">
-          <thead><tr>
-            <th>#</th><th>Cliente</th><th>Servicio</th>
-            <th>Día venta</th><th>Día instalación</th><th>Puntos</th><th>Tipo</th>
-          </tr></thead>
-          <tbody>${ventasRows}</tbody>
-        </table>`
-    }
-  </div>`;
-
-  // Track nodes según tipo
-  let TRACK_MAX, nodes;
-  if (tipo === 1) {
-    TRACK_MAX = 20;
-    nodes = [
-      { pts: 0,  label: '0',   rate: '—'     },
-      { pts: 5,  label: '5',   rate: '$5/pto'},
-      { pts: 10, label: '10',  rate: '$5/pto'},
-      { pts: 15, label: '15',  rate: '$5/pto'},
-      { pts: 20, label: '20+', rate: '$5/pto'},
-    ];
-  } else if (tipo === 2) {
-    TRACK_MAX = 30;
-    nodes = [
-      { pts: 0,  label: '0',   rate: '—'     },
-      { pts: 14, label: '14',  rate: '$6/pto'},
-      { pts: 20, label: '20',  rate: '$6/pto'},
-      { pts: 25, label: '25',  rate: '$6/pto'},
-      { pts: 30, label: '30+', rate: '$6/pto'},
-    ];
-  } else {
-    TRACK_MAX = 36;
-    nodes = [
-      { pts: 0,  label: '0',   rate: '—'      },
-      { pts: 17, label: '17',  rate: '$6/pto' },
-      { pts: 21, label: '21',  rate: '$12/pto'},
-      { pts: 26, label: '26',  rate: '$15/pto'},
-      { pts: 31, label: '31+', rate: '$18/pto'},
-    ];
-  }
-  const trackPct = Math.min(100, (p / TRACK_MAX) * 100).toFixed(1);
-
-  const nodesHtml = nodes.map((n, i) => {
-    const reached = p >= n.pts && n.pts > 0;
-    const isCurrent = i > 0 && p >= n.pts && (i === nodes.length - 1 || p < nodes[i+1]?.pts);
-    const cls = isCurrent ? 'current' : (reached ? 'reached' : '');
-    const dotTxt = n.pts === 0 ? '' : (isCurrent ? '✦' : (reached ? '✓' : ''));
-    return `<div class="sv-track-node">
-      <div class="sv-track-dot ${cls}">${dotTxt}</div>
-      <div class="sv-track-node-lbl ${cls}">${n.label}</div>
-      <div class="sv-track-node-rate ${cls}">${n.rate}</div>
-    </div>`;
-  }).join('');
-
-  return `
-  <div class="sv-body">
-    <!-- Row 1: KPIs de comisión -->
-    <div class="sv-stats sv-pay-strip">
-      <div class="sv-stat accent-green">
-        <div class="sv-stat-lbl">Total Comisión</div>
-        <div class="sv-stat-val green" id="kpi-total-com">${excluido ? '$0.00' : fmtUSD2(agentData.comision)}</div>
-        <div class="sv-stat-sub">Calculado automático</div>
-      </div>
-      <div class="sv-stat sv-stat-input">
-        <div class="sv-stat-lbl">CB <span style="font-size:.6rem;color:var(--ink3)">(manual)</span></div>
-        <div class="sv-input-wrap">
-          <span class="sv-input-prefix">$</span>
-          ${canEditPay
-            ? `<input id="kpi-cb-input" class="sv-num-input" type="number" min="0" step="0.01" placeholder="0.00"
-                value="${_payInputs[payKey+'_cb']||''}"
-                oninput="updatePayKPIs('${payKey}',${agentData.comision})"/>`
-            : `<span id="kpi-cb-input" class="sv-num-input" style="pointer-events:none;border:none;color:var(--ink2)">${_payInputs[payKey+'_cb']||'0.00'}</span>`
-          }
-        </div>
-        <div class="sv-stat-sub">Resta al total</div>
-      </div>
-      <div class="sv-stat accent-gold">
-        <div class="sv-stat-lbl">Sub Total</div>
-        <div class="sv-stat-val gold" id="kpi-subtotal">${excluido ? '$0.00' : fmtUSD2(agentData.comision)}</div>
-        <div class="sv-stat-sub">Total − CB</div>
-      </div>
-      <div class="sv-stat">
-        <div class="sv-stat-lbl">Renta <span style="font-size:.6rem;color:var(--ink3)">(−10%)</span></div>
-        <div class="sv-stat-val" id="kpi-renta" style="color:var(--red)">${excluido ? '−$0.00' : '−'+fmtUSD2(agentData.comision*0.1)}</div>
-        <div class="sv-stat-sub">10% del Sub Total</div>
-      </div>
-      <div class="sv-stat sv-stat-input">
-        <div class="sv-stat-lbl">Anticipo <span style="font-size:.6rem;color:var(--ink3)">(manual)</span></div>
-        <div class="sv-input-wrap">
-          <span class="sv-input-prefix">$</span>
-          ${canEditPay
-            ? `<input id="kpi-anticipo-input" class="sv-num-input" type="number" min="0" step="0.01" placeholder="0.00"
-                value="${_payInputs[payKey+'_ant']||''}"
-                oninput="updatePayKPIs('${payKey}',${agentData.comision})"/>`
-            : `<span id="kpi-anticipo-input" class="sv-num-input" style="pointer-events:none;border:none;color:var(--ink2)">${_payInputs[payKey+'_ant']||'0.00'}</span>`
-          }
-        </div>
-        <div class="sv-stat-sub">Resta al Sub Total</div>
-      </div>
-      <div class="sv-stat accent-green" style="border:2px solid var(--green)">
-        <div class="sv-stat-lbl" style="font-weight:800">Total a Pagar</div>
-        <div class="sv-stat-val green" id="kpi-total-pagar" style="font-size:2rem">${excluido ? '$0.00' : fmtUSD2(agentData.comision*0.9)}</div>
-        <div class="sv-stat-sub">Sub Total − Renta − Anticipo</div>
-      </div>
-    </div>
-    <!-- Row 1b: stats secundarios -->
-    <div class="sv-stats" style="margin-top:0">
-      <div class="sv-stat">
-        <div class="sv-stat-lbl">Ventas completed</div>
-        <div class="sv-stat-val">${agentData.ventas}</div>
-        <div class="sv-stat-sub">Activas este mes</div>
-      </div>
-      <div class="sv-stat">
-        <div class="sv-stat-lbl">Colchones</div>
-        <div class="sv-stat-val">${agentData.colchones}</div>
-        <div class="sv-stat-sub">Instalados este mes</div>
-      </div>
-      <div class="sv-stat accent-gold">
-        <div class="sv-stat-lbl">Puntaje</div>
-        <div class="sv-stat-val gold">${p.toFixed(2)}</div>
-        <div class="sv-stat-sub">Puntos acumulados</div>
-      </div>
-      <div class="sv-stat">
-        <div class="sv-stat-lbl">Tasa actual</div>
-        <div class="sv-stat-val ${noMeta ? '' : 'green'}">$${agentData.tasa}<span style="font-size:1rem">/pto</span></div>
-        <div class="sv-stat-sub">${agentData.escala}</div>
-      </div>
-    </div>
-
-    <!-- Row 2: track + breakdown -->
-    <div class="sv-mid-row">
-      <div class="sv-track-card">
-        <div class="sv-track-title">Progreso de escala</div>
-        <div class="sv-track-wrap">
-          <div class="sv-track-line">
-            <div class="sv-track-line-fill" style="width:${trackPct}%"></div>
-          </div>
-          <div class="sv-track-nodes">${nodesHtml}</div>
-        </div>
-      </div>
-      ${agentData.comision > 0 ? `
-      <div class="sv-breakdown">
-        <div class="sv-breakdown-title">Desglose${tipo===1?' · Agente Nuevo Mes 1':tipo===2?' · Agente Nuevo Mes 2':''}</div>
-        ${tipo===1 ? `
-        <div class="sv-breakdown-row">
-          <span>${Math.floor(p)} pts × $10/pto</span>
-          <span class="sv-breakdown-val">${fmtUSD2(Math.floor(p)*10)}</span>
-        </div>
-        ${_bonusDecimal(p)>0?`<div class="sv-breakdown-row">
-          <span>Bono decimal (.${fracStr})</span>
-          <span class="sv-breakdown-val gold">+${fmtUSD2(_bonusDecimal(p))}</span>
-        </div>`:''}` : `
-        <div class="sv-breakdown-row">
-          <span>${Math.floor(p)} pts × $${agentData.tasa}/pto</span>
-          <span class="sv-breakdown-val">${fmtUSD2(Math.floor(p) * agentData.tasa)}</span>
-        </div>
-        ${bonus > 0 ? `<div class="sv-breakdown-row">
-          <span>Bono decimal (.${fracStr})</span>
-          <span class="sv-breakdown-val gold">+${fmtUSD2(bonus)}</span>
-        </div>` : ''}`}
-        <div class="sv-breakdown-row total">
-          <span>Total estimado</span>
-          <span class="sv-breakdown-val green">${fmtUSD2(agentData.comision)}</span>
-        </div>
-      </div>` : ''}
-    </div>
-
-    <!-- Row 3: Ventas table -->
-    ${ventasTable}
-  </div>`;     
-}
-
+/* ══════════════════════════════════════════════════════
+   MI VISTA — diseño Claude Design "Comisiones" (.mv-*)
+   Mantiene la lógica existente: resolveAgentData, navAgent,
+   updatePayKPIs (mismos ids kpi-*), _payInputs y _excluidos.
+══════════════════════════════════════════════════════ */
 function renderAgentSelfView(){
   const ym = getYM(_month.year, _month.month);
   const { data: agentData, isAdmin: adminBrowse, idx, total } = resolveAgentData();
   const p = agentData.puntos;
-  const noMeta = agentData.comision === 0;
-  const bonus = agentData.comision - (Math.floor(p) * agentData.tasa);
-  const canEditPay = typeof isAdmin === 'function' ? isAdmin(_user?.role) : (_user && (_user.role === 'Administrador' || _user.role === 'admin'));
+  const tipo = agentData.tipo || 0;
+  const canEditPay = isAdmin(_user?.role);
   const agKey = (agentData.rawName||agentData.name||'').toLowerCase().replace(/\s+/g,'_');
   const payKey = ym+'_'+agKey;
+  const excluido = !!_excluidos[payKey];
 
-  const heroInner = `
-    <div class="sv-hero-left">
-      <div class="sv-avatar">${initials(agentData.name)}</div>
-      <div class="sv-agent-info">
-        <div class="sv-agent-name">${agentData.name}</div>
-        <div class="sv-agent-meta">${agentData.team ? agentData.team + '  ·  ' : ''}${ym}</div>
-        <div class="sv-escala-pill"><span class="sv-escala-dot"></span>${agentData.escala}</div>
-      </div>
-    </div>
-    <div class="sv-hero-right">
-      <div class="sv-comm-lbl">Comisión estimada · Residencial</div>
-      <div class="sv-comm-amount ${noMeta ? 'no-meta' : ''}">${fmtUSD2(agentData.comision)}</div>
-      <div class="sv-comm-basis">
-        ${noMeta
-          ? (agentData.tipo===2 ? 'Sin meta — mínimo 14 puntos' : 'Sin meta — mínimo 17 puntos')
-          : `${Math.floor(p)} pts × $${agentData.tasa}/pto${bonus > 0 ? ' + bono decimal' : ''}`
-        }
-      </div>
-      ${canEditPay ? `
-      <label class="chk-comisiona-wrap" style="display:inline-flex;align-items:center;gap:6px;margin-top:10px;cursor:pointer;font-size:.75rem;color:var(--ink2);user-select:none;">
-        <input type="checkbox" id="chk-comisiona"
-          ${!_excluidos[payKey]?'checked':''}
-          onchange="toggleExcluido('${payKey}',${agentData.comision})"
-          style="accent-color:var(--green);width:15px;height:15px;cursor:pointer;"/>
-        Comisiona este mes
-      </label>` : ''}
-    </div>`;
+  const MESES_L = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const mesLabel = MESES_L[_month.month-1]+' '+_month.year;
 
-  // For admins: wrap hero with prev/next nav buttons
-  let heroSection;
-  if(adminBrowse && total > 0){
-    heroSection = `
-    <div class="sv-nav-wrap">
-      <button class="sv-nav-btn" onclick="navAgent(-1)" ${idx <= 0 ? 'disabled' : ''}>‹</button>
-      <div class="sv-hero">${heroInner}</div>
-      <button class="sv-nav-btn" onclick="navAgent(1)" ${idx >= total - 1 ? 'disabled' : ''}>›</button>
-    </div>
-    <div class="sv-nav-counter">Agente ${idx + 1} de ${total}</div>`;
+  // Meta pill
+  const metaOk = agentData.comision > 0 || tipo === 1;
+  const metaColor  = metaOk ? 'var(--mv-green)' : 'var(--mv-amber)';
+  const metaBg     = metaOk ? 'oklch(0.78 0.13 160 / 0.14)' : 'oklch(0.8 0.11 45 / 0.14)';
+  const metaBorder = metaOk ? 'oklch(0.78 0.13 160 / 0.4)'  : 'oklch(0.8 0.11 45 / 0.4)';
+  const metaLabel  = metaOk ? 'META ALCANZADA' : 'SIN META';
+  const minMeta = tipo===2 ? 14 : 17;
+  const metaHint = metaOk ? 'Meta cumplida este mes' : 'Sin meta — mínimo '+minMeta+' puntos';
+
+  // Track de escala según tipo (mismos tramos que la lógica de cálculo)
+  let TRACK_MAX, nodes;
+  if (tipo === 1) {
+    TRACK_MAX = 20;
+    nodes = [{pts:0,label:'0',rate:'—'},{pts:5,label:'5',rate:'$5/pto'},{pts:10,label:'10',rate:'$5/pto'},{pts:15,label:'15',rate:'$5/pto'},{pts:20,label:'20+',rate:'$5/pto'}];
+  } else if (tipo === 2) {
+    TRACK_MAX = 30;
+    nodes = [{pts:0,label:'0',rate:'—'},{pts:14,label:'14',rate:'$6/pto'},{pts:20,label:'20',rate:'$6/pto'},{pts:25,label:'25',rate:'$6/pto'},{pts:30,label:'30+',rate:'$6/pto'}];
   } else {
-    heroSection = `<div class="sv-hero" style="margin-bottom:16px">${heroInner}</div>`;
+    TRACK_MAX = 31;
+    nodes = [{pts:0,label:'0',rate:'—'},{pts:17,label:'17',rate:'$6/pto'},{pts:21,label:'21',rate:'$12/pto'},{pts:26,label:'26',rate:'$15/pto'},{pts:31,label:'31+',rate:'$18/pto'}];
   }
+  const fillPct = Math.max(0, Math.min(100, (p / TRACK_MAX) * 100)).toFixed(1);
+  const steps = nodes.map(n=>{
+    const reached = p >= n.pts;
+    return `<div class="mv-step">
+      <div class="dot" style="background:${reached?'var(--mv-cyan)':'oklch(0.24 0.02 250)'};border:2px solid ${reached?'var(--mv-cyan)':'oklch(0.36 0.02 250)'};"></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+        <div class="min">${n.label}</div>
+        <div class="rate">${n.rate}</div>
+      </div>
+    </div>`;
+  }).join('');
 
-  return heroSection + buildSelfViewHTML(agentData, ym);
+  // Barra del agente (nav solo para admins)
+  const navPrev = adminBrowse && total>0 ? `<button class="mv-nav-btn" onclick="navAgent(-1)" ${idx<=0?'disabled':''}>‹</button>` : '';
+  const navSide = adminBrowse && total>0
+    ? `<div class="mv-bar-side">
+        <div class="mv-bar-count">Agente ${idx+1} de ${total}</div>
+        <button class="mv-nav-btn" onclick="navAgent(1)" ${idx>=total-1?'disabled':''}>›</button>
+      </div>` : '';
+  const comisionaChk = canEditPay ? `
+    <label style="display:inline-flex;align-items:center;gap:6px;margin-top:2px;cursor:pointer;font-size:11px;color:var(--mv-t3);user-select:none;">
+      <input type="checkbox" id="chk-comisiona" ${!excluido?'checked':''}
+        onchange="toggleExcluido('${payKey}',${agentData.comision})"
+        style="accent-color:oklch(0.78 0.13 160);width:14px;height:14px;cursor:pointer;"/>
+      Comisiona este mes
+    </label>` : '';
+
+  const bar = `
+  <div class="mv-bar">
+    ${navPrev}
+    <div class="mv-bar-main">
+      <div class="mv-avatar">${initials(agentData.name)}</div>
+      <div style="display:flex;flex-direction:column;gap:6px;min-width:220px;">
+        <div class="mv-agent-name">${agentData.name}</div>
+        <div class="mv-agent-sub">${agentData.team ? agentData.team+' · ' : ''}${mesLabel}</div>
+        <div class="mv-pill" style="background:${metaBg};border:1px solid ${metaBorder};">
+          <span class="dot" style="background:${metaColor};"></span>
+          <span class="lbl" style="color:${metaColor};">${metaLabel}</span>
+        </div>
+        ${comisionaChk}
+      </div>
+      <div style="flex:1;"></div>
+      <div style="text-align:right;display:flex;flex-direction:column;gap:4px;">
+        <div class="mv-com-lbl">COMISIÓN ESTIMADA · RESIDENCIAL</div>
+        <div class="mv-com-val" id="kpi-total-com">${excluido ? '$0.00' : fmtUSD2(agentData.comision)}</div>
+        <div class="mv-com-hint">${metaHint}</div>
+      </div>
+    </div>
+    ${navSide}
+  </div>`;
+
+  // KPIs de pago (mismos ids que updatePayKPIs)
+  const cbInput = canEditPay
+    ? `<input id="kpi-cb-input" class="mv-num" type="number" min="0" step="0.01" placeholder="0.00"
+        value="${_payInputs[payKey+'_cb']||''}" oninput="updatePayKPIs('${payKey}',${agentData.comision})"/>`
+    : `<span id="kpi-cb-input" class="mv-num" style="pointer-events:none;">${_payInputs[payKey+'_cb']||'0.00'}</span>`;
+  const antInput = canEditPay
+    ? `<input id="kpi-anticipo-input" class="mv-num" type="number" min="0" step="0.01" placeholder="0.00"
+        value="${_payInputs[payKey+'_ant']||''}" oninput="updatePayKPIs('${payKey}',${agentData.comision})"/>`
+    : `<span id="kpi-anticipo-input" class="mv-num" style="pointer-events:none;">${_payInputs[payKey+'_ant']||'0.00'}</span>`;
+
+  const pagos = `
+  <div class="mv-grid6">
+    <div class="mv-kpi">
+      <div class="mv-kpi-lbl">TOTAL COMISIÓN</div>
+      <div class="mv-kpi-val" style="color:var(--mv-green);" id="kpi-total-com-2">${excluido ? '$0.00' : fmtUSD2(agentData.comision)}</div>
+      <div class="mv-kpi-sub">Calculado automático</div>
+    </div>
+    <div class="mv-kpi">
+      <div class="mv-kpi-lbl">CB (MANUAL)</div>
+      <div class="mv-input-wrap"><span class="pfx">$</span>${cbInput}</div>
+      <div class="mv-kpi-sub">Resta al total</div>
+    </div>
+    <div class="mv-kpi">
+      <div class="mv-kpi-lbl">SUB TOTAL</div>
+      <div class="mv-kpi-val" id="kpi-subtotal">${excluido ? '$0.00' : fmtUSD2(agentData.comision)}</div>
+      <div class="mv-kpi-sub">Total - CB</div>
+    </div>
+    <div class="mv-kpi">
+      <div class="mv-kpi-lbl">RENTA (-10%)</div>
+      <div class="mv-kpi-val" style="color:var(--mv-red);" id="kpi-renta">${excluido ? '−$0.00' : '−'+fmtUSD2(agentData.comision*0.1)}</div>
+      <div class="mv-kpi-sub">10% del Sub Total</div>
+    </div>
+    <div class="mv-kpi">
+      <div class="mv-kpi-lbl">ANTICIPO (MANUAL)</div>
+      <div class="mv-input-wrap"><span class="pfx">$</span>${antInput}</div>
+      <div class="mv-kpi-sub">Resta al Sub Total</div>
+    </div>
+    <div class="mv-kpi hl">
+      <div class="mv-kpi-lbl">TOTAL A PAGAR</div>
+      <div class="mv-kpi-val" id="kpi-total-pagar">${excluido ? '$0.00' : fmtUSD2(agentData.comision*0.9)}</div>
+      <div class="mv-kpi-sub">Sub Total - Renta - Anticipo</div>
+    </div>
+  </div>`;
+
+  const stats = `
+  <div class="mv-grid4">
+    <div class="mv-kpi">
+      <div class="mv-kpi-lbl">VENTAS COMPLETADAS</div>
+      <div class="mv-kpi-val">${agentData.ventas}</div>
+      <div class="mv-kpi-sub">Activas este mes</div>
+    </div>
+    <div class="mv-kpi">
+      <div class="mv-kpi-lbl">COLCHONES</div>
+      <div class="mv-kpi-val">${agentData.colchones}</div>
+      <div class="mv-kpi-sub">Instalados este mes</div>
+    </div>
+    <div class="mv-kpi">
+      <div class="mv-kpi-lbl">PUNTAJE</div>
+      <div class="mv-kpi-val" style="color:var(--mv-amber);">${p.toFixed(2)}</div>
+      <div class="mv-kpi-sub">Puntos acumulados</div>
+    </div>
+    <div class="mv-kpi">
+      <div class="mv-kpi-lbl">TASA ACTUAL</div>
+      <div class="mv-kpi-val">$${agentData.tasa}<span style="font-size:14px;font-weight:600;color:var(--mv-t4);">/pto</span></div>
+      <div class="mv-kpi-sub">${agentData.escala}${tipo===1?' · Nuevo M1':tipo===2?' · Nuevo M2':''}</div>
+    </div>
+  </div>`;
+
+  const escala = `
+  <div class="mv-scale">
+    <div class="mv-scale-head"><span class="dash"></span><span class="ttl">PROGRESO DE ESCALA</span></div>
+    <div class="mv-steps">
+      <div class="rail"></div>
+      <div class="fill" style="width:${fillPct}%;"></div>
+      ${steps}
+    </div>
+  </div>`;
+
+  return `<div class="mv">${bar}${pagos}${stats}${escala}</div>`;
 }
 
 /* ══════════════════════════════════════════════════════
@@ -1748,25 +1729,46 @@ function renderDcbProductos(){
   const items = top.map(([name,d])=>({name, value:d.n, pts:d.pts}));
   if(restosN>0) items.push({name:'Otros productos', value:restosN, pts:restosPts, esOtros:true});
 
-  // Donut segmentado: TODAS las porciones juntas cierran el círculo completo.
-  const R=104, W=42, C=2*Math.PI*R, GAP=Math.min(5, C*0.008);
-  let cum=0;
+  // Donut por sectores de anillo (paths): cobertura total del círculo con
+  // separación fina y bordes limpios. Hover: la porción se desplaza hacia afuera.
+  const CX=150, CY=150, R1=126, R0=72;
+  const GAP_DEG = 1.4;                       // separación angular entre porciones
+  const gap = GAP_DEG*Math.PI/180;
+  const pol = (r,a)=> (CX+r*Math.cos(a)).toFixed(2)+','+(CY+r*Math.sin(a)).toFixed(2);
+  function sectorPath(a0, a1){
+    const large = (a1-a0) > Math.PI ? 1 : 0;
+    return `M${pol(R1,a0)} A${R1},${R1} 0 ${large} 1 ${pol(R1,a1)} L${pol(R0,a1)} A${R0},${R0} 0 ${large} 0 ${pol(R0,a0)} Z`;
+  }
+
+  let angle = -Math.PI/2;                    // arranque a las 12 en punto
   _dcbProd = items.map((p,i)=>{
     const frac = p.value/total, pct = frac*100;
-    const arc = Math.max(frac*C - GAP, 2);
-    const start = cum*C; cum += frac;
+    const span = frac*2*Math.PI;
+    const a0 = angle + gap/2, a1 = angle + Math.max(span - gap/2, gap/2 + 0.015);
+    angle += span;
+    const mid = (a0+a1)/2;
     const color = p.esOtros ? 'oklch(75% 0.02 255)' : DCB_COLORS[i%DCB_COLORS.length];
-    return { ...p, pct, color, arc, start };
+    return { ...p, pct, color,
+      d: sectorPath(a0, a1),
+      tx: (Math.cos(mid)*7).toFixed(2), ty: (Math.sin(mid)*7).toFixed(2) };
   });
   _dcbProdTotal = total;
 
-  const bg = `<circle cx="150" cy="150" r="${R}" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="${W}"></circle>
-    <circle cx="150" cy="150" r="${R-W/2-9}" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="1.5"></circle>`;
-  const arcs = _dcbProd.map((p,i)=>`<circle class="dcb-arc" cx="150" cy="150" r="${R}" fill="none" stroke="${p.color}" stroke-width="${W}"
-    stroke-dasharray="${p.arc.toFixed(1)} ${(C-p.arc).toFixed(1)}" stroke-dashoffset="${(-p.start-GAP/2).toFixed(1)}" transform="rotate(-90 150 150)"
-    style="animation-delay:${(i*90)}ms;color:${p.color};"
+  const bg = `
+    <circle cx="${CX}" cy="${CY}" r="${(R0+R1)/2}" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="${R1-R0+8}"></circle>
+    <circle cx="${CX}" cy="${CY}" r="${R0-9}" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="1.5" stroke-dasharray="2 6"></circle>
+    <circle cx="${CX}" cy="${CY}" r="${R0-12}" fill="url(#dcb-center-glow)"></circle>`;
+  const defs = `<defs>
+      <radialGradient id="dcb-center-glow">
+        <stop offset="0%" stop-color="rgba(139,144,245,.16)"/>
+        <stop offset="70%" stop-color="rgba(139,144,245,.05)"/>
+        <stop offset="100%" stop-color="rgba(139,144,245,0)"/>
+      </radialGradient>
+    </defs>`;
+  const arcs = _dcbProd.map((p,i)=>`<path class="dcb-arc" d="${p.d}" fill="${p.color}"
+    style="--tx:${p.tx}px;--ty:${p.ty}px;animation-delay:${(i*80)}ms;color:${p.color};"
     onmouseenter="dcbProdHover(${i})" onmouseleave="dcbProdLeave()">
-    <title>${esc(p.name)}: ${p.value} ventas · ${p.pts.toFixed(2)} pts (${p.pct.toFixed(1)}% del total)</title></circle>`).join('');
+    <title>${esc(p.name)}: ${p.value} ventas · ${p.pts.toFixed(2)} pts (${p.pct.toFixed(1)}% del total)</title></path>`).join('');
 
   const legend = _dcbProd.map((p,i)=>{
     const otrosBtn = p.esOtros
@@ -1794,8 +1796,8 @@ function renderDcbProductos(){
   return `<div class="dcb-card">
     <div class="dcb-card-head"><h3>Ventas por Producto</h3><span class="dcb-card-tag">RADIAL · ${entries.length} PRODUCTOS</span></div>
     <div class="dcb-radial-wrap">
-      <svg id="dcb-prod-svg" width="210" height="210" viewBox="0 0 300 300" style="flex:0 0 auto;">
-        ${bg}${arcs}
+      <svg id="dcb-prod-svg" width="220" height="220" viewBox="0 0 300 300" style="flex:0 0 auto;">
+        ${defs}${bg}${arcs}
         <text id="dcb-prod-val" x="150" y="146" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-weight="700" font-size="30" fill="#f1f5f9">${total}</text>
         <text id="dcb-prod-lbl" x="150" y="168" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="#8fa0b8">ventas totales</text>
       </svg>
@@ -1831,31 +1833,84 @@ function renderDcbTeamsBody(){
   }).join('')}</div>`;
 }
 
+// Saltar al mes de un punto de la tendencia (gráfica funcional por mes)
+window.dcbGoMonth = function(y, m){
+  _month = { year: y, month: m };
+  loadData();
+};
+
+// Curva suave (Catmull-Rom → Bézier cúbica), estilo "ventas mensuales"
+function dcbSmoothPath(pts){
+  if(pts.length<2) return '';
+  let d = `M${pts[0].x},${pts[0].y}`;
+  for(let i=0;i<pts.length-1;i++){
+    const p0=pts[Math.max(0,i-1)], p1=pts[i], p2=pts[i+1], p3=pts[Math.min(pts.length-1,i+2)];
+    const c1x=p1.x+(p2.x-p0.x)/6, c1y=p1.y+(p2.y-p0.y)/6;
+    const c2x=p2.x-(p3.x-p1.x)/6, c2y=p2.y-(p3.y-p1.y)/6;
+    d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2.x},${p2.y}`;
+  }
+  return d;
+}
+
+function dcbNiceMax(v){
+  if(v<=0) return 10;
+  const steps=[1,2,2.5,5,10];
+  const mag=Math.pow(10, Math.floor(Math.log10(v)));
+  for(const mult of [1,10]) for(const st of steps){
+    const step=st*mag*mult;
+    if(v <= step*4) return step*4;
+  }
+  return Math.ceil(v);
+}
+
 function renderDcbTrendBody(){
   // 6 meses terminando en el mes activo; usa _dashCache (el mes activo se calcula de _leads)
   const yms=[]; let y=_month.year, m=_month.month;
-  for(let i=0;i<6;i++){ yms.unshift({ym:getYM(y,m), m}); m--; if(m<1){m=12;y--;} }
+  for(let i=0;i<6;i++){ yms.unshift({ym:getYM(y,m), m, y}); m--; if(m<1){m=12;y--;} }
   const curYM = getYM(_month.year, _month.month);
   const vals = yms.map(o=> o.ym===curYM ? dcbAggregates(_leads,o.ym).pts : (_dashCache[o.ym]?_dashCache[o.ym].pts:null));
   if(vals.some(v=>v===null)) return `<div class="dcb-loading">Cargando tendencia…</div>`;
 
-  const W=640,H=180,PX=14,PT=12,PB=30;
-  const min=Math.min(...vals), max=Math.max(...vals), range=(max-min)||1;
-  const pts = vals.map((v,i)=>({ x:PX+i*(W-2*PX)/(vals.length-1), y:PT+(1-(v-min)/range)*(H-PT-PB), v }));
-  const line = pts.map((p,i)=>(i===0?`M${p.x},${p.y}`:`L${p.x},${p.y}`)).join(' ');
-  const area = `${line} L${pts[pts.length-1].x},${H} L${pts[0].x},${H} Z`;
+  const box=document.getElementById('dcb-trend-body');
+  const W=Math.max(560,(box&&box.clientWidth||1000)-4), H=230, PL=46, PR=18, PT=16, PB=34;
+  const yMax=dcbNiceMax(Math.max(...vals));
+  const X=i=> PL+i*(W-PL-PR)/(vals.length-1);
+  const Y=v=> PT+(1-v/yMax)*(H-PT-PB);
+  const pts = vals.map((v,i)=>({ x:X(i), y:Y(v), v }));
+  const line = dcbSmoothPath(pts);
+  const area = `${line} L${pts[pts.length-1].x},${Y(0)} L${pts[0].x},${Y(0)} Z`;
+
   const first = vals[0]||0;
   const delta = first>0 ? ((vals[vals.length-1]-first)/first*100) : 0;
   const deltaTxt = (delta>=0?'▲ ':'▼ ')+Math.abs(delta).toFixed(1)+'% vs. '+DCB_MESES[yms[0].m-1];
   const tagEl = document.getElementById('dcb-trend-delta'); if(tagEl) tagEl.textContent = deltaTxt;
 
-  return `<svg width="100%" height="160" viewBox="0 0 640 180" preserveAspectRatio="none" style="margin-top:8px;overflow:visible;">
-    ${[0.25,0.5,0.75,1].map(f=>`<line x1="0" x2="640" y1="${PT+f*(H-PT-PB)}" y2="${PT+f*(H-PT-PB)}" stroke="rgba(255,255,255,.08)" stroke-width="1"></line>`).join('')}
-    <path d="${area}" fill="oklch(78% 0.13 80 / 0.16)"></path>
-    <path d="${line}" fill="none" stroke="oklch(78% 0.13 80)" stroke-width="2.5"></path>
+  // Grid horizontal punteado con escala (0 → yMax en 4 pasos)
+  const grid=[0,1,2,3,4].map(i=>{
+    const val=yMax*i/4, gy=Y(val);
+    return `<line x1="${PL}" x2="${W-PR}" y1="${gy}" y2="${gy}" stroke="rgba(255,255,255,.10)" stroke-width="1" stroke-dasharray="3 5"></line>
+      <text x="${PL-9}" y="${gy+3.5}" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#8fa0b8">${val%1===0?val:val.toFixed(1)}</text>`;
+  }).join('');
+
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="margin-top:8px;overflow:visible;display:block;">
+    <defs>
+      <linearGradient id="dcb-trend-grad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#8b90f5" stop-opacity=".38"/>
+        <stop offset="70%" stop-color="#8b90f5" stop-opacity=".08"/>
+        <stop offset="100%" stop-color="#8b90f5" stop-opacity="0"/>
+      </linearGradient>
+      <filter id="dcb-trend-glow" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#8b90f5" flood-opacity=".55"/>
+      </filter>
+    </defs>
+    ${grid}
+    <path d="${area}" fill="url(#dcb-trend-grad)"></path>
+    <path d="${line}" fill="none" stroke="#8b90f5" stroke-width="3" stroke-linecap="round" filter="url(#dcb-trend-glow)"></path>
     ${pts.map((p,i)=>`
-      <circle cx="${p.x}" cy="${p.y}" r="4.5" fill="#0b1526" stroke="oklch(78% 0.13 80)" stroke-width="2.5"><title>${DCB_MESES[yms[i].m-1]}: ${p.v.toFixed(2)} pts</title></circle>
-      <text x="${p.x}" y="176" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#8fa0b8">${DCB_MESES[yms[i].m-1]}</text>`).join('')}
+      <circle class="dcb-tr-pt" cx="${p.x}" cy="${p.y}" r="5" fill="#fff" stroke="#8b90f5" stroke-width="2.5"
+        onclick="dcbGoMonth(${yms[i].y},${yms[i].m})">
+        <title>${DCB_MESES[yms[i].m-1]} ${yms[i].y}: ${p.v.toFixed(2)} pts — clic para ver ese mes</title></circle>
+      <text x="${p.x}" y="${H-10}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="${yms[i].ym===curYM?'#dbe4f0':'#8fa0b8'}" font-weight="${yms[i].ym===curYM?'700':'400'}">${DCB_MESES[yms[i].m-1]}</text>`).join('')}
   </svg>`;
 }
 
@@ -1908,25 +1963,34 @@ function renderDashboard(){
   </div>`;
 }
 
-// Carga en segundo plano los 5 meses previos (tendencia + metas de team)
+// Tendencia + metas de team: UNA llamada ligera (solo agregados, no leads)
 async function loadDashDeferred(){
   const token = ++_dashToken;
-  const months=[]; let y=_month.year, m=_month.month;
-  for(let i=0;i<5;i++){ m--; if(m<1){m=12;y--;} months.push({y,m,ym:getYM(y,m)}); }
-  const adminScope = isAdmin(_user?.role) ? '&scope=ranking' : '';
-  await Promise.all(months.filter(mo=>!_dashCache[mo.ym]).map(async mo=>{
+  const yms=[]; let y=_month.year, m=_month.month;
+  for(let i=0;i<5;i++){ m--; if(m<1){m=12;y--;} yms.push(getYM(y,m)); }
+  if(yms.some(ym=>!_dashCache[ym])){
     try{
-      const res = await AUTH.sf(`/api/leads?year=${mo.y}&month=${mo.m}${adminScope}`);
-      if(!res||!res.ok) return;
-      const data = await res.json();
-      const leads = Array.isArray(data)?data:(data.data||data.leads||[]);
-      _dashCache[mo.ym] = dcbAggregates(leads, mo.ym);
+      const res = await AUTH.sf(`/api/comisiones/tendencia?year=${_month.year}&month=${_month.month}&n=5`);
+      if(res&&res.ok){
+        const j = await res.json();
+        Object.entries((j&&j.months)||{}).forEach(([ym,agg])=>{ _dashCache[ym]=agg; });
+      }
     }catch(_){}
-  }));
+  }
   if(token!==_dashToken) return; // cambió el mes: descartar
   const tb=document.getElementById('dcb-trend-body'); if(tb) tb.innerHTML=renderDcbTrendBody();
   const teams=document.getElementById('dcb-teams-body'); if(teams) teams.innerHTML=renderDcbTeamsBody();
 }
+
+// La tendencia se dibuja al ancho real del contenedor: re-render al redimensionar
+let _dcbResizeT=null;
+window.addEventListener('resize', function(){
+  clearTimeout(_dcbResizeT);
+  _dcbResizeT=setTimeout(function(){
+    const tb=document.getElementById('dcb-trend-body');
+    if(tb) tb.innerHTML=renderDcbTrendBody();
+  },200);
+});
 
 function render(){
   const container = document.getElementById('main-content');

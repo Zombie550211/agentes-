@@ -43,6 +43,7 @@ from routers import (
     schedule as schedule_router,
     ui_config as ui_config_router,
     productividad_bo as productividad_bo_router,
+    comisiones_stats as comisiones_stats_router,
 )
 
 # ── Rutas base ──────────────────────────────────────────────────
@@ -407,6 +408,7 @@ app.include_router(catalogos_router.router)
 app.include_router(schedule_router.router)
 app.include_router(ui_config_router.router)
 app.include_router(productividad_bo_router.router)
+app.include_router(comisiones_stats_router.router)
 
 # ── Archivos estáticos ───────────────────────────────────────────
 class _RevalidateStaticFiles(StaticFiles):
