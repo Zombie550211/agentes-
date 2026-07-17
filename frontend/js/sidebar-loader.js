@@ -673,8 +673,12 @@
     const menuBlocks = getModernMenuBlocks(normalizedRole, normalizedActive, { isLineas });
 
     return `
-      <div class="sb-brand-img" style="display:flex!important;visibility:visible!important;justify-content:center;align-items:center;padding:12px 8px 8px;flex-shrink:0;width:100%;box-sizing:border-box;">
-        <img src="/images/sidebar.png" alt="Logo" style="max-width:95%;max-height:120px;width:auto;object-fit:contain;border-radius:8px;display:block!important;">
+      <div class="sb-brand-img" style="display:flex!important;visibility:visible!important;justify-content:center;align-items:center;gap:10px;padding:16px 10px 12px;flex-shrink:0;width:100%;box-sizing:border-box;">
+        <div style="width:38px;height:38px;border-radius:10px;flex-shrink:0;background:linear-gradient(135deg,#0ea5e9,#2563eb);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;letter-spacing:.02em;">CC</div>
+        <div class="item-label" style="line-height:1.15;">
+          <div style="font-size:.95rem;font-weight:800;letter-spacing:.04em;color:#fff;">CONNECTING</div>
+          <div style="font-size:.58rem;font-weight:700;letter-spacing:.3em;color:rgba(255,255,255,.55);">C&nbsp;R&nbsp;M</div>
+        </div>
       </div>
 
       <div class="nav-content">
@@ -704,9 +708,6 @@
               </div>
             </div>
           </label>
-        </div>
-        <div style="display:flex;justify-content:center;padding:6px 8px 4px;">
-          <img src="/images/pelota.jpeg" alt="Pelota" style="max-width:100%;max-height:110px;object-fit:cover;border-radius:10px;display:block;width:100%;">
         </div>
         <button type="button" class="footer-action logout" data-logout-button title="Cerrar Sesión">
           <i class="fas fa-sign-out-alt"></i>
