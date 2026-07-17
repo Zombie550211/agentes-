@@ -119,7 +119,7 @@ async def send_message(body: SendMessage, user: dict = Depends(current_user)):
         raise HTTPException(400, "Faltan campos")
     now = _utcnow()
     async with AsyncSessionLocal() as s:
-        await s.execute(text("""
+        res = await s.execute(text("""
             INSERT INTO messages (from_user, from_name, from_avatar, to_user, to_name,
                 subject, body, type, is_read, is_followup, timestamp)
             VALUES (:from_user, :from_name, :from_avatar, :to_user, :to_name,
@@ -133,9 +133,26 @@ async def send_message(body: SendMessage, user: dict = Depends(current_user)):
             "subject": body.subject, "body": body.body,
             "type": body.type, "ts": now,
         })
+        # Capturar el id ANTES del commit: tras commit el pool puede entregar otra
+        # conexión donde LAST_INSERT_ID() = 0 (bug que rompía el envío con 500).
+        new_id = res.lastrowid
         await s.commit()
-        r = await s.execute(text("SELECT * FROM messages WHERE id = LAST_INSERT_ID()"))
-        msg = _fmt_msg(r.mappings().first())
+        r = await s.execute(text("SELECT * FROM messages WHERE id = :id"), {"id": new_id or 0})
+        row = r.mappings().first()
+
+    if row is not None:
+        msg = _fmt_msg(row)
+    else:
+        # Respaldo: el INSERT ya se confirmó; construir el mensaje sin re-leer
+        msg = {
+            "_id": str(new_id or ""), "id": new_id,
+            "from": user["username"], "fromName": user.get("name", user["username"]),
+            "fromAvatar": user.get("avatarUrl", ""),
+            "to": body.to, "toName": body.toName or body.to,
+            "subject": body.subject, "body": body.body, "type": body.type,
+            "isRead": False, "isFollowup": False, "readAt": None,
+            "timestamp": now.isoformat(),
+        }
 
     # ── Tiempo real (SSE) ──────────────────────────────────────────
     # Avisamos al destinatario (canal propio) y al emisor (otras pestañas/equipos).

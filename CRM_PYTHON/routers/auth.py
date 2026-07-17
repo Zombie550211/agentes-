@@ -363,7 +363,7 @@ async def register(body: RegisterBody, user: dict = Depends(require_roles(*ADMIN
         sup_name_final = (derived_sup.get("supervisorName") or body.supervisorName or body.supervisor or "").strip() if use_derived else (body.supervisorName or derived_sup.get("supervisorName") or body.supervisor or "").strip()
         sup_user_final = (derived_sup.get("supervisor") or body.supervisor or "").strip() if use_derived else (body.supervisor or derived_sup.get("supervisor") or "").strip()
 
-        await s.execute(text("""
+        res = await s.execute(text("""
             INSERT INTO users (username, password_hash, role, permissions, team, name, email, supervisor)
             VALUES (:username, :password_hash, :role, :permissions, :team, :name, :email, :supervisor)
         """), {
@@ -376,9 +376,9 @@ async def register(body: RegisterBody, user: dict = Depends(require_roles(*ADMIN
             "email":         body.email,
             "supervisor":    sup_user_final or sup_name_final,
         })
+        # id capturado ANTES del commit (tras commit el pool puede cambiar de conexión)
+        new_id = res.lastrowid
         await s.commit()
-        result = await s.execute(text("SELECT LAST_INSERT_ID() as lid"))
-        new_id = result.scalar()
 
     return {"success": True, "message": "Usuario creado", "userId": str(new_id)}
 

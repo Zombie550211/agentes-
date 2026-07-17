@@ -55,7 +55,7 @@ async def create_activo(body: PremioActivo, user: dict = Depends(current_user)):
         raise HTTPException(400, "Tipo inválido")
     now = _utcnow()
     async with AsyncSessionLocal() as s:
-        await s.execute(text("""
+        res = await s.execute(text("""
             INSERT INTO premios_activos (tipo, titulo, descripcion, categoria, monto, creado_por, created_at)
             VALUES (:tipo, :titulo, :desc, :cat, :monto, :by, :now)
         """), {
@@ -63,8 +63,9 @@ async def create_activo(body: PremioActivo, user: dict = Depends(current_user)):
             "desc": body.descripcion.strip(), "cat": body.categoria.strip(),
             "monto": body.monto, "by": user.get("username", ""), "now": now,
         })
+        new_id = res.lastrowid  # antes del commit (el pool puede cambiar de conexión)
         await s.commit()
-        r = await s.execute(text("SELECT * FROM premios_activos WHERE id = LAST_INSERT_ID()"))
+        r = await s.execute(text("SELECT * FROM premios_activos WHERE id = :id"), {"id": new_id or 0})
         row = r.mappings().first()
     return {"success": True, "data": _doc(row)}
 
@@ -99,7 +100,7 @@ async def create_ganador(body: Ganador, user: dict = Depends(current_user)):
     now = _utcnow()
     fecha_val = body.fecha or date.today().isoformat()
     async with AsyncSessionLocal() as s:
-        await s.execute(text("""
+        res = await s.execute(text("""
             INSERT INTO premios_ganadores (tipo, nombre, iniciales, monto, categoria, fecha, status, creado_por, created_at)
             VALUES (:tipo, :nombre, :iniciales, :monto, :cat, :fecha, :status, :by, :now)
         """), {
@@ -109,8 +110,9 @@ async def create_ganador(body: Ganador, user: dict = Depends(current_user)):
             "status": "pendiente" if body.status == "pendiente" else "asignado",
             "by": user.get("username", ""), "now": now,
         })
+        new_id = res.lastrowid  # antes del commit (el pool puede cambiar de conexión)
         await s.commit()
-        r = await s.execute(text("SELECT * FROM premios_ganadores WHERE id = LAST_INSERT_ID()"))
+        r = await s.execute(text("SELECT * FROM premios_ganadores WHERE id = :id"), {"id": new_id or 0})
         row = r.mappings().first()
     return {"success": True, "data": _doc(row)}
 

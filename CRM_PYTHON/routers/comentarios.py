@@ -87,13 +87,13 @@ async def create_comentario(lead_id: str, body: ComentarioBody, user: dict = Dep
     now = _utcnow()
 
     async with AsyncSessionLocal() as s:
-        await s.execute(text("""
+        res = await s.execute(text("""
             INSERT INTO lead_comments (lead_id, texto, autor, created_at, updated_at)
             VALUES (:lid, :texto, :autor, :now, :now)
         """), {"lid": db_lead_id, "texto": texto, "autor": autor, "now": now})
+        # id capturado ANTES del commit (tras commit el pool puede cambiar de conexión)
+        new_id = res.lastrowid
         await s.commit()
-        r = await s.execute(text("SELECT LAST_INSERT_ID() as lid"))
-        new_id = r.scalar()
 
         # Log activity
         try:
