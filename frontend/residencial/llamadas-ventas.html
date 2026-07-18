@@ -13,7 +13,7 @@
   <script src="/js/fetch-interceptor.js" defer></script>
   <script src="/js/logout-handler.js" defer></script>
   <script src="/js/user-info.js" defer></script>
-  <script src="/js/sidebar-loader.js?v=20260717a" defer></script>
+  <script src="/js/sidebar-loader.js?v=20260717c" defer></script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     body{min-height:100vh;background:linear-gradient(160deg,#0b1a33 0%,#0a1628 55%,#080f1f 100%);background-attachment:fixed;font-family:'Inter',system-ui,sans-serif;color:#f1f5f9;color-scheme:dark}
@@ -55,6 +55,10 @@
       border-bottom:2px dashed rgba(255,255,255,.3);border-radius:0}
     .lv-tile input:focus{border-bottom-color:#38bdf8}
     .lv-tile input.saved{color:#34d399;transition:color .3s}
+    #kpi-ventas,#kpi-ventas-lin{color:#34d399}
+    .lv-adj{display:none;font-size:.58rem;font-weight:800;color:#fbbf24;background:rgba(251,191,36,.12);
+      border:1px solid rgba(251,191,36,.35);border-radius:20px;padding:1px 7px;margin-left:6px;vertical-align:middle}
+    .lv-adj.on{display:inline-block}
 
     /* ── Grid de teams: simétrico, altura fija, scroll interno ── */
     .lv-teams{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px}
@@ -167,8 +171,9 @@
             </div></div>
         </div>
         <div class="lv-tile">
-          <div class="lv-tile-ic" style="background:#ecfdf5"><i class="fas fa-chart-line" style="color:#059669"></i></div>
-          <div><div class="lv-tile-lbl">Ventas</div><div class="lv-tile-val" id="kpi-ventas">0</div></div>
+          <div class="lv-tile-ic" style="background:rgba(52,211,153,.12)"><i class="fas fa-chart-line" style="color:#34d399"></i></div>
+          <div><div class="lv-tile-lbl">Ventas <span class="lv-adj" id="adj-ventas" title="Ajustado manualmente — borra el campo para volver al automático">✎ ajustado</span></div>
+            <input type="number" min="0" id="kpi-ventas" value="0" title="Automático desde el CRM — editable por admin; vacío = volver al automático"/></div>
         </div>
         <div class="lv-tile">
           <div class="lv-tile-ic" style="background:#fefce8"><i class="fas fa-bullseye" style="color:#ca8a04"></i></div>
@@ -211,7 +216,8 @@
         </div>
         <div class="lv-tile">
           <div class="lv-tile-ic" style="background:rgba(52,211,153,.12)"><i class="fas fa-chart-line" style="color:#34d399"></i></div>
-          <div><div class="lv-tile-lbl">Ventas</div><div class="lv-tile-val" id="kpi-ventas-lin">0</div></div>
+          <div><div class="lv-tile-lbl">Ventas <span class="lv-adj" id="adj-ventas-lin" title="Ajustado manualmente — borra el campo para volver al automático">✎ ajustado</span></div>
+            <input type="number" min="0" id="kpi-ventas-lin" value="0" title="Automático desde el CRM — editable por admin; vacío = volver al automático"/></div>
         </div>
         <div class="lv-tile">
           <div class="lv-tile-ic" style="background:rgba(251,191,36,.12)"><i class="fas fa-bullseye" style="color:#fbbf24"></i></div>
@@ -244,6 +250,7 @@
   var cells={};
   var globals={perdidas:0,inversion:0,perdidasLin:0,inversionLin:0};
   var puntos={resi:0,lin:0};
+  var ventasAdj={resi:null,lin:null};   // ajuste manual del KPI Ventas (null = automático)
   var ventasAuto={resi:{},lin:{},totalResi:0,totalLin:0};   // ventas reales del CRM por agente
   var creatingSheet=null;
 
@@ -430,6 +437,8 @@
                 else if(col==='INVERSION')globals.inversion=val;
                 else if(col==='PERDIDAS_LIN')globals.perdidasLin=Math.round(val);
                 else if(col==='INVERSION_LIN')globals.inversionLin=val;
+                else if(col==='VENTAS_ADJ')ventasAdj.resi=Math.round(val);
+                else if(col==='VENTAS_ADJ_LIN')ventasAdj.lin=Math.round(val);
                 return;
               }
               if(!cells[tok])cells[tok]={};
@@ -441,6 +450,8 @@
               else if(m==='INVERSION')globals.inversion=parseFloat(c.value)||0;
               else if(m==='PERDIDAS_LIN')globals.perdidasLin=parseInt(c.value,10)||0;
               else if(m==='INVERSION_LIN')globals.inversionLin=parseFloat(c.value)||0;
+              else if(m==='VENTAS_ADJ')ventasAdj.resi=parseInt(c.value,10)||0;
+              else if(m==='VENTAS_ADJ_LIN')ventasAdj.lin=parseInt(c.value,10)||0;
             }
           });
           (j.users||[]).forEach(function(u){
@@ -478,17 +489,23 @@
       Object.keys(cells[tok]).forEach(function(p){ suma+=cells[tok][p].LL||0; });
       if(linTokens[tok])llLin+=suma; else llResi+=suma;
     });
-    var vResi=ventasAuto.totalResi||0, vLin=ventasAuto.totalLin||0;
+    // KPI Ventas: automático, salvo ajuste manual del admin (ventasAdj)
+    var vResi=ventasAdj.resi!=null?ventasAdj.resi:(ventasAuto.totalResi||0);
+    var vLin=ventasAdj.lin!=null?ventasAdj.lin:(ventasAuto.totalLin||0);
     // ── Residencial ──
     document.getElementById('kpi-atendidas').textContent=llResi;
     document.getElementById('kpi-llamadas-tot').textContent=llResi+(globals.perdidas||0);
-    document.getElementById('kpi-ventas').textContent=vResi;
+    var vInp=document.getElementById('kpi-ventas');
+    if(document.activeElement!==vInp)vInp.value=vResi;
+    document.getElementById('adj-ventas').classList.toggle('on',ventasAdj.resi!=null);
     document.getElementById('kpi-puntos').textContent=puntos.resi.toFixed(2);
     document.getElementById('kpi-costo').textContent=vResi>0?fmtUSD((globals.inversion||0)/vResi):'$0.00';
     // ── Líneas ──
     document.getElementById('kpi-atendidas-lin').textContent=llLin;
     document.getElementById('kpi-llamadas-tot-lin').textContent=llLin+(globals.perdidasLin||0);
-    document.getElementById('kpi-ventas-lin').textContent=vLin;
+    var vInp2=document.getElementById('kpi-ventas-lin');
+    if(document.activeElement!==vInp2)vInp2.value=vLin;
+    document.getElementById('adj-ventas-lin').classList.toggle('on',ventasAdj.lin!=null);
     document.getElementById('kpi-puntos-lin').textContent=puntos.lin.toFixed(2);
     document.getElementById('kpi-costo-lin').textContent=vLin>0?fmtUSD((globals.inversionLin||0)/vLin):'$0.00';
     teams.forEach(function(t){
@@ -601,10 +618,33 @@
   bindGlobal('kpi-perdidas-lin','PERDIDAS_LIN','perdidasLin',false);
   bindGlobal('kpi-inversion-lin','INVERSION_LIN','inversionLin',true);
 
+  // KPI Ventas: automático con ajuste manual opcional del admin.
+  // Editar guarda el ajuste; dejar el campo VACÍO borra el ajuste y vuelve al automático.
+  function bindVentasAdj(id,colName,prop){
+    var el=document.getElementById(id);
+    el.addEventListener('focus',function(){ ensureSheet(); this.select(); });
+    el.addEventListener('input',function(){
+      ventasAdj[prop]=this.value===''?null:Math.max(0,parseInt(this.value,10)||0);
+      updateKpis();
+    });
+    el.addEventListener('blur',function(){
+      var auto=prop==='resi'?(ventasAuto.totalResi||0):(ventasAuto.totalLin||0);
+      var raw=this.value.trim();
+      var val=raw===''?null:Math.max(0,parseInt(raw,10)||0);
+      if(val===auto)val=null;              // igual al automático: sin ajuste
+      ventasAdj[prop]=val;
+      updateKpis();
+      saveCell('GLOBAL','RESUMEN',colName,val==null?'':val,this);
+    });
+    el.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); this.blur(); } });
+  }
+  bindVentasAdj('kpi-ventas','VENTAS_ADJ','resi');
+  bindVentasAdj('kpi-ventas-lin','VENTAS_ADJ_LIN','lin');
+
   // Si el usuario sale de la página con una celda a medio editar, forzar guardado
   window.addEventListener('pagehide',function(){
     var el=document.activeElement;
-    if(el&&(el.classList.contains('lv-cell')||/^kpi-(perdidas|inversion)/.test(el.id||'')))el.blur();
+    if(el&&(el.classList.contains('lv-cell')||/^kpi-(perdidas|inversion|ventas)/.test(el.id||'')))el.blur();
   });
 
   /* ── filtros: mes + día ── */

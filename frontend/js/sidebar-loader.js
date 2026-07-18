@@ -673,50 +673,57 @@
     const menuBlocks = getModernMenuBlocks(normalizedRole, normalizedActive, { isLineas });
 
     return `
-      <div class="sb-brand-img" style="display:flex!important;visibility:visible!important;justify-content:center;align-items:center;gap:10px;padding:16px 10px 12px;flex-shrink:0;width:100%;box-sizing:border-box;">
-        <div style="width:38px;height:38px;border-radius:10px;flex-shrink:0;background:linear-gradient(135deg,#0ea5e9,#2563eb);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;letter-spacing:.02em;">CC</div>
-        <div class="item-label" style="line-height:1.15;">
-          <div style="font-size:.95rem;font-weight:800;letter-spacing:.04em;color:#fff;">CONNECTING</div>
-          <div style="font-size:.58rem;font-weight:700;letter-spacing:.3em;color:rgba(255,255,255,.55);">C&nbsp;R&nbsp;M</div>
+      <style id="scb-style">
+        .sidebar.sidebar-inicio{background:#0b121c !important;border-right:1px solid #17212e !important;}
+        @keyframes scbIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+        .scb-item{display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:10px;cursor:pointer;
+          text-decoration:none;
+          transition:background .18s ease,transform .2s cubic-bezier(.34,1.56,.5,1);
+          animation:scbIn .35s cubic-bezier(.2,.9,.3,1) both;
+          animation-delay:calc(var(--i,0)*22ms);}
+        .scb-item:hover{background:#131d2b;transform:translateX(3px);}
+        .scb-item.mov:hover{background:#0f2620;transform:translateX(3px);}
+        .scb-item:active{transform:translateX(3px) scale(.98);}
+        .scb-item .scb-ic{transition:transform .2s cubic-bezier(.34,1.56,.5,1);}
+        .scb-item:hover .scb-ic{transform:scale(1.12);}
+        .scb-sec,.scb-mov-head{animation:scbIn .35s cubic-bezier(.2,.9,.3,1) both;animation-delay:calc(var(--i,0)*22ms);}
+        #moviles-submenu{overflow:hidden;max-height:600px;transition:max-height .3s ease,opacity .25s ease;opacity:1;}
+        #moviles-submenu.closed{max-height:0;opacity:0;}
+        .scb-item.active{background:#111c2b;}
+        .scb-item .scb-lbl{font-size:13.5px;color:#cdd8e3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .scb-item.active .scb-lbl{color:#f2f6fa;font-weight:700;}
+        .scb-item.mov .scb-lbl{color:#bfe9db;}
+        .scb-ic{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+        .scb-sec{font-size:10.5px;letter-spacing:1.5px;color:#4a5a6c;font-weight:700;padding:16px 10px 6px 10px;}
+        .scb-mov-head{display:flex;align-items:center;justify-content:space-between;padding:16px 10px 8px 10px;cursor:pointer;}
+        .scb-mov-head .t{font-size:10.5px;letter-spacing:1.5px;color:#3fcf9e;font-weight:700;}
+        .scb-mov-head .ch{color:#3fcf9e;font-size:11px;transition:transform .2s;}
+        .scb-mov-head.closed .ch{transform:rotate(-90deg);}
+        .scb-logout{display:flex;align-items:center;gap:12px;cursor:pointer;background:none;border:none;padding:0;
+          font-family:inherit;transition:opacity .12s;width:100%;}
+        .scb-logout:hover{opacity:.8;}
+        #scb-scroll::-webkit-scrollbar{width:6px}
+        #scb-scroll::-webkit-scrollbar-thumb{background:#1e2a38;border-radius:3px}
+      </style>
+
+      <div style="display:flex;align-items:center;gap:10px;padding:20px 18px 14px 18px;flex-shrink:0;">
+        <div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(160deg,#2f6fed,#1c4fc9);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;">CC</div>
+        <div class="item-label" style="display:flex;flex-direction:column;line-height:1.15;">
+          <span style="font-size:14px;font-weight:700;letter-spacing:0.4px;color:#e6ecf3;">CONNECTING</span>
+          <span style="font-size:9px;letter-spacing:3px;color:#5b6b7d;">C R M</span>
         </div>
       </div>
 
-      <div class="nav-content">
+      <div id="scb-scroll" class="nav-content" style="flex:1;overflow-y:auto;padding:4px 10px 10px 10px;display:flex;flex-direction:column;gap:2px;">
         ${menuBlocks}
       </div>
 
-      <div class="sidebar-footer">
-        <div class="footer-action theme-switcher-wrap">
-          <i class="fas fa-moon theme-icon-collapsed" id="theme-icon-collapsed" title="Cambiar tema"></i>
-          <label class="theme-switch" id="theme-switcher-label" title="Activar/desactivar modo oscuro">
-            <input type="checkbox" class="theme-switch__checkbox" id="theme-switch-checkbox">
-            <div class="theme-switch__container">
-              <div class="theme-switch__clouds"></div>
-              <div class="theme-switch__stars-container">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 55" fill="none">
-                  <path fill-rule="evenodd" clip-rule="evenodd" d="M135.831 3.00688C135.055 3.85027 134.111 4.29946 133 4.35447C134.111 4.40948 135.055 4.85867 135.831 5.70206C136.607 6.54545 136.996 7.55309 136.996 8.72498C136.996 7.55309 137.385 6.54545 138.161 5.70206C138.937 4.85867 139.881 4.40948 140.992 4.35447C139.881 4.29946 138.937 3.85027 138.161 3.00688C137.385 2.16348 136.996 1.15585 136.996 -0.0160522C136.996 1.15585 136.607 2.16348 135.831 3.00688ZM123.637 9.31813C121.852 9.31813 120.397 10.7732 120.397 12.5581C120.397 10.7732 118.942 9.31813 117.156 9.31813C118.942 9.31813 120.397 7.86303 120.397 6.07812C120.397 7.86303 121.852 9.31813 123.637 9.31813ZM6.95905 4.35447C8.07005 4.29946 9.01397 3.85027 9.78985 3.00688C10.5657 2.16348 10.9547 1.15585 10.9547 -0.0160522C10.9547 1.15585 11.3437 2.16348 12.1196 3.00688C12.8955 3.85027 13.8394 4.29946 14.9504 4.35447C13.8394 4.40948 12.8955 4.85867 12.1196 5.70206C11.3437 6.54545 10.9547 7.55309 10.9547 8.72498C10.9547 7.55309 10.5657 6.54545 9.78985 5.70206C9.01397 4.85867 8.07005 4.40948 6.95905 4.35447ZM0 27.0004C1.78491 27.0004 3.23997 25.5453 3.23997 23.7604C3.23997 25.5453 4.69503 27.0004 6.47994 27.0004C4.69503 27.0004 3.23997 28.4555 3.23997 30.2404C3.23997 28.4555 1.78491 27.0004 0 27.0004Z" fill="currentColor"></path>
-                </svg>
-              </div>
-              <div class="theme-switch__circle-container">
-                <div class="theme-switch__sun-moon-container">
-                  <div class="theme-switch__moon">
-                    <div class="theme-switch__spot"></div>
-                    <div class="theme-switch__spot"></div>
-                    <div class="theme-switch__spot"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </label>
-        </div>
-        <button type="button" class="footer-action logout" data-logout-button title="Cerrar Sesión">
-          <i class="fas fa-sign-out-alt"></i>
-          <span class="item-label">Cerrar Sesión</span>
+      <div class="sidebar-footer" style="padding:16px 18px;border-top:1px solid #141d29;display:flex;flex-direction:column;gap:14px;background:transparent;">
+        <p class="item-label" style="margin:0;font-size:11px;font-style:italic;color:#5b6b7d;text-align:center;line-height:1.4;">"El éxito es la suma de pequeños esfuerzos repetidos día tras día"</p>
+        <button type="button" class="scb-logout" data-logout-button title="Cerrar Sesión">
+          <span class="scb-ic" style="background:#3a1620;">${scbIcon('logout','#f0605f')}</span>
+          <span class="scb-lbl item-label" style="font-size:13.5px;color:#cdd8e3;">Cerrar Sesión</span>
         </button>
-      </div>
-
-      <div class="sidebar-quote">
-        "El éxito es la suma de pequeños esfuerzos repetidos día tras día"
       </div>
     `;
   }
@@ -784,14 +791,38 @@
     return roles[role] || roles[role2] || 'Usuario';
   }
 
-  // ÚNICO generador del menú del sidebar (bloques con secciones).
+  // ── Iconos SVG del diseño "Sidebar CRM" (stroke currentColor) ──
+  function scbIcon(name, color) {
+    const P = {
+      home:       '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
+      userPlus:   '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-4 3-6 6-6s6 2 6 6"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/>',
+      users:      '<circle cx="8" cy="8" r="3"/><path d="M2 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14c2.6.4 4.5 2.6 4.5 6"/>',
+      tag:        '<path d="M3 11l9-8 9 8-9 9-9-9z"/><circle cx="15" cy="8" r="1.3" fill="currentColor"/>',
+      personChart:'<circle cx="9" cy="7" r="3"/><path d="M4 20c0-3.5 2.7-6 5-6"/><path d="M13 20l3-4 2 2 3-6"/>',
+      barChart:   '<line x1="4" y1="20" x2="20" y2="20"/><rect x="6" y="12" width="3" height="8" rx="2"/><rect x="11" y="8" width="3" height="12" rx="2"/><rect x="16" y="4" width="3" height="16" rx="2"/>',
+      globe:      '<circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/><path d="M12 3c3 4 3 14 0 18"/><path d="M12 3c-3 4-3 14 0 18"/>',
+      lineChart:  '<path d="M4 16l5-5 4 3 7-8"/><path d="M4 20h16"/>',
+      trophy:     '<path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M7 5H4a2 2 0 0 0 2 4"/><path d="M17 5h3a2 2 0 0 1-2 4"/><line x1="12" y1="14" x2="12" y2="17"/><path d="M8 21h8"/><path d="M9 21c0-2 1.3-3 3-3s3 1 3 3"/>',
+      gift:       '<rect x="3" y="9" width="18" height="4" rx="2"/><rect x="5" y="13" width="14" height="8" rx="2"/><line x1="12" y1="9" x2="12" y2="21"/><path d="M12 9C10 4 5 5 5 8s3 1 7 1z"/><path d="M12 9c2-5 7-4 7-1s-3 1-7 1z"/>',
+      doc:        '<path d="M6 3h9l4 4v14H6V3z"/><path d="M15 3v4h4"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/>',
+      invoice:    '<rect x="5" y="3" width="14" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/>',
+      phone:      '<path d="M5 4c0 9 6 15 15 15l1-4-5-2-2 2c-3-1.5-5-3.5-6-6l2-2-2-5-4 1z"/>',
+      coins:      '<circle cx="9" cy="9" r="5"/><circle cx="15" cy="15" r="5" fill="none"/>',
+      traffic:    '<rect x="9" y="2" width="6" height="20" rx="2"/><circle cx="12" cy="6" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="18" r="1.4" fill="currentColor"/>',
+      star:       '<path d="M12 2l3 6.5 7 .8-5.2 4.8 1.4 7-6.2-3.6L5.8 21.1l1.4-7L2 9.3l7-.8z"/>',
+      list:       '<line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4.5" cy="6" r="1.3" fill="currentColor"/><circle cx="4.5" cy="12" r="1.3" fill="currentColor"/><circle cx="4.5" cy="18" r="1.3" fill="currentColor"/>',
+      shield:     '<path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/>',
+      chat:       '<path d="M4 5h16v11H9l-5 4V5z"/>',
+      logout:     '<path d="M9 4H5v16h4"/><path d="M14 8l5 4-5 4"/><line x1="19" y1="12" x2="9" y2="12"/>'
+    };
+    return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:' + color + '">' + (P[name] || '') + '</svg>';
+  }
+
+  // ÚNICO generador del menú del sidebar — diseño "Sidebar CRM" (Claude Design).
   // Si necesitas añadir/quitar enlaces, hazlo SOLO aquí.
   function getModernMenuBlocks(normalizedRole, normalizedActive, ctx = {}) {
     const isLineas = ctx.isLineas || false;
 
-    // En páginas bajo /lineas/, el data-active suele venir con la clave residencial
-    // ('lead', 'costumer', 'ranking'…): mapearla a su variante '-lineas' para que
-    // se resalte el ítem correcto de Servicios Móviles y no el residencial.
     try {
       const p = String(window.location?.pathname || '').toLowerCase();
       if (p.startsWith('/lineas/')) {
@@ -805,135 +836,97 @@
         if (aLineas[normalizedActive]) normalizedActive = aLineas[normalizedActive];
       }
     } catch (_) {}
-    
-    // Sección 1: Principal (sin título)
-    const principalItems = [
-      { key: 'inicio',      icon: 'fa-home',           text: 'Inicio',            href: '/residencial/inicio.html' },
-      { key: 'formulario',  icon: 'fa-user-plus',      text: 'Formulario',        href: '/residencial/formulario-registro.html' },
-      { key: 'costumer',    icon: 'fa-users',          text: 'Lista de Clientes', href: '/residencial/costumer.html' },
-      { key: 'normativas',  icon: 'fa-clipboard-list', text: 'Tipificación',      href: '/residencial/normativas-tipificacion.html' }
-    ];
 
-    // Sección 2: Estadísticas
-    const estadisticasItems = [
-      { key: 'productividad-bo', icon: 'fa-user-clock',     text: 'Productividad B.O',  href: '/residencial/productividad-bo.html' },
-      { key: 'estadisticas', icon: 'fa-chart-bar',          text: 'Estadísticas',       href: '/residencial/estadisticas.html' },
-      { key: 'productividad', icon: 'fa-gauge-high',        text: 'Productividad',      href: '/residencial/productividad.html' },
-      { key: 'rankings',     icon: 'fa-chart-line',         text: 'Ranking de Agentes', href: '/residencial/ranking-agente.html' },
-      { key: 'ranking',      icon: 'fa-trophy',             text: 'Ranking y Promociones', href: '/residencial/ranking.html' },
-      { key: 'premios',      icon: 'fa-gift',               text: 'Premios',            href: '/residencial/premios.html' },
-      { key: 'reglas',       icon: 'fa-book',               text: 'Reglas y Puntajes',  href: '/residencial/reglas.html' },
-      { key: 'facturacion',  icon: 'fa-file-invoice-dollar', text: 'Facturación',       href: '/residencial/facturacion.html' },
-      { key: 'llamadas-team', icon: 'fa-phone',              text: 'Llamadas y Ventas por Team', href: '/residencial/llamadas-ventas.html' },
-      { key: 'comisiones',   icon: 'fa-coins',              text: 'Comisión',           href: '/residencial/comisiones.html' },
-      { key: 'semaforo',     icon: 'fa-traffic-light',      text: 'El Semáforo',        href: '/residencial/semaforo.html' }
+    // Ítems con los colores EXACTOS del diseño (fondo del tile + color del icono)
+    const topItems = [
+      { key: 'inicio',      label: 'Inicio',            href: '/residencial/inicio.html',                 bg: '#122a3a', ic: 'home',     c: '#4fb0ff' },
+      { key: 'formulario',  label: 'Formulario',        href: '/residencial/formulario-registro.html',    bg: '#0f2b1f', ic: 'userPlus', c: '#39c98a' },
+      { key: 'costumer',    label: 'Lista de Clientes', href: '/residencial/costumer.html',               bg: '#241a36', ic: 'users',    c: '#b57bf0' },
+      { key: 'normativas',  label: 'Tipificación',      href: '/residencial/normativas-tipificacion.html', bg: '#0e2b2b', ic: 'tag',      c: '#2ecfc0' }
     ];
-
-    // Sección 3: Administración
-    const administracionItems = [
-      { key: 'empleado',     icon: 'fa-star',       text: 'Empleado del Mes',  href: '/residencial/empleado-mes.html' },
-      { key: 'tabla-puntaje', icon: 'fa-list',      text: 'Tabla de Puntaje',  href: '/residencial/tabla-puntaje.html' },
-      { key: 'crearcuenta',  icon: 'fa-shield-alt', text: 'Permisos',          href: '/crear-cuenta.html', adminOnly: true },
-      { key: 'chat',         icon: 'fa-comments',   text: 'Chat',              href: '/chat.html' }
+    const statsItems = [
+      { key: 'productividad-bo', label: 'Productividad B.O',      href: '/residencial/productividad-bo.html', bg: '#3a2a12', ic: 'personChart', c: '#f0a93c' },
+      { key: 'estadisticas',     label: 'Estadísticas',           href: '/residencial/estadisticas.html',     bg: '#332e0e', ic: 'barChart',    c: '#e6d33c' },
+      { key: 'productividad',    label: 'Productividad',          href: '/residencial/productividad.html',    bg: '#151c36', ic: 'globe',       c: '#7c8dff' },
+      { key: 'rankings',         label: 'Ranking de Agentes',     href: '/residencial/ranking-agente.html',   bg: '#3a2412', ic: 'lineChart',   c: '#f0873c' },
+      { key: 'ranking',          label: 'Ranking y Promociones',  href: '/residencial/ranking.html',          bg: '#3a1430', ic: 'trophy',      c: '#f04fb0' },
+      { key: 'premios',          label: 'Premios',                href: '/residencial/premios.html',          bg: '#12203a', ic: 'gift',        c: '#4f90f0' },
+      { key: 'reglas',           label: 'Reglas y Puntajes',      href: '/residencial/reglas.html',           bg: '#0f2b1f', ic: 'doc',         c: '#39c98a' },
+      { key: 'facturacion',      label: 'Facturación',            href: '/residencial/facturacion.html',      bg: '#3a1414', ic: 'invoice',     c: '#f04f4f' },
+      { key: 'llamadas-team',    label: 'Llamadas y Ventas por Team', href: '/residencial/llamadas-ventas.html', bg: '#2a2f36', ic: 'phone',    c: '#e8edf3' },
+      { key: 'comisiones',       label: 'Comisión',               href: '/residencial/comisiones.html',       bg: '#122a2a', ic: 'coins',       c: '#3cc9c9' },
+      { key: 'semaforo',         label: 'El Semáforo',            href: '/residencial/semaforo.html',         bg: '#20242b', ic: 'traffic',     c: '#8a95a3' }
     ];
-
-    // Sección 4: Servicios Móviles
-    // (El concurso de junio se ocultó en jul 2026; la página /lineas/concurso-junio.html sigue existiendo.)
+    const adminItems = [
+      { key: 'empleado',      label: 'Empleado del Mes', href: '/residencial/empleado-mes.html', bg: '#332e0e', ic: 'star',   c: '#e6d33c' },
+      { key: 'tabla-puntaje', label: 'Tabla de Puntaje', href: '/residencial/tabla-puntaje.html', bg: '#3a2412', ic: 'list',  c: '#f0873c' },
+      { key: 'crearcuenta',   label: 'Permisos',         href: '/crear-cuenta.html',              bg: '#151c36', ic: 'shield', c: '#7c8dff', adminOnly: true },
+      { key: 'chat',          label: 'Chat',             href: '/chat.html',                      bg: '#0e2b2b', ic: 'chat',   c: '#2ecfc0' }
+    ];
     const movilesItems = [
-      { key: 'inicio-lineas', icon: 'fa-home', text: 'Inicio', href: '/lineas/inicio.html' },
-      { key: 'lead-lineas', icon: 'fa-user-plus', text: 'Nuevo Lead', href: '/lineas/lead.html' },
-      { key: 'costumer-lineas', icon: 'fa-users', text: 'Costumer Líneas', href: '/lineas/costumer.html' },
-      { key: 'estadisticas-lineas', icon: 'fa-chart-bar', text: 'Estadísticas Líneas', href: '/lineas/estadisticas.html' },
-      { key: 'ranking-lineas', icon: 'fa-chart-line', text: 'Ranking Líneas', href: '/lineas/ranking.html' },
-      { key: 'facturacion-lineas', icon: 'fa-file-invoice-dollar', text: 'Facturación Líneas', href: '/lineas/facturacion.html' },
-      { key: 'comisiones-lineas', icon: 'fa-coins', text: 'Comisiones Líneas', href: '/lineas/comisiones.html' },
-      { key: 'reglas-lineas', icon: 'fa-book', text: 'Reglas Líneas', href: '/lineas/reglas.html' }
+      { key: 'inicio-lineas',       label: 'Inicio',              href: '/lineas/inicio.html',       bg: '#0f2b1f', ic: 'home',      c: '#39c98a' },
+      { key: 'lead-lineas',         label: 'Nuevo Lead',          href: '/lineas/lead.html',         bg: '#0e2b2b', ic: 'userPlus',  c: '#2ecfc0' },
+      { key: 'costumer-lineas',     label: 'Costumer Líneas',     href: '/lineas/costumer.html',     bg: '#0e2b2b', ic: 'users',     c: '#2ecfc0' },
+      { key: 'estadisticas-lineas', label: 'Estadísticas Líneas', href: '/lineas/estadisticas.html', bg: '#0e2b2b', ic: 'barChart',  c: '#2ecfc0' },
+      { key: 'ranking-lineas',      label: 'Ranking Líneas',      href: '/lineas/ranking.html',      bg: '#0e2b2b', ic: 'lineChart', c: '#2ecfc0' },
+      { key: 'facturacion-lineas',  label: 'Facturación Líneas',  href: '/lineas/facturacion.html',  bg: '#0e2b2b', ic: 'invoice',   c: '#2ecfc0' },
+      { key: 'comisiones-lineas',   label: 'Comisiones Líneas',   href: '/lineas/comisiones.html',   bg: '#0e2b2b', ic: 'coins',     c: '#2ecfc0' },
+      { key: 'reglas-lineas',       label: 'Reglas Líneas',       href: '/lineas/reglas.html',       bg: '#0e2b2b', ic: 'doc',       c: '#2ecfc0' }
     ];
-
-    // Submenú de equipos: sin lista hardcodeada. (Actualmente ningún item usa
-    // hasSubmenu, así que queda vacío; si se reactiva, poblar desde /api/teams.)
-    const teams = [];
 
     const isAdmin = normalizedRole === 'admin' || normalizedRole === 'backoffice';
     const isProcesamiento = normalizedRole.startsWith('procesamiento');
     const isSupervisor = normalizedRole === 'supervisor' || normalizedRole.includes('supervisor');
     const isAgente = normalizedRole === 'agente' || normalizedRole === 'vendedor' || normalizedRole === 'agent' || normalizedRole === 'seller';
-    
-    // Mostrar secciones residenciales si: Admin, BackOffice, o (Supervisor/Agente que NO es de Líneas)
-    const showResidencial = isAdmin || ((isSupervisor || isAgente) && !isLineas) || (!isSupervisor && !isAgente && !isLineas);
-    // Mostrar bloque móviles si: Admin, BackOffice, o (Supervisor/Agente que SÍ es de Líneas)
-    const showMoviles = isAdmin || ((isSupervisor || isAgente) && isLineas) || isLineas;
-    
-    let html = '';
 
-    // Helper para renderizar items
-    const renderItem = (item, activeClass = 'active-res') => {
+    const showResidencial = isAdmin || ((isSupervisor || isAgente) && !isLineas) || (!isSupervisor && !isAgente && !isLineas);
+    const showMoviles = isAdmin || ((isSupervisor || isAgente) && isLineas) || isLineas;
+
+    let _idx = 0;
+    const renderItem = (item, mov) => {
       if (item.adminOnly && !isAdmin) return '';
-      if (item.procOnly && !isAdmin && !isProcesamiento) return '';
-      const isActive = item.key === normalizedActive ? activeClass : '';
-      
-      if (item.hasSubmenu) {
-        const submenuHTML = teams.map(team => `<a href="#" class="submenu-item" data-team="${team.team}" onclick="window.filterByTeam && window.filterByTeam('${team.team}'); return false;"><div class="team-dot"></div><span>${team.name}</span></a>`).join('');
-        return `<div class="nav-item has-submenu ${isActive}" id="clientes-toggle">
-          <i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span>
-          <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px;flex-shrink:0;margin-left:auto"><polyline points="6 9 12 15 18 9"/></svg>
-        </div><div class="submenu" id="clientes-submenu">
-          ${submenuHTML}
+      const active = item.key === normalizedActive ? ' active' : '';
+      return `<a href="${safeHref(item.href)}" class="scb-item${mov ? ' mov' : ''}${active}" style="--i:${_idx++};">
+        <span class="scb-ic" style="background:${item.bg};">${scbIcon(item.ic, item.c)}</span>
+        <span class="scb-lbl item-label">${item.label}</span>
+      </a>`;
+    };
+    const secLabel = (txt) => `<div class="scb-sec item-label" style="--i:${_idx++};">${txt}</div>`;
+
+    let html = '';
+    if (showResidencial) {
+      html += topItems.map(i => renderItem(i)).join('');
+      html += secLabel('ESTADÍSTICAS');
+      html += statsItems.map(i => renderItem(i)).join('');
+      html += secLabel('ADMINISTRACIÓN');
+      html += adminItems.map(i => renderItem(i)).join('');
+    }
+    if (showMoviles) {
+      const collapsible = isAdmin && showResidencial;
+      if (collapsible) {
+        html += `<div class="scb-mov-head" id="moviles-toggle" style="--i:${_idx++};" onclick="window.scbToggleMoviles&&window.scbToggleMoviles()">
+          <span class="t item-label">SERVICIOS MÓVILES</span><span class="ch">▾</span>
+        </div>
+        <div id="moviles-submenu" style="display:flex;flex-direction:column;gap:2px;">
+          ${movilesItems.map(i => renderItem(i, true)).join('')}
         </div>`;
       } else {
-        return `<a href="${safeHref(item.href)}" class="nav-item ${isActive}"><i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span></a>`;
-      }
-    };
-
-    // Secciones Residenciales
-    if (showResidencial) {
-      // Sección 1: Principal (sin título de sección)
-      html += '<div class="nav-block principal">';
-      principalItems.forEach(item => { html += renderItem(item); });
-      html += '</div>';
-      
-      // Sección 2: Estadísticas
-      html += '<div class="nav-block estadisticas"><div class="block-header"><span class="block-label">Estadísticas</span></div>';
-      estadisticasItems.forEach(item => { html += renderItem(item); });
-      html += '</div>';
-      
-      // Sección 3: Administración
-      html += '<div class="nav-block administracion"><div class="block-header"><span class="block-label">Administración</span></div>';
-      administracionItems.forEach(item => { html += renderItem(item); });
-      html += '</div>';
-    }
-    
-    // Sección 4: Servicios Móviles (Team Líneas)
-    if (showMoviles) {
-      // Para Admin y BackOffice: sección colapsable (oculta por defecto)
-      // Para otros usuarios de Líneas: siempre visible
-      const isCollapsible = isAdmin;
-      
-      if (isCollapsible) {
-        html += `<div class="nav-block mov collapsible">
-          <div class="block-header clickable" id="moviles-toggle">
-            <span class="block-label">Servicios Móviles</span>
-            <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px;flex-shrink:0;margin-left:auto"><polyline points="6 9 12 15 18 9"/></svg>
-          </div>
-          <div class="moviles-submenu" id="moviles-submenu">`;
-        movilesItems.forEach(item => {
-          const isActive = item.key === normalizedActive ? 'active-res' : '';
-          html += `<a href="${safeHref(item.href)}" class="nav-item mov-item ${isActive}"><i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span></a>`;
-        });
-        html += '</div></div>';
-      } else {
-        // Para usuarios de Team Líneas: siempre visible
-        html += '<div class="nav-block mov"><div class="block-header"><span class="block-label">Servicios Móviles</span></div>';
-        movilesItems.forEach(item => {
-          const isActive = item.key === normalizedActive ? 'active-res' : '';
-          html += `<a href="${safeHref(item.href)}" class="nav-item mov-item ${isActive}"><i class="fas ${item.icon} item-icon"></i><span class="item-label">${item.text}</span></a>`;
-        });
-        html += '</div>';
+        html += '<div class="scb-mov-head"><span class="t item-label">SERVICIOS MÓVILES</span></div>';
+        html += movilesItems.map(i => renderItem(i, true)).join('');
       }
     }
-    
     return html;
   }
+
+  // Colapsable de Servicios Móviles (diseño nuevo) — abierto por defecto
+  window.scbToggleMoviles = function() {
+    const head = document.getElementById('moviles-toggle');
+    const sub = document.getElementById('moviles-submenu');
+    if (!head || !sub) return;
+    const willClose = !sub.classList.contains('closed');
+    sub.classList.toggle('closed', willClose);
+    head.classList.toggle('closed', willClose);
+  };
 
   // Toggle del submenu de Servicios Móviles - definir globalmente
   window.toggleMovilesSubmenu = function() {
@@ -1572,50 +1565,10 @@
 
   // Función para configurar el interruptor de tema
   function setupThemeSwitcher() {
-    const checkbox = document.getElementById('theme-switch-checkbox');
-    if (!checkbox) return;
-
-    const body = document.body;
-
-    const applyTheme = (theme) => {
-      const iconEl = document.getElementById('theme-icon-collapsed');
-      if (theme === 'dark') {
-        body.classList.add('dark-theme');
-        checkbox.checked = true;
-        if (iconEl) iconEl.className = 'fas fa-moon theme-icon-collapsed';
-      } else {
-        body.classList.remove('dark-theme');
-        checkbox.checked = false;
-        if (iconEl) iconEl.className = 'fas fa-sun theme-icon-collapsed';
-      }
-      try { document.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme } })); } catch (_) {}
-    };
-
-    // Tema dark SIEMPRE: se ignora cualquier preferencia guardada en claro
+    // Diseño nuevo sin switch: tema dark SIEMPRE
     try { localStorage.setItem('theme', 'dark'); } catch (_) {}
-    applyTheme('dark');
-
-    checkbox.addEventListener('change', () => {
-      // Tema dark permanente: el switch no cambia el tema
-      try { localStorage.setItem('theme', 'dark'); } catch (_) {}
-      applyTheme('dark');
-    });
-
-    const iconEl = document.getElementById('theme-icon-collapsed');
-    if (iconEl) {
-      iconEl.addEventListener('click', () => {
-        // Tema dark permanente
-        try { localStorage.setItem('theme', 'dark'); } catch (_) {}
-        applyTheme('dark');
-      });
-    }
-  }
-
-  // Cargar sidebar inmediatamente
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', window.loadSidebar);
-  } else {
-    window.loadSidebar();
+    document.body.classList.add('dark-theme');
+    try { document.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme: 'dark' } })); } catch (_) {}
   }
 
   // Recargar sidebar cuando el usuario se autentique (para actualizar el rol)
