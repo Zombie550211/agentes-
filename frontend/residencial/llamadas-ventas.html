@@ -250,7 +250,8 @@
   var cells={};
   var globals={perdidas:0,inversion:0,perdidasLin:0,inversionLin:0};
   var puntos={resi:0,lin:0};
-  var ventasAdj={resi:null,lin:null};   // ajuste manual del KPI Ventas (null = automático)
+  var ventasOff={resi:0,lin:0};   // ajuste del KPI Ventas como DESPLAZAMIENTO (0 = sin ajuste).
+  // Si auto=8 y el admin escribe 4, se guarda -4: las ventas nuevas siguen contando (5, 6, ...).
   var ventasAuto={resi:{},lin:{},totalResi:0,totalLin:0};   // ventas reales del CRM por agente
   var creatingSheet=null;
 
@@ -437,8 +438,8 @@
                 else if(col==='INVERSION')globals.inversion=val;
                 else if(col==='PERDIDAS_LIN')globals.perdidasLin=Math.round(val);
                 else if(col==='INVERSION_LIN')globals.inversionLin=val;
-                else if(col==='VENTAS_ADJ')ventasAdj.resi=Math.round(val);
-                else if(col==='VENTAS_ADJ_LIN')ventasAdj.lin=Math.round(val);
+                else if(col==='VENTAS_OFF')ventasOff.resi=Math.round(val);
+                else if(col==='VENTAS_OFF_LIN')ventasOff.lin=Math.round(val);
                 return;
               }
               if(!cells[tok])cells[tok]={};
@@ -450,8 +451,8 @@
               else if(m==='INVERSION')globals.inversion=parseFloat(c.value)||0;
               else if(m==='PERDIDAS_LIN')globals.perdidasLin=parseInt(c.value,10)||0;
               else if(m==='INVERSION_LIN')globals.inversionLin=parseFloat(c.value)||0;
-              else if(m==='VENTAS_ADJ')ventasAdj.resi=parseInt(c.value,10)||0;
-              else if(m==='VENTAS_ADJ_LIN')ventasAdj.lin=parseInt(c.value,10)||0;
+              else if(m==='VENTAS_OFF')ventasOff.resi=parseInt(c.value,10)||0;
+              else if(m==='VENTAS_OFF_LIN')ventasOff.lin=parseInt(c.value,10)||0;
             }
           });
           (j.users||[]).forEach(function(u){
@@ -489,15 +490,17 @@
       Object.keys(cells[tok]).forEach(function(p){ suma+=cells[tok][p].LL||0; });
       if(linTokens[tok])llLin+=suma; else llResi+=suma;
     });
-    // KPI Ventas: automático, salvo ajuste manual del admin (ventasAdj)
-    var vResi=ventasAdj.resi!=null?ventasAdj.resi:(ventasAuto.totalResi||0);
-    var vLin=ventasAdj.lin!=null?ventasAdj.lin:(ventasAuto.totalLin||0);
+    // KPI Ventas: automático + desplazamiento del admin (sigue contando ventas nuevas)
+    var vResi=Math.max(0,(ventasAuto.totalResi||0)+(ventasOff.resi||0));
+    var vLin=Math.max(0,(ventasAuto.totalLin||0)+(ventasOff.lin||0));
     // ── Residencial ──
     document.getElementById('kpi-atendidas').textContent=llResi;
     document.getElementById('kpi-llamadas-tot').textContent=llResi+(globals.perdidas||0);
     var vInp=document.getElementById('kpi-ventas');
     if(document.activeElement!==vInp)vInp.value=vResi;
-    document.getElementById('adj-ventas').classList.toggle('on',ventasAdj.resi!=null);
+    var adjR=document.getElementById('adj-ventas');
+    adjR.classList.toggle('on',ventasOff.resi!==0);
+    adjR.textContent='✎ ajuste '+(ventasOff.resi>0?'+':'')+ventasOff.resi;
     document.getElementById('kpi-puntos').textContent=puntos.resi.toFixed(2);
     document.getElementById('kpi-costo').textContent=vResi>0?fmtUSD((globals.inversion||0)/vResi):'$0.00';
     // ── Líneas ──
@@ -505,7 +508,9 @@
     document.getElementById('kpi-llamadas-tot-lin').textContent=llLin+(globals.perdidasLin||0);
     var vInp2=document.getElementById('kpi-ventas-lin');
     if(document.activeElement!==vInp2)vInp2.value=vLin;
-    document.getElementById('adj-ventas-lin').classList.toggle('on',ventasAdj.lin!=null);
+    var adjL=document.getElementById('adj-ventas-lin');
+    adjL.classList.toggle('on',ventasOff.lin!==0);
+    adjL.textContent='✎ ajuste '+(ventasOff.lin>0?'+':'')+ventasOff.lin;
     document.getElementById('kpi-puntos-lin').textContent=puntos.lin.toFixed(2);
     document.getElementById('kpi-costo-lin').textContent=vLin>0?fmtUSD((globals.inversionLin||0)/vLin):'$0.00';
     teams.forEach(function(t){
@@ -618,28 +623,29 @@
   bindGlobal('kpi-perdidas-lin','PERDIDAS_LIN','perdidasLin',false);
   bindGlobal('kpi-inversion-lin','INVERSION_LIN','inversionLin',true);
 
-  // KPI Ventas: automático con ajuste manual opcional del admin.
-  // Editar guarda el ajuste; dejar el campo VACÍO borra el ajuste y vuelve al automático.
+  // KPI Ventas: automático + ajuste como DESPLAZAMIENTO. Si auto=8 y el admin
+  // escribe 4, se guarda -4 y las ventas nuevas siguen contando: 5, 6, 7...
+  // Dejar el campo VACÍO elimina el ajuste y vuelve al automático puro.
   function bindVentasAdj(id,colName,prop){
     var el=document.getElementById(id);
+    var auto=function(){ return prop==='resi'?(ventasAuto.totalResi||0):(ventasAuto.totalLin||0); };
     el.addEventListener('focus',function(){ ensureSheet(); this.select(); });
     el.addEventListener('input',function(){
-      ventasAdj[prop]=this.value===''?null:Math.max(0,parseInt(this.value,10)||0);
+      if(this.value==='')ventasOff[prop]=0;
+      else ventasOff[prop]=Math.max(0,parseInt(this.value,10)||0)-auto();
       updateKpis();
     });
     el.addEventListener('blur',function(){
-      var auto=prop==='resi'?(ventasAuto.totalResi||0):(ventasAuto.totalLin||0);
       var raw=this.value.trim();
-      var val=raw===''?null:Math.max(0,parseInt(raw,10)||0);
-      if(val===auto)val=null;              // igual al automático: sin ajuste
-      ventasAdj[prop]=val;
+      var off=raw===''?0:(Math.max(0,parseInt(raw,10)||0)-auto());
+      ventasOff[prop]=off;
       updateKpis();
-      saveCell('GLOBAL','RESUMEN',colName,val==null?'':val,this);
+      saveCell('GLOBAL','RESUMEN',colName,off===0?'':off,this);
     });
     el.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); this.blur(); } });
   }
-  bindVentasAdj('kpi-ventas','VENTAS_ADJ','resi');
-  bindVentasAdj('kpi-ventas-lin','VENTAS_ADJ_LIN','lin');
+  bindVentasAdj('kpi-ventas','VENTAS_OFF','resi');
+  bindVentasAdj('kpi-ventas-lin','VENTAS_OFF_LIN','lin');
 
   // Si el usuario sale de la página con una celda a medio editar, forzar guardado
   window.addEventListener('pagehide',function(){
@@ -676,6 +682,12 @@
     var ok=await loadSheets();
     if(ok===false)return;
     await loadDay();
+    // Ventas y puntos se refrescan solos: el KPI ajustado sigue contando
+    // las ventas nuevas en vivo (auto + desplazamiento)
+    setInterval(function(){
+      if(document.activeElement&&document.activeElement.classList.contains('lv-cell'))return; // no interrumpir edición
+      loadPuntosDia(); loadVentasDia();
+    },90000);
   })();
 })();
 </script>
