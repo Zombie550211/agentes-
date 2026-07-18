@@ -824,7 +824,7 @@
       { key: 'premios',      icon: 'fa-gift',               text: 'Premios',            href: '/residencial/premios.html' },
       { key: 'reglas',       icon: 'fa-book',               text: 'Reglas y Puntajes',  href: '/residencial/reglas.html' },
       { key: 'facturacion',  icon: 'fa-file-invoice-dollar', text: 'Facturación',       href: '/residencial/facturacion.html' },
-      { key: 'llamadas-team', icon: 'fa-phone',              text: 'Llamadas y Ventas por Team', href: '/residencial/llamadas-ventas.html', adminOnly: true },
+      { key: 'llamadas-team', icon: 'fa-phone',              text: 'Llamadas y Ventas por Team', href: '/residencial/llamadas-ventas.html' },
       { key: 'comisiones',   icon: 'fa-coins',              text: 'Comisión',           href: '/residencial/comisiones.html' },
       { key: 'semaforo',     icon: 'fa-traffic-light',      text: 'El Semáforo',        href: '/residencial/semaforo.html' }
     ];

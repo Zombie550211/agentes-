@@ -21,8 +21,48 @@ def _is_admin(role: str) -> bool:
     return any(a in r for a in _ADMIN_ROLES)
 
 
+def _is_supervisor(user: dict) -> bool:
+    role = str(user.get("role", "") or "").strip().lower()
+    return "supervisor" in role
+
+
+def _is_backoffice(user: dict) -> bool:
+    role = str(user.get("role", "") or "").strip().lower()
+    return "backoffice" in role or role in {"bo"}
+
+
+def _normalize_team_key(value: Any) -> str:
+    if value is None:
+        return ""
+    text = str(value)
+    normalized = text.normalize("NFD")
+    ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]+", "", ascii_text.lower())
+
+
+def _can_access_excel(user: dict) -> bool:
+    return _is_admin(user.get("role", "")) or _is_supervisor(user) or _is_backoffice(user)
+
+
+def _can_edit_team(user: dict, team: Optional[str]) -> bool:
+    if _is_admin(user.get("role", "")) or _is_backoffice(user):
+        return True
+    if not _is_supervisor(user):
+        return False
+    team_key = _normalize_team_key(team)
+    if not team_key:
+        return False
+    user_team_key = _normalize_team_key(user.get("team") or user.get("equipo") or "")
+    if user_team_key and team_key == user_team_key:
+        return True
+    supervisor_key = _normalize_team_key(user.get("supervisor") or "")
+    if supervisor_key and team_key:
+        return supervisor_key in team_key or team_key in supervisor_key
+    return False
+
+
 def _check_excel_access(user: dict):
-    if not _is_admin(user.get("role", "")):
+    if not _can_access_excel(user):
         raise HTTPException(403, "No autorizado")
 
 
@@ -127,6 +167,27 @@ async def post_llamadas_ventas(body: LlamadasVentasBody, user: dict = Depends(cu
 
 # ── LLAMADAS-VENTAS-EXCEL ─────────────────────────────────────────────
 
+# ── Puntos del día por sección (KPI automático de la página Llamadas y Ventas) ──
+# Mismo criterio que equipos/estadisticas: cuentan pendientes + activas/completadas.
+@router.get("/api/llamadas-ventas-excel/puntos-dia")
+async def lv_puntos_dia(fecha: str = Query(...), user: dict = Depends(current_user)):
+    _check_excel_access(user)
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", fecha or ""):
+        raise HTTPException(400, "fecha inválida (YYYY-MM-DD)")
+    sql = """
+        SELECT COALESCE(SUM(puntaje), 0)
+        FROM {t}
+        WHERE dia_venta = :f
+          AND LOWER(COALESCE(status,'')) NOT REGEXP 'cancel|reser|hold|resched|reagend|reprogram|oficina'
+    """
+    async with AsyncSessionLocal() as s:
+        r1 = await s.execute(text(sql.format(t="leads")), {"f": fecha})
+        resi = float(r1.scalar() or 0)
+        r2 = await s.execute(text(sql.format(t="lineas_clientes")), {"f": fecha})
+        lin = float(r2.scalar() or 0)
+    return {"success": True, "resi": round(resi, 2), "lineas": round(lin, 2)}
+
+
 @router.get("/api/llamadas-ventas-excel/sheets")
 async def excel_get_sheets(user: dict = Depends(current_user)):
     _check_excel_access(user)
@@ -206,6 +267,12 @@ async def excel_get_sheet(sheet_id: str, user: dict = Depends(current_user)):
         """), {"sid": sid})
         users = [dict(row) for row in r3.mappings().all()]
 
+    if _is_supervisor(user) and not _is_admin(user.get("role", "")) and not _is_backoffice(user):
+        allowed_team = _normalize_team_key(user.get("team") or user.get("equipo") or "")
+        if allowed_team:
+            data = [row for row in data if _normalize_team_key(row.get("team") or "") == allowed_team]
+            users = [row for row in users if _normalize_team_key(row.get("team") or "") == allowed_team]
+
     return {
         "success": True,
         "sheet":   {"_id": str(sheet["id"]), "name": sheet["name"]},
@@ -240,6 +307,8 @@ async def excel_save_cell(body: ExcelCellBody, user: dict = Depends(current_user
     else:
         if not body.team or not body.person or not body.col:
             raise HTTPException(400, "Faltan campos: team, person, col")
+        if not _can_edit_team(user, body.team):
+            raise HTTPException(403, "No autorizado para editar este equipo")
         kind   = "cell"
         team   = str(body.team).strip()
         person = str(body.person).strip()
@@ -299,6 +368,9 @@ async def excel_save_user(body: ExcelUserBody, user: dict = Depends(current_user
     role   = (body.role or "").strip()
     by     = user.get("username", "unknown")
 
+    if not _can_edit_team(user, body.team):
+        raise HTTPException(403, "No autorizado para editar este equipo")
+
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
             UPDATE lv_excel_users
@@ -331,6 +403,9 @@ async def excel_delete_user(body: ExcelUserDeleteBody, user: dict = Depends(curr
     team = body.team.strip()
     if not name or not team:
         raise HTTPException(400, "Faltan campos: name, team")
+
+    if not _can_edit_team(user, body.team):
+        raise HTTPException(403, "No autorizado para editar este equipo")
 
     async with AsyncSessionLocal() as s:
         await s.execute(text("""

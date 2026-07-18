@@ -33,6 +33,12 @@
       color:#f1f5f9;padding:9px 12px;font-family:inherit;font-size:.85rem;font-weight:600;cursor:pointer}
     .lv-filter input:focus{outline:none;border-color:#38bdf8}
 
+    /* Encabezados de sección */
+    .lv-section-head{display:flex;align-items:center;gap:10px;font-size:1.05rem;font-weight:800;color:#fff;
+      letter-spacing:.02em;margin:0 0 12px 2px;text-transform:uppercase}
+    .lv-section-head .dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+    .lv-tile.accent.lin{background:rgba(129,140,248,.10);border-color:rgba(129,140,248,.55)}
+
     /* ── Resumen de Rendimiento (estilo tiles) ── */
     .lv-resumen{background:rgba(5,15,35,.55);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:20px 22px;margin-bottom:22px;
       backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 8px 24px rgba(0,0,0,.25)}
@@ -134,9 +140,10 @@
       </div>
     </div>
 
-    <!-- Resumen de Rendimiento de Ventas -->
+    <!-- ══ SECCIÓN RESIDENCIAL ══ -->
+    <div class="lv-section-head"><span class="dot" style="background:#38bdf8"></span>Servicios Residenciales</div>
     <div class="lv-resumen">
-      <div class="lv-resumen-title">Resumen de Rendimiento de Ventas</div>
+      <div class="lv-resumen-title">Resumen de Rendimiento · Residencial</div>
       <div class="lv-tiles">
         <div class="lv-tile">
           <div class="lv-tile-ic" style="background:#f1f5f9"><i class="fas fa-phone-volume" style="color:#475569"></i></div>
@@ -174,7 +181,50 @@
       </div>
     </div>
 
-    <div id="lv-content"><div class="lv-loading">Cargando…</div></div>
+    <div id="lv-content-resi"><div class="lv-loading">Cargando…</div></div>
+
+    <!-- ══ SECCIÓN LÍNEAS ══ -->
+    <div class="lv-section-head" style="margin-top:34px"><span class="dot" style="background:#a5b4fc"></span>Servicios Móviles · Líneas</div>
+    <div class="lv-resumen lin">
+      <div class="lv-resumen-title" style="color:#a5b4fc">Resumen de Rendimiento · Líneas</div>
+      <div class="lv-tiles">
+        <div class="lv-tile">
+          <div class="lv-tile-ic" style="background:rgba(165,180,252,.12)"><i class="fas fa-phone-volume" style="color:#a5b4fc"></i></div>
+          <div><div class="lv-tile-lbl">Llamadas Totales</div><div class="lv-tile-val" id="kpi-llamadas-tot-lin">0</div></div>
+        </div>
+        <div class="lv-tile">
+          <div class="lv-tile-ic" style="background:rgba(52,211,153,.12)"><i class="fas fa-phone" style="color:#34d399"></i></div>
+          <div><div class="lv-tile-lbl">Llamadas Atendidas</div><div class="lv-tile-val" id="kpi-atendidas-lin">0</div></div>
+        </div>
+        <div class="lv-tile">
+          <div class="lv-tile-ic" style="background:rgba(251,113,133,.12)"><i class="fas fa-triangle-exclamation" style="color:#fb7185"></i></div>
+          <div><div class="lv-tile-lbl">Llamadas Perdidas</div>
+            <input type="number" min="0" id="kpi-perdidas-lin" value="0" title="Editable — se guarda al salir de la celda"/></div>
+        </div>
+        <div class="lv-tile accent lin">
+          <div class="lv-tile-ic" style="background:rgba(165,180,252,.15)"><i class="fas fa-sack-dollar" style="color:#a5b4fc"></i></div>
+          <div><div class="lv-tile-lbl">Inversión</div>
+            <div style="display:flex;align-items:baseline;gap:2px;">
+              <span style="font-weight:800;color:#a5b4fc;">$</span>
+              <input type="number" min="0" step="0.01" id="kpi-inversion-lin" value="0" title="Editable — se guarda al salir de la celda"/>
+            </div></div>
+        </div>
+        <div class="lv-tile">
+          <div class="lv-tile-ic" style="background:rgba(52,211,153,.12)"><i class="fas fa-chart-line" style="color:#34d399"></i></div>
+          <div><div class="lv-tile-lbl">Ventas</div><div class="lv-tile-val" id="kpi-ventas-lin">0</div></div>
+        </div>
+        <div class="lv-tile">
+          <div class="lv-tile-ic" style="background:rgba(251,191,36,.12)"><i class="fas fa-bullseye" style="color:#fbbf24"></i></div>
+          <div><div class="lv-tile-lbl">Puntos</div><div class="lv-tile-val" id="kpi-puntos-lin">0.00</div></div>
+        </div>
+        <div class="lv-tile accent lin">
+          <div class="lv-tile-ic" style="background:rgba(165,180,252,.15)"><i class="fas fa-calculator" style="color:#a5b4fc"></i></div>
+          <div><div class="lv-tile-lbl">Costo por Venta</div><div class="lv-tile-val" id="kpi-costo-lin">$0.00</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="lv-content-lin"><div class="lv-loading">Cargando…</div></div>
 
   </main>
 </div>
@@ -187,13 +237,14 @@
   var MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 
   var sel=new Date(); sel.setHours(0,0,0,0);
+  var currentUser=null;
   var teams=[];
   var sheetsByDate={};
   var currentSheetId=null;
   var cells={};
-  var globals={perdidas:0,inversion:0};
-  var puntosDia=0;
-  var ventasAuto={resi:{},lin:{},total:0};   // ventas reales del CRM por agente (automático)
+  var globals={perdidas:0,inversion:0,perdidasLin:0,inversionLin:0};
+  var puntos={resi:0,lin:0};
+  var ventasAuto={resi:{},lin:{},totalResi:0,totalLin:0};   // ventas reales del CRM por agente
   var creatingSheet=null;
 
   function esc(s){var d=document.createElement('div');d.textContent=String(s==null?'':s);return d.innerHTML;}
@@ -203,7 +254,11 @@
     return n.replace(/^\s*team\s+/,'').replace(/[^a-z0-9]/g,'');
   }
   function dateKey(d,m,y){return d+'/'+m+'/'+y;}
-  function normName(s){return String(s||'').replace(/[._]+/g,' ').replace(/\s+/g,' ').trim().toLowerCase();}
+  function normName(s){
+    var n=String(s||'');
+    try{n=n.normalize('NFD').replace(/[\u0300-\u036f]/g,'');}catch(_){}
+    return n.replace(/[._]+/g,' ').replace(/\s+/g,' ').trim().toLowerCase();
+  }
   function pad(n){return String(n).padStart(2,'0');}
   function ymdInput(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
   function fmtUSD(n){return '$'+(Math.round(n*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
@@ -215,6 +270,17 @@
     if(!mo||!d||!y||mo>12||d>31)return null;
     return {day:d,month:mo,year:y};
   }
+  function normalizeTeamToken(label){
+    return String(label||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/^\s*team\s+/,'').replace(/[^a-z0-9]/g,'');
+  }
+  async function loadCurrentUser(){
+    try{
+      var r=await fetch('/api/auth/verify-server',{credentials:'include'});
+      if(!r.ok)return;
+      var j=await r.json();
+      if(j&&j.authenticated) currentUser=j.user||j;
+    }catch(e){console.warn('[lv] user',e);}
+  }
 
   /* ── carga inicial ── */
   async function loadTeams(){
@@ -222,6 +288,11 @@
       var r=await fetch('/api/users/agents',{credentials:'include'});
       var j=await r.json();
       var byTeam={};
+      var isSupervisor=!!(currentUser && /supervisor/.test(String(currentUser.role||'').toLowerCase()));
+      var allowedTeamToken='';
+      if(isSupervisor){
+        allowedTeamToken=normalizeTeamToken(currentUser.team || currentUser.equipo || '');
+      }
       (j.agents||[]).forEach(function(u){
         var label=String(u.team||'').trim();
         if(!label)return;
@@ -230,10 +301,12 @@
         var role=String(u.role||'').toLowerCase();
         if(!/agente|vendedor|agent|seller|supervisor/.test(role))return;
         var tok=normTok(label); if(!tok)return;
+        if(isSupervisor && allowedTeamToken && tok!==allowedTeamToken) return;
         if(!byTeam[tok])byTeam[tok]={token:tok,label:label,agents:[],lineas:/linea/.test(tok)};
         var nm=String(u.name||u.username||'').trim().toUpperCase();
+        var un=String(u.username||'').trim().toUpperCase();
         if(nm&&!byTeam[tok].agents.some(function(a){return a.name===nm;})){
-          byTeam[tok].agents.push({name:nm,manual:false,sup:/supervisor/.test(role)});
+          byTeam[tok].agents.push({name:nm,uname:un,manual:false,sup:/supervisor/.test(role)});
         }
       });
       teams=Object.values(byTeam).sort(function(a,b){
@@ -282,21 +355,20 @@
     return id;
   }
 
-  /* ── puntos del día (automático desde la tabla de ventas) ── */
+  /* ── puntos del día por sección (automático desde las ventas del CRM) ── */
   async function loadPuntosDia(){
-    puntosDia=0;
+    puntos={resi:0,lin:0};
     try{
-      var f=ymdInput(sel);
-      var r=await fetch('/api/equipos/estadisticas?fechaInicio='+f+'&fechaFin='+f,{credentials:'include'});
+      var r=await fetch(API+'/puntos-dia?fecha='+ymdInput(sel),{credentials:'include'});
       var j=await r.json();
-      if(j&&j.success)(j.data||[]).forEach(function(t){puntosDia+=parseFloat(t.Puntaje)||0;});
+      if(j&&j.success){puntos.resi=parseFloat(j.resi)||0;puntos.lin=parseFloat(j.lineas)||0;}
     }catch(e){console.warn('[lv] puntos',e);}
     updateKpis();
   }
 
   /* ── ventas del día por agente (automático: cada venta que mandan al CRM) ── */
   async function loadVentasDia(){
-    ventasAuto={resi:{},lin:{},total:0};
+    ventasAuto={resi:{},lin:{},totalResi:0,totalLin:0};
     try{
       var f=ymdInput(sel);
       var r=await fetch('/api/productividad?start='+f+'&end='+f,{credentials:'include'});
@@ -305,27 +377,36 @@
         (j.residencial||[]).forEach(function(row){
           var k=normName(row.agente); if(!k)return;
           ventasAuto.resi[k]=(ventasAuto.resi[k]||0)+(row.n||0);
-          ventasAuto.total+=row.n||0;
+          ventasAuto.totalResi+=row.n||0;
         });
         (j.lineas||[]).forEach(function(row){
           var k=normName(row.agente); if(!k)return;
           ventasAuto.lin[k]=(ventasAuto.lin[k]||0)+(row.n||0);
-          ventasAuto.total+=row.n||0;
+          ventasAuto.totalLin+=row.n||0;
         });
       }
     }catch(e){console.warn('[lv] ventas',e);}
-    // pintar las celdas V ya renderizadas
-    document.querySelectorAll('.lv-vauto').forEach(function(el){
-      var map=el.dataset.lineas==='1'?ventasAuto.lin:ventasAuto.resi;
-      var n=map[el.dataset.key]||0;
-      el.textContent=n||'—';
-      el.classList.toggle('has',n>0);
-    });
-    updateKpis();
+    // re-pintar la grilla: cada V se calcula con agentVentas (exacto+username+difuso)
+    render();
   }
   function agentVentas(t,a){
     var map=t.lineas?ventasAuto.lin:ventasAuto.resi;
-    return map[normName(a.name)]||0;
+    var k1=normName(a.name);
+    if(map[k1]!=null)return map[k1];
+    var k2=normName(a.uname||'');
+    if(k2&&map[k2]!=null)return map[k2];
+    // Difuso: todas las palabras significativas del nombre corto deben estar
+    // en el largo (ej. "emanuel velasquez" ⊆ "emanuel de jesus velasquez hernandez")
+    var aw=k1.split(' ').filter(function(w){return w.length>2;});
+    var found=0;
+    Object.keys(map).forEach(function(k){
+      if(found)return;
+      var kw=k.split(' ').filter(function(w){return w.length>2;});
+      if(aw.length<1||kw.length<1)return;
+      var shorter=aw.length<=kw.length?aw:kw, longer=aw.length<=kw.length?kw:aw;
+      if(shorter.length>=2&&shorter.every(function(w){return longer.indexOf(w)!==-1;}))found=map[k];
+    });
+    return found||0;
   }
 
   /* ── día seleccionado ── */
@@ -347,6 +428,8 @@
               if(tok==='GLOBAL'){
                 if(col==='PERDIDAS')globals.perdidas=Math.round(val);
                 else if(col==='INVERSION')globals.inversion=val;
+                else if(col==='PERDIDAS_LIN')globals.perdidasLin=Math.round(val);
+                else if(col==='INVERSION_LIN')globals.inversionLin=val;
                 return;
               }
               if(!cells[tok])cells[tok]={};
@@ -356,6 +439,8 @@
               var m=String(c.metric||'').toUpperCase();
               if(m==='PERDIDAS')globals.perdidas=parseInt(c.value,10)||0;
               else if(m==='INVERSION')globals.inversion=parseFloat(c.value)||0;
+              else if(m==='PERDIDAS_LIN')globals.perdidasLin=parseInt(c.value,10)||0;
+              else if(m==='INVERSION_LIN')globals.inversionLin=parseFloat(c.value)||0;
             }
           });
           (j.users||[]).forEach(function(u){
@@ -370,6 +455,10 @@
     pInp.value=globals.perdidas; pInp.dataset.prev=globals.perdidas;
     var iInp=document.getElementById('kpi-inversion');
     iInp.value=globals.inversion||''; iInp.dataset.prev=globals.inversion;
+    var pInp2=document.getElementById('kpi-perdidas-lin');
+    pInp2.value=globals.perdidasLin; pInp2.dataset.prev=globals.perdidasLin;
+    var iInp2=document.getElementById('kpi-inversion-lin');
+    iInp2.value=globals.inversionLin||''; iInp2.dataset.prev=globals.inversionLin;
     render();
     loadPuntosDia();
     loadVentasDia();
@@ -380,19 +469,28 @@
     return (cells[tok]&&cells[tok][person]&&cells[tok][person][col])||0;
   }
   function updateKpis(){
-    var ll=0;
+    // Llamadas atendidas (LL) separadas por sección según el team de cada celda
+    var llResi=0,llLin=0;
+    var linTokens={}; teams.forEach(function(t){ if(t.lineas)linTokens[t.token]=1; });
     Object.keys(cells).forEach(function(tok){
       if(tok==='GLOBAL')return;
-      Object.keys(cells[tok]).forEach(function(p){ ll+=cells[tok][p].LL||0; });
+      var suma=0;
+      Object.keys(cells[tok]).forEach(function(p){ suma+=cells[tok][p].LL||0; });
+      if(linTokens[tok])llLin+=suma; else llResi+=suma;
     });
-    // Ventas: TOTAL real del día en el CRM (residencial + líneas), automático
-    var v=ventasAuto.total||0;
-    document.getElementById('kpi-atendidas').textContent=ll;
-    document.getElementById('kpi-llamadas-tot').textContent=ll+(globals.perdidas||0);
-    document.getElementById('kpi-ventas').textContent=v;
-    document.getElementById('kpi-puntos').textContent=puntosDia.toFixed(2);
-    // Costo por venta = Inversión (manual) ÷ Ventas (automático)
-    document.getElementById('kpi-costo').textContent=v>0?fmtUSD((globals.inversion||0)/v):'$0.00';
+    var vResi=ventasAuto.totalResi||0, vLin=ventasAuto.totalLin||0;
+    // ── Residencial ──
+    document.getElementById('kpi-atendidas').textContent=llResi;
+    document.getElementById('kpi-llamadas-tot').textContent=llResi+(globals.perdidas||0);
+    document.getElementById('kpi-ventas').textContent=vResi;
+    document.getElementById('kpi-puntos').textContent=puntos.resi.toFixed(2);
+    document.getElementById('kpi-costo').textContent=vResi>0?fmtUSD((globals.inversion||0)/vResi):'$0.00';
+    // ── Líneas ──
+    document.getElementById('kpi-atendidas-lin').textContent=llLin;
+    document.getElementById('kpi-llamadas-tot-lin').textContent=llLin+(globals.perdidasLin||0);
+    document.getElementById('kpi-ventas-lin').textContent=vLin;
+    document.getElementById('kpi-puntos-lin').textContent=puntos.lin.toFixed(2);
+    document.getElementById('kpi-costo-lin').textContent=vLin>0?fmtUSD((globals.inversionLin||0)/vLin):'$0.00';
     teams.forEach(function(t){
       var tl=0,tv=0;
       Object.keys(cells[t.token]||{}).forEach(function(p){tl+=cells[t.token][p].LL||0;});
@@ -409,9 +507,14 @@
 
   function render(){
     updateDayLabel();
-    var box=document.getElementById('lv-content');
-    if(!teams.length){box.innerHTML='<div class="lv-loading">No hay equipos configurados</div>';return;}
-    box.innerHTML='<div class="lv-teams">'+teams.map(function(t){
+    var boxR=document.getElementById('lv-content-resi');
+    var boxL=document.getElementById('lv-content-lin');
+    if(!teams.length){
+      boxR.innerHTML='<div class="lv-loading">No hay equipos configurados</div>';
+      boxL.innerHTML='';
+      return;
+    }
+    var teamCard=function(t){
       var rows=t.agents.map(function(a){
         var inp=function(col){
           var v=cellVal(t.token,a.name,col);
@@ -420,15 +523,14 @@
         };
         // V es AUTOMÁTICA: las ventas que cada agente manda al CRM ese día
         var nv=agentVentas(t,a);
-        var vCell='<td><span class="lv-vauto'+(nv>0?' has':'')+'" data-key="'+esc(normName(a.name))+'" data-lineas="'+(t.lineas?1:0)+'" '+
+        var vCell='<td><span class="lv-vauto'+(nv>0?' has':'')+'" '+
           'title="Ventas registradas por el agente en el CRM (automático)">'+(nv||'—')+'</span></td>';
         return '<tr><td class="ag"><div class="lv-ag-wrap"><span class="lv-avatar">'+esc(initials(a.name))+'</span>'+
           '<span class="lv-agent-name">'+esc(a.name)+(a.sup?'<span class="sup">SUP</span>':'')+'</span></div></td>'+
           inp('LL')+inp('CA')+vCell+'</tr>';
       }).join('');
-      var lineasBadge=t.lineas?'<span class="lv-chip lin">LÍNEAS</span>':'';
       return '<div class="lv-team">'+
-        '<div class="lv-team-head"><div class="lv-team-name">'+esc(t.label)+'</div>'+lineasBadge+
+        '<div class="lv-team-head"><div class="lv-team-name">'+esc(t.label)+'</div>'+
           '<div class="lv-team-tot"><span class="lv-chip ll" id="chip-ll-'+esc(t.token)+'">0 llamadas</span>'+
           '<span class="lv-chip v" id="chip-v-'+esc(t.token)+'">0 ventas</span></div></div>'+
         '<div class="lv-team-scroll">'+
@@ -437,9 +539,13 @@
               '<thead><tr><th>Agente</th><th>LL</th><th>CA</th><th title="Automático: ventas registradas en el CRM">V ⚡</th></tr></thead><tbody>'+rows+'</tbody></table>'
             : '<div class="lv-empty-team">Sin agentes asignados</div>')+
         '</div></div>';
-    }).join('')+'</div>';
+    };
+    var resi=teams.filter(function(t){return !t.lineas;});
+    var lin=teams.filter(function(t){return t.lineas;});
+    boxR.innerHTML=resi.length?'<div class="lv-teams">'+resi.map(teamCard).join('')+'</div>':'<div class="lv-loading">Sin teams residenciales</div>';
+    boxL.innerHTML=lin.length?'<div class="lv-teams">'+lin.map(teamCard).join('')+'</div>':'<div class="lv-loading">Sin teams de líneas</div>';
 
-    box.querySelectorAll('.lv-cell').forEach(function(inp){
+    document.querySelectorAll('.lv-cell').forEach(function(inp){
       inp.addEventListener('input',onCellInput);
       inp.addEventListener('blur',onCellBlur);
       inp.addEventListener('focus',function(){ this.select(); ensureSheet(); });
@@ -492,11 +598,13 @@
   }
   bindGlobal('kpi-perdidas','PERDIDAS','perdidas',false);
   bindGlobal('kpi-inversion','INVERSION','inversion',true);
+  bindGlobal('kpi-perdidas-lin','PERDIDAS_LIN','perdidasLin',false);
+  bindGlobal('kpi-inversion-lin','INVERSION_LIN','inversionLin',true);
 
   // Si el usuario sale de la página con una celda a medio editar, forzar guardado
   window.addEventListener('pagehide',function(){
     var el=document.activeElement;
-    if(el&&(el.classList.contains('lv-cell')||el.id==='kpi-perdidas'||el.id==='kpi-inversion'))el.blur();
+    if(el&&(el.classList.contains('lv-cell')||/^kpi-(perdidas|inversion)/.test(el.id||'')))el.blur();
   });
 
   /* ── filtros: mes + día ── */
@@ -523,6 +631,7 @@
   /* ── init ── */
   (async function init(){
     syncInputs(); updateDayLabel();
+    await loadCurrentUser();
     await loadTeams();
     var ok=await loadSheets();
     if(ok===false)return;
