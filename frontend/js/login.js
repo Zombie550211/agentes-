@@ -460,6 +460,7 @@
 
     var username    = document.getElementById('username').value.trim();
     var password    = document.getElementById('password').value;
+    var remember    = !!(cbRemember && cbRemember.checked);
     var redirectUrl = getParam('redirect') || '/residencial/inicio.html';
 
     if (!username || !password) {
@@ -476,7 +477,7 @@
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ username: username, password: password })
+        body: JSON.stringify({ username: username, password: password, remember: remember })
       });
 
       var ct = res.headers.get('content-type') || '';
@@ -500,8 +501,7 @@
         supervisor:  data.user && data.user.supervisor,
         permissions: (data.user && data.user.permissions) || []
       };
-      var _remember = document.getElementById('rememberMe') && document.getElementById('rememberMe').checked;
-      if (_remember) {
+      if (remember) {
         setCookie('crm_remember_username', username, 30); // 30 días
         try { localStorage.setItem('user', JSON.stringify(userInfo)); } catch(_) {}
         sessionStorage.setItem('user', JSON.stringify(userInfo));

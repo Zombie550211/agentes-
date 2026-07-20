@@ -9,7 +9,7 @@ from limiter import limiter
 from audit import log_login_ok, log_login_fail, log_logout, log_password_reset_request, log_password_reset_ok
 # Auth/JWT: fuente única en deps.py — no redefinir aquí (ver mejora #5).
 from deps import (
-    JWT_EXPIRES, COOKIE_SAMESITE, ADMIN_ROLES,
+    JWT_EXPIRES, JWT_EXPIRES_REMEMBER, COOKIE_SAMESITE, ADMIN_ROLES,
     current_user, require_roles, _get_token,
     make_token as _make_token,
     decode_token as _decode_token,
@@ -41,6 +41,7 @@ MAINTENANCE_FILE = Path(__file__).parent.parent.parent / "maintenance.json"
 class LoginBody(BaseModel):
     username: str
     password: str
+    remember: bool = False
 
 class MaintenanceBody(BaseModel):
     active: bool
@@ -152,8 +153,8 @@ async def login(request: Request, body: LoginBody, response: Response):
         raise HTTPException(403, "Cuenta suspendida. Contacta al administrador.")
 
     log_login_ok(user.get("username", ""), ip)
-    token = _make_token(user)
-    _set_token_cookie(response, token)
+    token = _make_token(user, remember=body.remember)
+    _set_token_cookie(response, token, max_age=(JWT_EXPIRES_REMEMBER if body.remember else JWT_EXPIRES))
     # El token viaja SOLO en la cookie httpOnly; no se expone en el body para
     # que JavaScript (y por tanto un XSS) nunca pueda leerlo.
     return {
@@ -203,10 +204,17 @@ async def verify_server(request: Request, response: Response):
     if not decoded:
         return {"success": False, "authenticated": False, "role": None, "username": None}
 
-    # Sliding session: renovar el token si queda menos de la mitad de vida
+    # Sliding session: renovar el token si queda menos de la mitad de vida.
+    # Respeta el claim "remember" para no recortar una sesión "recordada"
+    # (30 días) al criterio de una sesión corta (30 min).
     try:
-        if int(decoded.get("exp") or 0) - time.time() < JWT_EXPIRES / 2:
-            _set_token_cookie(response, _make_token(decoded))
+        exp = int(decoded.get("exp") or 0)
+        iat = int(decoded.get("iat") or 0)
+        remember = bool(decoded.get("remember"))
+        own_ttl = (exp - iat) if (exp and iat and exp > iat) else JWT_EXPIRES
+        if exp - time.time() < own_ttl / 2:
+            ttl = JWT_EXPIRES_REMEMBER if remember else JWT_EXPIRES
+            _set_token_cookie(response, _make_token(decoded, remember=remember), max_age=ttl)
     except Exception:
         pass
 

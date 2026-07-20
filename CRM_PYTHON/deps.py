@@ -14,6 +14,7 @@ if not JWT_SECRET:
                        "Genera uno con: python -c \"import secrets; print(secrets.token_hex(32))\"")
 JWT_ALGO    = "HS256"
 JWT_EXPIRES = 30 * 60  # 30 min — se renueva con cada petición (expira solo por inactividad)
+JWT_EXPIRES_REMEMBER = 30 * 24 * 60 * 60  # 30 días — cuando el usuario tilda "Recordar sesión"
 IS_PROD     = os.getenv("NODE_ENV") == "production"
 # Debe coincidir con routers/auth.py. Por defecto "lax": el frontend usa URLs
 # relativas (API_BASE_URL=''), así que todas las peticiones son same-origin
@@ -47,9 +48,16 @@ def _get_token(request: Request) -> str | None:
     return token
 
 
-def make_token(user: dict) -> str:
-    """Crea un JWT firmado a partir de un registro de usuario (flujo de login)."""
+def make_token(user: dict, remember: bool = False) -> str:
+    """Crea un JWT firmado a partir de un registro de usuario (flujo de login).
+
+    `remember=True` (checkbox "Recordar sesión") emite un token de larga
+    duración (30 días) en vez de la sesión corta de 30 min. La elección
+    queda grabada en el propio claim "remember" para que la renovación
+    por sliding-session (ver _renew_token_cookie) la respete.
+    """
     now = math.floor(time.time())
+    ttl = JWT_EXPIRES_REMEMBER if remember else JWT_EXPIRES
     payload = {
         "id":         str(user.get("_id") or user.get("id")),
         "username":   user.get("username", ""),
@@ -57,8 +65,9 @@ def make_token(user: dict) -> str:
         "role":       user.get("role", ""),
         "team":       user.get("team", ""),
         "supervisor": user.get("supervisor", ""),
+        "remember":   bool(remember),
         "iat":        now,
-        "exp":        now + JWT_EXPIRES,
+        "exp":        now + ttl,
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
 
@@ -71,24 +80,30 @@ def decode_token(token: str) -> dict | None:
         return None
 
 
-def set_token_cookie(response: Response, token: str) -> None:
+def set_token_cookie(response: Response, token: str, max_age: int = JWT_EXPIRES) -> None:
     response.set_cookie(
         key="token", value=token,
         httponly=True,
         secure=IS_PROD,
         samesite=COOKIE_SAMESITE,
-        max_age=JWT_EXPIRES,
+        max_age=max_age,
         path="/",
     )
 
 
 def _renew_token_cookie(response: Response, payload: dict) -> None:
-    """Sliding session: re-emite el token preservando sus claims con exp fresca."""
+    """Sliding session: re-emite el token preservando sus claims con exp fresca.
+
+    Respeta el claim "remember" del token original: una sesión "recordada"
+    se sigue renovando a 30 días, no se recorta a los 30 min por defecto.
+    """
     now = math.floor(time.time())
+    remember = bool(payload.get("remember"))
+    ttl = JWT_EXPIRES_REMEMBER if remember else JWT_EXPIRES
     new_payload = dict(payload)
     new_payload["iat"] = now
-    new_payload["exp"] = now + JWT_EXPIRES
-    set_token_cookie(response, jwt.encode(new_payload, JWT_SECRET, algorithm=JWT_ALGO))
+    new_payload["exp"] = now + ttl
+    set_token_cookie(response, jwt.encode(new_payload, JWT_SECRET, algorithm=JWT_ALGO), max_age=ttl)
 
 
 async def current_user(request: Request, response: Response) -> dict:
@@ -100,9 +115,14 @@ async def current_user(request: Request, response: Response) -> dict:
         raise HTTPException(status_code=401, detail="Token inválido")
     # Renovar el token si le queda menos de la mitad de vida —
     # mientras el usuario esté activo, la sesión nunca se cierra.
+    # El umbral es proporcional a la duración propia del token, para que
+    # una sesión "recordada" (30 días) no se renueve con el criterio de
+    # 15 min de una sesión corta.
     try:
         exp = int(decoded.get("exp") or 0)
-        if exp - time.time() < JWT_EXPIRES / 2:
+        iat = int(decoded.get("iat") or 0)
+        own_ttl = (exp - iat) if (exp and iat and exp > iat) else JWT_EXPIRES
+        if exp - time.time() < own_ttl / 2:
             _renew_token_cookie(response, decoded)
     except Exception:
         pass
