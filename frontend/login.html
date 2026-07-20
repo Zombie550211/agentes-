@@ -7,12 +7,10 @@
   <link rel="icon" type="image/png" href="images/favicon.png">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/login.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script src="vendor/reactbits/splash-cursor.js" defer></script>
-  <script src="vendor/reactbits/text-pressure.js" defer></script>
-  <script src="js/login-network-bg.js" defer></script>
+  <script src="js/login-wheel-3d.js" type="module" defer></script>
 </head>
 
 <body>
@@ -22,81 +20,63 @@
 
     <!-- ════════════════ LEFT PANEL ════════════════ -->
     <div class="left-panel left-panel-tech">
-      <canvas id="networkBg" class="network-bg"></canvas>
-      <div class="tech-icons" aria-hidden="true">
-        <i class="fas fa-wifi tech-icon ti-1"></i>
-        <i class="fas fa-satellite-dish tech-icon ti-2"></i>
-        <i class="fas fa-mobile-screen tech-icon ti-3"></i>
-        <i class="fas fa-cloud tech-icon ti-4"></i>
-        <i class="fas fa-users tech-icon ti-5"></i>
-        <i class="fas fa-chart-network tech-icon ti-6"></i>
-        <i class="fas fa-headset tech-icon ti-7"></i>
-        <i class="fas fa-globe tech-icon ti-8"></i>
+      <div class="grid-pattern" aria-hidden="true"></div>
+
+      <!-- ── Rueda de la fortuna (Three.js real) ── -->
+      <div class="wheel-3d-wrap" aria-hidden="true">
+        <canvas id="ferrisWheelCanvas"></canvas>
       </div>
 
+      <!-- ── Riel de montaña rusa (decorativo) ── -->
+      <svg class="coaster-track" width="900" height="240" viewBox="0 0 900 240" aria-hidden="true">
+        <path class="coaster-path-a" d="M0,180 C 90,40 180,220 270,90 C 360,-20 450,200 540,80 C 630,-10 720,190 810,60 C 850,20 880,60 900,40" fill="none" stroke="#ff8a00" stroke-width="3" stroke-dasharray="14 10"/>
+        <path class="coaster-path-b" d="M0,180 C 90,40 180,220 270,90 C 360,-20 450,200 540,80 C 630,-10 720,190 810,60 C 850,20 880,60 900,40" fill="none" stroke="#39ff88" stroke-width="1" opacity="0.5"/>
+      </svg>
+
+      <div id="loginParticles" class="login-particles" aria-hidden="true"></div>
+
       <div class="brand">
-        <div class="brand-logo"><i class="fas fa-shield-halved"></i></div>
+        <div class="brand-logo"></div>
         <div>
           <div class="brand-name">Connecting</div>
           <div class="brand-sub">CRM Platform</div>
         </div>
+        <div class="brand-eyebrow">
+          <span class="brand-star"></span>
+          SISTEMA DE GESTIÓN
+        </div>
       </div>
 
       <div class="hero hero-wordmark-wrap">
-        <div class="hero-eyebrow">Sistema de gestión</div>
-        <div id="wordmark" class="wordmark"></div>
-        <p class="hero-quote">"La disciplina vence al talento,<br>cuando el talento no tiene disciplina."</p>
-      </div>
-
-      <div class="left-footer">
-        <div><div class="stat-value">CRM</div><div class="stat-label">Plataforma</div></div>
-        <div><div class="stat-value">24/7</div><div class="stat-label">Disponibilidad</div></div>
-        <div><div class="stat-value">v2.0</div><div class="stat-label">Versión</div></div>
-      </div>
-
-      <!-- ── Widgets decorativos flotantes ── -->
-      <div class="perf-card" aria-hidden="true">
-        <div class="perf-title">System Performance</div>
-        <canvas id="perfChart" width="220" height="90"></canvas>
-      </div>
-
-      <div class="globe-wrap globe-wrap-1" aria-hidden="true">
-        <div class="globe">
-          <div class="globe-ring gr-0"></div>
-          <div class="globe-ring gr-1"></div>
-          <div class="globe-ring gr-2"></div>
-          <div class="globe-ring gr-3"></div>
-          <div class="globe-lat globe-lat-1"></div>
-          <div class="globe-lat globe-lat-2"></div>
-          <div class="globe-dot" style="top:30%;left:60%;"></div>
-          <div class="globe-dot" style="top:55%;left:35%;"></div>
-          <div class="globe-dot" style="top:68%;left:70%;"></div>
-        </div>
-      </div>
-
-      <div class="globe-wrap globe-wrap-2" aria-hidden="true">
-        <div class="globe">
-          <div class="globe-ring gr-0"></div>
-          <div class="globe-ring gr-1"></div>
-          <div class="globe-ring gr-2"></div>
-          <div class="globe-ring gr-3"></div>
-          <div class="globe-lat globe-lat-1"></div>
-          <div class="globe-lat globe-lat-2"></div>
-          <div class="globe-dot" style="top:25%;left:45%;"></div>
-          <div class="globe-dot" style="top:50%;left:65%;"></div>
-          <div class="globe-dot" style="top:72%;left:30%;"></div>
-        </div>
-      </div>
-
-      <div class="security-dial" aria-hidden="true">
-        <div class="dial-ring"></div>
-        <div class="dial-center"><i class="fas fa-shield-halved"></i><i class="fas fa-check dial-check"></i></div>
-        <i class="fas fa-user dial-user-ic"></i>
+        <div id="wordmark" class="wordmark-cyber"></div>
+        <p class="hero-quote">"La disciplina vence al talento, cuando el talento no tiene disciplina."</p>
+        <div class="left-footer" id="badgesRow"></div>
       </div>
     </div>
 
     <!-- ════════════════ RIGHT PANEL ════════════════ -->
     <div class="right-panel">
+      <div class="right-stack">
+
+      <div class="perf-card" aria-hidden="true">
+        <div class="perf-title">SYSTEM PERFORMANCE</div>
+        <svg width="100%" height="54" viewBox="0 0 260 54" preserveAspectRatio="none">
+          <polyline points="0,40 30,20 60,32 90,10 120,26 150,14 180,30 210,8 240,22 260,16" fill="none" stroke="#00e5ff" stroke-width="2" class="perf-line-a"/>
+          <polyline points="0,48 30,36 60,44 90,30 120,40 150,32 180,42 210,28 240,36 260,30" fill="none" stroke="#ff2d95" stroke-width="1.4" opacity="0.65"/>
+        </svg>
+        <div class="perf-gauges" id="perfGauges"></div>
+      </div>
+
+      <div class="globe-row" aria-hidden="true">
+        <div class="globe-cyber">
+          <div class="globe-cyber-ring"></div>
+          <div class="globe-cyber-lights" id="globeLights"></div>
+        </div>
+        <div class="globe-copy">
+          <div class="globe-label">RED GLOBAL</div>
+          <div class="globe-sub">42 nodos activos · uptime 99.98%</div>
+        </div>
+      </div>
 
       <!-- ══ PANEL LOGIN ══ -->
       <div class="main-panel login-card active" id="mainLogin">
@@ -305,6 +285,7 @@
 
       </div><!-- /mainForgot -->
 
+      </div><!-- /right-stack -->
     </div><!-- /right-panel -->
   </div><!-- /page -->
 
@@ -319,88 +300,101 @@
         }
       } catch (e) { console.warn('[login] Splash Cursor no disponible:', e); }
 
+      // ── Wordmark "CONNECTING" con anillo de hover por letra ──
       try {
-        if (typeof initTextPressure === 'function') {
-          const tp = initTextPressure(document.getElementById('wordmark'), {
-            text: 'CONNECTING',
-            fontFamily: "'Outfit', sans-serif",
-            fontUrl: 'https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap',
-            minFontSize: 40,
-            width: false,
-            weight: true,
-            italic: false,
-            alpha: false,
-            flex: true,
-            textColor: '#5b8cff'
-          });
-          if (tp && tp.title) {
-            const palette = ['#4f8cff', '#3fd0ff', '#ff9f43', '#ff7a45', '#a78bfa', '#7c5cff', '#c084fc', '#2dd4bf', '#7c5cff', '#34d399', '#4f8cff'];
-            // Desfase pseudo-aleatorio pero determinístico por letra, para que
-            // floten cada una a su propio ritmo (ni sincronizadas ni caóticas).
-            const pseudoRandom = seed => {
-              const x = Math.sin(seed * 999) * 10000;
-              return x - Math.floor(x);
-            };
-            tp.title.querySelectorAll('span').forEach((span, i) => {
-              const color = palette[i % palette.length];
-              span.style.color = color;
-              span.style.textShadow = `0 0 18px ${color}99, 0 0 40px ${color}44`;
+        const word = 'CONNECTING';
+        const colors = ['#00e5ff', '#ff8a00', '#ff2d95', '#b14aff', '#00e5ff', '#39ff88', '#ff8a00', '#ff2d95', '#00e5ff', '#39ff88'];
+        const wordmark = document.getElementById('wordmark');
+        word.split('').forEach((ch, i) => {
+          const color = colors[i % colors.length];
+          const span = document.createElement('span');
+          span.className = 'wc-letter';
+          span.style.color = color;
+          span.style.textShadow = `0 0 8px ${color}, 0 0 18px ${color}66`;
+          const ring = document.createElement('span');
+          ring.className = 'wc-ring';
+          ring.style.borderColor = color;
+          span.appendChild(ring);
+          span.appendChild(document.createTextNode(ch));
+          wordmark.appendChild(span);
+        });
+      } catch (e) { console.warn('[login] Wordmark no disponible:', e); }
 
-              // Efecto "regado que flota": cada letra sube/baja de forma leve
-              // e independiente. Amplitud chica para que la palabra se siga
-              // leyendo perfecto.
-              const r1 = pseudoRandom(i + 1);
-              const r2 = pseudoRandom(i + 7);
-              span.style.display = 'inline-block';
-              span.style.setProperty('--float-y', (6 + r1 * 6).toFixed(1) + 'px');
-              span.style.setProperty('--float-rot', (r2 * 4 - 2).toFixed(1) + 'deg');
-              span.style.animation = `letterFloat ${(2.6 + r1 * 1.6).toFixed(2)}s ease-in-out ${(r2 * 1.2).toFixed(2)}s infinite`;
-            });
-          }
-        }
-      } catch (e) { console.warn('[login] Text Pressure no disponible:', e); }
-
+      // ── Partículas a la deriva ──
       try {
-        if (typeof initLoginNetworkBg === 'function') {
-          initLoginNetworkBg(document.getElementById('networkBg'));
+        const wrap = document.getElementById('loginParticles');
+        const colors = ['#00e5ff', '#ff2d95', '#ffb200', '#39ff88'];
+        for (let i = 0; i < 10; i++) {
+          const left = 5 + (i * 9) % 90;
+          const top = 20 + (i * 13) % 70;
+          const color = colors[i % colors.length];
+          const anim = i % 2 === 0 ? 'driftA' : 'driftB';
+          const dot = document.createElement('div');
+          dot.className = 'login-particle';
+          dot.style.left = left + '%';
+          dot.style.top = top + '%';
+          dot.style.background = color;
+          dot.style.boxShadow = `0 0 8px ${color}`;
+          dot.style.animation = `${anim} ${8 + (i % 5)}s linear infinite`;
+          dot.style.animationDelay = (i * 0.7) + 's';
+          wrap.appendChild(dot);
         }
-      } catch (e) { console.warn('[login] Network bg no disponible:', e); }
+      } catch (e) { console.warn('[login] Partículas no disponibles:', e); }
 
+      // ── Badges CRM / 24/7 / v2.0 ──
       try {
-        if (typeof Chart !== 'undefined') {
-          const ctx = document.getElementById('perfChart').getContext('2d');
-          const labels = ['10', '20', '30', '40', '50', '60'];
-          new Chart(ctx, {
-            type: 'line',
-            data: {
-              labels,
-              datasets: [
-                {
-                  data: [40, 65, 50, 90, 70, 100],
-                  borderColor: '#ff9f43',
-                  backgroundColor: 'rgba(255,159,67,0.12)',
-                  borderWidth: 1.5, tension: 0.4, fill: true, pointRadius: 0
-                },
-                {
-                  data: [20, 35, 55, 40, 60, 45],
-                  borderColor: '#2dd4bf',
-                  backgroundColor: 'rgba(45,212,191,0.10)',
-                  borderWidth: 1.5, tension: 0.4, fill: true, pointRadius: 0
-                }
-              ]
-            },
-            options: {
-              responsive: false,
-              animation: { duration: 900 },
-              plugins: { legend: { display: false } },
-              scales: {
-                x: { ticks: { color: 'rgba(255,255,255,0.35)', font: { size: 8 } }, grid: { color: 'rgba(255,255,255,0.06)' } },
-                y: { min: 0, max: 100, ticks: { stepSize: 25, color: 'rgba(255,255,255,0.35)', font: { size: 8 } }, grid: { color: 'rgba(255,255,255,0.06)' } }
-              }
-            }
-          });
+        const badges = [
+          { label: 'CRM', color: '#00e5ff' },
+          { label: '24/7', color: '#ff2d95' },
+          { label: 'v2.0', color: '#39ff88' }
+        ];
+        const row = document.getElementById('badgesRow');
+        badges.forEach(b => {
+          const item = document.createElement('div');
+          item.className = 'wc-badge';
+          item.innerHTML = `<div class="wc-badge-ring" style="border-color:${b.color};box-shadow:0 0 10px ${b.color};">
+            <div class="wc-badge-dot" style="background:${b.color};"></div>
+          </div>
+          <div class="wc-badge-label">${b.label}</div>`;
+          row.appendChild(item);
+        });
+      } catch (e) { console.warn('[login] Badges no disponibles:', e); }
+
+      // ── Gauges CPU / Network dentro de System Performance ──
+      try {
+        const gauges = [
+          { label: 'CPU LOAD', value: 68, color: '#00e5ff' },
+          { label: 'NETWORK', value: 84, color: '#ff8a00' }
+        ];
+        const wrap = document.getElementById('perfGauges');
+        gauges.forEach(g => {
+          const item = document.createElement('div');
+          item.className = 'perf-gauge';
+          item.innerHTML = `<div class="perf-gauge-ring" style="background:conic-gradient(${g.color} 0% ${g.value}%, rgba(255,255,255,.08) ${g.value}% 100%);">
+            <div class="perf-gauge-center" style="color:${g.color};">${g.value}%</div>
+          </div>
+          <div class="perf-gauge-label">${g.label}</div>`;
+          wrap.appendChild(item);
+        });
+      } catch (e) { console.warn('[login] Gauges no disponibles:', e); }
+
+      // ── Luces del globo ──
+      try {
+        const colors = ['#ffb200', '#ff2d95', '#00e5ff', '#39ff88', '#ffb200', '#ff2d95'];
+        const wrap = document.getElementById('globeLights');
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2;
+          const x = 38 + Math.cos(a) * 26, y = 38 + Math.sin(a) * 20;
+          const dot = document.createElement('div');
+          dot.className = 'globe-light';
+          dot.style.left = x + 'px';
+          dot.style.top = y + 'px';
+          dot.style.background = colors[i];
+          dot.style.boxShadow = `0 0 6px ${colors[i]}`;
+          dot.style.animation = `pulseGlow ${2 + i * 0.3}s ease-in-out infinite`;
+          wrap.appendChild(dot);
         }
-      } catch (e) { console.warn('[login] System Performance chart no disponible:', e); }
+      } catch (e) { console.warn('[login] Luces del globo no disponibles:', e); }
     });
   </script>
 </body>
