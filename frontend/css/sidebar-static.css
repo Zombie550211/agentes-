@@ -1,0 +1,165 @@
+/* ═══════════════════════════════════════════════
+   SIDEBAR ESTÁTICO — sin JS de generación, sin auto-hide,
+   sin colapso, sin dependencia de body.dark-theme.
+
+   Nota: varias páginas tienen reglas globales agresivas tipo
+   `body * { color: #fff !important; }` (leftovers de temas viejos).
+   Por eso el sidebar se identifica por #app-sidebar (ID) en vez de
+   solo la clase .sidebar: un ID le gana en especificidad a cualquier
+   combinación de clases/selectores, así esas reglas nunca lo pisan.
+   ═══════════════════════════════════════════════ */
+
+:root {
+  --sidebar-width: 260px;
+}
+
+#app-sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: var(--sidebar-width);
+  height: 100vh;
+  background: #ffffff;
+  border-right: 1px solid #e7e5e0;
+  box-shadow: 2px 0 12px rgba(15, 23, 42, .04);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.main-content {
+  margin-left: calc(var(--sidebar-width) + 16px);
+}
+
+/* El comportamiento responsive (<768px) ya lo cubre responsive-sidebar.css
+   con su propio toggle (.sidebar.active) — no lo duplicamos acá. */
+
+/* Marca (header) */
+#app-sidebar .sb-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 18px 14px 18px;
+  flex-shrink: 0;
+}
+#app-sidebar .sb-brand-mark {
+  width: 34px; height: 34px; border-radius: 9px;
+  background: linear-gradient(160deg, #2f6fed, #1c4fc9);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: #fff !important; flex-shrink: 0;
+}
+#app-sidebar .sb-brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+#app-sidebar .sb-brand-text strong { font-size: 14px; font-weight: 700; letter-spacing: .4px; color: #111827 !important; }
+#app-sidebar .sb-brand-text span { font-size: 9px; letter-spacing: 3px; color: #9ca3af !important; }
+
+/* Lista scrolleable */
+#app-sidebar .sb-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 10px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  scrollbar-width: auto;
+  scrollbar-color: #c7cad1 transparent;
+}
+#app-sidebar .sb-scroll::-webkit-scrollbar { width: 9px; }
+#app-sidebar .sb-scroll::-webkit-scrollbar-track { background: transparent; }
+#app-sidebar .sb-scroll::-webkit-scrollbar-thumb { background: #c7cad1; border-radius: 5px; border: 2px solid #fff; }
+#app-sidebar .sb-scroll::-webkit-scrollbar-thumb:hover { background: #9aa0ac; }
+
+/* Items */
+#app-sidebar .sb-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background .18s ease, transform .18s ease;
+}
+#app-sidebar .sb-item:hover { background: #f4f4f5; transform: translateX(3px); }
+#app-sidebar .sb-item.mov:hover { background: #ecfdf5; }
+#app-sidebar .sb-item:active { transform: translateX(3px) scale(.98); }
+#app-sidebar .sb-item.active { background: #eef2ff; }
+
+#app-sidebar .sb-ic {
+  width: 30px; height: 30px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  filter: saturate(1.9) brightness(.96);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .05);
+  transition: transform .18s ease;
+}
+#app-sidebar .sb-item:hover .sb-ic { transform: scale(1.12); }
+
+#app-sidebar .sb-lbl {
+  font-size: 13.5px;
+  color: #374151 !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#app-sidebar .sb-item.active .sb-lbl { color: #111827 !important; font-weight: 700; }
+#app-sidebar .sb-item.mov .sb-lbl { color: #374151 !important; }
+
+#app-sidebar .sb-sec {
+  font-size: 10.5px;
+  letter-spacing: 1.5px;
+  color: #9ca3af !important;
+  font-weight: 700;
+  padding: 16px 10px 6px 10px;
+  text-transform: uppercase;
+}
+#app-sidebar .sb-mov-head {
+  font-size: 10.5px;
+  letter-spacing: 1.5px;
+  color: #0d9488 !important;
+  font-weight: 700;
+  padding: 16px 10px 8px 10px;
+  text-transform: uppercase;
+}
+
+/* Solo visible para admins (activado por sidebar-static.js) */
+#app-sidebar [data-admin-only] { display: none; }
+body.sb-is-admin #app-sidebar [data-admin-only] { display: flex; }
+#app-sidebar .sb-sec[data-admin-only],
+#app-sidebar .sb-mov-head[data-admin-only] { display: none; }
+body.sb-is-admin #app-sidebar .sb-sec[data-admin-only],
+body.sb-is-admin #app-sidebar .sb-mov-head[data-admin-only] { display: block; }
+
+/* Footer */
+#app-sidebar .sb-footer {
+  padding: 16px 18px;
+  border-top: 1px solid #eceae4;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex-shrink: 0;
+}
+#app-sidebar .sb-quote {
+  margin: 0;
+  font-size: 11px;
+  font-style: italic;
+  color: #9ca3af !important;
+  text-align: center;
+  line-height: 1.4;
+}
+#app-sidebar .sb-logout {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  width: 100%;
+  font-family: inherit;
+  transition: opacity .12s;
+}
+#app-sidebar .sb-logout:hover { opacity: .8; }
+#app-sidebar .sb-logout .sb-ic { background: #fee2e2; filter: saturate(1.9) brightness(.96); }
+#app-sidebar .sb-logout .sb-lbl { color: #374151 !important; }

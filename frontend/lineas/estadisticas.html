@@ -7,282 +7,79 @@
   <script>
     // Sin restricción - acceso permitido para todos
   </script>
-  <link rel="stylesheet" href="/css/theme.css?v=20251124f"/>
-  <link rel="stylesheet" href="/css/sidebar-shared.css?v=20260529b" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <!-- Highcharts 3D -->
   <style>
-    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; background: #000 !important; }
-    body::before {
-      content: '';
-      position: fixed; inset: 0; z-index: -1;
-      background: linear-gradient(160deg,#0b1a33 0%,#0a1628 55%,#080f1f 100%);
-  opacity: 0.55;
-      pointer-events: none;
-    }
-    .layout { display: flex; min-height: 100vh; }
-    .sidebar { flex: 0 0 auto; }
-    .main-content { flex: 1; overflow-y: auto; }
-    /* Sin tope de ancho: la página aprovecha todo el monitor (los grids internos
-       son auto-adaptables, así que en pantallas chicas siguen apilándose bien). */
-    .content-container { max-width: none; margin: 0 auto; padding: 20px 48px; }
-
-    /* KPIs globales: una sola fila en monitores anchos; en pantallas menores
-       las tarjetas van bajando solas (auto-fit). */
-    .kpi-global-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 20px;
-      margin-bottom: 32px;
-    }
-    h1 { color: #f0f4ff; margin-top: 0; margin-bottom: 30px; font-size: 28px; text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
-    /* Team Section */
-    .team-section { 
-      margin-bottom: 40px; 
-      background: rgba(10, 20, 60, 0.55);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 16px; 
-      padding: 24px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
-    }
-    .team-title { 
-      font-size: 20px; 
-      font-weight: 700; 
-      color: #f0f4ff; 
-      margin: 0 0 20px 0;
-      padding-bottom: 12px;
-      border-bottom: 1px solid rgba(255,255,255,0.15);
-    }
-
-    /* Team Content - Grid for Chart + KPI */
-    .team-content { 
-      display: grid; 
-      grid-template-columns: 2fr 1fr; 
-      gap: 20px;
-      align-items: start;
-    }
-
-    /* Chart Container */
-    .chart-container { 
-      position: relative; 
-      height: 500px;
-      background: rgba(255,255,255,0.07);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      border: 1px solid rgba(255,255,255,0.10);
-      border-radius: 12px;
-      padding: 16px;
-    }
-    .chart-container canvas { max-height: 470px; }
-
-    /* KPI Card */
-    .kpi-card {
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-      background: rgba(255,255,255,0.08);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border-radius: 12px;
-      overflow: hidden;
-      border: 1px solid rgba(255,255,255,0.12);
-    }
-
-    .kpi-item {
-      display: flex;
-      align-items: center;
-      padding: 16px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      gap: 12px;
-    }
-
-    .kpi-item:last-child { border-bottom: none; }
-
-    .kpi-icon {
-      width: 4px;
-      height: 40px;
-      background: #818cf8;
-      border-radius: 2px;
-    }
-
-    .kpi-content {
-      flex: 1;
-    }
-
-    .kpi-label {
-      font-size: 12px;
-      color: rgba(255,255,255,0.60) !important;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin: 0;
-    }
-
-    .kpi-value {
-      font-size: 24px;
-      font-weight: 700;
-      color: #818cf8;
-      margin: 4px 0 0 0;
-    }
-
-    /* Loading State */
-    .loading { text-align: center; color: rgba(255,255,255,0.55); padding: 20px; }
-    .spinner { display: inline-block; border: 3px solid rgba(255,255,255,0.15); border-top: 3px solid #818cf8; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-    /* Efecto 3D para KPIs globales */
-    .kpi-global-card {
-      position: relative;
-      overflow: visible;
-      transform-style: preserve-3d;
-      transform: perspective(1000px) rotateX(5deg) rotateY(-2deg);
-      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      box-shadow: 
-        0 10px 30px rgba(0, 0, 0, 0.35),
-        0 5px 15px rgba(0, 0, 0, 0.2);
-    }
-    
-    .kpi-global-card::after {
-      content: '';
-      position: absolute;
-      bottom: -20px;
-      left: 10%;
-      width: 80%;
-      height: 20px;
-      background: radial-gradient(ellipse, rgba(0, 0, 0, 0.3) 0%, transparent 70%);
-      filter: blur(10px);
-      z-index: -1;
-    }
-    
-    .kpi-global-card:hover {
-      transform: perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(-10px) scale(1.02);
-      box-shadow: 
-        0 25px 50px rgba(0, 0, 0, 0.45),
-        0 15px 30px rgba(0, 0, 0, 0.3);
-    }
-
-    /* Responsive */
-    @media (max-width: 1024px) {
-      .team-content { grid-template-columns: 1fr; }
-      .chart-container { height: 400px; }
-    }
-    @media (max-width: 1280px) {
-      .content-container > div:first-of-type { grid-template-columns: repeat(2, 1fr) !important; }
-    }
-
-    /* ===== Rendimiento por Agente: encabezado + toggle de vista ===== */
-    .section-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      margin: 8px 0 20px 0;
-      flex-wrap: wrap;
-    }
-    .section-title { font-size: 22px; font-weight: 700; color: #f0f4ff; margin: 0; }
-    .section-sub { font-size: 13px; color: rgba(255,255,255,0.55); margin: 4px 0 0 0; }
-    .view-toggle {
-      display: flex; align-items: center; gap: 8px;
-      background: rgba(255,255,255,0.05);
-      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-      border: 1px solid rgba(255,255,255,0.12);
-      padding: 6px 10px; border-radius: 12px;
-    }
-    .vt-caption { font-size: 12px; color: rgba(255,255,255,0.55); margin-right: 4px; }
-    .vt-btn {
-      display: inline-flex; align-items: center; gap: 6px;
-      background: transparent; color: rgba(255,255,255,0.7);
-      border: none; padding: 8px 14px; border-radius: 8px;
-      cursor: pointer; font-weight: 600; font-size: 13px; transition: all 0.2s;
-    }
-    .vt-btn.active { background: #6366f1; color: #fff; box-shadow: 0 4px 12px rgba(99,102,241,0.4); }
-    .vt-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-    /* ===== Grid de 3 tarjetas de team ===== */
-    .teams-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
-      align-items: stretch;
-    }
-    .team-card {
-      display: flex; flex-direction: column;
-      background: rgba(10, 20, 60, 0.55);
-      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 16px; padding: 20px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
-    }
-    .team-card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-    .team-card-icon {
-      width: 40px; height: 40px; border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      background: rgba(129,140,248,0.18); color: #818cf8; font-size: 18px;
-    }
-    .team-card-title { font-size: 18px; font-weight: 700; color: #f0f4ff; margin: 0; }
-
-    /* Franja de stats del team */
-    .team-stat-strip {
-      display: grid; grid-template-columns: repeat(5, 1fr);
-      gap: 4px; margin-bottom: 18px;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.10);
-      border-radius: 12px; padding: 12px 8px;
-    }
-    .tstat { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; }
-    .tstat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: rgba(255,255,255,0.55); }
-    .tstat-val { font-size: 22px; font-weight: 700; color: #f0f4ff; }
-    .tstat-green { color: #22c55e; }
-    .tstat-red { color: #f87171; }
-
-    /* Franja de tipos de servicio del team (LÍNEA + EQUIPO / ESIM / WEARABLE) */
-    .team-svc-strip {
-      display: grid; grid-template-columns: repeat(3, 1fr);
-      gap: 4px; margin: -10px 0 18px 0;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.10);
-      border-radius: 12px; padding: 12px 8px;
-    }
-    .tstat-indigo { color: #818cf8; }
-    .tstat-cyan   { color: #22d3ee; }
-    .tstat-amber  { color: #fbbf24; }
-
-    /* Gráfica del team */
-    .team-chart-wrap { position: relative; height: 460px; }
-    .team-chart { width: 100%; height: 100%; }
-    /* Spinner / mensaje de "sin datos" como overlay centrado (no empuja la gráfica) */
-    .team-chart-wrap .loading {
-      position: absolute; inset: 0;
-      display: flex; align-items: center; justify-content: center;
-      padding: 0; margin: 0;
-    }
-
-    /* Botón Ver Detalle Completo */
-    .btn-detalle {
-      display: block; text-align: center; margin-top: 16px;
-      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-      color: #fff; text-decoration: none; font-weight: 700; font-size: 14px;
-      padding: 12px 16px; border-radius: 10px;
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .btn-detalle:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(99,102,241,0.45); }
-
-    @media (max-width: 1100px) {
-      .teams-grid { grid-template-columns: 1fr; }
-    }
-    /* Monitores anchos: gráficas más altas y con más aire */
-    @media (min-width: 2200px) {
-      .teams-grid { gap: 28px; }
-      .team-chart-wrap { height: 600px; }
-      .tstat-val { font-size: 26px; }
-    }
+    /* Base mínima neutra — lienzo para el rediseño de Líneas */
+    *,*::before,*::after{box-sizing:border-box}
+    body,body.dark-theme{margin:0;background:#ffffff !important;color:#111111 !important;font-family:system-ui,sans-serif}
+    .layout{display:flex;min-height:100vh}
+    .sidebar{flex:0 0 auto}
+    .main-content{flex:1;min-width:0;padding:24px}
   </style>
-  <link rel="stylesheet" href="/css/glass-cards.css?v=20260716a">
+  <script>
+    // Lienzo del rediseño de Líneas: SIN modo oscuro global.
+    // El sidebar fuerza body.dark-theme (dark-mode.css) — aquí se elimina y
+    // se mantiene fuera aunque el loader la re-aplique después.
+    (function(){
+      function strip(){ if(document.body) document.body.classList.remove('dark-theme'); }
+      document.addEventListener('DOMContentLoaded', function(){
+        strip();
+        new MutationObserver(strip).observe(document.body, { attributes:true, attributeFilter:['class'] });
+      });
+    })();
+  </script>
+  <link rel="stylesheet" href="/css/sidebar-static.css?v=1">
 </head>
 <body>
+  <script src="/js/theme-init.js" defer></script>
+  <script src="/js/sidebar-static.js" defer></script>
   <div class="layout">
-    <nav class="sidebar sidebar-inicio" data-active="estadisticas-lineas"></nav>
+    <nav class="sidebar" id="app-sidebar">
+  <div class="sb-brand">
+    <div class="sb-brand-mark">CC</div>
+    <div class="sb-brand-text"><strong>CONNECTING</strong><span>C R M</span></div>
+  </div>
+  <div class="sb-scroll">
+<div class="sb-mov-head">SERVICIOS MÓVILES</div>
+<a href="/lineas/inicio.html" class="sb-item mov"><span class="sb-ic" style="background:#d1fae5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#059669"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg></span><span class="sb-lbl">Inicio</span></a>
+<a href="/lineas/lead.html" class="sb-item mov"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-4 3-6 6-6s6 2 6 6"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg></span><span class="sb-lbl">Nuevo Lead</span></a>
+<a href="/lineas/costumer.html" class="sb-item mov"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><circle cx="8" cy="8" r="3"/><path d="M2 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14c2.6.4 4.5 2.6 4.5 6"/></svg></span><span class="sb-lbl">Costumer Líneas</span></a>
+<a href="/lineas/estadisticas.html" class="sb-item mov active"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><line x1="4" y1="20" x2="20" y2="20"/><rect x="6" y="12" width="3" height="8" rx="2"/><rect x="11" y="8" width="3" height="12" rx="2"/><rect x="16" y="4" width="3" height="16" rx="2"/></svg></span><span class="sb-lbl">Estadísticas Líneas</span></a>
+<a href="/lineas/ranking.html" class="sb-item mov"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><path d="M4 16l5-5 4 3 7-8"/><path d="M4 20h16"/></svg></span><span class="sb-lbl">Ranking Líneas</span></a>
+<a href="/lineas/facturacion.html" class="sb-item mov"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/></svg></span><span class="sb-lbl">Facturación Líneas</span></a>
+<a href="/lineas/comisiones.html" class="sb-item mov"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><circle cx="9" cy="9" r="5"/><circle cx="15" cy="15" r="5" fill="none"/></svg></span><span class="sb-lbl">Comisiones Líneas</span></a>
+<a href="/lineas/reglas.html" class="sb-item mov"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><path d="M6 3h9l4 4v14H6V3z"/><path d="M15 3v4h4"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg></span><span class="sb-lbl">Reglas Líneas</span></a>
+<a href="/residencial/inicio.html" class="sb-item"><span class="sb-ic" style="background:#dbeafe;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#2563eb"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg></span><span class="sb-lbl">Inicio</span></a>
+<a href="/residencial/formulario-registro.html" class="sb-item"><span class="sb-ic" style="background:#d1fae5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#059669"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-4 3-6 6-6s6 2 6 6"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg></span><span class="sb-lbl">Formulario</span></a>
+<a href="/residencial/costumer.html" class="sb-item"><span class="sb-ic" style="background:#ede9fe;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#7c3aed"><circle cx="8" cy="8" r="3"/><path d="M2 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14c2.6.4 4.5 2.6 4.5 6"/></svg></span><span class="sb-lbl">Lista de Clientes</span></a>
+<a href="/residencial/normativas-tipificacion.html" class="sb-item"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><path d="M3 11l9-8 9 8-9 9-9-9z"/><circle cx="15" cy="8" r="1.3" fill="currentColor"/></svg></span><span class="sb-lbl">Tipificación</span></a>
+<div class="sb-sec" data-admin-only>ESTADÍSTICAS</div>
+<a href="/residencial/productividad-bo.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#fef3c7;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#d97706"><circle cx="9" cy="7" r="3"/><path d="M4 20c0-3.5 2.7-6 5-6"/><path d="M13 20l3-4 2 2 3-6"/></svg></span><span class="sb-lbl">Productividad B.O</span></a>
+<a href="/residencial/estadisticas.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#fef9c3;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#ca8a04"><line x1="4" y1="20" x2="20" y2="20"/><rect x="6" y="12" width="3" height="8" rx="2"/><rect x="11" y="8" width="3" height="12" rx="2"/><rect x="16" y="4" width="3" height="16" rx="2"/></svg></span><span class="sb-lbl">Estadísticas</span></a>
+<a href="/residencial/productividad.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#e0e7ff;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#4f46e5"><circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/><path d="M12 3c3 4 3 14 0 18"/><path d="M12 3c-3 4-3 14 0 18"/></svg></span><span class="sb-lbl">Productividad</span></a>
+<a href="/residencial/ranking-agente.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#ffedd5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#ea580c"><path d="M4 16l5-5 4 3 7-8"/><path d="M4 20h16"/></svg></span><span class="sb-lbl">Ranking de Agentes</span></a>
+<a href="/residencial/ranking.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#fce7f3;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#db2777"><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M7 5H4a2 2 0 0 0 2 4"/><path d="M17 5h3a2 2 0 0 1-2 4"/><line x1="12" y1="14" x2="12" y2="17"/><path d="M8 21h8"/><path d="M9 21c0-2 1.3-3 3-3s3 1 3 3"/></svg></span><span class="sb-lbl">Ranking y Promociones</span></a>
+<a href="/residencial/premios.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#dbeafe;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#2563eb"><rect x="3" y="9" width="18" height="4" rx="2"/><rect x="5" y="13" width="14" height="8" rx="2"/><line x1="12" y1="9" x2="12" y2="21"/><path d="M12 9C10 4 5 5 5 8s3 1 7 1z"/><path d="M12 9c2-5 7-4 7-1s-3 1-7 1z"/></svg></span><span class="sb-lbl">Premios</span></a>
+<a href="/residencial/reglas.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#d1fae5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#059669"><path d="M6 3h9l4 4v14H6V3z"/><path d="M15 3v4h4"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg></span><span class="sb-lbl">Reglas y Puntajes</span></a>
+<a href="/residencial/facturacion.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#fee2e2;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#dc2626"><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/></svg></span><span class="sb-lbl">Facturación</span></a>
+<a href="/residencial/llamadas-ventas.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#f1f5f9;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#475569"><path d="M5 4c0 9 6 15 15 15l1-4-5-2-2 2c-3-1.5-5-3.5-6-6l2-2-2-5-4 1z"/></svg></span><span class="sb-lbl">Llamadas y Ventas por Team</span></a>
+<a href="/residencial/comisiones.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0891b2"><circle cx="9" cy="9" r="5"/><circle cx="15" cy="15" r="5" fill="none"/></svg></span><span class="sb-lbl">Comisión</span></a>
+<a href="/residencial/semaforo.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#f1f5f9;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#64748b"><rect x="9" y="2" width="6" height="20" rx="2"/><circle cx="12" cy="6" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="18" r="1.4" fill="currentColor"/></svg></span><span class="sb-lbl">El Semáforo</span></a>
+<div class="sb-sec" data-admin-only>ADMINISTRACIÓN</div>
+<a href="/residencial/empleado-mes.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#fef9c3;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#ca8a04"><path d="M12 2l3 6.5 7 .8-5.2 4.8 1.4 7-6.2-3.6L5.8 21.1l1.4-7L2 9.3l7-.8z"/></svg></span><span class="sb-lbl">Empleado del Mes</span></a>
+<a href="/residencial/tabla-puntaje.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#ffedd5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#ea580c"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4.5" cy="6" r="1.3" fill="currentColor"/><circle cx="4.5" cy="12" r="1.3" fill="currentColor"/><circle cx="4.5" cy="18" r="1.3" fill="currentColor"/></svg></span><span class="sb-lbl">Tabla de Puntaje</span></a>
+<a href="/crear-cuenta.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#e0e7ff;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#4f46e5"><path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span><span class="sb-lbl">Permisos</span></a>
+<a href="/chat.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><path d="M4 5h16v11H9l-5 4V5z"/></svg></span><span class="sb-lbl">Chat</span></a>
+  </div>
+  <div class="sb-footer">
+    <p class="sb-quote">"El éxito es la suma de pequeños esfuerzos repetidos día tras día"</p>
+    <button type="button" class="sb-logout" data-logout-button title="Cerrar Sesión">
+      <span class="sb-ic" style="background:#fee2e2;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#dc2626"><path d="M9 4H5v16h4"/><path d="M14 8l5 4-5 4"/><line x1="19" y1="12" x2="9" y2="12"/></svg></span>
+      <span class="sb-lbl">Cerrar Sesión</span>
+    </button>
+  </div>
+</nav>
     <main class="main-content">
       <div class="content-container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
@@ -433,13 +230,9 @@
   <script src="/js/fetch-interceptor.js"></script>
   <script src="/js/logout-handler.js"></script>
   <script src="/js/user-info.js"></script>
-  <script src="/js/sidebar-loader.js?v=20260717c"></script>
   <script src="/js/realtime.js"></script>
   <script>
     // Variables para instancias de Highcharts
-    let chartJonathanInstance = null;
-    let chartLuisInstance = null;
-    
     // Estado global del mes seleccionado
     let currentYear = new Date().getFullYear();
     let currentMonth = new Date().getMonth() + 1; // 1-12
@@ -690,10 +483,11 @@
       try {
         let allLeads = [];
         
-        // Obtener datos reales de la API de Team Líneas (todos los datos o mes seleccionado)
+        // Solo el mes seleccionado (filtrado en el servidor): sin allData=true,
+        // que bajaba TODO el histórico para luego filtrar en el navegador.
         try {
-          const endpoint = `/api/leads-lineas?allData=true&month=${currentYear}-${String(currentMonth).padStart(2, '0')}`;
-          const response = await fetch(endpoint);
+          const endpoint = `/api/leads-lineas?month=${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+          const response = await fetch(endpoint, { credentials: 'include' });
           if (response.ok) {
             const result = await response.json();
             allLeads = Array.isArray(result.data) ? result.data : (result.leads || []);

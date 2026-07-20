@@ -1,664 +1,326 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Comisiones Líneas - CRM</title>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="/../js/fetch-interceptor.js" defer></script>
-    <script src="/../js/sidebar-loader.js?v=20260717c" defer></script>
-    <style>
-        html, body { height: 100%; overflow-x: hidden; }
-        .layout { min-height: 100vh; display: flex; }
-        .main-content { flex: 1; margin-left: 280px; width: calc(100% - 280px); padding: 40px; }
-        @media (max-width: 600px) { .main-content { margin-left: 0; width: 100%; padding: 20px; } }
-        body { background: #000 !important; }
-        body::before {
-            content: '';
-            position: fixed; inset: 0; z-index: -1;
-            background: linear-gradient(160deg,#0b1a33 0%,#0a1628 55%,#080f1f 100%);
-  opacity: 0.55;
-            pointer-events: none;
-        }
-    </style>
-    <link rel="stylesheet" href="/css/glass-cards.css?v=20260716a">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Comisiones · Líneas</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="/js/fetch-interceptor.js" defer></script>
+  <script src="/js/logout-handler.js" defer></script>
+  <script src="/js/user-info.js" defer></script>
+  <style>
+    /* Base mínima neutra — lienzo para el rediseño de Líneas */
+    *,*::before,*::after{box-sizing:border-box}
+    body,body.dark-theme{margin:0;background:#ffffff !important;color:#111111 !important;font-family:system-ui,sans-serif}
+    .layout{display:flex;min-height:100vh}
+    .sidebar{flex:0 0 auto}
+    .main-content{flex:1;min-width:0;padding:24px}
+  </style>
+  <script>
+    // Lienzo del rediseño de Líneas: SIN modo oscuro global.
+    // El sidebar fuerza body.dark-theme (dark-mode.css) — aquí se elimina y
+    // se mantiene fuera aunque el loader la re-aplique después.
+    (function(){
+      function strip(){ if(document.body) document.body.classList.remove('dark-theme'); }
+      document.addEventListener('DOMContentLoaded', function(){
+        strip();
+        new MutationObserver(strip).observe(document.body, { attributes:true, attributeFilter:['class'] });
+      });
+    })();
+  </script>
+  <link rel="stylesheet" href="/css/sidebar-static.css?v=1">
 </head>
 <body>
-    <div class="layout">
-        <div class="main-content">
-            <div id="root"></div>
+  <script src="/js/theme-init.js" defer></script>
+  <script src="/js/sidebar-static.js" defer></script>
+<div class="layout">
+  <nav class="sidebar" id="app-sidebar">
+  <div class="sb-brand">
+    <div class="sb-brand-mark">CC</div>
+    <div class="sb-brand-text"><strong>CONNECTING</strong><span>C R M</span></div>
+  </div>
+  <div class="sb-scroll">
+<div class="sb-mov-head">SERVICIOS MÓVILES</div>
+<a href="/lineas/inicio.html" class="sb-item mov"><span class="sb-ic" style="background:#d1fae5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#059669"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg></span><span class="sb-lbl">Inicio</span></a>
+<a href="/lineas/lead.html" class="sb-item mov"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-4 3-6 6-6s6 2 6 6"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg></span><span class="sb-lbl">Nuevo Lead</span></a>
+<a href="/lineas/costumer.html" class="sb-item mov"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><circle cx="8" cy="8" r="3"/><path d="M2 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14c2.6.4 4.5 2.6 4.5 6"/></svg></span><span class="sb-lbl">Costumer Líneas</span></a>
+<a href="/lineas/estadisticas.html" class="sb-item mov"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><line x1="4" y1="20" x2="20" y2="20"/><rect x="6" y="12" width="3" height="8" rx="2"/><rect x="11" y="8" width="3" height="12" rx="2"/><rect x="16" y="4" width="3" height="16" rx="2"/></svg></span><span class="sb-lbl">Estadísticas Líneas</span></a>
+<a href="/lineas/ranking.html" class="sb-item mov"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><path d="M4 16l5-5 4 3 7-8"/><path d="M4 20h16"/></svg></span><span class="sb-lbl">Ranking Líneas</span></a>
+<a href="/lineas/facturacion.html" class="sb-item mov"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/></svg></span><span class="sb-lbl">Facturación Líneas</span></a>
+<a href="/lineas/comisiones.html" class="sb-item mov active"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><circle cx="9" cy="9" r="5"/><circle cx="15" cy="15" r="5" fill="none"/></svg></span><span class="sb-lbl">Comisiones Líneas</span></a>
+<a href="/lineas/reglas.html" class="sb-item mov"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><path d="M6 3h9l4 4v14H6V3z"/><path d="M15 3v4h4"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg></span><span class="sb-lbl">Reglas Líneas</span></a>
+<a href="/residencial/inicio.html" class="sb-item"><span class="sb-ic" style="background:#dbeafe;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#2563eb"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg></span><span class="sb-lbl">Inicio</span></a>
+<a href="/residencial/formulario-registro.html" class="sb-item"><span class="sb-ic" style="background:#d1fae5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#059669"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-4 3-6 6-6s6 2 6 6"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg></span><span class="sb-lbl">Formulario</span></a>
+<a href="/residencial/costumer.html" class="sb-item"><span class="sb-ic" style="background:#ede9fe;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#7c3aed"><circle cx="8" cy="8" r="3"/><path d="M2 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14c2.6.4 4.5 2.6 4.5 6"/></svg></span><span class="sb-lbl">Lista de Clientes</span></a>
+<a href="/residencial/normativas-tipificacion.html" class="sb-item"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><path d="M3 11l9-8 9 8-9 9-9-9z"/><circle cx="15" cy="8" r="1.3" fill="currentColor"/></svg></span><span class="sb-lbl">Tipificación</span></a>
+<div class="sb-sec" data-admin-only>ESTADÍSTICAS</div>
+<a href="/residencial/productividad-bo.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#fef3c7;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#d97706"><circle cx="9" cy="7" r="3"/><path d="M4 20c0-3.5 2.7-6 5-6"/><path d="M13 20l3-4 2 2 3-6"/></svg></span><span class="sb-lbl">Productividad B.O</span></a>
+<a href="/residencial/estadisticas.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#fef9c3;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#ca8a04"><line x1="4" y1="20" x2="20" y2="20"/><rect x="6" y="12" width="3" height="8" rx="2"/><rect x="11" y="8" width="3" height="12" rx="2"/><rect x="16" y="4" width="3" height="16" rx="2"/></svg></span><span class="sb-lbl">Estadísticas</span></a>
+<a href="/residencial/productividad.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#e0e7ff;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#4f46e5"><circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/><path d="M12 3c3 4 3 14 0 18"/><path d="M12 3c-3 4-3 14 0 18"/></svg></span><span class="sb-lbl">Productividad</span></a>
+<a href="/residencial/ranking-agente.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#ffedd5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#ea580c"><path d="M4 16l5-5 4 3 7-8"/><path d="M4 20h16"/></svg></span><span class="sb-lbl">Ranking de Agentes</span></a>
+<a href="/residencial/ranking.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#fce7f3;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#db2777"><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M7 5H4a2 2 0 0 0 2 4"/><path d="M17 5h3a2 2 0 0 1-2 4"/><line x1="12" y1="14" x2="12" y2="17"/><path d="M8 21h8"/><path d="M9 21c0-2 1.3-3 3-3s3 1 3 3"/></svg></span><span class="sb-lbl">Ranking y Promociones</span></a>
+<a href="/residencial/premios.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#dbeafe;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#2563eb"><rect x="3" y="9" width="18" height="4" rx="2"/><rect x="5" y="13" width="14" height="8" rx="2"/><line x1="12" y1="9" x2="12" y2="21"/><path d="M12 9C10 4 5 5 5 8s3 1 7 1z"/><path d="M12 9c2-5 7-4 7-1s-3 1-7 1z"/></svg></span><span class="sb-lbl">Premios</span></a>
+<a href="/residencial/reglas.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#d1fae5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#059669"><path d="M6 3h9l4 4v14H6V3z"/><path d="M15 3v4h4"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg></span><span class="sb-lbl">Reglas y Puntajes</span></a>
+<a href="/residencial/facturacion.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#fee2e2;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#dc2626"><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/></svg></span><span class="sb-lbl">Facturación</span></a>
+<a href="/residencial/llamadas-ventas.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#f1f5f9;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#475569"><path d="M5 4c0 9 6 15 15 15l1-4-5-2-2 2c-3-1.5-5-3.5-6-6l2-2-2-5-4 1z"/></svg></span><span class="sb-lbl">Llamadas y Ventas por Team</span></a>
+<a href="/residencial/comisiones.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0891b2"><circle cx="9" cy="9" r="5"/><circle cx="15" cy="15" r="5" fill="none"/></svg></span><span class="sb-lbl">Comisión</span></a>
+<a href="/residencial/semaforo.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#f1f5f9;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#64748b"><rect x="9" y="2" width="6" height="20" rx="2"/><circle cx="12" cy="6" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="18" r="1.4" fill="currentColor"/></svg></span><span class="sb-lbl">El Semáforo</span></a>
+<div class="sb-sec" data-admin-only>ADMINISTRACIÓN</div>
+<a href="/residencial/empleado-mes.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#fef9c3;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#ca8a04"><path d="M12 2l3 6.5 7 .8-5.2 4.8 1.4 7-6.2-3.6L5.8 21.1l1.4-7L2 9.3l7-.8z"/></svg></span><span class="sb-lbl">Empleado del Mes</span></a>
+<a href="/residencial/tabla-puntaje.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#ffedd5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#ea580c"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4.5" cy="6" r="1.3" fill="currentColor"/><circle cx="4.5" cy="12" r="1.3" fill="currentColor"/><circle cx="4.5" cy="18" r="1.3" fill="currentColor"/></svg></span><span class="sb-lbl">Tabla de Puntaje</span></a>
+<a href="/crear-cuenta.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#e0e7ff;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#4f46e5"><path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span><span class="sb-lbl">Permisos</span></a>
+<a href="/chat.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><path d="M4 5h16v11H9l-5 4V5z"/></svg></span><span class="sb-lbl">Chat</span></a>
+  </div>
+  <div class="sb-footer">
+    <p class="sb-quote">"El éxito es la suma de pequeños esfuerzos repetidos día tras día"</p>
+    <button type="button" class="sb-logout" data-logout-button title="Cerrar Sesión">
+      <span class="sb-ic" style="background:#fee2e2;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#dc2626"><path d="M9 4H5v16h4"/><path d="M14 8l5 4-5 4"/><line x1="19" y1="12" x2="9" y2="12"/></svg></span>
+      <span class="sb-lbl">Cerrar Sesión</span>
+    </button>
+  </div>
+</nav>
+  <main class="main-content">
+    <div class="cl-header">
+      <div>
+        <div class="cl-eyebrow">Servicios Móviles</div>
+        <div class="cl-title">Comisiones · Líneas</div>
+        <div class="cl-sub">Cálculo por líneas vendidas · tasa y escalas desde el servidor</div>
+      </div>
+      <div class="cl-controls">
+        <div class="cl-monthnav">
+          <button class="cl-mbtn" onclick="cambiarMes(-1)">‹</button>
+          <span class="cl-mlabel" id="cl-mes">—</span>
+          <button class="cl-mbtn" onclick="cambiarMes(1)">›</button>
         </div>
+        <div class="cl-toggle" id="cl-toggle" style="display:none">
+          <button class="cl-vtab" id="vtab-admin" onclick="switchView('admin')">Vista Admin</button>
+          <button class="cl-vtab" id="vtab-agent" onclick="switchView('agent')">Mi Vista</button>
+        </div>
+      </div>
     </div>
+    <div id="cl-content"><div class="cl-loading">Cargando…</div></div>
+  </main>
+</div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+<script>
+(function(){
+  'use strict';
+  var MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var _month={year:new Date().getFullYear(),month:new Date().getMonth()+1};
+  var _user=null,_view='admin',_agentIdx=0;
+  var _rows=[],_cfg=null;
 
-        // Nombres de meses en español
-        const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  function esc(s){var d=document.createElement('div');d.textContent=String(s==null?'':s);return d.innerHTML;}
+  function initials(n){return String(n||'').trim().split(/\s+/).slice(0,2).map(function(w){return w[0]||'';}).join('').toUpperCase()||'??';}
+  function fmtUSD(n){return '$'+(Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+  function normName(s){
+    var n=String(s||''); try{n=n.normalize('NFD').replace(/[\u0300-\u036f]/g,'');}catch(_){}
+    return n.replace(/[._]+/g,' ').replace(/\s+/g,' ').trim().toLowerCase();
+  }
+  function isAdminRole(role){
+    var r=String(role||'').toLowerCase();
+    return ['admin','administrador','administrativo','backoffice','back office','bo','b.o','rol_icon','rol-icon','rol_bamo'].some(function(v){return r===v||r.indexOf(v)!==-1;});
+  }
 
-        const ComisionesLineas = () => {
-            const [agentsLineas, setAgentsLineas] = useState([]);
-            const [loading, setLoading] = useState(true);
-            const [selectedAgent, setSelectedAgent] = useState(null);
-            const [showAgentModal, setShowAgentModal] = useState(false);
-            
-            // Estado para el usuario actual y su rol
-            const [currentUser, setCurrentUser] = useState(null);
-            const [userRole, setUserRole] = useState('');
-            const [userSupervisor, setUserSupervisor] = useState('');
-            const [isAgentView, setIsAgentView] = useState(false);
-            const [ownAgentData, setOwnAgentData] = useState(null);
-            
-            // Estado para navegación mensual
-            const now = new Date();
-            const [currentMonth, setCurrentMonth] = useState(now.getMonth() + 1);
-            const [currentYear, setCurrentYear] = useState(now.getFullYear());
-            
-            // Ref para long press
-            const longPressTimer = useRef(null);
+  /* ── datos: UNA llamada por mes ── */
+  async function loadData(){
+    document.getElementById('cl-mes').textContent=MESES[_month.month-1]+' '+_month.year;
+    var box=document.getElementById('cl-content');
+    box.innerHTML='<div class="cl-loading">Cargando…</div>';
+    try{
+      var m=_month.year+'-'+String(_month.month).padStart(2,'0');
+      var r=await fetch('/api/comisiones/agentes-lineas?month='+m,{credentials:'include'});
+      var j=await r.json();
+      _rows=(j&&j.data)||[];
+      if(j&&j.config)_cfg=j.config;
+    }catch(e){_rows=[];}
+    render();
+  }
 
-            // Cargar información del usuario actual
-            useEffect(() => {
-                const loadUserInfo = () => {
-                    try {
-                        // Datos del usuario desde el objeto persistido (la auth es por cookie httpOnly;
-                        // el JWT ya no se expone a JS, así que no se decodifica aquí).
-                        const payload = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-                        if (payload && (payload.role || payload.username)) {
-                            const role = (payload.role || '').toLowerCase();
-                            const name = payload.name || payload.username || '';
-                            const displayName = (payload.displayName || payload.name || '').toUpperCase();
-                            
-                            setCurrentUser(payload);
-                            setUserRole(role);
-                            
-                            // Detectar si es admin
-                            const isAdminUser = role === 'admin' || role === 'backoffice' || role === 'administrador';
-                            const isSupervisorUser = role.includes('supervisor');
-                            
-                            // Detectar si es supervisor de líneas y determinar su equipo
-                            // Usar displayName, name y username para detectar
-                            const userName = (payload.username || '').toUpperCase();
-                            const fullName = displayName || userName;
-                            
-                            let supervisorTeam = '';
-                            if (isSupervisorUser && !isAdminUser) {
-                                // Team del supervisor desde la página de permisos (payload.team).
-                                // Token = palabra distintiva (JONATHAN/LUIS/VICTOR/…). Sin hardcode.
-                                const _t = String(payload.team || '').toUpperCase()
-                                    .replace('TEAM LINEAS', '').replace('TEAM', '').trim();
-                                supervisorTeam = _t.split(/\s+/)[0] || '';
-                                setUserSupervisor(supervisorTeam);
-                            }
-                            
-                            // Detectar si es agente (no admin, no supervisor)
-                            if (!isAdminUser && !isSupervisorUser) {
-                                setIsAgentView(true);
-                            }
-                            
-                        }
-                    } catch (e) {
-                        console.error('Error cargando info de usuario:', e);
-                    }
-                };
-                loadUserInfo();
-            }, []);
+  /* ── VISTA ADMIN ── */
+  var _topAll=false;
+  window.clToggleTop=function(){_topAll=!_topAll;render();};
+  function renderAdmin(){
+    var totalV=0,totalL=0,totalC=0;
+    var teams={};
+    _rows.forEach(function(a){
+      totalV+=a.ventas||0; totalL+=a.lineasTotal||0; totalC+=a.comision||0;
+      var t=a.team_label||'Sin team';
+      if(!teams[t])teams[t]={ventas:0,lineas:0,comision:0};
+      teams[t].ventas+=a.ventas||0; teams[t].lineas+=a.lineasTotal||0; teams[t].comision+=a.comision||0;
+    });
+    var kpis='<div class="dcb dcb-kpis">'+
+      '<div class="dcb-kpi" style="border-top:3px solid #2ecfc0"><div class="dcb-kpi-lbl">AGENTES ACTIVOS</div><div class="dcb-kpi-val">'+_rows.length+'</div></div>'+
+      '<div class="dcb-kpi" style="border-top:3px solid oklch(72% 0.13 150)"><div class="dcb-kpi-lbl">CLIENTES DEL MES</div><div class="dcb-kpi-val">'+totalV+'</div></div>'+
+      '<div class="dcb-kpi" style="border-top:3px solid oklch(78% 0.13 80)"><div class="dcb-kpi-lbl">LÍNEAS VENDIDAS</div><div class="dcb-kpi-val">'+totalL+'</div></div>'+
+      '<div class="dcb-kpi" style="border-top:3px solid oklch(75% 0.02 255)"><div class="dcb-kpi-lbl">COMISIÓN TOTAL</div><div class="dcb-kpi-val" style="color:#34d399">'+fmtUSD(totalC)+'</div></div>'+
+    '</div>';
 
-            useEffect(() => {
-                loadAgentsLineas();
-            }, [currentMonth, currentYear, currentUser]);
+    var tEntries=Object.keys(teams).map(function(k){return {name:k,v:teams[k]};}).sort(function(a,b){return b.v.lineas-a.v.lineas;});
+    var maxL=Math.max.apply(null,tEntries.map(function(t){return t.v.lineas;}).concat([1]));
+    var bullets='<div class="dcb dcb-card"><div class="dcb-card-head"><h3>Líneas por Team</h3><span class="dcb-card-tag">MES ACTUAL</span></div>'+
+      tEntries.map(function(t){
+        return '<div class="dcb-team-lbl"><span style="font-weight:600;color:var(--t2)">'+esc(t.name)+'</span>'+
+          '<span style="color:var(--t3)">'+t.v.lineas+' líneas · '+t.v.ventas+' clientes · '+fmtUSD(t.v.comision)+'</span></div>'+
+          '<div class="dcb-bullet"><div class="dcb-bullet-fill" style="width:'+(t.v.lineas/maxL*100).toFixed(1)+'%"></div></div>';
+      }).join('')+'</div>';
 
-            const loadAgentsLineas = async () => {
-                setLoading(true);
-                try {
-                    const response = await fetch(`/api/comisiones/agentes-lineas?month=${currentMonth}&year=${currentYear}`);
-                    if (!response.ok) throw new Error('Error cargando agentes');
-                    
-                    const data = await response.json();
-                    const agentes = data.data || [];
-                    
-                    const procesados = agentes.map((agent, idx) => ({
-                        id: agent.id || idx,
-                        name: agent.nombre || agent.name || `Agente ${idx + 1}`,
-                        sales: agent.ventas || 0,
-                        lineasWireless: agent.lineasWireless || 0,
-                        lineasSinWireless: agent.lineasSinWireless || 0,
-                        commission: agent.comision || 0,
-                        supervisor: agent.supervisor || '',
-                        leads: agent.leads || []
-                    })).sort((a, b) => b.sales - a.sales);
-                    
-                    setAgentsLineas(procesados);
-                    
-                    // Si es agente, buscar sus propios datos
-                    if (isAgentView && currentUser) {
-                        const userName = (currentUser.name || currentUser.displayName || currentUser.username || '').toUpperCase();
-                        const ownData = procesados.find(a => a.name.toUpperCase() === userName || a.name.toUpperCase().includes(userName.split(' ')[0]));
-                        if (ownData) {
-                            setOwnAgentData(ownData);
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                } finally {
-                    setLoading(false);
-                }
-            };
+    var RANKS=[['oklch(80% 0.13 80)','oklch(25% 0.05 80)'],['oklch(88% 0.006 250)','oklch(35% 0.02 255)'],['oklch(78% 0.1 50)','oklch(28% 0.05 50)']];
+    var sorted=_rows.slice().sort(function(a,b){return (b.lineasTotal||0)-(a.lineasTotal||0);});
+    var top=_topAll?sorted:sorted.slice(0,6);
+    var topHtml='<div class="dcb dcb-card"><div class="dcb-card-head"><h3>Top Agentes por Líneas</h3>'+
+      '<a class="dcb-card-tag" onclick="clToggleTop()">'+(_topAll?'Ver top 6 ←':'Ver todos →')+'</a></div>'+
+      '<div class="dcb-top-grid">'+top.map(function(a,i){
+        var rk=RANKS[i]||['rgba(255,255,255,.10)','#cbd5e1'];
+        return '<div class="dcb-top-card">'+
+          '<div style="display:flex;align-items:center;gap:9px">'+
+            '<div class="dcb-rank" style="background:'+rk[0]+';color:'+rk[1]+'">'+(i+1)+'</div>'+
+            '<div style="min-width:0"><div style="font-size:13px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(a.nombre)+'</div>'+
+            '<div style="font-size:10.5px;color:var(--t4)">'+esc(a.team_label||'Sin team')+'</div></div></div>'+
+          '<div style="font-size:19px;font-weight:700;color:var(--t1);margin-top:10px">'+(a.lineasTotal||0)+'<span style="font-size:11px;font-weight:500;color:var(--t4)"> líneas</span></div>'+
+          '<div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--t4);margin-top:6px">'+
+            '<span>'+(a.ventas||0)+' clientes</span><span style="color:#34d399">'+fmtUSD(a.comision)+'</span></div>'+
+          '<div style="font-size:10px;color:var(--t4);margin-top:4px">'+esc(a.escala||'')+'</div>'+
+        '</div>';
+      }).join('')+'</div></div>';
 
-            // Navegación mensual
-            const goToPrevMonth = () => {
-                if (currentMonth === 1) {
-                    setCurrentMonth(12);
-                    setCurrentYear(currentYear - 1);
-                } else {
-                    setCurrentMonth(currentMonth - 1);
-                }
-            };
+    return kpis+bullets+topHtml;
+  }
 
-            const goToNextMonth = () => {
-                if (currentMonth === 12) {
-                    setCurrentMonth(1);
-                    setCurrentYear(currentYear + 1);
-                } else {
-                    setCurrentMonth(currentMonth + 1);
-                }
-            };
+  /* ── MI VISTA (diseño residencial .mv) ── */
+  function resolveAgent(){
+    var adminBrowse=isAdminRole(_user&&_user.role)&&_rows.length>0;
+    if(adminBrowse){
+      if(_agentIdx<0)_agentIdx=0;
+      if(_agentIdx>=_rows.length)_agentIdx=_rows.length-1;
+      return {a:_rows[_agentIdx],browse:true,idx:_agentIdx,total:_rows.length};
+    }
+    var un=normName(_user&&( _user.name||_user.username));
+    var uu=normName(_user&&_user.username);
+    var found=_rows.find(function(r){
+      var k=normName(r.nombre);
+      return k===un||k===uu;
+    })||_rows.find(function(r){
+      var k=normName(r.nombre).split(' ').filter(function(w){return w.length>2;});
+      var w=un.split(' ').filter(function(x){return x.length>2;});
+      if(!w.length||!k.length)return false;
+      var s=w.length<=k.length?w:k,l=w.length<=k.length?k:w;
+      return s.length>=2&&s.every(function(x){return l.indexOf(x)!==-1;});
+    });
+    return {a:found||null,browse:false,idx:-1,total:0};
+  }
 
-            // Long press handlers - abre modal de vista de agente
-            const handleMouseDown = (agent) => {
-                longPressTimer.current = setTimeout(() => {
-                    setSelectedAgent(agent);
-                    setShowAgentModal(true);
-                }, 500); // 500ms para activar
-            };
+  window.navAgent=function(d){_agentIdx=Math.max(0,Math.min(_rows.length-1,_agentIdx+d));render();};
 
-            const handleMouseUp = () => {
-                if (longPressTimer.current) {
-                    clearTimeout(longPressTimer.current);
-                }
-            };
+  function renderAgent(){
+    var res=resolveAgent();
+    var a=res.a;
+    var mes=MESES[_month.month-1]+' '+_month.year;
+    if(!a){
+      return '<div class="mv"><div class="mv-bar"><div class="mv-bar-main">'+
+        '<div class="mv-avatar">'+initials(_user&&(_user.name||_user.username))+'</div>'+
+        '<div><div class="mv-agent-name">'+esc((_user&&(_user.name||_user.username))||'Mi usuario')+'</div>'+
+        '<div class="mv-agent-sub">'+mes+'</div></div>'+
+        '<div style="flex:1"></div>'+
+        '<div style="text-align:right"><div class="mv-com-lbl">COMISIÓN ESTIMADA · LÍNEAS</div>'+
+        '<div class="mv-com-val">$0.00</div><div class="mv-com-hint">Sin ventas de líneas este mes</div></div>'+
+        '</div></div></div>';
+    }
+    var lineas=a.lineasTotal||0;
+    var escalas=(_cfg&&_cfg.escalas)||[];
+    var metaOk=(a.comision||0)>0&&a.escala!==(_cfg&&_cfg.sinEscalaLabel);
+    var metaOn=escalas.length?lineas>=escalas[0].min:false;
+    var metaColor=metaOn?'var(--mv-green)':'var(--mv-amber)';
+    var metaBg=metaOn?'oklch(0.78 0.13 160 / 0.14)':'oklch(0.8 0.11 45 / 0.14)';
+    var metaBorder=metaOn?'oklch(0.78 0.13 160 / 0.4)':'oklch(0.8 0.11 45 / 0.4)';
+    var metaLabel=metaOn?'META ALCANZADA':'SIN META';
+    var minMeta=escalas.length?escalas[0].min:0;
+    var metaHint=metaOn?'Meta cumplida este mes':'Sin meta — mínimo '+minMeta+' líneas';
 
-            const handleTouchStart = (agent) => {
-                longPressTimer.current = setTimeout(() => {
-                    setSelectedAgent(agent);
-                    setShowAgentModal(true);
-                }, 500);
-            };
+    var topMin=escalas.length?escalas[escalas.length-1].min:1;
+    var fill=Math.max(0,Math.min(100,(lineas/topMin)*100)).toFixed(1);
+    var tasa=(_cfg&&_cfg.tasaPorLinea)||0;
+    var steps='<div class="mv-step"><div class="dot" style="background:'+(lineas>=0?'var(--mv-cyan)':'oklch(0.24 0.02 250)')+';border:2px solid var(--mv-cyan)"></div>'+
+      '<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div class="min">0</div><div class="rate">—</div></div></div>'+
+      escalas.map(function(e){
+        var reached=lineas>=e.min;
+        return '<div class="mv-step"><div class="dot" style="background:'+(reached?'var(--mv-cyan)':'oklch(0.24 0.02 250)')+';border:2px solid '+(reached?'var(--mv-cyan)':'oklch(0.36 0.02 250)')+'"></div>'+
+          '<div style="display:flex;flex-direction:column;align-items:center;gap:2px">'+
+          '<div class="min">'+(e.max==null?e.min+'+':e.min)+'</div><div class="rate">'+esc(e.label)+'</div></div></div>';
+      }).join('');
 
-            const handleTouchEnd = () => {
-                if (longPressTimer.current) {
-                    clearTimeout(longPressTimer.current);
-                }
-            };
+    var navPrev=res.browse?'<button class="mv-nav-btn" onclick="navAgent(-1)" '+(res.idx<=0?'disabled':'')+'>‹</button>':'';
+    var navSide=res.browse?'<div class="mv-bar-side"><div class="mv-bar-count">Agente '+(res.idx+1)+' de '+res.total+'</div>'+
+      '<button class="mv-nav-btn" onclick="navAgent(1)" '+(res.idx>=res.total-1?'disabled':'')+'>›</button></div>':'';
 
-            // Componente Modal de Vista de Agente (estilo Comisiones.html)
-            const AgentViewModal = ({ agent, onClose }) => {
-                if (!agent) return null;
-                
-                const totalLineas = agent.lineasWireless + agent.lineasSinWireless;
-                const escala = totalLineas >= 31 ? 'Escala 31+' : 
-                              totalLineas >= 26 ? 'Escala 26-30' : 
-                              totalLineas >= 21 ? 'Escala 21-25' : 
-                              totalLineas >= 17 ? 'Escala 17-20' : 'Sin escala';
-                
-                // Calcular progreso de cada escala
-                const calcProgress = (min, max) => {
-                    if (totalLineas >= max) return 100;
-                    if (totalLineas < min) return 0;
-                    return Math.round(((totalLineas - min) / (max - min)) * 100);
-                };
-                
-                // Escala 17-20: 17,18,19,20 = 4 valores (17 es 25%, 18 es 50%, 19 es 75%, 20 es 100%)
-                const progress17_20 = totalLineas >= 20 ? 100 : (totalLineas >= 17 ? Math.round(((totalLineas - 16) / 4) * 100) : 0);
-                // Escala 21-25: 21,22,23,24,25 = 5 valores (21 es 20%, 25 es 100%)
-                const progress21_25 = totalLineas >= 25 ? 100 : (totalLineas >= 21 ? Math.round(((totalLineas - 20) / 5) * 100) : 0);
-                // Escala 26-30: 26,27,28,29,30 = 5 valores
-                const progress26_30 = totalLineas >= 30 ? 100 : (totalLineas >= 26 ? Math.round(((totalLineas - 25) / 5) * 100) : 0);
-                // Escala 31+
-                const progress31 = totalLineas >= 31 ? 100 : 0;
-                
-                const progressPercent = Math.min((totalLineas / 31) * 100, 100);
-                
-                return (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-                        <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
-                            {/* Header */}
-                            <div className="bg-white rounded-t-3xl p-6 border-b flex justify-between items-start">
-                                <div>
-                                    <h1 className="text-3xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                                        ¡Hola, {agent.name}! 👋
-                                    </h1>
-                                    <p className="text-gray-500 mt-1">Aquí está tu rendimiento actual y tus ganancias</p>
-                                    <p className="text-gray-400 text-sm mt-2">{MONTH_NAMES[currentMonth - 1]} {currentYear}</p>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <span className="bg-indigo-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
-                                        ROL: AGENTE
-                                    </span>
-                                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-3xl font-light">&times;</button>
-                                </div>
-                            </div>
-                            
-                            {/* Content */}
-                            <div className="p-6">
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                                    {/* Card Comisión */}
-                                    <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-8 border-2 border-amber-400 relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 w-40 h-40 bg-amber-200 rounded-full opacity-20 -translate-y-1/2 translate-x-1/2"></div>
-                                        <div className="relative z-10 text-center">
-                                            <p className="text-gray-500 font-semibold uppercase tracking-wider text-sm mb-4">COMISIÓN ESTIMADA</p>
-                                            <div className="text-5xl mb-4">💰</div>
-                                            <p className="text-5xl font-black text-amber-500 mb-2">{formatUsd(agent.commission)}</p>
-                                            <p className="text-gray-500 text-sm">Basado en tu fórmula de rendimiento</p>
-                                            
-                                            {/* Progress */}
-                                            <div className="mt-8">
-                                                <div className="flex justify-between text-sm font-semibold mb-2">
-                                                    <span>Progreso de Meta</span>
-                                                    <span className="text-amber-600">{escala}</span>
-                                                </div>
-                                                <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all duration-500" style={{width: `${progressPercent}%`}}></div>
-                                                </div>
-                                                <div className="mt-4 space-y-3 text-sm">
-                                                    <div>
-                                                        <div className="flex justify-between mb-1"><span>Escala 17-20</span><span className={totalLineas >= 17 ? 'text-green-600 font-bold' : 'text-gray-400'}>{progress17_20}%</span></div>
-                                                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                                                            <div className={`h-full rounded-full transition-all ${totalLineas >= 20 ? 'bg-green-500' : 'bg-amber-400'}`} style={{width: `${progress17_20}%`}}></div>
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <div className="flex justify-between mb-1"><span>Escala 21-25</span><span className={totalLineas >= 21 ? 'text-green-600 font-bold' : 'text-gray-400'}>{progress21_25}%</span></div>
-                                                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                                                            <div className={`h-full rounded-full transition-all ${totalLineas >= 25 ? 'bg-green-500' : 'bg-amber-400'}`} style={{width: `${progress21_25}%`}}></div>
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <div className="flex justify-between mb-1"><span>Escala 26-30</span><span className={totalLineas >= 26 ? 'text-green-600 font-bold' : 'text-gray-400'}>{progress26_30}%</span></div>
-                                                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                                                            <div className={`h-full rounded-full transition-all ${totalLineas >= 30 ? 'bg-green-500' : 'bg-amber-400'}`} style={{width: `${progress26_30}%`}}></div>
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <div className="flex justify-between mb-1"><span>Escala 31+</span><span className={totalLineas >= 31 ? 'text-green-600 font-bold' : 'text-gray-400'}>{progress31}%</span></div>
-                                                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                                                            <div className={`h-full rounded-full transition-all ${totalLineas >= 31 ? 'bg-green-500' : 'bg-amber-400'}`} style={{width: `${progress31}%`}}></div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    {/* Stats Grid */}
-                                    <div className="bg-white rounded-2xl p-6 border shadow-lg">
-                                        <div className="grid grid-cols-2 gap-6">
-                                            {/* Ventas Activas */}
-                                            <div className="border-b border-r pb-6 pr-6">
-                                                <div className="text-3xl mb-2">📊</div>
-                                                <p className="text-gray-500 text-sm font-semibold uppercase">VENTAS ACTIVAS</p>
-                                                <p className="text-4xl font-black text-gray-900">{agent.sales}</p>
-                                                <p className="text-gray-400 text-sm">Clientes este mes</p>
-                                            </div>
-                                            
-                                            {/* Puntaje Activo */}
-                                            <div className="border-b pb-6 pl-6">
-                                                <div className="text-3xl mb-2">⭐</div>
-                                                <p className="text-gray-500 text-sm font-semibold uppercase">PUNTAJE ACTIVO</p>
-                                                <p className="text-4xl font-black text-gray-900">{(totalLineas * 0.5).toFixed(2)}</p>
-                                                <p className="text-gray-400 text-sm">Nivel: Avanzado</p>
-                                            </div>
-                                            
-                                            {/* Pendientes */}
-                                            <div className="border-r pt-6 pr-6">
-                                                <div className="text-3xl mb-2">✅</div>
-                                                <p className="text-gray-500 text-sm font-semibold uppercase">LÍNEAS WIRELESS</p>
-                                                <p className="text-4xl font-black text-gray-900">{agent.lineasWireless}</p>
-                                                <p className="text-gray-400 text-sm">Líneas activas</p>
-                                            </div>
-                                            
-                                            {/* Escala */}
-                                            <div className="pt-6 pl-6">
-                                                <div className="text-3xl mb-2">🎯</div>
-                                                <p className="text-gray-500 text-sm font-semibold uppercase">ESCALA</p>
-                                                <p className="text-2xl font-black text-gray-900">{escala}</p>
-                                                <p className="text-gray-400 text-sm">Escala actual</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                {/* Resumen de Líneas */}
-                                <div className="bg-white rounded-2xl p-6 border shadow-lg">
-                                    <h3 className="text-xl font-bold text-gray-900 mb-4">📈 Resumen de Líneas</h3>
-                                    <div className="grid grid-cols-3 gap-4">
-                                        <div className="bg-blue-50 rounded-xl p-4 text-center">
-                                            <p className="text-3xl font-black text-blue-600">{totalLineas}</p>
-                                            <p className="text-sm text-blue-600 font-semibold">Total Líneas</p>
-                                        </div>
-                                        <div className="bg-green-50 rounded-xl p-4 text-center">
-                                            <p className="text-3xl font-black text-green-600">{agent.lineasWireless}</p>
-                                            <p className="text-sm text-green-600 font-semibold">Wireless</p>
-                                        </div>
-                                        <div className="bg-purple-50 rounded-xl p-4 text-center">
-                                            <p className="text-3xl font-black text-purple-600">{agent.lineasSinWireless}</p>
-                                            <p className="text-sm text-purple-600 font-semibold">Sin Wireless</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                );
-            };
+    return '<div class="mv">'+
+      '<div class="mv-bar">'+navPrev+
+        '<div class="mv-bar-main">'+
+          '<div class="mv-avatar">'+initials(a.nombre)+'</div>'+
+          '<div style="display:flex;flex-direction:column;gap:6px;min-width:220px">'+
+            '<div class="mv-agent-name">'+esc(a.nombre)+'</div>'+
+            '<div class="mv-agent-sub">'+esc(a.team_label||'Sin team')+' · '+mes+'</div>'+
+            '<div class="mv-pill" style="background:'+metaBg+';border:1px solid '+metaBorder+'">'+
+              '<span class="dot" style="background:'+metaColor+'"></span>'+
+              '<span class="lbl" style="color:'+metaColor+'">'+metaLabel+'</span></div>'+
+          '</div>'+
+          '<div style="flex:1"></div>'+
+          '<div style="text-align:right;display:flex;flex-direction:column;gap:4px">'+
+            '<div class="mv-com-lbl">COMISIÓN ESTIMADA · LÍNEAS</div>'+
+            '<div class="mv-com-val">'+fmtUSD(a.comision)+'</div>'+
+            '<div class="mv-com-hint">'+esc(metaHint)+'</div>'+
+          '</div>'+
+        '</div>'+navSide+
+      '</div>'+
+      '<div class="mv-grid4">'+
+        '<div class="mv-kpi"><div class="mv-kpi-lbl">CLIENTES</div><div class="mv-kpi-val">'+(a.ventas||0)+'</div><div class="mv-kpi-sub">Ventas este mes</div></div>'+
+        '<div class="mv-kpi"><div class="mv-kpi-lbl">LÍNEAS VENDIDAS</div><div class="mv-kpi-val">'+lineas+'</div><div class="mv-kpi-sub">'+(a.lineasWireless||0)+' wireless · '+(a.lineasSinWireless||0)+' otras</div></div>'+
+        '<div class="mv-kpi"><div class="mv-kpi-lbl">PUNTAJE</div><div class="mv-kpi-val" style="color:var(--mv-amber)">'+((a.puntos||0).toFixed?(a.puntos||0).toFixed(2):a.puntos)+'</div><div class="mv-kpi-sub">Puntos acumulados</div></div>'+
+        '<div class="mv-kpi"><div class="mv-kpi-lbl">TASA ACTUAL</div><div class="mv-kpi-val">'+fmtUSD(tasa)+'<span style="font-size:14px;font-weight:600;color:var(--mv-t4)">/línea</span></div><div class="mv-kpi-sub">'+esc(a.escala||'')+'</div></div>'+
+      '</div>'+
+      '<div class="mv-scale">'+
+        '<div class="mv-scale-head"><span class="dash"></span><span class="ttl">PROGRESO DE ESCALA</span></div>'+
+        '<div class="mv-steps"><div class="rail"></div><div class="fill" style="width:'+fill+'%"></div>'+steps+'</div>'+
+      '</div>'+
+    '</div>';
+  }
 
-            const getInitials = (name) => {
-                return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-            };
+  /* ── render ── */
+  function render(){
+    var box=document.getElementById('cl-content');
+    var adm=isAdminRole(_user&&_user.role);
+    document.getElementById('cl-toggle').style.display=adm?'flex':'none';
+    document.getElementById('vtab-admin').classList.toggle('active',_view==='admin');
+    document.getElementById('vtab-agent').classList.toggle('active',_view==='agent');
+    if(adm&&_view==='admin')box.innerHTML=renderAdmin();
+    else box.innerHTML=renderAgent();
+  }
+  window.switchView=function(v){_view=v;if(v==='agent')_agentIdx=0;render();};
+  window.cambiarMes=function(d){
+    var m=_month.month+d,y=_month.year;
+    if(m>12){m=1;y++;} if(m<1){m=12;y--;}
+    _month={year:y,month:m};
+    loadData();
+  };
 
-            const formatUsd = (amount) => {
-                return new Intl.NumberFormat('en-US', {
-                    style: 'currency',
-                    currency: 'USD'
-                }).format(amount);
-            };
-
-            // Filtrar equipos según el rol del usuario
-            const isAdmin = userRole === 'admin' || userRole === 'backoffice' || userRole === 'administrador';
-            const isSupervisor = userRole.includes('supervisor');
-            
-            
-            // Agrupar agentes por su team ACTUAL (lo trae el backend desde permisos).
-            // Sin nombres hardcodeados: si se crea un team o se mueve un agente, sale solo.
-            const TEAM_COLORS = [
-                { bg: 'bg-indigo-100', text: 'text-indigo-600' },
-                { bg: 'bg-purple-100', text: 'text-purple-600' },
-                { bg: 'bg-amber-100',  text: 'text-amber-600' },
-                { bg: 'bg-teal-100',   text: 'text-teal-600' },
-                { bg: 'bg-rose-100',   text: 'text-rose-600' },
-            ];
-            const _groups = {};
-            agentsLineas.forEach(a => {
-                const label = a.team_label || 'Sin team';
-                (_groups[label] = _groups[label] || []).push(a);
-            });
-            let teamsToRender = Object.keys(_groups).sort().map((label, i) => ({
-                label, token: (_groups[label][0] && _groups[label][0].team_token) || '',
-                color: TEAM_COLORS[i % TEAM_COLORS.length], agents: _groups[label],
-            }));
-            // Supervisores (no admin) solo ven su propio team (por token de permisos)
-            if (isSupervisor && !isAdmin && userSupervisor) {
-                const su = String(userSupervisor).toUpperCase();
-                teamsToRender = teamsToRender.filter(t =>
-                    String(t.token).toUpperCase() === su || t.label.toUpperCase().includes(su));
-            }
-
-            if (loading) {
-                return (
-                    <div className="flex items-center justify-center min-h-screen">
-                        <div className="text-xl text-gray-600">Cargando...</div>
-                    </div>
-                );
-            }
-
-            // Si es agente, mostrar directamente su vista de agente (sin modal, integrada)
-            if (isAgentView && ownAgentData) {
-                const agent = ownAgentData;
-                const totalLineas = agent.lineasWireless + agent.lineasSinWireless;
-                const escala = totalLineas >= 31 ? 'Escala 31+' : 
-                              totalLineas >= 26 ? 'Escala 26-30' : 
-                              totalLineas >= 21 ? 'Escala 21-25' : 
-                              totalLineas >= 17 ? 'Escala 17-20' : 'Sin escala';
-                
-                const progress17_20 = totalLineas >= 20 ? 100 : (totalLineas >= 17 ? Math.round(((totalLineas - 16) / 4) * 100) : 0);
-                const progress21_25 = totalLineas >= 25 ? 100 : (totalLineas >= 21 ? Math.round(((totalLineas - 20) / 5) * 100) : 0);
-                const progress26_30 = totalLineas >= 30 ? 100 : (totalLineas >= 26 ? Math.round(((totalLineas - 25) / 5) * 100) : 0);
-                const progress31 = totalLineas >= 31 ? 100 : 0;
-                const progressPercent = Math.min((totalLineas / 31) * 100, 100);
-                
-                return (
-                    <div className="max-w-4xl mx-auto">
-                        {/* Header */}
-                        <div className="bg-white rounded-3xl p-6 border mb-6 shadow-lg">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <h1 className="text-3xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                                        ¡Hola, {agent.name}! 👋
-                                    </h1>
-                                    <p className="text-gray-500 mt-1">Aquí está tu rendimiento actual y tus ganancias</p>
-                                </div>
-                                <span className="bg-indigo-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
-                                    ROL: AGENTE
-                                </span>
-                            </div>
-                            
-                            {/* Navegación Mensual */}
-                            <div className="flex items-center justify-center gap-4 mt-4 bg-gray-50 rounded-xl p-4">
-                                <button onClick={goToPrevMonth} className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
-                                    <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                                    </svg>
-                                </button>
-                                <div className="text-center min-w-[200px]">
-                                    <span className="text-2xl font-bold text-gray-900">{MONTH_NAMES[currentMonth - 1]}</span>
-                                    <span className="text-2xl font-bold text-gray-400 ml-2">{currentYear}</span>
-                                </div>
-                                <button onClick={goToNextMonth} className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
-                                    <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                        
-                        {/* Content */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                            {/* Card Comisión */}
-                            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-8 border-2 border-amber-400 relative overflow-hidden shadow-lg">
-                                <div className="absolute top-0 right-0 w-40 h-40 bg-amber-200 rounded-full opacity-20 -translate-y-1/2 translate-x-1/2"></div>
-                                <div className="relative z-10 text-center">
-                                    <p className="text-gray-500 font-semibold uppercase tracking-wider text-sm mb-4">COMISIÓN ESTIMADA</p>
-                                    <div className="text-5xl mb-4">💰</div>
-                                    <p className="text-5xl font-black text-amber-500 mb-2">{formatUsd(agent.commission)}</p>
-                                    <p className="text-gray-500 text-sm">Basado en tu fórmula de rendimiento</p>
-                                    
-                                    {/* Progress */}
-                                    <div className="mt-8">
-                                        <div className="flex justify-between text-sm font-semibold mb-2">
-                                            <span>Progreso de Meta</span>
-                                            <span className="text-amber-600">{escala}</span>
-                                        </div>
-                                        <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                                            <div className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all duration-500" style={{width: `${progressPercent}%`}}></div>
-                                        </div>
-                                        <div className="mt-4 space-y-3 text-sm">
-                                            <div>
-                                                <div className="flex justify-between mb-1"><span>Escala 17-20</span><span className={totalLineas >= 17 ? 'text-green-600 font-bold' : 'text-gray-400'}>{progress17_20}%</span></div>
-                                                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                                                    <div className={`h-full rounded-full transition-all ${totalLineas >= 20 ? 'bg-green-500' : 'bg-amber-400'}`} style={{width: `${progress17_20}%`}}></div>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div className="flex justify-between mb-1"><span>Escala 21-25</span><span className={totalLineas >= 21 ? 'text-green-600 font-bold' : 'text-gray-400'}>{progress21_25}%</span></div>
-                                                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                                                    <div className={`h-full rounded-full transition-all ${totalLineas >= 25 ? 'bg-green-500' : 'bg-amber-400'}`} style={{width: `${progress21_25}%`}}></div>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div className="flex justify-between mb-1"><span>Escala 26-30</span><span className={totalLineas >= 26 ? 'text-green-600 font-bold' : 'text-gray-400'}>{progress26_30}%</span></div>
-                                                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                                                    <div className={`h-full rounded-full transition-all ${totalLineas >= 30 ? 'bg-green-500' : 'bg-amber-400'}`} style={{width: `${progress26_30}%`}}></div>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div className="flex justify-between mb-1"><span>Escala 31+</span><span className={totalLineas >= 31 ? 'text-green-600 font-bold' : 'text-gray-400'}>{progress31}%</span></div>
-                                                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                                                    <div className={`h-full rounded-full transition-all ${totalLineas >= 31 ? 'bg-green-500' : 'bg-amber-400'}`} style={{width: `${progress31}%`}}></div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            {/* Stats Grid */}
-                            <div className="bg-white rounded-2xl p-6 border shadow-lg">
-                                <div className="grid grid-cols-2 gap-6">
-                                    <div className="border-b border-r pb-6 pr-6">
-                                        <div className="text-3xl mb-2">📊</div>
-                                        <p className="text-gray-500 text-sm font-semibold uppercase">VENTAS ACTIVAS</p>
-                                        <p className="text-4xl font-black text-gray-900">{agent.sales}</p>
-                                        <p className="text-gray-400 text-sm">Clientes este mes</p>
-                                    </div>
-                                    <div className="border-b pb-6 pl-6">
-                                        <div className="text-3xl mb-2">⭐</div>
-                                        <p className="text-gray-500 text-sm font-semibold uppercase">PUNTAJE ACTIVO</p>
-                                        <p className="text-4xl font-black text-gray-900">{(totalLineas * 0.5).toFixed(2)}</p>
-                                        <p className="text-gray-400 text-sm">Nivel: Avanzado</p>
-                                    </div>
-                                    <div className="border-r pt-6 pr-6">
-                                        <div className="text-3xl mb-2">✅</div>
-                                        <p className="text-gray-500 text-sm font-semibold uppercase">LÍNEAS WIRELESS</p>
-                                        <p className="text-4xl font-black text-gray-900">{agent.lineasWireless}</p>
-                                        <p className="text-gray-400 text-sm">Líneas activas</p>
-                                    </div>
-                                    <div className="pt-6 pl-6">
-                                        <div className="text-3xl mb-2">🎯</div>
-                                        <p className="text-gray-500 text-sm font-semibold uppercase">ESCALA</p>
-                                        <p className="text-2xl font-black text-gray-900">{escala}</p>
-                                        <p className="text-gray-400 text-sm">Escala actual</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        {/* Resumen de Líneas */}
-                        <div className="bg-white rounded-2xl p-6 border shadow-lg">
-                            <h3 className="text-xl font-bold text-gray-900 mb-4">📈 Resumen de Líneas</h3>
-                            <div className="grid grid-cols-3 gap-4">
-                                <div className="bg-blue-50 rounded-xl p-4 text-center">
-                                    <p className="text-3xl font-black text-blue-600">{totalLineas}</p>
-                                    <p className="text-sm text-blue-600 font-semibold">Total Líneas</p>
-                                </div>
-                                <div className="bg-green-50 rounded-xl p-4 text-center">
-                                    <p className="text-3xl font-black text-green-600">{agent.lineasWireless}</p>
-                                    <p className="text-sm text-green-600 font-semibold">Wireless</p>
-                                </div>
-                                <div className="bg-purple-50 rounded-xl p-4 text-center">
-                                    <p className="text-3xl font-black text-purple-600">{agent.lineasSinWireless}</p>
-                                    <p className="text-sm text-purple-600 font-semibold">Sin Wireless</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                );
-            }
-
-            return (
-                <div className="max-w-7xl mx-auto">
-                    {/* Modal de Vista de Agente */}
-                    {showAgentModal && <AgentViewModal agent={selectedAgent} onClose={() => setShowAgentModal(false)} />}
-                    
-                    <div className="mb-8">
-                        <h1 className="text-4xl font-bold text-gray-900 mb-2">Comisiones - Team Líneas</h1>
-                        <p className="text-gray-600">
-                            {isSupervisor && userSupervisor ? `Equipo de ${userSupervisor}` : `Agentes de Team Líneas (${agentsLineas.length})`}
-                        </p>
-                        
-                        {/* Navegación Mensual */}
-                        <div className="flex items-center justify-center gap-4 mt-4 bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
-                            <button 
-                                onClick={goToPrevMonth}
-                                className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
-                            >
-                                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                                </svg>
-                            </button>
-                            <div className="text-center min-w-[200px]">
-                                <span className="text-2xl font-bold text-gray-900">{MONTH_NAMES[currentMonth - 1]}</span>
-                                <span className="text-2xl font-bold text-gray-400 ml-2">{currentYear}</span>
-                            </div>
-                            <button 
-                                onClick={goToNextMonth}
-                                className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
-                            >
-                                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
-                            </button>
-                        </div>
-                        <p className="text-center text-sm text-gray-500 mt-2">💡 Mantén presionada una tarjeta para ver la vista completa del agente</p>
-                    </div>
-
-                    {agentsLineas.length === 0 ? (
-                        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-                            <p className="text-gray-600 text-lg">No hay agentes en Team Líneas</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-8">
-                            {teamsToRender.map(team => (
-                            <div key={team.label}>
-                                <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <span>📞</span> {team.label.toUpperCase()}
-                                </h2>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                    {team.agents.map(agent => (
-                                        <div
-                                            key={agent.id}
-                                            className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow cursor-pointer select-none"
-                                            onMouseDown={() => handleMouseDown(agent)}
-                                            onMouseUp={handleMouseUp}
-                                            onMouseLeave={handleMouseUp}
-                                            onTouchStart={() => handleTouchStart(agent)}
-                                            onTouchEnd={handleTouchEnd}
-                                        >
-                                            <div className="flex items-start justify-between mb-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`w-12 h-12 ${team.color.bg} rounded-full flex items-center justify-center`}>
-                                                        <span className={`font-bold ${team.color.text}`}>{getInitials(agent.name)}</span>
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="font-semibold text-gray-900">{agent.name}</h3>
-                                                        <p className="text-sm text-gray-500">{agent.sales} ventas</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-3">
-                                                <div className="flex justify-between text-sm">
-                                                    <span className="text-gray-600">Ventas</span>
-                                                    <span className="font-semibold text-gray-900">{agent.sales}</span>
-                                                </div>
-                                                <div className="flex justify-between text-sm">
-                                                    <span className="text-gray-600">Líneas Wireless</span>
-                                                    <span className="font-semibold text-gray-900">{agent.lineasWireless}</span>
-                                                </div>
-                                                <div className="flex justify-between text-sm">
-                                                    <span className="text-gray-600">Líneas sin Wireless</span>
-                                                    <span className="font-semibold text-gray-900">{agent.lineasSinWireless}</span>
-                                                </div>
-                                                <div className="flex justify-between text-sm pt-2 border-t">
-                                                    <span className="text-gray-600 font-semibold">Comisión</span>
-                                                    <span className="font-bold text-green-600">{formatUsd(agent.commission)}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                            ))}
-
-                        </div>
-                    )}
-                </div>
-            );
-        };
-
-        ReactDOM.render(<ComisionesLineas />, document.getElementById('root'));
-    </script>
+  /* ── init ── */
+  (async function init(){
+    try{_user=JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');}catch(_){_user={};}
+    if(!_user||!_user.username){
+      try{
+        var r=await fetch('/api/auth/verify-server',{credentials:'include'});
+        var d=await r.json();
+        if(d&&d.authenticated)_user=d.user;
+        else{window.location.replace('/login.html');return;}
+      }catch(_){window.location.replace('/login.html');return;}
+    }
+    _view=isAdminRole(_user.role)?'admin':'agent';
+    loadData();
+  })();
+})();
+</script>
 </body>
 </html>

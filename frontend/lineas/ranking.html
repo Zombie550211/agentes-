@@ -5,9 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard - Ranking Líneas</title>
   <link rel="icon" type="image/png" href="/images/favicon.png">
-  <link rel="stylesheet" href="/css/theme.css?v=20251124f">
-
-  <!-- Font Awesome (async para no bloquear render) -->
+<!-- Font Awesome (async para no bloquear render) -->
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" onload="this.rel='stylesheet'">
   <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"></noscript>
@@ -19,396 +17,88 @@
   <noscript><link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet"></noscript>
 
   <!-- Custom CSS -->
-  <style>.sidebar,.sidebar.sidebar-inicio{background:rgba(5,15,35,0.55)!important;backdrop-filter:blur(14px)!important;-webkit-backdrop-filter:blur(14px)!important}.sidebar .user-info,.sidebar .user-details,.sidebar .avatar-wrapper,.sidebar .avatar,.sidebar .user-name,.sidebar .user-role{display:none!important}.sidebar .nav-item,.sidebar .btn-sidebar{background:transparent!important;box-shadow:none!important}</style>
-  <link rel="stylesheet" href="/css/sidebar-shared.css?v=20260606f">
-  <link rel="stylesheet" href="/css/sidebar-modern.css?v=20260609b">
   <link rel="stylesheet" href="/css/costumer-table-actions.css">
 
-  <style>
-    .sidebar.sidebar-inicio { overflow-y: visible !important; }
-    .sidebar.sidebar-inicio .user-stats { display: none !important; }
-    .sidebar.sidebar-inicio .user-info { padding: 10px 14px 10px !important; margin-bottom: 6px !important; }
-    .sidebar.sidebar-inicio .user-name { font-size: 0.95rem !important; }
-    .sidebar.sidebar-inicio .user-role { font-size: 0.78rem !important; }
-    .sidebar.sidebar-inicio ul.menu { padding: 8px 14px !important; }
-    .sidebar.sidebar-inicio li { margin: 4px 0 !important; }
-    .sidebar.sidebar-inicio a { padding: 10px 14px !important; font-size: 0.9rem !important; }
-    .sidebar.sidebar-inicio .avatar { width: 56px !important; height: 56px !important; font-size: 1.6rem !important; margin-bottom: 8px !important; }
-    .sidebar.sidebar-inicio h3 { margin: 0 14px 10px !important; padding-bottom: 6px !important; font-size: 0.85rem !important; }
-    .sidebar.sidebar-inicio a i { width: 18px !important; margin-right: 10px !important; font-size: 1rem !important; }
-    .sidebar.sidebar-inicio .sidebar-footer-quote { display: none !important; }
-  </style>
-
-  <style>
-    /* ── NAVEGACIÓN DE FECHA ── */
-    .rank-date-nav {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 14px;
-      margin: 14px auto 16px auto;
-      width: fit-content;
-      background: white;
-      border: 1.5px solid #e2e8f0;
-      border-radius: 40px;
-      padding: 8px 22px;
-      box-shadow: 0 3px 14px rgba(0,0,0,0.07);
-    }
-    .rank-nav-btn {
-      width: 32px; height: 32px;
-      display: flex; align-items: center; justify-content: center;
-      background: #f1f5f9;
-      border: 1px solid #e2e8f0;
-      border-radius: 50%;
-      color: #4f46e5;
-      font-size: 0.85rem;
-      cursor: pointer;
-      transition: background 0.18s, transform 0.18s;
-      user-select: none;
-    }
-    .rank-nav-btn:hover { background: #6366f1; color: white; transform: scale(1.10); }
-    .rank-nav-btn:active { transform: scale(0.95); }
-    #rank-period-label {
-      font-family: 'Rajdhani', sans-serif !important;
-      font-size: 1rem !important;
-      font-weight: 800 !important;
-      letter-spacing: 0.07em !important;
-      color: #0b2447 !important;
-      min-width: 160px;
-      text-align: center;
-    }
-
-    body { background: #0a1628 !important; }
-    body::before {
-      content: '';
-      position: fixed; inset: 0; z-index: 0;
-      background: linear-gradient(160deg,#0b1a33 0%,#0a1628 55%,#080f1f 100%);
-      opacity: 0.55;
-      pointer-events: none;
-    }
-  </style>
-
-  <style>
-    html, body { overflow-x: hidden !important; overflow-y: auto !important; }
-    .layout { overflow-x: hidden !important; }
-    .sidebar.sidebar-inicio ul.menu { display: block !important; visibility: visible !important; overflow: visible !important; max-height: none !important; }
-    .sidebar.sidebar-inicio ul.menu,
-    .sidebar.sidebar-inicio ul.menu li,
-    .sidebar.sidebar-inicio ul.menu a { position: relative !important; left: 0 !important; right: auto !important; }
-    .sidebar.sidebar-inicio * { max-width: 100% !important; }
-    .sidebar.sidebar-inicio { width: 260px !important; min-width: 260px !important; overflow-x: hidden !important; display: block !important; }
-    .main-content { margin-left: 260px !important; width: calc(100% - 260px) !important; overflow-x: hidden !important; }
-    .sidebar.sidebar-inicio .menu { margin: 0 !important; }
-    .sidebar.sidebar-inicio .menu * { float: none !important; white-space: normal !important; }
-    .sidebar.sidebar-inicio .menu a { display: flex !important; width: 100% !important; box-sizing: border-box !important; }
-  </style>
-
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    html, body {
-      height: 100%;
-      overflow: hidden;
-    }
-
-    .layout {
-      height: 100vh;
-      display: flex;
-    }
-
-    .main-content {
-      flex: 1;
-      height: 100vh;
-      overflow-y: auto;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .ranking-panel {
-      max-width: 1000px;
-      width: 100%;
-      margin-top: 20px;
-    }
-  </style>
-
-  <!-- Scripts -->
+<!-- Scripts -->
   <script src="/js/fetch-interceptor.js" defer></script>
   <script src="/js/logout-handler.js" defer></script>
   <script src="/js/user-info.js" defer></script>
-  <script src="/js/sidebar-loader.js?v=20260717c" defer></script>
   <script src="/js/crm-config.js" defer></script>
   <script src="/js/inactivity-manager.js?v=20260611a" defer></script>
   <script src="/js/crm-init.js" defer></script>
 
   <style>
-    /* Card principal con fondo morado */
-    .ranking-main-card{
-      width:calc(100% - 40px)!important;
-      max-width:1600px!important;
-      border-radius:24px;
-      padding:28px;
-      box-shadow:0 20px 60px rgba(0,0,0,.4);
-      margin:20px 0;
-      display:flex!important;
-      flex-direction:column;
-      gap:20px;
-      position:relative!important;
-      overflow:hidden;
-      height:500px!important;
-      min-height:500px!important;
-      max-height:500px!important;
-      flex-shrink:0!important;
-      background-color:#07091a
-    }
-
-    /* Layout top: motivacional izquierda + podio derecha */
-    .ranking-top-row{
-      display:flex;
-      gap:24px;
-      width:100%;
-      align-items:stretch;
-      margin:0;
-      position:relative;
-      z-index:1;
-      min-height:440px;
-    }
-
-    .ranking-top-row .ranking-podium-final{
-      flex:1;
-      min-width:0;
-      margin:0!important;
-      max-width:none!important;
-      min-height:420px;
-      padding-top:140px!important;
-    }
-
-    /* Card motivacional */
-    .motiv-card{
-      flex:0 0 36%;
-      min-width:0;
-      display:flex;
-      flex-direction:column;
-      justify-content:center;
-      gap:18px;
-      padding:36px 32px;
-      background:transparent;
-      border:none;
-      box-shadow:none;
-      position:relative;
-    }
-
-    .motiv-card::before{
-      content:'';
-      position:absolute;
-      inset:0;
-      background:radial-gradient(ellipse at 20% 30%,rgba(102,126,234,0.25) 0%,transparent 60%),
-                 radial-gradient(ellipse at 80% 80%,rgba(118,75,162,0.20) 0%,transparent 55%);
-      pointer-events:none;
-    }
-
-    .motiv-heading{
-      font-family:'Rajdhani',sans-serif;
-      font-size:clamp(1.9rem,3vw,2.8rem);
-      font-weight:900;
-      line-height:1.1;
-      color:#fff;
-      letter-spacing:-0.01em;
-      position:relative;
-    }
-
-    .motiv-heading span{
-      color:#a78bfa;
-    }
-
-    .motiv-body{
-      font-size:1rem;
-      line-height:1.65;
-      color:rgba(255,255,255,0.72);
-      font-family:'Exo 2',sans-serif;
-      position:relative;
-    }
-
-    .motiv-divider{
-      width:48px;
-      height:4px;
-      background:linear-gradient(90deg,#818cf8,#c084fc);
-      border-radius:4px;
-    }
-
-    @media(max-width:900px){
-      .ranking-top-row{flex-direction:column}
-      .motiv-card{flex:unset;min-height:220px;}
-    }
-
-    /* Podio */
-    .ranking-podium-final {
-      position: relative !important;
-      display: flex !important;
-      justify-content: center !important;
-      margin: 0 auto !important;
-      max-width: 1000px !important;
-    }
-
-    /* Imagen base del ranking */
-    .ranking-base-image {
-      width: 100% !important;
-      height: auto !important;
-      max-width: 900px !important;
-      display: block !important;
-      position: relative !important;
-      z-index: 1 !important;
-      background: transparent !important;
-    }
-
-    /* Labels sobre los cilindros del podium */
-    .podium-label {
-      position: absolute;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      pointer-events: none;
-      z-index: 5;
-      transform: translateX(-50%);
-    }
-
-    .label-first  { left: 50%;  top: 50%; }
-    .label-second { left: 30%;  top: 62%; }
-    .label-third  { left: 70%;  top: 62%; }
-
-    .place-badge {
-      display: inline-block;
-      padding: 3px 10px;
-      border-radius: 20px;
-      font-size: 0.7rem;
-      font-weight: 800;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      margin-bottom: 4px;
-      white-space: nowrap;
-    }
-
-    .place-gold   { background: rgba(251,191,36,0.25); color: #fbbf24; border: 1px solid rgba(251,191,36,0.5); }
-    .place-silver { background: rgba(147,197,253,0.25); color: #93c5fd; border: 1px solid rgba(147,197,253,0.5); }
-    .place-bronze { background: rgba(192,132,252,0.25); color: #c084fc; border: 1px solid rgba(192,132,252,0.5); }
-
-    .podium-label-name {
-      font-size: 1rem;
-      font-weight: 800;
-      color: #ffffff;
-      text-shadow: 0 2px 8px rgba(0,0,0,0.8);
-      white-space: nowrap;
-    }
-
-    .podium-label-score {
-      font-size: 1.8rem;
-      font-weight: 900;
-      color: #ffe06a;
-      text-shadow: 0 2px 10px rgba(0,0,0,0.8);
-      line-height: 1.1;
-    }
-
-    /* Animación de entrada */
-    @keyframes fsu { from{opacity:0;transform:translateY(44px)} to{opacity:1;transform:translateY(0)} }
-    .fsu     { opacity:0; animation:fsu 1.8s cubic-bezier(.16,1,.3,1) forwards; animation-play-state:paused; }
-    .fsu.go  { animation-play-state:running; }
-
-    /* ── CONTENEDOR LISTA ──────────────────────────────────────────────── */
-    .ranking-panel, .ranking-content { background:transparent!important; border:none!important; box-shadow:none!important; padding:0!important; margin:0!important; border-radius:0!important; backdrop-filter:none!important; }
-    .other-ranks { padding: 0 20px 20px!important; }
-    .other-ranks-header h3 { font-family:'Outfit',sans-serif!important; font-size:.85rem!important; font-weight:800!important; text-transform:uppercase!important; letter-spacing:.06em!important; }
-    .rank-list, #rank-list-dynamic { display:flex!important; flex-direction:column!important; gap:8px!important; padding:0!important; }
-
-    /* ── ITEM (fondo sólido oscuro) ──────────────────────────────────────── */
-    #rank-list-dynamic .rank-item {
-      display:flex!important; align-items:center!important; gap:14px!important;
-      padding:14px 18px!important; border-radius:14px!important; margin:0!important;
-      border:1px solid rgba(255,255,255,.07)!important;
-      background: #1a1f3a !important;
-      box-shadow:none!important; transform:none!important;
-      transition:background .15s!important;
-    }
-    #rank-list-dynamic .rank-item:hover {
-      background: #252d4a !important;
-      transform: translateY(-2px) !important;
-    }
-
-    /* número */
-    #rank-list-dynamic .rank-item .rank-number {
-      font-size:1.15rem!important; font-weight:900!important;
-      color:rgba(255,255,255,.22)!important; min-width:30px!important;
-      text-align:center!important; flex-shrink:0!important;
-      background:none!important; border:none!important; box-shadow:none!important;
-      width:auto!important; height:auto!important; border-radius:0!important;
-      padding:0!important;
-    }
-
-    /* avatar */
-    #rank-list-dynamic .rank-item .agent-info { flex:1!important; display:flex!important; align-items:center!important; gap:12px!important; min-width:0!important; }
-    #rank-list-dynamic .rank-item .agent-avatar {
-      width:46px!important; height:46px!important; border-radius:12px!important;
-      flex-shrink:0!important; display:flex!important; align-items:center!important; justify-content:center!important;
-      font-size:1rem!important; color:#fff!important; box-shadow:none!important;
-      background: linear-gradient(135deg,#5f27cd,#48dbfb) !important;
-    }
-    #rank-list-dynamic .rank-item .agent-avatar i { font-size:.9rem!important; }
-
-    /* nombre */
-    #rank-list-dynamic .rank-item .agent-details { min-width:0!important; }
-    #rank-list-dynamic .rank-item .agent-details h4 {
-      font-size:.85rem!important; font-weight:700!important; color:#fff!important;
-      text-transform:uppercase!important; white-space:nowrap!important;
-      overflow:hidden!important; text-overflow:ellipsis!important; margin:0!important;
-    }
-    #rank-list-dynamic .rank-item .agent-details p {
-      font-size:.63rem!important; color:rgba(255,255,255,.32)!important; margin:2px 0 0!important;
-    }
-
-    /* stats */
-    #rank-list-dynamic .rank-item .agent-stats {
-      display:flex!important; align-items:center!important; gap:0!important;
-      flex-shrink:0!important; flex-direction:row!important;
-    }
-
-    /* Líneas totales */
-    #rank-list-dynamic .rank-item .agent-stats .sales {
-      order:1!important; display:flex!important; flex-direction:column!important; align-items:flex-end!important;
-      padding-right:20px!important; border-right:1px solid rgba(255,255,255,.1)!important;
-      font-size:.92rem!important; font-weight:800!important; color:#ffffff!important;
-    }
-    #rank-list-dynamic .rank-item .agent-stats .sales::before {
-      content:'LÍNEAS'!important; font-size:.52rem!important; font-weight:700!important;
-      color:rgba(255,255,255,.32)!important; letter-spacing:.1em!important;
-      display:block!important; margin-bottom:2px!important;
-    }
-
-    /* Ventas */
-    #rank-list-dynamic .rank-item .agent-stats .points {
-      order:2!important; display:flex!important; flex-direction:column!important; align-items:flex-end!important;
-      padding-left:20px!important; font-size:.92rem!important; font-weight:800!important;
-      color:#f1f5f9!important; background:none !important;
-      -webkit-text-fill-color:#f1f5f9!important; background-clip:unset!important;
-      -webkit-background-clip:unset!important;
-    }
-    #rank-list-dynamic .rank-item .agent-stats .points::before {
-      content:'VENTAS'!important; font-size:.52rem!important; font-weight:700!important;
-      color:rgba(255,255,255,.32)!important; letter-spacing:.1em!important;
-      display:block!important; margin-bottom:2px!important;
-    }
+    /* Base mínima neutra — lienzo para el rediseño de Líneas */
+    *,*::before,*::after{box-sizing:border-box}
+    body,body.dark-theme{margin:0;background:#ffffff !important;color:#111111 !important;font-family:system-ui,sans-serif}
+    .layout{display:flex;min-height:100vh}
+    .sidebar{flex:0 0 auto}
+    .main-content{flex:1;min-width:0;padding:24px}
   </style>
-
-  <link rel="stylesheet" href="/css/glass-cards.css?v=20260716a">
+  <script>
+    // Lienzo del rediseño de Líneas: SIN modo oscuro global.
+    // El sidebar fuerza body.dark-theme (dark-mode.css) — aquí se elimina y
+    // se mantiene fuera aunque el loader la re-aplique después.
+    (function(){
+      function strip(){ if(document.body) document.body.classList.remove('dark-theme'); }
+      document.addEventListener('DOMContentLoaded', function(){
+        strip();
+        new MutationObserver(strip).observe(document.body, { attributes:true, attributeFilter:['class'] });
+      });
+    })();
+  </script>
+  <link rel="stylesheet" href="/css/sidebar-static.css?v=1">
 </head>
 <body>
+  <script src="/js/theme-init.js" defer></script>
+  <script src="/js/sidebar-static.js" defer></script>
   <div class="layout">
     <!-- SIDEBAR (cargado dinámicamente) -->
-    <nav class="sidebar sidebar-inicio" data-active="ranking" style="overflow-y: visible;"></nav>
+    <nav class="sidebar" id="app-sidebar">
+  <div class="sb-brand">
+    <div class="sb-brand-mark">CC</div>
+    <div class="sb-brand-text"><strong>CONNECTING</strong><span>C R M</span></div>
+  </div>
+  <div class="sb-scroll">
+<div class="sb-mov-head">SERVICIOS MÓVILES</div>
+<a href="/lineas/inicio.html" class="sb-item mov"><span class="sb-ic" style="background:#d1fae5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#059669"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg></span><span class="sb-lbl">Inicio</span></a>
+<a href="/lineas/lead.html" class="sb-item mov"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-4 3-6 6-6s6 2 6 6"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg></span><span class="sb-lbl">Nuevo Lead</span></a>
+<a href="/lineas/costumer.html" class="sb-item mov"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><circle cx="8" cy="8" r="3"/><path d="M2 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14c2.6.4 4.5 2.6 4.5 6"/></svg></span><span class="sb-lbl">Costumer Líneas</span></a>
+<a href="/lineas/estadisticas.html" class="sb-item mov"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><line x1="4" y1="20" x2="20" y2="20"/><rect x="6" y="12" width="3" height="8" rx="2"/><rect x="11" y="8" width="3" height="12" rx="2"/><rect x="16" y="4" width="3" height="16" rx="2"/></svg></span><span class="sb-lbl">Estadísticas Líneas</span></a>
+<a href="/lineas/ranking.html" class="sb-item mov active"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><path d="M4 16l5-5 4 3 7-8"/><path d="M4 20h16"/></svg></span><span class="sb-lbl">Ranking Líneas</span></a>
+<a href="/lineas/facturacion.html" class="sb-item mov"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/></svg></span><span class="sb-lbl">Facturación Líneas</span></a>
+<a href="/lineas/comisiones.html" class="sb-item mov"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><circle cx="9" cy="9" r="5"/><circle cx="15" cy="15" r="5" fill="none"/></svg></span><span class="sb-lbl">Comisiones Líneas</span></a>
+<a href="/lineas/reglas.html" class="sb-item mov"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><path d="M6 3h9l4 4v14H6V3z"/><path d="M15 3v4h4"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg></span><span class="sb-lbl">Reglas Líneas</span></a>
+<a href="/residencial/inicio.html" class="sb-item"><span class="sb-ic" style="background:#dbeafe;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#2563eb"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg></span><span class="sb-lbl">Inicio</span></a>
+<a href="/residencial/formulario-registro.html" class="sb-item"><span class="sb-ic" style="background:#d1fae5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#059669"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-4 3-6 6-6s6 2 6 6"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg></span><span class="sb-lbl">Formulario</span></a>
+<a href="/residencial/costumer.html" class="sb-item"><span class="sb-ic" style="background:#ede9fe;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#7c3aed"><circle cx="8" cy="8" r="3"/><path d="M2 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14c2.6.4 4.5 2.6 4.5 6"/></svg></span><span class="sb-lbl">Lista de Clientes</span></a>
+<a href="/residencial/normativas-tipificacion.html" class="sb-item"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><path d="M3 11l9-8 9 8-9 9-9-9z"/><circle cx="15" cy="8" r="1.3" fill="currentColor"/></svg></span><span class="sb-lbl">Tipificación</span></a>
+<div class="sb-sec" data-admin-only>ESTADÍSTICAS</div>
+<a href="/residencial/productividad-bo.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#fef3c7;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#d97706"><circle cx="9" cy="7" r="3"/><path d="M4 20c0-3.5 2.7-6 5-6"/><path d="M13 20l3-4 2 2 3-6"/></svg></span><span class="sb-lbl">Productividad B.O</span></a>
+<a href="/residencial/estadisticas.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#fef9c3;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#ca8a04"><line x1="4" y1="20" x2="20" y2="20"/><rect x="6" y="12" width="3" height="8" rx="2"/><rect x="11" y="8" width="3" height="12" rx="2"/><rect x="16" y="4" width="3" height="16" rx="2"/></svg></span><span class="sb-lbl">Estadísticas</span></a>
+<a href="/residencial/productividad.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#e0e7ff;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#4f46e5"><circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/><path d="M12 3c3 4 3 14 0 18"/><path d="M12 3c-3 4-3 14 0 18"/></svg></span><span class="sb-lbl">Productividad</span></a>
+<a href="/residencial/ranking-agente.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#ffedd5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#ea580c"><path d="M4 16l5-5 4 3 7-8"/><path d="M4 20h16"/></svg></span><span class="sb-lbl">Ranking de Agentes</span></a>
+<a href="/residencial/ranking.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#fce7f3;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#db2777"><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M7 5H4a2 2 0 0 0 2 4"/><path d="M17 5h3a2 2 0 0 1-2 4"/><line x1="12" y1="14" x2="12" y2="17"/><path d="M8 21h8"/><path d="M9 21c0-2 1.3-3 3-3s3 1 3 3"/></svg></span><span class="sb-lbl">Ranking y Promociones</span></a>
+<a href="/residencial/premios.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#dbeafe;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#2563eb"><rect x="3" y="9" width="18" height="4" rx="2"/><rect x="5" y="13" width="14" height="8" rx="2"/><line x1="12" y1="9" x2="12" y2="21"/><path d="M12 9C10 4 5 5 5 8s3 1 7 1z"/><path d="M12 9c2-5 7-4 7-1s-3 1-7 1z"/></svg></span><span class="sb-lbl">Premios</span></a>
+<a href="/residencial/reglas.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#d1fae5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#059669"><path d="M6 3h9l4 4v14H6V3z"/><path d="M15 3v4h4"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg></span><span class="sb-lbl">Reglas y Puntajes</span></a>
+<a href="/residencial/facturacion.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#fee2e2;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#dc2626"><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/></svg></span><span class="sb-lbl">Facturación</span></a>
+<a href="/residencial/llamadas-ventas.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#f1f5f9;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#475569"><path d="M5 4c0 9 6 15 15 15l1-4-5-2-2 2c-3-1.5-5-3.5-6-6l2-2-2-5-4 1z"/></svg></span><span class="sb-lbl">Llamadas y Ventas por Team</span></a>
+<a href="/residencial/comisiones.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0891b2"><circle cx="9" cy="9" r="5"/><circle cx="15" cy="15" r="5" fill="none"/></svg></span><span class="sb-lbl">Comisión</span></a>
+<a href="/residencial/semaforo.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#f1f5f9;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#64748b"><rect x="9" y="2" width="6" height="20" rx="2"/><circle cx="12" cy="6" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="18" r="1.4" fill="currentColor"/></svg></span><span class="sb-lbl">El Semáforo</span></a>
+<div class="sb-sec" data-admin-only>ADMINISTRACIÓN</div>
+<a href="/residencial/empleado-mes.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#fef9c3;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#ca8a04"><path d="M12 2l3 6.5 7 .8-5.2 4.8 1.4 7-6.2-3.6L5.8 21.1l1.4-7L2 9.3l7-.8z"/></svg></span><span class="sb-lbl">Empleado del Mes</span></a>
+<a href="/residencial/tabla-puntaje.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#ffedd5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#ea580c"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4.5" cy="6" r="1.3" fill="currentColor"/><circle cx="4.5" cy="12" r="1.3" fill="currentColor"/><circle cx="4.5" cy="18" r="1.3" fill="currentColor"/></svg></span><span class="sb-lbl">Tabla de Puntaje</span></a>
+<a href="/crear-cuenta.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#e0e7ff;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#4f46e5"><path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span><span class="sb-lbl">Permisos</span></a>
+<a href="/chat.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><path d="M4 5h16v11H9l-5 4V5z"/></svg></span><span class="sb-lbl">Chat</span></a>
+  </div>
+  <div class="sb-footer">
+    <p class="sb-quote">"El éxito es la suma de pequeños esfuerzos repetidos día tras día"</p>
+    <button type="button" class="sb-logout" data-logout-button title="Cerrar Sesión">
+      <span class="sb-ic" style="background:#fee2e2;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#dc2626"><path d="M9 4H5v16h4"/><path d="M14 8l5 4-5 4"/><line x1="19" y1="12" x2="9" y2="12"/></svg></span>
+      <span class="sb-lbl">Cerrar Sesión</span>
+    </button>
+  </div>
+</nav>
     <main class="main-content">
 
       <!-- Card principal con fondo morado -->
