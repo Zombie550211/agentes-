@@ -31,27 +31,254 @@
         .replace(/'/g, '&#39;');
     };
   </script>
+  <link rel="stylesheet" href="/css/theme.css?v=20251124f"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <style>
-    /* Base mínima neutra — lienzo para el rediseño de Líneas */
-    *,*::before,*::after{box-sizing:border-box}
-    body,body.dark-theme{margin:0;background:#ffffff !important;color:#111111 !important;font-family:system-ui,sans-serif}
-    .layout{display:flex;min-height:100vh}
-    .sidebar{flex:0 0 auto}
-    .main-content{flex:1;min-width:0;padding:24px}
+    /* ── Fondo claro para esta página ── */
+    .main-content { background: transparent !important; position: relative !important; z-index: 10 !important; }
+
+    /* ── Wrapper ── */
+    .ll-page {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 28px 20px 40px;
+      font-family: inherit;
+    }
+
+    /* ── Header ── */
+    .ll-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .ll-title {
+      font-size: 20px;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      line-height: 1.2;
+    }
+    .ll-title span { color: #00e5ff; }
+    .ll-clock {
+      text-align: right;
+      line-height: 1.6;
+    }
+    #ll-clock-time {
+      display: block;
+      font-size: 17px;
+      font-weight: 800;
+      color: #00e5ff;
+      letter-spacing: 1px;
+    }
+    #ll-clock-date {
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+
+    /* ── Cards ── */
+    .ll-card {
+      background: rgba(8, 18, 48, 0.45);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 18px;
+      padding: 26px 28px;
+      margin-bottom: 18px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+    .ll-section-title {
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 3px;
+      color: #00e5ff;
+      text-transform: uppercase;
+      margin: 0 0 22px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .ll-section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, rgba(0,229,255,.4), transparent);
+    }
+
+    /* ── Grid y campos ── */
+    .ll-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 18px;
+    }
+    .ll-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+    .ll-field label {
+      display: block;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      color: #e2e8f0;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .ll-field input,
+    .ll-field select {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 11px;
+      padding: 12px 15px;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+      transition: border .2s, background .2s;
+      box-sizing: border-box;
+    }
+    .ll-field input::placeholder { color: rgba(255, 255, 255, 0.4); }
+    .ll-field input:focus,
+    .ll-field select:focus {
+      border-color: #00e5ff;
+      background: rgba(0, 229, 255, 0.12);
+    }
+    .ll-field select option { background: #0d1b2a; color: #fff; }
+    .ll-field input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; }
+
+    /* ── Toggle pills ── */
+    .ll-toggle-group { display: flex; gap: 8px; flex-wrap: wrap; }
+    .ll-pill {
+      padding: 9px 22px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all .2s;
+      user-select: none;
+    }
+    .ll-pill:hover { border-color: #00e5ff; color: #00e5ff; }
+    .ll-pill.active {
+      background: rgba(0, 229, 255, 0.25);
+      border-color: #00e5ff;
+      color: #00e5ff;
+      box-shadow: 0 0 12px rgba(0, 229, 255, 0.3);
+    }
+
+    /* ── Circular line number buttons ── */
+    .ll-line-nums { display: flex; gap: 12px; margin-top: 4px; flex-wrap: wrap; }
+    .ll-num-btn {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 17px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: all .2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+    }
+    .ll-num-btn:hover { border-color: #00e5ff; color: #00e5ff; }
+    .ll-num-btn.active {
+      background: rgba(0, 229, 255, 0.25);
+      border-color: #00e5ff;
+      color: #00e5ff;
+      box-shadow: 0 0 15px rgba(0, 229, 255, 0.4);
+    }
+
+    /* ── Line accordion blocks ── */
+    #linesContainer { margin-top: 18px; display: flex; flex-direction: column; gap: 10px; }
+    .ll-line-block {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 13px;
+      overflow: hidden;
+    }
+    .ll-line-header {
+      display: flex;
+      align-items: center;
+      padding: 12px 18px;
+      cursor: pointer;
+      gap: 12px;
+      user-select: none;
+    }
+    .ll-line-header:hover { background: rgba(255, 255, 255, 0.12); }
+    .ll-line-badge {
+      background: rgba(0, 229, 255, 0.2);
+      border: 1px solid rgba(0, 229, 255, 0.4);
+      color: #00e5ff;
+      font-size: 10px;
+      font-weight: 900;
+      padding: 3px 12px;
+      border-radius: 999px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+    .ll-line-hint { font-size: 12px; color: rgba(255, 255, 255, 0.5); }
+    .ll-line-chevron {
+      margin-left: auto;
+      color: rgba(255, 255, 255, 0.5);
+      transition: transform .2s;
+      font-size: 12px;
+    }
+    .ll-line-block.open .ll-line-chevron { transform: rotate(180deg); color: #00e5ff; }
+    .ll-line-body { display: none; padding: 0 18px 18px; }
+    .ll-line-block.open .ll-line-body { display: block; }
+
+    /* ── Submit ── */
+    .ll-submit-wrap {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .ll-submit-btn {
+      padding: 15px 36px;
+      background: linear-gradient(135deg, #00e5ff 0%, #0ea5e9 100%);
+      border: none;
+      border-radius: 13px;
+      color: #000;
+      font-size: 14px;
+      font-weight: 900;
+      cursor: pointer;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      transition: opacity .2s, transform .1s;
+      box-shadow: 0 4px 20px rgba(0, 229, 255, 0.4);
+    }
+    .ll-submit-btn:hover { opacity: .9; transform: translateY(-1px); }
+    .ll-submit-btn:active { transform: translateY(0); }
+    #msg { font-size: 14px; color: #cbd5e1; }
+
+
+    @media (max-width: 680px) {
+      .ll-grid, .ll-grid-3 { grid-template-columns: 1fr; }
+      .ll-grid [style*="grid-column"], .ll-grid-3 [style*="grid-column"] { grid-column: auto !important; }
+    }
+  body { background: #0a1628 !important; }
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: -1;
+    background: linear-gradient(160deg,#0b1a33 0%,#0a1628 55%,#080f1f 100%);
+  opacity: 0.55;
+    pointer-events: none;
+  }
   </style>
-  <script>
-    // Lienzo del rediseño de Líneas: SIN modo oscuro global.
-    // El sidebar fuerza body.dark-theme (dark-mode.css) — aquí se elimina y
-    // se mantiene fuera aunque el loader la re-aplique después.
-    (function(){
-      function strip(){ if(document.body) document.body.classList.remove('dark-theme'); }
-      document.addEventListener('DOMContentLoaded', function(){
-        strip();
-        new MutationObserver(strip).observe(document.body, { attributes:true, attributeFilter:['class'] });
-      });
-    })();
-  </script>
+  <link rel="stylesheet" href="/css/glass-cards.css?v=20260716a">
   <link rel="stylesheet" href="/css/sidebar-static.css?v=1">
 </head>
 <body>
@@ -419,27 +646,15 @@
       return active ? parseInt(active.dataset.num, 10) : 1;
     }
 
-    // Tipos de servicio desde el catálogo del backend (/api/catalogos/servicio_linea).
-    // El fallback local solo aplica si el catálogo aún no responde.
-    var LINE_SERVICES = [
-      { v: 'LINEA + EQUIPO', t: 'LÍNEA + EQUIPO' },
-      { v: 'ESIM CARD',      t: 'ESIM CARD' },
-      { v: 'WEARABLE',       t: 'WEARABLE (TABLETS / SMARTWATCH / OTROS)' }
-    ];
-    (async function loadLineServices(){
-      try {
-        var r = await fetch('/api/catalogos/servicio_linea', { credentials: 'include' });
-        var j = await r.json();
-        var items = (j && j.items) || [];
-        if (items.length) {
-          LINE_SERVICES = items.map(function(it){ return { v: it.valor, t: it.label || it.valor }; });
-          renderLines(); // repintar selects con el catálogo real
-        }
-      } catch (_) { /* fallback local */ }
-    })();
-
     function buildSvcOptions(selected) {
-      return LINE_SERVICES.map(function(o){
+      // Valores guardados en BD sin acentos (consistencia con filtros/consultas).
+      // WEARABLE agrupa lo que antes eran TABLETS y RELOJ (tablets, smartwatch, otros).
+      var opts = [
+        { v: 'LINEA + EQUIPO', t: 'LÍNEA + EQUIPO' },
+        { v: 'ESIM CARD',      t: 'ESIM CARD' },
+        { v: 'WEARABLE',       t: 'WEARABLE (TABLETS / SMARTWATCH / OTROS)' }
+      ];
+      return opts.map(function(o){
         return '<option value="' + o.v + '"' + (selected === o.v ? ' selected' : '') + '>' + o.t + '</option>';
       }).join('');
     }
@@ -451,11 +666,11 @@
       for (var i = 1; i <= 10; i++) {
         var telEl = document.getElementById('tel_' + i);
         var svcEl = document.getElementById('svc_' + i);
-        if (telEl) saved[i] = { tel: telEl.value, svc: svcEl ? svcEl.value : LINE_SERVICES[0].v };
+        if (telEl) saved[i] = { tel: telEl.value, svc: svcEl ? svcEl.value : 'LINEA + EQUIPO' };
       }
       container.innerHTML = '';
       for (var i = 1; i <= n; i++) {
-        var val = saved[i] || { tel: '', svc: LINE_SERVICES[0].v };
+        var val = saved[i] || { tel: '', svc: 'LINEA + EQUIPO' };
         var div = document.createElement('div');
         div.className = 'll-line-block open';
         div.innerHTML =

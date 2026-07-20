@@ -10,33 +10,275 @@
 <script src="/js/fetch-interceptor.js" defer></script>
 <script src="/js/logout-handler.js" defer></script>
 <script src="/js/realtime.js" defer></script>
-  <style>
-    /* Base mínima neutra — lienzo para el rediseño de Líneas */
-    *,*::before,*::after{box-sizing:border-box}
-    body,body.dark-theme{margin:0;background:#ffffff !important;color:#111111 !important;font-family:system-ui,sans-serif}
-    .layout{display:flex;min-height:100vh}
-    .sidebar{flex:0 0 auto}
-    .main-content{flex:1;min-width:0;padding:24px}
-  </style>
-  <script>
-    // Lienzo del rediseño de Líneas: SIN modo oscuro global.
-    // El sidebar fuerza body.dark-theme (dark-mode.css) — aquí se elimina y
-    // se mantiene fuera aunque el loader la re-aplique después.
-    (function(){
-      function strip(){ if(document.body) document.body.classList.remove('dark-theme'); }
-      document.addEventListener('DOMContentLoaded', function(){
-        strip();
-        new MutationObserver(strip).observe(document.body, { attributes:true, attributeFilter:['class'] });
-      });
-    })();
-  </script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif}
+
+/* ── FONDO DARK ── */
+body{
+  background:#060c1e;
+  background-image:
+    radial-gradient(ellipse 70% 50% at 10% 0%,   rgba(0,100,255,.18) 0%,transparent 55%),
+    radial-gradient(ellipse 50% 40% at 90% 5%,   rgba(0,200,255,.12) 0%,transparent 50%),
+    radial-gradient(ellipse 40% 60% at 80% 95%,  rgba(124,58,237,.15) 0%,transparent 55%),
+    radial-gradient(ellipse 60% 40% at 5%  90%,  rgba(0,150,255,.10) 0%,transparent 50%);
+  color:#e2e8f0;
+}
+
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(0,200,255,.20);border-radius:4px}
+
+/* ── VARIABLES ── */
+:root{
+  --neon:#00e5ff;
+  --neon2:#0066ff;
+  --purple:#7c3aed;
+  --amber:#f59e0b;
+  --green:#10b981;
+  --red:#ef4444;
+  --glass:rgba(8,18,48,0.72);
+  --glass-b:rgba(0,180,255,.10);
+  --glass-b2:rgba(0,180,255,.20);
+  --ink:#e2e8f0;
+  --ink2:#94a3b8;
+  --ink3:#475569;
+}
+
+/* ── LAYOUT ── */
+html,body{height:100%;overflow:hidden}
+
+/* El sidebar usa position:fixed — main-content ocupa toda la pantalla
+   y el sistema de auto-hide (sidebar-shared.css) le aplica margin-left */
+.main-content{
+  position:fixed;top:0;left:0;right:0;bottom:0;
+  display:flex;flex-direction:column;
+  overflow:hidden;
+  transition:margin-left .18s ease;
+  z-index:10;
+}
+
+/* sidebar-shared.css ya aplica margin-left a .main-content en auto-hide */
+
+/* glass-cards.css fuerza position:relative !important sobre .main-content y
+   rompe el anclaje a pantalla (la página crece con el contenido en vez de
+   hacer scroll interno). Mayor especificidad para restaurar el fixed. */
+body .main-content{position:fixed!important;top:0;left:0;right:0;bottom:0}
+
+/* ── TOPBAR ── */
+.topbar{
+  flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
+  padding:0 22px;height:52px;
+  background:rgba(6,12,30,.85);border-bottom:1px solid rgba(0,200,255,.08);
+  backdrop-filter:blur(20px);
+}
+.topbar-brand{display:flex;align-items:center;gap:10px}
+.tb-logo{width:30px;height:30px;border-radius:8px;
+  background:linear-gradient(135deg,var(--neon2),var(--neon));
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:800;color:#fff;
+  box-shadow:0 0 16px rgba(0,229,255,.35)}
+.tb-title{font-family:'Space Grotesk',sans-serif;font-size:.88rem;font-weight:700;color:var(--ink)}
+.tb-sub{font-size:.60rem;color:var(--ink3);margin-top:1px}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.tb-date{font-size:.70rem;color:var(--ink3)}
+.tb-user{display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;
+  background:rgba(0,200,255,.06);border:1px solid rgba(0,200,255,.14);
+  border-radius:50px;cursor:pointer}
+.tb-av{width:26px;height:26px;border-radius:50%;
+  background:linear-gradient(135deg,var(--neon2),var(--neon));
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:800;color:#fff;
+  box-shadow:0 0 10px rgba(0,229,255,.40)}
+.tb-uname{font-size:.72rem;font-weight:600;color:var(--ink)}
+.tb-urole{font-size:.58rem;color:var(--ink3)}
+
+/* ── PAGE ── */
+.page{
+  flex:1;min-height:0;overflow:hidden;
+  display:grid;
+  /* minmax(0,1fr): el contenido no puede estirar las filas (1fr = minmax(auto,1fr)) */
+  grid-template-rows:minmax(0,1fr) minmax(0,1fr);
+  grid-template-columns:1fr;
+  gap:10px;padding:10px 14px 10px;
+}
+
+
+/* ── ROW 2: Welcome + Chart + Mini stats ── */
+.row2{display:grid;grid-template-columns:260px 1fr 220px;grid-template-rows:minmax(0,1fr);gap:10px;min-height:0}
+
+/* Welcome card */
+.welcome-card{
+  background:var(--glass);border:1px solid var(--glass-b);border-radius:16px;
+  backdrop-filter:blur(24px);overflow:hidden;display:flex;flex-direction:column;
+  position:relative;
+}
+.wc-bg{
+  position:absolute;inset:0;
+  background:linear-gradient(160deg,rgba(0,80,200,.25) 0%,rgba(124,58,237,.15) 50%,transparent 100%);
+  pointer-events:none;
+}
+.wc-body{position:relative;z-index:1;padding:18px;flex:1;min-height:0;display:flex;flex-direction:column;gap:12px}
+.wc-tag{font-size:.58rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--neon);opacity:.8}
+.wc-name{font-family:'Space Grotesk',sans-serif;font-size:1.2rem;font-weight:700;
+  color:#fff;line-height:1.2}
+.wc-role{font-size:.68rem;color:var(--ink2);margin-top:2px}
+.wc-divider{height:1px;background:rgba(0,200,255,.10);margin:4px 0}
+.wc-stat-row{display:flex;flex-direction:column;gap:6px}
+.wc-stat{display:flex;justify-content:space-between;align-items:center}
+.wc-stat-lbl{font-size:.65rem;color:var(--ink3)}
+.wc-stat-val{font-size:.75rem;font-weight:700;color:var(--ink)}
+.wc-pill{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;
+  background:rgba(0,229,255,.08);border:1px solid rgba(0,229,255,.18);
+  border-radius:50px;font-size:.65rem;color:var(--neon);font-weight:600;
+  margin-top:auto;cursor:pointer;text-decoration:none;transition:background .15s}
+.wc-pill:hover{background:rgba(0,229,255,.14)}
+.wc-pill i{font-size:.60rem}
+
+/* Chart panel */
+.chart-panel{
+  background:var(--glass);border:1px solid var(--glass-b);border-radius:16px;
+  backdrop-filter:blur(24px);display:flex;flex-direction:column;overflow:hidden;
+  position:relative;
+}
+.cp-header{
+  flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px 8px;
+}
+
+.cp-title{font-size:.72rem;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em}
+.cp-val{font-family:'Space Grotesk',sans-serif;font-size:1.6rem;font-weight:700;
+  color:var(--neon);text-shadow:0 0 20px rgba(0,229,255,.50);line-height:1;margin-top:2px}
+.cp-delta{font-size:.68rem;color:#34d399;font-weight:600;margin-top:2px}
+.cp-legend{display:flex;gap:14px}
+.cp-leg-item{display:flex;align-items:center;gap:5px;font-size:.62rem;color:var(--ink3)}
+.cp-leg-dot{width:8px;height:8px;border-radius:50%}
+.cp-chart{flex:1;min-height:0}
+
+/* Mini stats panel */
+.mini-panel{
+  background:var(--glass);border:1px solid var(--glass-b);border-radius:16px;
+  backdrop-filter:blur(24px);display:flex;flex-direction:column;gap:8px;
+  padding:14px;overflow:hidden;
+}
+.mp-title{font-size:.62rem;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;
+  margin-bottom:2px}
+.mp-big{font-family:'Space Grotesk',sans-serif;font-size:1.8rem;font-weight:700;
+  color:var(--ink);line-height:1}
+.mp-sub{font-size:.62rem;color:var(--ink3);margin-top:1px;margin-bottom:4px}
+.mp-divider{height:1px;background:rgba(0,200,255,.08)}
+.mp-agent{display:flex;align-items:center;gap:7px;padding:5px 0}
+.mp-ag-av{width:26px;height:26px;border-radius:8px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:.58rem;font-weight:800;color:#fff}
+.mp-ag-info{flex:1;min-width:0}
+.mp-ag-name{font-size:.68rem;font-weight:600;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mp-ag-role{font-size:.56rem;color:var(--ink3)}
+.mp-ag-val{font-size:.70rem;font-weight:700;color:var(--neon);flex-shrink:0}
+.mp-bar-row{margin-top:2px}
+.mp-bar{height:3px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden}
+.mp-bar-fill{height:100%;border-radius:4px;transition:width .8s cubic-bezier(.34,1.56,.64,1)}
+
+/* ── ROW 3: Ranking + Recientes ── */
+.row3{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr);gap:10px;min-height:0}
+
+.table-panel{
+  background:var(--glass);border:1px solid var(--glass-b);border-radius:16px;
+  backdrop-filter:blur(24px);display:flex;flex-direction:column;overflow:hidden;
+}
+.tp-header{
+  flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;border-bottom:1px solid rgba(0,200,255,.06);
+}
+.tp-title{font-size:.72rem;font-weight:700;color:var(--ink);
+  text-transform:uppercase;letter-spacing:.05em}
+.tp-link{font-size:.62rem;color:var(--neon);text-decoration:none;opacity:.8}
+.tp-link:hover{opacity:1}
+.tp-body{flex:1;overflow-y:auto;padding:0 6px 6px}
+.tp-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:10px;
+  transition:background .12s;cursor:default}
+.tp-row:hover{background:rgba(0,200,255,.04)}
+.tp-num{font-size:.60rem;font-weight:800;color:var(--ink3);width:14px;flex-shrink:0;text-align:center}
+.tp-av{width:28px;height:28px;border-radius:8px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:.60rem;font-weight:800;color:#fff}
+.tp-info{flex:1;min-width:0}
+.tp-name{font-size:.70rem;font-weight:600;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tp-team{font-size:.58rem;color:var(--ink3)}
+.tp-bar-wrap{width:80px;flex-shrink:0}
+.tp-bar{height:3px;border-radius:4px;background:rgba(255,255,255,.05);overflow:hidden}
+.tp-bar-fill{height:100%;border-radius:4px}
+.tp-pts{font-size:.68rem;font-weight:700;color:var(--neon);width:36px;text-align:right;flex-shrink:0}
+
+/* Recent activity */
+.act-list{flex:1;overflow-y:auto;padding:0 6px 6px}
+.act-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:10px;
+  transition:background .12s}
+.act-row:hover{background:rgba(0,200,255,.04)}
+.act-icon{width:30px;height:30px;border-radius:8px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:.72rem}
+.act-info{flex:1;min-width:0}
+.act-name{font-size:.70rem;font-weight:600;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.act-meta{font-size:.58rem;color:var(--ink3);margin-top:1px}
+.act-tag{font-size:.58rem;font-weight:700;padding:2px 7px;border-radius:20px;flex-shrink:0}
+.tag-ok {background:rgba(16,185,129,.12);color:#34d399}
+.tag-pen{background:rgba(245,158,11,.12);color:#fbbf24}
+.tag-can{background:rgba(239,68,68,.10);color:#f87171}
+
+/* ── Top Líneas (welcome card) ── */
+.tl-row{display:flex;align-items:center;gap:7px;padding:4px 6px;border-radius:8px;transition:background .12s}
+.tl-row:hover{background:rgba(0,229,255,.04)}
+.tl-pos{font-size:.58rem;font-weight:800;color:var(--ink3);width:14px;text-align:center;flex-shrink:0}
+.tl-av{width:24px;height:24px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.52rem;font-weight:800;color:#fff}
+.tl-name{flex:1;font-size:.66rem;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.tl-val{font-size:.70rem;font-weight:700;flex-shrink:0}
+.tl-sub{font-size:.54rem;color:var(--ink3);margin-top:1px}
+
+/* ── NEON BADGE podio ── */
+.neon-badge{
+  width:20px;height:20px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.52rem;font-weight:900;color:#fff;flex-shrink:0;
+}
+
+/* ── Skeleton loader ── */
+.skel{background:rgba(255,255,255,.04);border-radius:8px;animation:skel-pulse 1.4s ease-in-out infinite}
+@keyframes skel-pulse{0%,100%{opacity:.3}50%{opacity:.7}}
+
+/* ── Responsive ── */
+@media(max-width:1200px){
+  .row2{grid-template-columns:220px 1fr 200px}
+  .kcard-val{font-size:1.2rem}
+}
+@media(max-width:1000px){
+  html,body{overflow:auto;height:auto}
+  body .main-content{position:static!important;height:auto!important;overflow-y:auto!important;top:auto!important;left:auto!important;right:auto!important;bottom:auto!important}
+  .page{grid-template-rows:auto auto auto;overflow:visible;height:auto}
+  .row2{grid-template-columns:1fr;grid-template-rows:auto 260px auto;grid-auto-rows:auto}
+  /* En layout apilado las filas son auto — tope para que la lista haga scroll */
+  .welcome-card{max-height:420px}
+  .row3{grid-template-columns:1fr}
+  .kpi-row{grid-template-columns:repeat(2,1fr)}
+}
+body { background: #FF0000 !important; }
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: -1;
+  background: linear-gradient(160deg,#0b1a33 0%,#0a1628 55%,#080f1f 100%);
+  opacity: 0.55;
+  pointer-events: none;
+}
+</style>
+<link rel="stylesheet" href="/css/glass-cards.css?v=20260716a">
   <link rel="stylesheet" href="/css/sidebar-static.css?v=1">
 </head>
 <body>
   <script src="/js/theme-init.js" defer></script>
   <script src="/js/sidebar-static.js" defer></script>
 
-<!-- Sidebar: sidebar-loader.js?v=20260720d lo inyecta en position:fixed automáticamente -->
+<!-- Sidebar: sidebar-loader.js?v=20260717c lo inyecta en position:fixed automáticamente -->
 <nav class="sidebar" id="app-sidebar">
   <div class="sb-brand">
     <div class="sb-brand-mark">CC</div>
@@ -299,26 +541,16 @@ const _allFetch = fetchLineas('/api/lineas-team');
 /* ═══════ APEX CHART ══════ */
 let _apexChart = null;
 
-/* Altura EXACTA del contenedor: con height:'100%' Apex se dibujaba más alto
-   que el panel (overflow:hidden se comía el eje X y la línea de 0). */
-function _chartHeight(){
-  const el=$('apex-monthly-sales');
-  const h=el?el.clientHeight:0;
-  // -6px de colchón para que el eje X nunca quede fuera; el contenedor
-  // (flex en grid de viewport fijo) no puede crecer por contenido.
-  return h>150?h-6:300;
-}
-
 /* Mismo estilo que la gráfica de Ventas Mensuales de inicio residencial
    (paleta de su modo oscuro — esta página es oscura fija) */
 function _apexOpts(cats,data){
-  const textColor='#4b5563', gridColor='rgba(120,100,60,.14)';
-  const tooltipBg='#ffffff', tooltipTxt='#1f2937';
-  const lineColor='#0d9488', dotColor='#99e5d8', gradHex='#0d9488';
+  const textColor='#cbd5e1', gridColor='rgba(148,163,184,.10)';
+  const tooltipBg='#1e293b', tooltipTxt='#e2e8f0';
+  const lineColor='#818cf8', dotColor='#c7d2fe', gradHex='#818cf8';
   return{
     series:[{name:'Ventas',data}],
-    chart:{type:'area',height:_chartHeight(),background:'transparent',toolbar:{show:false},animations:{enabled:false}},
-    stroke:{curve:'monotoneCubic',width:3,colors:[lineColor]},   /* sin sobreimpulso bajo cero con meses en 0 */
+    chart:{type:'area',height:'100%',background:'transparent',toolbar:{show:false},animations:{enabled:false}},
+    stroke:{curve:'smooth',width:3,colors:[lineColor]},
     fill:{type:'gradient',gradient:{shadeIntensity:1,opacityFrom:0.55,opacityTo:0.02,stops:[0,95]}},
     colors:[gradHex],
     markers:{size:4,colors:[dotColor],strokeColors:tooltipBg,strokeWidth:2,hover:{size:7}},
@@ -334,7 +566,7 @@ function _apexOpts(cats,data){
     grid:{
       borderColor:gridColor,strokeDashArray:4,
       xaxis:{lines:{show:false}},yaxis:{lines:{show:true}},
-      padding:{top:0,right:8,bottom:8,left:4}
+      padding:{top:0,right:8,bottom:0,left:4}
     },
     tooltip:{
       theme:'dark',style:{fontSize:'12px'},
@@ -395,10 +627,8 @@ function renderChart(data,cats){
     _apexChart.updateOptions(_apexOpts(cats,data),true,true);
     return;
   }
-  requestAnimationFrame(function(){requestAnimationFrame(function(){
-    _apexChart=new ApexCharts(el,_apexOpts(cats,data));
-    _apexChart.render().then(()=>_animateChartDraw(el));
-  });});
+  _apexChart=new ApexCharts(el,_apexOpts(cats,data));
+  _apexChart.render().then(()=>_animateChartDraw(el));
 }
 
 /* ═══════ RENDER HELPERS ══════ */

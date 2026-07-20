@@ -4,32 +4,258 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Llamadas y Ventas - Team Líneas</title>
+    <link rel="stylesheet" href="/../css/theme.css?v=20251124f">
     <script src="/../js/fetch-interceptor.js" defer></script>
-  <style>
-    /* Base mínima neutra — lienzo para el rediseño de Líneas */
-    *,*::before,*::after{box-sizing:border-box}
-    body,body.dark-theme{margin:0;background:#ffffff !important;color:#111111 !important;font-family:system-ui,sans-serif}
-    .layout{display:flex;min-height:100vh}
-    .sidebar{flex:0 0 auto}
-    .main-content{flex:1;min-width:0;padding:24px}
-  </style>
-  <script>
-    // Lienzo del rediseño de Líneas: SIN modo oscuro global.
-    // El sidebar fuerza body.dark-theme (dark-mode.css) — aquí se elimina y
-    // se mantiene fuera aunque el loader la re-aplique después.
-    (function(){
-      function strip(){ if(document.body) document.body.classList.remove('dark-theme'); }
-      document.addEventListener('DOMContentLoaded', function(){
-        strip();
-        new MutationObserver(strip).observe(document.body, { attributes:true, attributeFilter:['class'] });
-      });
-    })();
-  </script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: #8b5cf6;
+            --primary-dark: #7c3aed;
+            --light-bg: #faf5ff;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border: rgba(203, 213, 225, 0.6);
+        }
+        body {
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background: var(--light-bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+        .layout { display: flex; min-height: 100vh; }
+        .main-content { flex: 1; margin-left: 280px; padding: 20px; }
+        @media (max-width: 600px) { .main-content { margin-left: 0; } }
+
+        header {
+            background: var(--card-bg);
+            border-bottom: 2px solid var(--primary);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+        .logo {
+            font-size: 1.2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .kpi-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.08);
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: var(--primary);
+        }
+        .kpi-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .kpi-value {
+            font-size: 28px;
+            font-weight: 900;
+            color: var(--primary);
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 800;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 13px;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+        }
+
+        .teams-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        .team-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(139, 92, 246, 0.1);
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        .team-header {
+            background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+            padding: 14px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .team-header h3 {
+            color: white;
+            font-size: 14px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .team-table-wrap {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .team-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .team-table th {
+            background: #f8fafc;
+            color: #334155;
+            font-size: 11px;
+            text-transform: uppercase;
+            font-weight: 800;
+            padding: 12px;
+            text-align: center;
+            border-bottom: 2px solid rgba(139, 92, 246, 0.3);
+        }
+        .team-table th:first-child { text-align: left; }
+        .team-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: center;
+        }
+        .team-table td:first-child {
+            text-align: left;
+            font-weight: 600;
+            color: #374151;
+        }
+        .team-table tbody tr:hover { background: rgba(139, 92, 246, 0.05); }
+
+        .stat-input {
+            width: 70px;
+            padding: 6px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .stat-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+        }
+
+        .team-footer {
+            background: #f8fafc;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 800;
+            font-size: 13px;
+            color: #111827;
+            border-top: 2px solid rgba(139, 92, 246, 0.3);
+        }
+
+        .date-nav {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--card-bg);
+            padding: 12px 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+        .date-nav button {
+            background: #f1f5f9;
+            border: 1px solid var(--border);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            transition: all 0.2s;
+        }
+        .date-nav button:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .date-nav .current-date {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--primary);
+            min-width: 200px;
+            text-align: center;
+        }
+
+        .btn-save {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 14px;
+            margin-top: 20px;
+            transition: all 0.3s;
+        }
+        .btn-save:hover {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+        body { background: #000 !important; }
+        body::before {
+            content: '';
+            position: fixed; inset: 0; z-index: -1;
+            background: linear-gradient(160deg,#0b1a33 0%,#0a1628 55%,#080f1f 100%);
+  opacity: 0.55;
+            pointer-events: none;
+        }
+    </style>
+    <link rel="stylesheet" href="/css/glass-cards.css?v=20260716a">
   <link rel="stylesheet" href="/css/sidebar-static.css?v=1">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
 </head>
 <body>
-  <script src="/js/logout-handler.js" defer></script>
   <script src="/js/theme-init.js" defer></script>
   <script src="/js/sidebar-static.js" defer></script>
 <nav class="sidebar" id="app-sidebar">
