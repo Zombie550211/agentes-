@@ -346,6 +346,7 @@
 <body>
   <script src="/js/theme-init.js" defer></script>
   <script src="/js/sidebar-static.js" defer></script>
+  <script src="/js/llamadas-bloqueo.js" defer></script>
 <nav class="sidebar" id="app-sidebar">
   <div class="sb-brand">
     <div class="sb-brand-mark">CC</div>
@@ -1049,7 +1050,9 @@
 
       if (!response.ok) {
         const errorData = await response.json().catch(function(){ return {}; });
-        throw new Error(errorData.message || 'Error ' + response.status + ': ' + response.statusText);
+        // FastAPI devuelve el mensaje en "detail" (no "message"); "message"
+        // se deja como respaldo por si algún endpoint viejo usa esa clave.
+        throw new Error(errorData.detail || errorData.message || 'Error ' + response.status + ': ' + response.statusText);
       }
 
       const result = await response.json();
