@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Facturación</title>
   <link rel="icon" type="image/png" href="/images/favicon.png">
-  <style>.sidebar,.sidebar.sidebar-inicio{background:rgba(5,15,35,0.65)!important;backdrop-filter:blur(14px)!important;-webkit-backdrop-filter:blur(14px)!important}.sidebar .nav-item,.sidebar .btn-sidebar{background:transparent!important;box-shadow:none!important}</style>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=Inter:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -15,19 +14,19 @@
   <style>
     /* ─── TOKENS ─────────────────────────────────────────────────── */
     :root {
-      --bg:        #070b14;
-      --panel:     #0e1422;
-      --panel2:    #121a2b;
-      --border:    rgba(255,255,255,0.07);
-      --border2:   rgba(255,255,255,0.12);
-      --text:      #e6ebf5;
-      --muted:     #8a93a8;
-      --accent:    #00e5ff;
-      --green:     #34d399;
-      --c-alexis:    #a78bfa;
-      --c-alejandro: #60a5fa;
-      --c-tito:      #2dd4bf;
-      --c-total:     #94a3b8;
+      --bg:        #f2ead9;
+      --panel:     #ffffff;
+      --panel2:    #fffdf7;
+      --border:    rgba(13,20,32,0.08);
+      --border2:   rgba(13,20,32,0.14);
+      --text:      #1e1608;
+      --muted:     #64748b;
+      --accent:    #0891b2;
+      --green:     #059669;
+      --c-alexis:    #7c3aed;
+      --c-alejandro: #2563eb;
+      --c-tito:      #0d9488;
+      --c-total:     #64748b;
       --header-h:  76px;
       --font-head: 'Syne', sans-serif;
       --font-mono: 'DM Mono', monospace;
@@ -38,7 +37,7 @@
 
     body {
       background:
-        radial-gradient(1200px 600px at 80% -10%, rgba(0,229,255,0.06), transparent 60%),
+        radial-gradient(1200px 600px at 80% -10%, rgba(8,145,178,0.06), transparent 60%),
         var(--bg);
       color: var(--text);
       font-family: var(--font-mono);
@@ -54,7 +53,7 @@
     .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
     .topbar-title h1 {
       font-family: var(--font-head);
-      font-size: 30px; font-weight: 800; letter-spacing: 0.01em; color: #fff;
+      font-size: 30px; font-weight: 800; letter-spacing: 0.01em; color: var(--text);
     }
     .topbar-title p { color: var(--muted); font-size: 13px; margin-top: 4px; }
 
@@ -91,7 +90,7 @@
     }
     .kpi-body { min-width: 0; }
     .kpi-label { font-family: var(--font-kpi); font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
-    .kpi-value { font-family: var(--font-kpi); font-size: 27px; font-weight: 700; color: #fff; margin-top: 3px; white-space: nowrap; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+    .kpi-value { font-family: var(--font-kpi); font-size: 27px; font-weight: 700; color: var(--text); margin-top: 3px; white-space: nowrap; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
     .kpi-sub { font-family: var(--font-kpi); font-size: 11px; color: var(--muted); margin-top: 3px; }
     .kpi-sub .delta-up { color: var(--green); font-weight: 600; }
     .kpi-sub .delta-down { color: #f87171; font-weight: 600; }
@@ -102,7 +101,7 @@
       border: 1px solid var(--border); border-radius: 16px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.35);
     }
-    .card-title { font-family: var(--font-head); font-size: 17px; font-weight: 700; color: #fff; padding: 18px 20px 0; }
+    .card-title { font-family: var(--font-head); font-size: 17px; font-weight: 700; color: var(--text); padding: 18px 20px 0; }
 
     /* ─── TABLE ──────────────────────────────────────────────────── */
     .table-section { overflow: hidden; }
@@ -110,7 +109,7 @@
     .fact-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
     .fact-table th, .fact-table td { padding: 9px 12px; text-align: right; white-space: nowrap; }
     /* Encabezados fijos al hacer scroll vertical */
-    .fact-table thead th { color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--border2); position: sticky; z-index: 3; background: #0e1422; }
+    .fact-table thead th { color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--border2); position: sticky; z-index: 3; background: var(--panel2); }
     .fact-table thead tr:first-child th { top: 0; }
     .fact-table thead tr:nth-child(2) th { top: 28px; }
     .fact-table .group-header-row th {
@@ -134,18 +133,18 @@
     }
     .btn-mode:hover { border-color: var(--accent); color: var(--accent); }
     .btn-mode.activo { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
-    .fact-table tbody td { border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--text); }
+    .fact-table tbody td { border-bottom: 1px solid rgba(13,20,32,0.06); color: var(--text); }
     .fact-table tbody td:first-child { text-align: left; color: var(--muted); font-weight: 500; }
-    .fact-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.015); }
-    .fact-table tbody tr:hover { background: rgba(0,229,255,0.04); }
+    .fact-table tbody tr:nth-child(even) { background: rgba(13,20,32,0.02); }
+    .fact-table tbody tr:hover { background: rgba(8,145,178,0.06); }
     /* Celdas calculadas (no editables) en tono distinto */
     .fact-table tbody td[contenteditable="false"]:not(:first-child) { color: var(--muted); }
-    .fact-table tbody td[contenteditable="true"]:focus { outline: 1px solid var(--accent); background: rgba(0,229,255,0.06); border-radius: 4px; }
+    .fact-table tbody td[contenteditable="true"]:focus { outline: 1px solid var(--accent); background: rgba(8,145,178,0.08); border-radius: 4px; }
     .fact-table tfoot td {
-      padding: 14px 12px; font-weight: 700; color: #fff;
-      border-top: 1px solid var(--border2); background: #0c1a26;
+      padding: 14px 12px; font-weight: 700; color: var(--text);
+      border-top: 1px solid var(--border2); background: var(--panel2);
       position: sticky; bottom: 0; z-index: 4;
-      box-shadow: 0 -6px 14px rgba(0,0,0,0.45);
+      box-shadow: 0 -6px 14px rgba(13,20,32,0.10);
     }
     .fact-table tfoot td:first-child { text-align: left; color: var(--accent); letter-spacing: 0.06em; }
 
@@ -160,7 +159,7 @@
     .resumen-item:last-child { border-bottom: none; }
     .resumen-ic { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #fff; flex-shrink: 0; }
     .resumen-label { flex: 1; color: var(--muted); font-size: 13px; }
-    .resumen-val { font-family: var(--font-mono); font-weight: 500; color: #fff; font-size: 16px; }
+    .resumen-val { font-family: var(--font-mono); font-weight: 500; color: var(--text); font-size: 16px; }
 
     /* Top asesores */
     .top-list { padding: 14px 20px 20px; display: flex; flex-direction: column; gap: 16px; }
@@ -168,9 +167,9 @@
     .top-rank { width: 22px; height: 22px; border-radius: 50%; background: var(--panel2); border: 1px solid var(--border2); color: var(--muted); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .top-main { flex: 1; min-width: 0; }
     .top-name { font-size: 13px; color: var(--text); margin-bottom: 6px; }
-    .top-bar { height: 6px; border-radius: 4px; background: rgba(255,255,255,0.06); overflow: hidden; }
+    .top-bar { height: 6px; border-radius: 4px; background: rgba(13,20,32,0.08); overflow: hidden; }
     .top-bar > span { display: block; height: 100%; border-radius: 4px; }
-    .top-val { font-family: var(--font-mono); font-weight: 500; color: #fff; font-size: 13px; white-space: nowrap; }
+    .top-val { font-family: var(--font-mono); font-weight: 500; color: var(--text); font-size: 13px; white-space: nowrap; }
 
     /* ─── FOOTER ─────────────────────────────────────────────────── */
     .fact-footer { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; color: var(--muted); font-size: 12px; padding-top: 4px; }

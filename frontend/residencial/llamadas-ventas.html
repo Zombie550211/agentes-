@@ -13,104 +13,104 @@
   <script src="/js/user-info.js" defer></script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    body{min-height:100vh;background:linear-gradient(160deg,#0b1a33 0%,#0a1628 55%,#080f1f 100%);background-attachment:fixed;font-family:'Inter',system-ui,sans-serif;color:#f1f5f9;color-scheme:dark}
+    body{min-height:100vh;background:#f2ead9;font-family:'Inter',system-ui,sans-serif;color:#1e1608;color-scheme:light}
     .layout{display:flex;min-height:100vh}
     .sidebar{flex:0 0 auto}
     .main-content{flex:1;min-width:0;padding:26px 30px 50px}
 
     /* ── Header ── */
     .lv-header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
-    .lv-eyebrow{font-size:.66rem;font-weight:700;letter-spacing:.14em;color:#38bdf8;text-transform:uppercase}
-    .lv-title{font-size:1.7rem;font-weight:800;letter-spacing:-.01em;color:#fff}
-    .lv-sub{font-size:.78rem;color:#8fa0b8;margin-top:2px}
+    .lv-eyebrow{font-size:.66rem;font-weight:700;letter-spacing:.14em;color:#0284c7;text-transform:uppercase}
+    .lv-title{font-size:1.7rem;font-weight:800;letter-spacing:-.01em;color:#1e1608}
+    .lv-sub{font-size:.78rem;color:#7a6e5a;margin-top:2px}
     .lv-filters{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
     .lv-filter{display:flex;flex-direction:column;gap:4px}
-    .lv-filter label{font-size:.62rem;font-weight:700;letter-spacing:.1em;color:#8fa0b8;text-transform:uppercase}
-    .lv-filter input{background:rgba(7,17,35,.65);border:1px solid rgba(255,255,255,.16);border-radius:10px;
-      color:#f1f5f9;padding:9px 12px;font-family:inherit;font-size:.85rem;font-weight:600;cursor:pointer}
+    .lv-filter label{font-size:.62rem;font-weight:700;letter-spacing:.1em;color:#7a6e5a;text-transform:uppercase}
+    .lv-filter input{background:#fff;border:1px solid rgba(13,20,32,.16);border-radius:10px;
+      color:#1e1608;padding:9px 12px;font-family:inherit;font-size:.85rem;font-weight:600;cursor:pointer}
     .lv-filter input:focus{outline:none;border-color:#38bdf8}
 
     /* Encabezados de sección */
-    .lv-section-head{display:flex;align-items:center;gap:10px;font-size:1.05rem;font-weight:800;color:#fff;
+    .lv-section-head{display:flex;align-items:center;gap:10px;font-size:1.05rem;font-weight:800;color:#1e1608;
       letter-spacing:.02em;margin:0 0 12px 2px;text-transform:uppercase}
     .lv-section-head .dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
     .lv-tile.accent.lin{background:rgba(129,140,248,.10);border-color:rgba(129,140,248,.55)}
 
     /* ── Resumen de Rendimiento (estilo tiles) ── */
-    .lv-resumen{background:rgba(5,15,35,.55);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:20px 22px;margin-bottom:22px;
-      backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 8px 24px rgba(0,0,0,.25)}
-    .lv-resumen-title{text-align:center;font-size:1.15rem;font-weight:800;color:#7dd3fc;margin-bottom:16px}
+    .lv-resumen{background:#fff;border:1px solid rgba(13,20,32,.10);border-radius:16px;padding:20px 22px;margin-bottom:22px;
+      box-shadow:0 8px 24px rgba(13,20,32,.08)}
+    .lv-resumen-title{text-align:center;font-size:1.15rem;font-weight:800;color:#0284c7;margin-bottom:16px}
     .lv-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
-    .lv-tile{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.13);
+    .lv-tile{display:flex;align-items:center;gap:12px;background:rgba(13,20,32,.03);border:1.5px solid rgba(13,20,32,.10);
       border-radius:12px;padding:14px 16px}
     .lv-tile.accent{background:rgba(56,189,248,.10);border:2px solid rgba(56,189,248,.55)}
     .lv-tile-ic{width:40px;height:40px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.95rem}
-    .lv-tile-lbl{font-size:.68rem;font-weight:700;color:#aab8cf}
-    .lv-tile-val{font-size:1.45rem;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;line-height:1.2}
-    .lv-tile input{width:100px;background:transparent;border:none;outline:none;color:#fff;
+    .lv-tile-lbl{font-size:.68rem;font-weight:700;color:#7a6e5a}
+    .lv-tile-val{font-size:1.45rem;font-weight:800;color:#1e1608;font-variant-numeric:tabular-nums;line-height:1.2}
+    .lv-tile input{width:100px;background:transparent;border:none;outline:none;color:#1e1608;
       font-size:1.45rem;font-weight:800;font-family:inherit;font-variant-numeric:tabular-nums;padding:0;
-      border-bottom:2px dashed rgba(255,255,255,.3);border-radius:0}
+      border-bottom:2px dashed rgba(13,20,32,.3);border-radius:0}
     .lv-tile input:focus{border-bottom-color:#38bdf8}
-    .lv-tile input.saved{color:#34d399;transition:color .3s}
-    #kpi-ventas,#kpi-ventas-lin{color:#34d399}
+    .lv-tile input.saved{color:#059669;transition:color .3s}
+    #kpi-ventas,#kpi-ventas-lin{color:#059669}
     .lv-adj{display:none;font-size:.58rem;font-weight:800;color:#fbbf24;background:rgba(251,191,36,.12);
       border:1px solid rgba(251,191,36,.35);border-radius:20px;padding:1px 7px;margin-left:6px;vertical-align:middle}
     .lv-adj.on{display:inline-block}
 
     /* ── Grid de teams: simétrico, altura fija, scroll interno ── */
     .lv-teams{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px}
-    .lv-team{background:rgba(5,15,35,.55);border:1.5px solid rgba(255,255,255,.16);border-radius:14px;
-      backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 8px 24px rgba(0,0,0,.28);
+    .lv-team{background:#fff;border:1.5px solid rgba(13,20,32,.12);border-radius:14px;
+      box-shadow:0 8px 24px rgba(13,20,32,.10);
       height:380px;display:flex;flex-direction:column;overflow:hidden}
-    .lv-team-head{display:flex;align-items:center;gap:8px;padding:13px 16px;background:rgba(255,255,255,.06);
-      border-bottom:2px solid rgba(255,255,255,.14);flex-shrink:0}
-    .lv-team-name{font-size:.84rem;font-weight:800;letter-spacing:.02em;flex:1;min-width:0;color:#fff;
+    .lv-team-head{display:flex;align-items:center;gap:8px;padding:13px 16px;background:rgba(13,20,32,.03);
+      border-bottom:2px solid rgba(13,20,32,.10);flex-shrink:0}
+    .lv-team-name{font-size:.84rem;font-weight:800;letter-spacing:.02em;flex:1;min-width:0;color:#1e1608;
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase}
     .lv-team-tot{display:flex;gap:6px;flex-shrink:0}
     .lv-chip{font-size:.72rem;font-weight:800;padding:4px 11px;border-radius:20px;font-variant-numeric:tabular-nums;white-space:nowrap}
-    .lv-chip.ll{background:rgba(56,189,248,.14);color:#38bdf8;border:1px solid rgba(56,189,248,.35)}
+    .lv-chip.ll{background:rgba(56,189,248,.14);color:#0284c7;border:1px solid rgba(56,189,248,.35)}
     .lv-chip.v{background:#059669;color:#fff;border:1px solid #047857}
-    .lv-chip.lin{background:rgba(129,140,248,.15);color:#a5b4fc;border:1px solid rgba(129,140,248,.4)}
+    .lv-chip.lin{background:rgba(99,102,241,.14);color:#4f46e5;border:1px solid rgba(99,102,241,.35)}
     .lv-team-scroll{flex:1;min-height:0;overflow-y:auto}
     .lv-team-scroll::-webkit-scrollbar{width:5px}
-    .lv-team-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:4px}
+    .lv-team-scroll::-webkit-scrollbar-thumb{background:rgba(13,20,32,.18);border-radius:4px}
 
     /* Tabla con anchos FIJOS: la columna de agente cede, LL/CA/V nunca se cortan */
     table.lv-tbl{width:100%;border-collapse:collapse;font-size:.85rem;table-layout:fixed}
     .lv-tbl col.c-ag{width:auto}
     .lv-tbl col.c-n{width:64px}
     /* Rejilla tipo hoja de cálculo: líneas entre filas Y columnas */
-    .lv-tbl th{position:sticky;top:0;z-index:1;background:#0e1d38;color:#8fa0b8;
+    .lv-tbl th{position:sticky;top:0;z-index:1;background:#0e1d38;color:#aab8cf;
       font-size:.6rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
       padding:8px 6px;text-align:center;
       border-bottom:2px solid rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.10)}
     .lv-tbl th:first-child{text-align:left;padding-left:16px}
     .lv-tbl th:last-child{border-right:none}
     .lv-tbl td{padding:4px 3px;text-align:center;overflow:hidden;
-      border-bottom:1px solid rgba(255,255,255,.09);border-right:1px solid rgba(255,255,255,.06)}
+      border-bottom:1px solid rgba(13,20,32,.08);border-right:1px solid rgba(13,20,32,.06)}
     .lv-tbl td:last-child{border-right:none}
-    .lv-tbl tbody tr:nth-child(even) td{background:rgba(255,255,255,.025)}
+    .lv-tbl tbody tr:nth-child(even) td{background:rgba(13,20,32,.02)}
     .lv-tbl td.ag{padding:5px 4px 5px 16px;text-align:left}
     .lv-ag-wrap{display:flex;align-items:center;gap:8px;min-width:0}
     .lv-avatar{width:24px;height:24px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
       font-size:.55rem;font-weight:800;color:#fff;background:linear-gradient(135deg,#2563eb,#0ea5e9)}
-    .lv-agent-name{font-weight:600;font-size:.78rem;color:#f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-    .lv-agent-name .sup{font-size:.56rem;color:#fbbf24;font-weight:800;margin-left:4px}
+    .lv-agent-name{font-weight:600;font-size:.78rem;color:#1e1608;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+    .lv-agent-name .sup{font-size:.56rem;color:#d97706;font-weight:800;margin-left:4px}
 
     /* Celdas estilo hoja de cálculo: número plano; edición al tocar; guarda al salir */
     .lv-cell{width:100%;max-width:60px;background:transparent;border:1px solid transparent;border-radius:7px;
-      color:#f1f5f9;font-family:inherit;font-size:.92rem;font-weight:700;text-align:center;padding:7px 2px;
+      color:#1e1608;font-family:inherit;font-size:.92rem;font-weight:700;text-align:center;padding:7px 2px;
       font-variant-numeric:tabular-nums;cursor:pointer;transition:border-color .15s,background .15s,color .3s}
-    .lv-cell:hover{background:rgba(255,255,255,.07)}
+    .lv-cell:hover{background:rgba(13,20,32,.05)}
     .lv-cell:focus{outline:none;cursor:text;border-color:#38bdf8;background:rgba(56,189,248,.12)}
-    .lv-cell.saved{color:#34d399}
-    .lv-cell::placeholder{color:rgba(255,255,255,.22)}
+    .lv-cell.saved{color:#059669}
+    .lv-cell::placeholder{color:rgba(13,20,32,.20)}
     /* Columna V automática (ventas reales del CRM, no editable) */
     .lv-vauto{display:inline-block;min-width:42px;padding:6px 10px;border-radius:8px;
-      font-size:.95rem;font-weight:800;color:rgba(255,255,255,.25);font-variant-numeric:tabular-nums;cursor:default}
+      font-size:.95rem;font-weight:800;color:rgba(13,20,32,.25);font-variant-numeric:tabular-nums;cursor:default}
     .lv-vauto.has{background:#059669;color:#ffffff;border:1px solid #10b981;box-shadow:0 0 10px rgba(16,185,129,.4)}
-    .lv-empty-team{padding:26px;text-align:center;color:#8fa0b8;font-size:.75rem;font-style:italic}
-    .lv-loading{padding:60px;text-align:center;color:#8fa0b8;font-size:.85rem}
+    .lv-empty-team{padding:26px;text-align:center;color:#7a6e5a;font-size:.75rem;font-style:italic}
+    .lv-loading{padding:60px;text-align:center;color:#7a6e5a;font-size:.85rem}
 
     /* Sin flechas de spinner en NINGÚN campo numérico */
     input[type=number]{-moz-appearance:textfield;appearance:textfield}
@@ -217,7 +217,7 @@
             </div></div>
         </div>
         <div class="lv-tile">
-          <div class="lv-tile-ic" style="background:rgba(52,211,153,.12)"><i class="fas fa-chart-line" style="color:#34d399"></i></div>
+          <div class="lv-tile-ic" style="background:rgba(52,211,153,.12)"><i class="fas fa-chart-line" style="color:#059669"></i></div>
           <div><div class="lv-tile-lbl">Ventas <span class="lv-adj" id="adj-ventas" title="Ajustado manualmente — borra el campo para volver al automático">✎ ajustado</span></div>
             <input type="number" min="0" id="kpi-ventas" value="0" title="Automático desde el CRM — editable por admin; vacío = volver al automático"/></div>
         </div>
@@ -237,31 +237,31 @@
     <!-- ══ SECCIÓN LÍNEAS ══ -->
     <div class="lv-section-head" style="margin-top:34px"><span class="dot" style="background:#a5b4fc"></span>Servicios Móviles · Líneas</div>
     <div class="lv-resumen lin">
-      <div class="lv-resumen-title" style="color:#a5b4fc">Resumen de Rendimiento · Líneas</div>
+      <div class="lv-resumen-title" style="color:#4f46e5">Resumen de Rendimiento · Líneas</div>
       <div class="lv-tiles">
         <div class="lv-tile">
-          <div class="lv-tile-ic" style="background:rgba(165,180,252,.12)"><i class="fas fa-phone-volume" style="color:#a5b4fc"></i></div>
+          <div class="lv-tile-ic" style="background:rgba(165,180,252,.12)"><i class="fas fa-phone-volume" style="color:#4f46e5"></i></div>
           <div><div class="lv-tile-lbl">Llamadas Totales</div><div class="lv-tile-val" id="kpi-llamadas-tot-lin">0</div></div>
         </div>
         <div class="lv-tile">
-          <div class="lv-tile-ic" style="background:rgba(52,211,153,.12)"><i class="fas fa-phone" style="color:#34d399"></i></div>
+          <div class="lv-tile-ic" style="background:rgba(52,211,153,.12)"><i class="fas fa-phone" style="color:#059669"></i></div>
           <div><div class="lv-tile-lbl">Llamadas Atendidas</div><div class="lv-tile-val" id="kpi-atendidas-lin">0</div></div>
         </div>
         <div class="lv-tile">
-          <div class="lv-tile-ic" style="background:rgba(251,113,133,.12)"><i class="fas fa-triangle-exclamation" style="color:#fb7185"></i></div>
+          <div class="lv-tile-ic" style="background:rgba(251,113,133,.12)"><i class="fas fa-triangle-exclamation" style="color:#e11d48"></i></div>
           <div><div class="lv-tile-lbl">Llamadas Perdidas</div>
             <input type="number" min="0" id="kpi-perdidas-lin" value="0" title="Editable — se guarda al salir de la celda"/></div>
         </div>
         <div class="lv-tile accent lin">
-          <div class="lv-tile-ic" style="background:rgba(165,180,252,.15)"><i class="fas fa-sack-dollar" style="color:#a5b4fc"></i></div>
+          <div class="lv-tile-ic" style="background:rgba(165,180,252,.15)"><i class="fas fa-sack-dollar" style="color:#4f46e5"></i></div>
           <div><div class="lv-tile-lbl">Inversión</div>
             <div style="display:flex;align-items:baseline;gap:2px;">
-              <span style="font-weight:800;color:#a5b4fc;">$</span>
+              <span style="font-weight:800;color:#4f46e5;">$</span>
               <input type="number" min="0" step="0.01" id="kpi-inversion-lin" value="0" title="Editable — se guarda al salir de la celda"/>
             </div></div>
         </div>
         <div class="lv-tile">
-          <div class="lv-tile-ic" style="background:rgba(52,211,153,.12)"><i class="fas fa-chart-line" style="color:#34d399"></i></div>
+          <div class="lv-tile-ic" style="background:rgba(52,211,153,.12)"><i class="fas fa-chart-line" style="color:#059669"></i></div>
           <div><div class="lv-tile-lbl">Ventas <span class="lv-adj" id="adj-ventas-lin" title="Ajustado manualmente — borra el campo para volver al automático">✎ ajustado</span></div>
             <input type="number" min="0" id="kpi-ventas-lin" value="0" title="Automático desde el CRM — editable por admin; vacío = volver al automático"/></div>
         </div>
@@ -270,7 +270,7 @@
           <div><div class="lv-tile-lbl">Puntos</div><div class="lv-tile-val" id="kpi-puntos-lin">0.00</div></div>
         </div>
         <div class="lv-tile accent lin">
-          <div class="lv-tile-ic" style="background:rgba(165,180,252,.15)"><i class="fas fa-calculator" style="color:#a5b4fc"></i></div>
+          <div class="lv-tile-ic" style="background:rgba(165,180,252,.15)"><i class="fas fa-calculator" style="color:#4f46e5"></i></div>
           <div><div class="lv-tile-lbl">Costo por Venta</div><div class="lv-tile-val" id="kpi-costo-lin">$0.00</div></div>
         </div>
       </div>

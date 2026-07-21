@@ -1,4 +1,4 @@
 (function () {
-  try { localStorage.setItem('theme', 'dark'); } catch (_) {}
-  document.body.classList.add('dark-theme');
+  try { localStorage.setItem('theme', 'light'); } catch (_) {}
+  document.body.classList.remove('dark-theme');
 })();

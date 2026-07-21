@@ -44,43 +44,9 @@
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     html,body{height:100%;font-family:'Outfit',sans-serif;-webkit-font-smoothing:antialiased}
     body{
-      background: #0a1628;
-      color:#fff;overflow:hidden;transition:background .25s,color .25s;
+      background: var(--bg);
+      color:var(--t1);overflow:hidden;transition:background .25s,color .25s;
     }
-
-    /* ── Fondo estadio fijo detrás de todo ── */
-    body::before{
-      content:'';position:fixed;inset:0;z-index:0;
-      background: linear-gradient(160deg,#0b1a33 0%,#0a1628 55%,#080f1f 100%);
-      opacity:0.55;
-    }
-
-    /* ── Cards transparentes — captura TODOS los contenedores ── */
-    .glass, .kpi, .card, .tbl-wrap, .page > div,
-    [class*="glass"], [class*="card"],
-    div[style*="background:#fff"], div[style*="background: #fff"],
-    div[style*="background:white"], div[style*="background: white"],
-    #lineas-mes-body > *, #lineas-hoy-body > * {
-      background: rgba(255,255,255,0.08) !important;
-      border-color: rgba(255,255,255,0.16) !important;
-      backdrop-filter: blur(18px) saturate(150%) !important; -webkit-backdrop-filter: blur(18px) saturate(150%) !important;
-    }
-    .card-alt, .kpi-icon, .glass-header, .tbl thead tr,
-    .mbtn, .mpill-wrap {
-      background: rgba(255,255,255,0.06) !important;
-      border-color: rgba(255,255,255,0.10) !important;
-    }
-
-    /* ── Todo texto blanco ── */
-    body *, body *::before, body *::after {
-      color: #fff !important;
-      border-color: rgba(255,255,255,0.16) !important;
-    }
-    body input, body select, body textarea {
-      background: rgba(255,255,255,0.10) !important;
-      color: #fff !important;
-    }
-    body input::placeholder { color: rgba(255,255,255,0.4) !important; }
 
     .layout{display:flex;height:100vh;overflow:hidden;position:relative;z-index:1}
     .sidebar{flex:0 0 auto}
@@ -235,33 +201,7 @@
     @media(max-width:850px) {.kpi-grid{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:600px) {.summary{grid-template-columns:repeat(3,1fr); gap:1px; background:var(--bdr)} .sum-it{border-right:none}}
   </style>
-  <link rel="stylesheet" href="/css/glass-cards.css?v=20260716a">
   <style>
-    /* ── Transparencia fondo estadio — refuerzo ── */
-    body, html { background: transparent !important; }
-    body * { color: #fff !important; }
-    .glass,
-    .kpi,
-    .summary,
-    .header {
-      background: rgba(255,255,255,0.10) !important;
-      backdrop-filter: blur(10px) !important;
-      -webkit-backdrop-filter: blur(10px) !important;
-      border-color: rgba(255,255,255,0.10) !important;
-    }
-    .glass-header,
-    .tbl-wrap,
-    .card-alt,
-    .kpi-icon,
-    .mbtn,
-    .month-ctrl,
-    .sum-it {
-      background: rgba(255,255,255,0.06) !important;
-      border-color: rgba(255,255,255,0.10) !important;
-    }
-    .tbl thead tr { background: rgba(255,255,255,0.16) !important; }
-    .tbl tbody tr:hover { background: rgba(255,255,255,0.08) !important; }
-    .lt-row { background: rgba(255,255,255,0.06) !important; border-color: rgba(255,255,255,0.10) !important; }
     /* ── Encabezados de tabla coloreados ── */
     .glass-header.res-header {
       background: rgba(135,206,250,0.22) !important;

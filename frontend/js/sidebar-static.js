@@ -5,6 +5,21 @@
 (function () {
   'use strict';
 
+  // Los chips de los iconos vienen con fondo pastel claro + trazo oscuro
+  // (inline style por icono). Se invierte a fondo sólido + icono blanco
+  // para un acabado más profesional, sin tocar el HTML de cada página.
+  function professionalizeIcons() {
+    document.querySelectorAll('#app-sidebar .sb-ic[style*="background"]').forEach(function (chip) {
+      const svg = chip.querySelector('svg[style*="color"]');
+      if (!svg) return;
+      const darkColor = svg.style.color;
+      if (!darkColor) return;
+      chip.style.background = darkColor;
+      svg.style.color = '#ffffff';
+    });
+  }
+  professionalizeIcons();
+
   function normalizeRole(roleRaw) {
     const r = (roleRaw == null ? '' : String(roleRaw)).trim().toLowerCase();
     if (['admin', 'administrator', 'administrador', 'administradora'].includes(r)) return 'admin';
