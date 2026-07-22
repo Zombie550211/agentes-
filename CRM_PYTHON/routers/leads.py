@@ -870,6 +870,27 @@ async def comisiones_agentes_mes(
     return await comisiones_agents(fechaInicio=None, fechaFin=None, month=month, year=year, debug=None, user=user)
 
 
+# ── Configuración de comisiones de LÍNEAS ─────────────────────────
+# Única fuente de verdad: el frontend NO debe tener tasas ni escalas.
+_LINEAS_COMISION_CONFIG = {
+    "tasaPorLinea": 0.50,          # USD por línea vendida
+    "escalas": [
+        {"min": 17, "max": 20,   "label": "Escala 17-20"},
+        {"min": 21, "max": 25,   "label": "Escala 21-25"},
+        {"min": 26, "max": 30,   "label": "Escala 26-30"},
+        {"min": 31, "max": None, "label": "Escala 31+"},
+    ],
+    "sinEscalaLabel": "Sin escala",
+}
+
+
+def _lineas_escala(total_lineas: float) -> str:
+    for e in reversed(_LINEAS_COMISION_CONFIG["escalas"]):
+        if total_lineas >= e["min"]:
+            return e["label"]
+    return _LINEAS_COMISION_CONFIG["sinEscalaLabel"]
+
+
 @router.get("/api/comisiones/agentes-lineas")
 async def comisiones_agentes_lineas(
     month: Optional[str] = Query(None),
@@ -922,17 +943,26 @@ async def comisiones_agentes_lineas(
     except Exception:
         pass
 
+    tasa = _LINEAS_COMISION_CONFIG["tasaPorLinea"]
     for row in rows:
         wl = float(row.pop("lineas_wireless", 0) or 0)
         total = float(row.pop("lineas_total", 0) or 0)
         row["lineasWireless"] = int(wl)
         row["lineasSinWireless"] = int(max(total - wl, 0))
+        # Comisión, escala y puntaje calculados AQUÍ (el frontend solo los muestra).
+        # Puntaje de líneas = 0.5 por línea; si el registro no trae puntaje en BD,
+        # se calcula con la misma regla.
+        row["lineasTotal"] = int(total)
+        row["comision"] = round(total * tasa, 2)
+        row["escala"] = _lineas_escala(total)
+        if not float(row.get("puntos") or 0):
+            row["puntos"] = round(total * 0.5, 2)
         tm = name_to_team.get(_norm(row.get("nombre")))
         row["team"] = tm["team"] if tm else ""
         row["team_token"] = tm["team_token"] if tm else ""
         row["team_label"] = tm["team_label"] if tm else "Sin team"
 
-    return {"success": True, "data": rows}
+    return {"success": True, "data": rows, "config": _LINEAS_COMISION_CONFIG}
 
 
 # ── LEADS-LINEAS ───────────────────────────────────────────────────
