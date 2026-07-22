@@ -1048,7 +1048,7 @@ async def leads_lineas(
 # ── LLAMADAS DE VERIFICACIÓN / SEGUIMIENTO (bloqueo) ──────────────
 # Condiciones de llamada vencida:
 #  - cancelled: 1 sola llamada, inmediata (llamadas_realizadas = 0)
-#  - completed: hasta 3 llamadas, cada una 7 días después de la anterior
+#  - completed: hasta 2 llamadas, cada una 15 días después de la anterior
 #    (la 1ª cuenta desde fecha_completed)
 _LLAMADAS_DUE_SQL = """(
     (LOWER(COALESCE(status,'')) LIKE '%cancel%'
@@ -1057,8 +1057,8 @@ _LLAMADAS_DUE_SQL = """(
     OR
     (LOWER(COALESCE(status,'')) LIKE '%complet%'
      AND fecha_completed IS NOT NULL
-     AND COALESCE(llamadas_realizadas,0) < 3
-     AND COALESCE(fecha_ultima_llamada, fecha_completed) <= (UTC_TIMESTAMP() - INTERVAL 7 DAY))
+     AND COALESCE(llamadas_realizadas,0) < 2
+     AND COALESCE(fecha_ultima_llamada, fecha_completed) <= (UTC_TIMESTAMP() - INTERVAL 15 DAY))
 )"""
 
 
@@ -1218,8 +1218,8 @@ async def registrar_llamada(
                 raise HTTPException(403, "Solo el dueño del lead puede registrar la llamada")
 
         n_actual = int(row["lr"] or 0)
-        if n_actual >= 3:
-            raise HTTPException(400, "Este lead ya tiene las 3 llamadas registradas")
+        if n_actual >= 2:
+            raise HTTPException(400, "Este lead ya tiene las 2 llamadas registradas")
 
         numero = n_actual + 1
         tipo   = "verificacion" if n_actual == 0 else "seguimiento"
@@ -1241,7 +1241,7 @@ async def registrar_llamada(
             notas = []
         notas.append({
             "tipo": "llamada",
-            "texto": f"[Llamada {numero}/3 — {tipo}] {nota}",
+            "texto": f"[Llamada {numero}/2 — {tipo}] {nota}",
             "autor": autor,
             "fecha": now.isoformat(),
         })
@@ -1260,12 +1260,12 @@ async def registrar_llamada(
 
     asyncio.create_task(_log_activity(
         "Llamada registrada", str(row["nombre_cliente"] or ""),
-        f"Llamada {numero}/3 ({tipo}) registrada con captura y nota",
+        f"Llamada {numero}/2 ({tipo}) registrada con captura y nota",
         user
     ))
     await _notify("residencial", "llamada")
-    return {"success": True, "message": f"Llamada {numero}/3 registrada",
-            "data": {"numero_llamada": numero, "tipo": tipo, "restantes": 3 - numero}}
+    return {"success": True, "message": f"Llamada {numero}/2 registrada",
+            "data": {"numero_llamada": numero, "tipo": tipo, "restantes": 2 - numero}}
 
 
 # ── SINGLE LEAD CRUD ───────────────────────────────────────────────

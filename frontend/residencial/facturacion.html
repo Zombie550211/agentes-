@@ -77,6 +77,11 @@
     .btn-save:disabled { opacity: .6; cursor: default; transform: none; }
 
     /* ─── KPI CARDS ──────────────────────────────────────────────── */
+    .kpi-section-title {
+      font-family: var(--font-kpi); font-size: 13px; font-weight: 700; color: var(--text);
+      text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 12px;
+    }
+    .kpi-section-title:not(:first-of-type) { margin-top: 28px; }
     .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px; }
     .kpi-card {
       background: linear-gradient(180deg, var(--panel2), var(--panel));
@@ -199,12 +204,25 @@
   <script src="/js/theme-init.js" defer></script>
   <script src="/js/sidebar-static.js" defer></script>
   <script src="/js/llamadas-bloqueo.js" defer></script>
+  <script src="/js/sidebar-user.js" defer></script>
 <div class="layout">
   <!-- Sidebar compartido -->
   <nav class="sidebar" id="app-sidebar">
-  <div class="sb-brand">
-    <div class="sb-brand-mark">CC</div>
-    <div class="sb-brand-text"><strong>CONNECTING</strong><span>C R M</span></div>
+  <div class="sb-user">
+    <div class="sb-user-avatar-wrap">
+      <div class="sb-user-avatar">
+        <img id="sb-user-avatar-img" alt="" hidden>
+        <span id="sb-user-initials">?</span>
+      </div>
+      <button type="button" class="sb-user-edit-btn" id="sb-user-edit-btn" title="Cambiar foto de perfil">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      </button>
+      <input type="file" id="sb-user-avatar-input" accept="image/*" hidden>
+    </div>
+    <div class="sb-user-meta">
+      <div class="sb-user-name" id="sb-user-name">Usuario</div>
+      <div class="sb-user-role" id="sb-user-role">Rol</div>
+    </div>
   </div>
   <div class="sb-scroll">
 <a href="/residencial/inicio.html" class="sb-item"><span class="sb-ic" style="background:#dbeafe;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#2563eb"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg></span><span class="sb-lbl">Inicio</span></a>
@@ -252,13 +270,15 @@
 
       <!-- ── TOPBAR ── -->
       <div class="topbar">
-        <div class="topbar-title">
+        <!-- TODO(redisño facturación): título temporalmente oculto, ver [[facturacion-redesign]] -->
+        <div class="topbar-title" style="display:none">
           <h1>Facturación</h1>
           <p>Control y seguimiento de ventas por asesor</p>
         </div>
 
         <div class="filters-group">
-          <div class="filter-item">
+          <!-- TODO(redisño facturación): filtros temporalmente ocultos -->
+          <div class="filter-item" style="display:none">
             <label for="filtroMes">Mes</label>
             <select id="filtroMes">
               <option value="1">Enero</option>
@@ -275,11 +295,12 @@
               <option value="12">Diciembre</option>
             </select>
           </div>
-          <div class="filter-item">
+          <div class="filter-item" style="display:none">
             <label for="filtroAno">Año</label>
             <select id="filtroAno"></select>
           </div>
-          <button class="btn-mode" id="btnModo" title="Cambiar de vista">
+          <!-- TODO(redisño facturación): botón de modo (KPI) oculto por ahora — recolocar cuando se resuelva la vista de líneas -->
+          <button class="btn-mode" id="btnModo" title="Cambiar de vista" style="display:none">
             <i class="fas fa-network-wired"></i> <span id="btnModoLabel">Líneas</span>
           </button>
           <button class="btn-save" id="btnGuardarFacturacion">
@@ -291,7 +312,8 @@
       <!-- ════════ VISTA RESIDENCIAL ════════ -->
       <div id="view-residencial">
 
-      <!-- ── KPIs ── -->
+      <!-- ════════ KPI RESIDENCIAL ════════ -->
+      <h2 class="kpi-section-title">KPI Residencial</h2>
       <div class="kpi-row">
         <div class="kpi-card">
           <div class="kpi-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)"><i class="fas fa-dollar-sign"></i></div>
@@ -331,6 +353,51 @@
             <div class="kpi-label">Asesores Activos</div>
             <div class="kpi-value" id="kpi-activos">0</div>
             <div class="kpi-sub" id="kpi-activos-sub">de 3 totales</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════ KPI LÍNEAS MÓVILES (LÍNEAS) ════════ -->
+      <h2 class="kpi-section-title">KPI Líneas Móviles (Líneas)</h2>
+      <div class="kpi-row">
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background:linear-gradient(135deg,#f59e0b,#b45309)"><i class="fas fa-dollar-sign"></i></div>
+          <div class="kpi-body">
+            <div class="kpi-label">Total Facturado</div>
+            <div class="kpi-value" id="lkpi-facturado">$0.00</div>
+            <div class="kpi-sub" id="lkpi-facturado-sub"></div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)"><i class="fas fa-shopping-bag"></i></div>
+          <div class="kpi-body">
+            <div class="kpi-label">Total Ventas</div>
+            <div class="kpi-value" id="lkpi-ventas">0</div>
+            <div class="kpi-sub" id="lkpi-ventas-sub"></div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background:linear-gradient(135deg,#14b8a6,#0f766e)"><i class="fas fa-sim-card"></i></div>
+          <div class="kpi-body">
+            <div class="kpi-label">Total Líneas</div>
+            <div class="kpi-value" id="lkpi-lineas">0</div>
+            <div class="kpi-sub"></div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background:linear-gradient(135deg,#10b981,#047857)"><i class="fas fa-chart-line"></i></div>
+          <div class="kpi-body">
+            <div class="kpi-label">Valor por Venta</div>
+            <div class="kpi-value" id="lkpi-vventa">$0.00</div>
+            <div class="kpi-sub"></div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)"><i class="fas fa-coins"></i></div>
+          <div class="kpi-body">
+            <div class="kpi-label">Valor por Línea</div>
+            <div class="kpi-value" id="lkpi-vlinea">$0.00</div>
+            <div class="kpi-sub"></div>
           </div>
         </div>
       </div>
@@ -411,52 +478,8 @@
 
       </div><!-- /view-residencial -->
 
-      <!-- ════════ VISTA LÍNEAS ════════ -->
+      <!-- ════════ VISTA LÍNEAS (tabla + gráficos — pendiente de rediseño) ════════ -->
       <div id="view-lineas" style="display:none">
-
-        <!-- KPIs -->
-        <div class="kpi-row">
-          <div class="kpi-card">
-            <div class="kpi-icon" style="background:linear-gradient(135deg,#f59e0b,#b45309)"><i class="fas fa-dollar-sign"></i></div>
-            <div class="kpi-body">
-              <div class="kpi-label">Total Facturado</div>
-              <div class="kpi-value" id="lkpi-facturado">$0.00</div>
-              <div class="kpi-sub" id="lkpi-facturado-sub"></div>
-            </div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-icon" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)"><i class="fas fa-shopping-bag"></i></div>
-            <div class="kpi-body">
-              <div class="kpi-label">Total Ventas</div>
-              <div class="kpi-value" id="lkpi-ventas">0</div>
-              <div class="kpi-sub" id="lkpi-ventas-sub"></div>
-            </div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-icon" style="background:linear-gradient(135deg,#14b8a6,#0f766e)"><i class="fas fa-sim-card"></i></div>
-            <div class="kpi-body">
-              <div class="kpi-label">Total Líneas</div>
-              <div class="kpi-value" id="lkpi-lineas">0</div>
-              <div class="kpi-sub"></div>
-            </div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-icon" style="background:linear-gradient(135deg,#10b981,#047857)"><i class="fas fa-chart-line"></i></div>
-            <div class="kpi-body">
-              <div class="kpi-label">Valor por Venta</div>
-              <div class="kpi-value" id="lkpi-vventa">$0.00</div>
-              <div class="kpi-sub"></div>
-            </div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)"><i class="fas fa-coins"></i></div>
-            <div class="kpi-body">
-              <div class="kpi-label">Valor por Línea</div>
-              <div class="kpi-value" id="lkpi-vlinea">$0.00</div>
-              <div class="kpi-sub"></div>
-            </div>
-          </div>
-        </div>
 
         <!-- Tabla Líneas -->
         <div class="card table-section">
@@ -1287,6 +1310,11 @@ window.addEventListener('DOMContentLoaded', async () => {
   prevAgg = await aggregateMes(mes, ano);
   await renderTablaDias(currentMonth, currentYear);
   actualizarGrafica();
+
+  // KPI de Líneas ahora se muestran siempre (ya no dependen del toggle btnModo oculto)
+  prevAggL = await aggregateMesL(mes, ano);
+  await renderTablaDiasL(currentMonth, currentYear);
+
   setUltimaActualizacion();
 });
 </script>

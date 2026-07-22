@@ -35,7 +35,7 @@
           '<div style="font-weight:700;font-size:.85rem;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (l.nombre_cliente || '—') + srcBadge + '</div>' +
           '<div style="font-size:.78rem;color:rgba(255,255,255,.65);font-family:monospace;">' + fmtPhone(l.telefono) + '</div>' +
         '</div>' +
-        '<span style="flex-shrink:0;font-size:.62rem;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#f87171;white-space:nowrap;">Llamada ' + (l.numero_llamada || 1) + '/3 · ' + tipo + '</span>' +
+        '<span style="flex-shrink:0;font-size:.62rem;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#f87171;white-space:nowrap;">Llamada ' + (l.numero_llamada || 1) + '/2 · ' + tipo + '</span>' +
       '</div>';
     }).join('');
 

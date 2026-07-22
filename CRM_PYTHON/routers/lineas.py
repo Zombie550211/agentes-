@@ -1095,8 +1095,8 @@ async def lineas_registrar_llamada(
                 raise HTTPException(403, "Solo el dueño del cliente puede registrar la llamada")
 
         n_actual = int(row["lr"] or 0)
-        if n_actual >= 3:
-            raise HTTPException(400, "Este cliente ya tiene las 3 llamadas registradas")
+        if n_actual >= 2:
+            raise HTTPException(400, "Este cliente ya tiene las 2 llamadas registradas")
 
         numero = n_actual + 1
         tipo   = "verificacion" if n_actual == 0 else "seguimiento"
@@ -1112,7 +1112,7 @@ async def lineas_registrar_llamada(
             INSERT INTO lineas_notes (lead_id, texto, type, autor, created_at, updated_at)
             VALUES (:lid, :txt, 'llamada', :autor, :now, :now)
         """), {"lid": str(mid),
-               "txt": f"[Llamada {numero}/3 — {tipo}] {nota}",
+               "txt": f"[Llamada {numero}/2 — {tipo}] {nota}",
                "autor": autor, "now": now})
 
         await s.execute(text("""
@@ -1126,8 +1126,8 @@ async def lineas_registrar_llamada(
         await s.commit()
 
     _cache_invalidate()
-    return {"success": True, "message": f"Llamada {numero}/3 registrada",
-            "data": {"numero_llamada": numero, "tipo": tipo, "restantes": 3 - numero}}
+    return {"success": True, "message": f"Llamada {numero}/2 registrada",
+            "data": {"numero_llamada": numero, "tipo": tipo, "restantes": 2 - numero}}
 
 
 # ── GET /api/lineas/team-stats ─────────────────────────────────────────────

@@ -365,10 +365,23 @@ body.dark-theme .tp-bar-wrap { background: rgba(255,255,255,.08) !important; }
   <script src="/js/theme-init.js" defer></script>
   <script src="/js/sidebar-static.js" defer></script>
   <script src="/js/llamadas-bloqueo.js" defer></script>
+  <script src="/js/sidebar-user.js" defer></script>
 <nav class="sidebar" id="app-sidebar">
-  <div class="sb-brand">
-    <div class="sb-brand-mark">CC</div>
-    <div class="sb-brand-text"><strong>CONNECTING</strong><span>C R M</span></div>
+  <div class="sb-user">
+    <div class="sb-user-avatar-wrap">
+      <div class="sb-user-avatar">
+        <img id="sb-user-avatar-img" alt="" hidden>
+        <span id="sb-user-initials">?</span>
+      </div>
+      <button type="button" class="sb-user-edit-btn" id="sb-user-edit-btn" title="Cambiar foto de perfil">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      </button>
+      <input type="file" id="sb-user-avatar-input" accept="image/*" hidden>
+    </div>
+    <div class="sb-user-meta">
+      <div class="sb-user-name" id="sb-user-name">Usuario</div>
+      <div class="sb-user-role" id="sb-user-role">Rol</div>
+    </div>
   </div>
   <div class="sb-scroll">
 <a href="/residencial/inicio.html" class="sb-item active"><span class="sb-ic" style="background:#dbeafe;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#2563eb"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg></span><span class="sb-lbl">Inicio</span></a>
@@ -909,7 +922,7 @@ function _renderLlamadasPendientes(dash) {
     const tel  = it.telefono ? (' · ' + _esc(it.telefono)) : '';
     const tipo = it.tipo_llamada === 'verificacion'
       ? 'Verificación'
-      : ('Seguimiento ' + _esc(it.numero_llamada) + '/3');
+      : ('Seguimiento ' + _esc(it.numero_llamada) + '/2');
     return ''
       + '<div class="lp-item">'
       +   '<div class="lp-ic" style="background:' + icBg + ';color:#fff">'

@@ -176,7 +176,7 @@ async def dashboard_home(user: dict = Depends(current_user)):
                     OR
                     (LOWER(COALESCE(status,'')) LIKE '%complet%'
                      AND fecha_completed IS NOT NULL
-                     AND COALESCE(llamadas_realizadas,0) < 3)
+                     AND COALESCE(llamadas_realizadas,0) < 2)
                 ORDER BY COALESCE(fecha_ultima_llamada, fecha_completed, created_at) ASC
                 LIMIT 200
             """))
@@ -318,9 +318,9 @@ async def dashboard_home(user: dict = Depends(current_user)):
     # ── Llamadas pendientes — vencidas + próximas + en espera ───────────────────
     # vencida  : la llamada ya venció (hay que llamar)
     # proxima  : vence dentro de los próximos _PROXIMA_DIAS días
-    # espera   : completado, aún contando los 7 días para la llamada
+    # espera   : completado, aún contando los 15 días para la llamada
     _PROXIMA_DIAS = 3   # días "hacia adelante" que cuentan como "próxima"
-    _CICLO_DIAS   = 7   # cada llamada se programa 7 días después de la anterior
+    _CICLO_DIAS   = 15  # cada llamada se programa 15 días después de la anterior
     llamadas_pendientes = []
     for row in llamadas_rows:
         d  = dict(row)
@@ -345,7 +345,7 @@ async def dashboard_home(user: dict = Depends(current_user)):
         elif dias <= _PROXIMA_DIAS:
             estado = "proxima"
         else:
-            estado = "espera"   # completado, aún dentro de la ventana de 7 días
+            estado = "espera"   # completado, aún dentro de la ventana de 15 días
         llamadas_pendientes.append({
             "id":                  str(d.get("id", "")),
             "nombre_cliente":      d.get("nombre_cliente") or "—",

@@ -1471,10 +1471,10 @@
       row.innerHTML=llamadas.map(function(c){
         var tipo=c.tipo==='seguimiento'?'Seguimiento':'Verificación';
         return '<div style="flex-shrink:0;width:84px;">'+
-          '<div style="width:84px;height:64px;border:1px solid var(--line-1);border-radius:8px;overflow:hidden;cursor:zoom-in;background:var(--sheet-2);" onclick="_openCostumerImgLightbox(\''+escHTML(c.imagen_url)+'\')" title="Llamada '+c.numero_llamada+'/3 — click para ampliar">'+
+          '<div style="width:84px;height:64px;border:1px solid var(--line-1);border-radius:8px;overflow:hidden;cursor:zoom-in;background:var(--sheet-2);" onclick="_openCostumerImgLightbox(\''+escHTML(c.imagen_url)+'\')" title="Llamada '+c.numero_llamada+'/2 — click para ampliar">'+
             '<img src="'+escHTML(c.imagen_url)+'" style="width:100%;height:100%;object-fit:cover;">'+
           '</div>'+
-          '<div style="font-size:.58rem;font-weight:700;color:var(--ink-3);text-align:center;margin-top:3px;white-space:nowrap;">📞 '+c.numero_llamada+'/3 · '+tipo+'</div>'+
+          '<div style="font-size:.58rem;font-weight:700;color:var(--ink-3);text-align:center;margin-top:3px;white-space:nowrap;">📞 '+c.numero_llamada+'/2 · '+tipo+'</div>'+
         '</div>';
       }).join('');
     }
@@ -1482,19 +1482,19 @@
     var pend=(window.__llamadasPendientes&&window.__llamadasPendientes.leads)||[];
     var isDue=pend.some(function(p){return String(p._id||p.id)===String(lid);});
     var nDone=llamadas.length;
-    if(regWrap&&isDue&&nDone<3){
+    if(regWrap&&isDue&&nDone<2){
       var nNext=nDone+1;
       var tipoNext=nDone===0?'verificación':'seguimiento';
       regWrap.innerHTML=
         '<div style="margin-top:12px;border:1.5px solid rgba(239,68,68,.4);border-radius:10px;padding:12px;background:rgba(239,68,68,.05);">'+
-          '<div style="font-size:.72rem;font-weight:800;color:#ef4444;margin-bottom:8px;">📞 Llamada '+nNext+'/3 ('+tipoNext+') pendiente — sube la captura de Xencall y la nota</div>'+
+          '<div style="font-size:.72rem;font-weight:800;color:#ef4444;margin-bottom:8px;">📞 Llamada '+nNext+'/2 ('+tipoNext+') pendiente — sube la captura de Xencall y la nota</div>'+
           '<div id="ile-ll-imgname-'+lid+'" style="font-size:.7rem;color:var(--ink-3);margin-bottom:6px;display:none;"></div>'+
           '<div style="display:flex;gap:7px;margin-bottom:8px;">'+
             '<button type="button" onclick="document.getElementById(\'ile-ll-file-'+lid+'\').click()" style="flex-shrink:0;padding:7px 12px;border:1px solid var(--line-1);border-radius:7px;background:var(--sheet);font-size:.74rem;font-weight:700;cursor:pointer;color:var(--ink-2);">📷 Captura</button>'+
             '<input type="file" id="ile-ll-file-'+lid+'" accept="image/*" style="display:none" onchange="_llamadaFileSelect(event,\''+lid+'\')">'+
             '<textarea id="ile-ll-nota-'+lid+'" rows="2" placeholder="La llamada se realizó. Respuesta del cliente…" style="flex:1;padding:7px 9px;border:1px solid var(--line-1);border-radius:7px;font-size:.76rem;resize:none;font-family:var(--f);color:var(--ink-1);background:var(--sheet-2);"></textarea>'+
           '</div>'+
-          '<button type="button" id="ile-ll-btn-'+lid+'" onclick="_registrarLlamada(\''+lid+'\')" style="width:100%;padding:9px;border:none;border-radius:8px;background:#ef4444;color:#fff;font-size:.78rem;font-weight:800;cursor:pointer;">Registrar llamada '+nNext+'/3</button>'+
+          '<button type="button" id="ile-ll-btn-'+lid+'" onclick="_registrarLlamada(\''+lid+'\')" style="width:100%;padding:9px;border:none;border-radius:8px;background:#ef4444;color:#fff;font-size:.78rem;font-weight:800;cursor:pointer;">Registrar llamada '+nNext+'/2</button>'+
         '</div>';
     } else if(regWrap){
       regWrap.innerHTML='';
