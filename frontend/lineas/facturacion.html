@@ -85,26 +85,7 @@
 
             <div class="tabla-excel-editable">
                 <table id="tablaExcel">
-                    <thead>
-                        <tr>
-                            <th>FECHA</th>
-                            <th colspan="3">TEAM JONATHAN</th>
-                            <th colspan="3">TEAM LUIS</th>
-                            <th colspan="3">TOTALES</th>
-                        </tr>
-                        <tr>
-                            <th></th>
-                            <th>Total del Día</th>
-                            <th>Total Ventas</th>
-                            <th>Valor de Venta</th>
-                            <th>Total del Día</th>
-                            <th>Total Ventas</th>
-                            <th>Valor de Venta</th>
-                            <th>Total del Día</th>
-                            <th>Total Ventas</th>
-                            <th>Valor de Venta</th>
-                        </tr>
-                    </thead>
+                    <thead id="theadExcel"></thead>
                     <tbody id="excelBody"></tbody>
                 </table>
                 <div class="fila-totales-fija" id="filaTotales"></div>
@@ -124,8 +105,15 @@
 
         let currentMonth = new Date().getMonth() + 1;
         let currentYear = new Date().getFullYear();
-        let datosFacturacionMes = [];
         let datosFacturacionIndex = {};
+        // Equipos de Líneas: vienen del backend (tabla users / página Permisos).
+        // Fallback solo si la API no devuelve equipos (p.ej. error de red).
+        let currentTeams = [
+            { token: 'jonathan', label: 'TEAM JONATHAN' },
+            { token: 'luis', label: 'TEAM LUIS' },
+        ];
+
+        function numCols() { return 1 + currentTeams.length * 3 + 3; }
 
         // Inicializar selectores
         for (let i = 1; i <= 12; i++) {
@@ -170,87 +158,125 @@
         async function fetchFacturacionMes(mes, ano) {
             try {
                 const url = `/api/facturacion-lineas/${ano}/${String(mes).padStart(2, '0')}`;
-                const headers = {};
-                const res = await fetch(url, { method: 'GET', headers, credentials: 'include' });
+                const res = await fetch(url, { method: 'GET', credentials: 'include' });
                 if (!res.ok) {
                     console.warn('Facturación Líneas: respuesta no OK', res.status);
                 }
                 const data = await res.json().catch(() => (null));
-                let arr = [];
-                if (data && data.ok && Array.isArray(data.data)) {
-                    arr = data.data;
-                } else if (Array.isArray(data)) {
-                    arr = data;
+                if (data && Array.isArray(data.teams) && data.teams.length) {
+                    currentTeams = data.teams;
                 }
-                datosFacturacionMes = arr;
+                const arr = (data && data.ok && Array.isArray(data.data)) ? data.data : [];
                 datosFacturacionIndex = {};
-                for (const fila of datosFacturacionMes) {
+                for (const fila of arr) {
                     const key = toFechaKey(fila?.fecha);
-                    if (key) datosFacturacionIndex[key] = Array.isArray(fila?.campos) ? fila.campos : [];
+                    if (key) datosFacturacionIndex[key] = (fila && typeof fila.teams === 'object' && fila.teams) || {};
                 }
             } catch (e) {
                 console.error('Error obteniendo facturación:', e);
-                datosFacturacionMes = [];
                 datosFacturacionIndex = {};
             }
         }
 
-        function buscarCamposPorFecha(fecha) {
-            const key = toFechaKey(fecha);
-            const campos = datosFacturacionIndex[key];
-            return Array.isArray(campos) ? campos : Array(9).fill('');
+        function buscarTeamsPorFecha(fecha) {
+            return datosFacturacionIndex[toFechaKey(fecha)] || {};
+        }
+
+        function buildHeader() {
+            const thead = document.getElementById('theadExcel');
+            thead.innerHTML = '';
+
+            const trGrupos = document.createElement('tr');
+            const thFecha = document.createElement('th');
+            thFecha.textContent = 'FECHA';
+            thFecha.rowSpan = 2;
+            trGrupos.appendChild(thFecha);
+            currentTeams.forEach(t => {
+                const th = document.createElement('th');
+                th.colSpan = 3;
+                th.textContent = String(t.label || t.token || '').toUpperCase();
+                trGrupos.appendChild(th);
+            });
+            const thTot = document.createElement('th');
+            thTot.colSpan = 3;
+            thTot.textContent = 'TOTALES';
+            trGrupos.appendChild(thTot);
+            thead.appendChild(trGrupos);
+
+            const trCols = document.createElement('tr');
+            const subLabels = ['Total del Día', 'Total Ventas', 'Valor de Venta'];
+            for (let g = 0; g < currentTeams.length + 1; g++) {
+                subLabels.forEach(lbl => {
+                    const th = document.createElement('th');
+                    th.textContent = lbl;
+                    trCols.appendChild(th);
+                });
+            }
+            thead.appendChild(trCols);
         }
 
         async function renderTablaDias(mes, ano) {
             await fetchFacturacionMes(mes, ano);
+            buildHeader();
             excelBody.innerHTML = "";
             const numDias = daysInMonth(ano, mes);
-            
+
             for (let i = 0; i < numDias; i++) {
                 const tr = document.createElement("tr");
-                for (let c = 0; c < 10; c++) {
-                    const td = document.createElement("td");
-                    if (c === 0) {
-                        td.textContent = String(i+1).padStart(2,'0') + '/' + String(mes).padStart(2,'0') + '/' + ano;
-                        td.contentEditable = false;
-                    } else {
-                        const fecha = String(i+1).padStart(2,'0') + '/' + String(mes).padStart(2,'0') + '/' + ano;
-                        const campos = buscarCamposPorFecha(fecha);
-                        let val = campos[c-1] ?? '';
-                        if (val !== "" && c !== 2 && c !== 5 && c !== 8) {
-                            val = formatMoneyTrunc(val);
-                        }
-                        td.textContent = val;
-                        td.contentEditable = true;
-                    }
+                const fecha = String(i+1).padStart(2,'0') + '/' + String(mes).padStart(2,'0') + '/' + ano;
+
+                const tdFecha = document.createElement('td');
+                tdFecha.textContent = fecha;
+                tdFecha.contentEditable = false;
+                tr.appendChild(tdFecha);
+
+                const teamsData = buscarTeamsPorFecha(fecha);
+                currentTeams.forEach(t => {
+                    const d = teamsData[t.token] || {};
+                    const tdTotal = document.createElement('td');
+                    tdTotal.textContent = d.total ? formatMoneyTrunc(d.total) : '';
+                    tdTotal.contentEditable = true;
+                    tr.appendChild(tdTotal);
+
+                    const tdVentas = document.createElement('td');
+                    tdVentas.textContent = d.ventas ? String(d.ventas) : '';
+                    tdVentas.contentEditable = true;
+                    tr.appendChild(tdVentas);
+
+                    const tdValor = document.createElement('td');
+                    tdValor.contentEditable = false;
+                    tr.appendChild(tdValor);
+                });
+
+                for (let k = 0; k < 3; k++) {
+                    const td = document.createElement('td');
+                    td.contentEditable = false;
                     tr.appendChild(td);
                 }
+
                 excelBody.appendChild(tr);
+                recalcularFila(tr);
             }
             renderFilaTotales();
         }
 
         function recalcularFila(tr) {
             const tds = Array.from(tr.children);
-            
-            // Team Jonathan
-            const jonathan = parseFloat(tds[1].textContent.replace(/[^0-9.-]/g, "")) || 0;
-            const ventasJonathan = parseFloat(tds[2].textContent.replace(/[^0-9.-]/g, "")) || 0;
-            tds[3].textContent = ventasJonathan > 0 ? formatMoneyTrunc(jonathan / ventasJonathan) : "";
-            
-            // Team Luis
-            const luis = parseFloat(tds[4].textContent.replace(/[^0-9.-]/g, "")) || 0;
-            const ventasLuis = parseFloat(tds[5].textContent.replace(/[^0-9.-]/g, "")) || 0;
-            tds[6].textContent = ventasLuis > 0 ? formatMoneyTrunc(luis / ventasLuis) : "";
-            
-            // Totales
-            const totalDia = jonathan + luis;
-            tds[7].textContent = totalDia > 0 ? formatMoneyTrunc(totalDia) : "";
-            
-            const totalVentas = ventasJonathan + ventasLuis;
-            tds[8].textContent = totalVentas > 0 ? totalVentas.toString() : "";
-            
-            tds[9].textContent = (totalVentas > 0) ? formatMoneyTrunc(totalDia / totalVentas) : "";
+            let totalDia = 0, totalVentas = 0;
+
+            currentTeams.forEach((t, idx) => {
+                const base = 1 + idx * 3;
+                const total = parseFloat(tds[base].textContent.replace(/[^0-9.-]/g, "")) || 0;
+                const ventas = parseFloat(tds[base + 1].textContent.replace(/[^0-9.-]/g, "")) || 0;
+                tds[base + 2].textContent = ventas > 0 ? formatMoneyTrunc(total / ventas) : "";
+                totalDia += total;
+                totalVentas += ventas;
+            });
+
+            const totBase = 1 + currentTeams.length * 3;
+            tds[totBase].textContent = totalDia > 0 ? formatMoneyTrunc(totalDia) : "";
+            tds[totBase + 1].textContent = totalVentas > 0 ? totalVentas.toString() : "";
+            tds[totBase + 2].textContent = totalVentas > 0 ? formatMoneyTrunc(totalDia / totalVentas) : "";
         }
 
         excelBody.addEventListener('input', function(e) {
@@ -263,9 +289,13 @@
         });
 
         function renderFilaTotales() {
-            const numCols = 10;
-            const totales = Array(numCols).fill(0);
-            
+            const cols = numCols();
+            const totales = Array(cols).fill(0);
+            const colVentas = new Set();
+            currentTeams.forEach((t, idx) => colVentas.add(1 + idx * 3 + 1));
+            const totBase = 1 + currentTeams.length * 3;
+            colVentas.add(totBase + 1);
+
             const filas = Array.from(excelBody.querySelectorAll('tr'));
             filas.forEach(tr => {
                 Array.from(tr.children).forEach((td, i) => {
@@ -274,19 +304,21 @@
                     totales[i] += val;
                 });
             });
-            
-            // Recalcular valores de venta
-            if (totales[2] > 0) totales[3] = totales[1] / totales[2];
-            if (totales[5] > 0) totales[6] = totales[4] / totales[5];
-            if (totales[8] > 0) totales[9] = totales[7] / totales[8];
-            
+
+            // Recalcular valores de venta (total / ventas) por equipo y en TOTALES
+            currentTeams.forEach((t, idx) => {
+                const base = 1 + idx * 3;
+                if (totales[base + 1] > 0) totales[base + 2] = totales[base] / totales[base + 1];
+            });
+            if (totales[totBase + 1] > 0) totales[totBase + 2] = totales[totBase] / totales[totBase + 1];
+
             const filaTotales = document.getElementById('filaTotales');
             filaTotales.innerHTML = '';
-            for (let i = 0; i < numCols; i++) {
+            for (let i = 0; i < cols; i++) {
                 const div = document.createElement('div');
                 if (i === 0) {
                     div.textContent = 'TOTALES';
-                } else if (i === 2 || i === 5 || i === 8) {
+                } else if (colVentas.has(i)) {
                     div.textContent = Math.round(totales[i]);
                 } else {
                     div.textContent = formatMoneyTrunc(totales[i]);
@@ -298,35 +330,34 @@
         btnGuardar.addEventListener('click', async () => {
             const filas = Array.from(document.querySelectorAll('#excelBody tr'));
             let guardados = 0, errores = 0;
-            
+
             for (const tr of filas) {
                 recalcularFila(tr);
                 const tds = Array.from(tr.children);
                 const fecha = tds[0].textContent.trim();
-                const campos = tds.slice(1).map(td => {
-                    let txt = td.textContent.trim();
-                    if (txt.startsWith("$")) txt = txt.replace(/[^0-9.\-]/g, "");
-                    if (txt.includes(",")) txt = txt.replace(/,/g, "");
-                    return txt;
+
+                const teams = {};
+                let tieneDatos = false;
+                currentTeams.forEach((t, idx) => {
+                    const base = 1 + idx * 3;
+                    const total = parseFloat(tds[base].textContent.replace(/[^0-9.-]/g, "")) || 0;
+                    const ventas = parseFloat(tds[base + 1].textContent.replace(/[^0-9.-]/g, "")) || 0;
+                    if (total || ventas) tieneDatos = true;
+                    teams[t.token] = { total, ventas };
                 });
-                
-                while (campos.length < 9) campos.push("");
-                if (campos.length > 9) campos.length = 9;
-                
-                if (campos.some(val => val !== "")) {
-                    const headers = { 'Content-Type': 'application/json' };
-                    
+
+                if (tieneDatos) {
                     const res = await fetch('/api/facturacion-lineas', {
                         method: 'POST',
-                        headers,
+                        headers: { 'Content-Type': 'application/json' },
                         credentials: 'include',
-                        body: JSON.stringify({ fecha, campos })
+                        body: JSON.stringify({ fecha, teams })
                     });
-                    
+
                     if (res.ok) guardados++; else errores++;
                 }
             }
-            
+
             await renderTablaDias(currentMonth, currentYear);
             alert(`Guardados: ${guardados}. Errores: ${errores}`);
         });

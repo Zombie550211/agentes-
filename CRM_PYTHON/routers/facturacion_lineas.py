@@ -68,9 +68,51 @@ def _campos_from_row(row) -> list:
     return _ensure_len9(c or [])
 
 
+# Mapeo del formato LEGADO (array de 9 posiciones): [0..2]=jonathan, [3..5]=luis,
+# [6..8]=totales (los totales ya no se guardan: se calculan).
+_LEGACY_TEAM_ORDER = ["jonathan", "luis"]
+
+
+def _row_to_teams(row) -> dict:
+    """Devuelve {token: {"total": float, "ventas": float}} desde la fila,
+    aceptando el formato nuevo (dict v2) y el legado (array de 9)."""
+    c = row.get("campos")
+    if isinstance(c, str):
+        try: c = json.loads(c)
+        except (ValueError, TypeError): c = []
+    if isinstance(c, dict) and c.get("v2"):
+        out = {}
+        for tok, d in (c.get("teams") or {}).items():
+            if isinstance(d, dict):
+                out[str(tok)] = {"total": _to_number(d.get("total")), "ventas": _to_number(d.get("ventas"))}
+        return out
+    arr = _ensure_len9(c or [])
+    out = {}
+    for i, tok in enumerate(_LEGACY_TEAM_ORDER):
+        base = i * 3
+        total, ventas = _to_number(arr[base]), _to_number(arr[base + 1])
+        if total or ventas:
+            out[tok] = {"total": total, "ventas": ventas}
+    return out
+
+
+async def _lineas_team_cols() -> list:
+    """Columnas de team para la tabla, desde la página de permisos (sin hardcode)."""
+    try:
+        from routers.lineas import get_lineas_teams
+        teams = [{"token": re.sub(r"[^a-z0-9]", "", str(t["token"]).lower()), "label": t["label"]}
+                 for t in await get_lineas_teams()]
+        if teams:
+            return teams
+    except Exception:
+        pass
+    return [{"token": tok, "label": "TEAM " + tok.upper()} for tok in _LEGACY_TEAM_ORDER]
+
+
 class FacturacionLineasBody(BaseModel):
     fecha: str
-    campos: Optional[List[Any]] = None
+    campos: Optional[List[Any]] = None          # formato legado
+    teams: Optional[dict] = None                # formato nuevo {token: {total, ventas}}
 
 
 @router.get("/anual/{anio}")
@@ -83,8 +125,7 @@ async def facturacion_lineas_anual(anio: int, user: dict = Depends(require_roles
         mes_idx = (int(d.get("mes") or 0)) - 1
         if mes_idx < 0 or mes_idx > 11:
             continue
-        arr = _campos_from_row(d)
-        totales[mes_idx] += _to_number(arr[6])
+        totales[mes_idx] += sum(t["total"] for t in _row_to_teams(d).values())
     return {"ok": True, "totalesPorMes": totales}
 
 
@@ -98,7 +139,11 @@ async def facturacion_lineas_mensual(anio: int, mes: int, user: dict = Depends(r
             WHERE anio = :y AND mes = :m ORDER BY dia ASC
         """), {"y": anio, "m": mes})
         docs = r.mappings().all()
-    return {"ok": True, "data": [{"fecha": d.get("fecha"), "campos": _campos_from_row(d)} for d in docs]}
+    return {
+        "ok": True,
+        "teams": await _lineas_team_cols(),
+        "data": [{"fecha": d.get("fecha"), "teams": _row_to_teams(d)} for d in docs],
+    }
 
 
 @router.post("/")
@@ -106,7 +151,16 @@ async def facturacion_lineas_save(body: FacturacionLineasBody, user: dict = Depe
     parsed = _parse_fecha(body.fecha)
     if not parsed:
         raise HTTPException(400, "Fecha inválida")
-    campos9 = _ensure_len9(body.campos)
+    if body.teams is not None:
+        teams_clean = {}
+        for tok, d in (body.teams or {}).items():
+            if isinstance(d, dict):
+                teams_clean[re.sub(r"[^a-z0-9]", "", str(tok).lower())] = {
+                    "total": _to_number(d.get("total")), "ventas": _to_number(d.get("ventas")),
+                }
+        campos_payload = {"v2": True, "teams": teams_clean}
+    else:
+        campos_payload = _ensure_len9(body.campos)
     now = _utcnow()
     username = user.get("username")
 
@@ -122,7 +176,7 @@ async def facturacion_lineas_save(body: FacturacionLineasBody, user: dict = Depe
                     updated_at = :now, updated_by = :by
                 WHERE anio = :y AND mes = :m AND dia = :d
             """), {
-                "fecha": parsed["key"], "campos": json.dumps(campos9),
+                "fecha": parsed["key"], "campos": json.dumps(campos_payload),
                 "now": now, "by": username,
                 "y": parsed["anio"], "m": parsed["mes"], "d": parsed["dia"],
             })
@@ -133,7 +187,7 @@ async def facturacion_lineas_save(body: FacturacionLineasBody, user: dict = Depe
                 VALUES (:y, :m, :d, :fecha, :campos, :by, :by, :now, :now)
             """), {
                 "y": parsed["anio"], "m": parsed["mes"], "d": parsed["dia"],
-                "fecha": parsed["key"], "campos": json.dumps(campos9),
+                "fecha": parsed["key"], "campos": json.dumps(campos_payload),
                 "by": username, "now": now,
             })
             upserted = True

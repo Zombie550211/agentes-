@@ -173,6 +173,14 @@ _MIGRATIONS: list[tuple[str, str]] = [
         (seccion, cliente, old_status, new_status, actor, created_at)
         SELECT seccion, cliente, old_status, new_status, actor, created_at
         FROM status_notifications WHERE COALESCE(actor,'') <> ''"""),
+    # Tipos de servicio de LÍNEAS al catálogo gestionable (antes hardcodeados en lead.html)
+    ("0040_seed_catalogo_servicio_linea", """INSERT INTO catalogos (tipo, valor, label, orden, activo)
+        SELECT v.tipo, v.valor, v.label, v.orden, v.activo FROM (
+            SELECT 'servicio_linea' AS tipo, 'LINEA + EQUIPO' AS valor, 'LÍNEA + EQUIPO' AS label, 0 AS orden, 1 AS activo
+            UNION ALL SELECT 'servicio_linea', 'ESIM CARD', 'ESIM CARD', 1, 1
+            UNION ALL SELECT 'servicio_linea', 'WEARABLE', 'WEARABLE (TABLETS / SMARTWATCH / OTROS)', 2, 1
+        ) v
+        WHERE NOT EXISTS (SELECT 1 FROM catalogos WHERE tipo = 'servicio_linea')"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración
