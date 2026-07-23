@@ -11,13 +11,14 @@
 
 :root {
   --sidebar-width: 260px;
+  --sidebar-collapsed: 68px;
 }
 
 #app-sidebar {
   position: fixed;
   left: 0;
   top: 0;
-  width: var(--sidebar-width);
+  width: var(--sidebar-collapsed);
   height: 100vh;
   background: #faf6ee;
   border-right: 2px solid #d9c79e;
@@ -26,10 +27,39 @@
   flex-direction: column;
   z-index: 1000;
   font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  overflow: hidden;
+  transition: width .2s ease;
 }
 
 .main-content {
-  margin-left: calc(var(--sidebar-width) + 16px);
+  margin-left: calc(var(--sidebar-collapsed) + 16px);
+}
+
+/* Escritorio (>=769px): rail de solo iconos que se expande al pasar el mouse.
+   En colapsado se ocultan foto/nombre/rol, etiquetas, encabezados de sección
+   y la frase del footer — solo quedan los iconos de cada botón. */
+@media (min-width: 769px) {
+  #app-sidebar:hover { width: var(--sidebar-width); }
+
+  #app-sidebar .sb-user,
+  #app-sidebar .sb-lbl,
+  #app-sidebar .sb-sec,
+  #app-sidebar .sb-mov-head,
+  #app-sidebar .sb-quote {
+    display: none;
+  }
+  #app-sidebar:hover .sb-user  { display: flex; }
+  #app-sidebar:hover .sb-lbl   { display: block; }
+  #app-sidebar:hover .sb-sec   { display: block; }
+  #app-sidebar:hover .sb-mov-head { display: block; }
+  #app-sidebar:hover .sb-quote { display: block; }
+
+  #app-sidebar .sb-item, #app-sidebar .sb-logout, #app-sidebar .sb-user {
+    justify-content: center;
+  }
+  #app-sidebar:hover .sb-item, #app-sidebar:hover .sb-logout, #app-sidebar:hover .sb-user {
+    justify-content: flex-start;
+  }
 }
 
 /* Botón hamburguesa + overlay (inyectados por sidebar-static.js) */
@@ -243,6 +273,16 @@ body.sb-is-admin #app-sidebar [data-admin-only] { display: flex; }
 #app-sidebar .sb-mov-head[data-admin-only] { display: none; }
 body.sb-is-admin #app-sidebar .sb-sec[data-admin-only],
 body.sb-is-admin #app-sidebar .sb-mov-head[data-admin-only] { display: block; }
+
+/* La regla de arriba (más específica, para mostrar solo a admins) le gana a la
+   de "ocultar en colapsado" del media query de escritorio — se refuerza acá con
+   la misma especificidad para que el colapso siga funcionando también en admins. */
+@media (min-width: 769px) {
+  body.sb-is-admin #app-sidebar .sb-sec[data-admin-only],
+  body.sb-is-admin #app-sidebar .sb-mov-head[data-admin-only] { display: none; }
+  body.sb-is-admin #app-sidebar:hover .sb-sec[data-admin-only],
+  body.sb-is-admin #app-sidebar:hover .sb-mov-head[data-admin-only] { display: block; }
+}
 
 /* Footer */
 #app-sidebar .sb-footer {
