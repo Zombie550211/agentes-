@@ -904,18 +904,29 @@ function renderFilaTotalesFacturacion() {
   actualizarKpiLineasMoviles();
 }
 
-/* Lee los totales actuales desde la fila de totales. */
+/* Lee los totales actuales desde la fila de totales.
+   El KPI Residencial solo debe reflejar Alexis + Tito: Garay Líneas y Tito
+   Líneas son columnas de Líneas Móviles y no deben sumarse aquí (se agregan
+   por separado en actualizarKpiLineasMoviles / manualLineasMonto). */
 function leerTotales() {
   const g = id => num(document.getElementById(id)?.textContent);
+  const alexis     = g('total-col-' + COL.aMonto);
+  const alejandro  = g('total-col-' + COL.jMonto);
+  const tito       = g('total-col-' + COL.tMonto);
+  const titoLineas = g('total-col-' + COL.tlMonto);
+  const alexisVentas = g('total-col-' + COL.aVentas);
+  const titoVentas   = g('total-col-' + COL.tVentas);
+  const puntos       = g('total-col-' + COL.puntos);
+
+  const facturado = alexis + tito;
+  const ventas    = alexisVentas + titoVentas;
+  const valor     = ventas > 0 ? facturado / ventas : 0;
   return {
-    facturado: g('total-col-' + COL.totalDia),
-    ventas:    g('total-col-' + COL.totalVentas),
-    valor:     g('total-col-' + COL.valorVenta),
-    cpa:       g('total-col-' + COL.cpa),
-    alexis:      g('total-col-' + COL.aMonto),
-    alejandro:   g('total-col-' + COL.jMonto),
-    tito:        g('total-col-' + COL.tMonto),
-    titoLineas:  g('total-col-' + COL.tlMonto),
+    facturado,
+    ventas,
+    valor,
+    cpa: puntos > 0 ? valor / puntos : 0,
+    alexis, alejandro, tito, titoLineas,
   };
 }
 
@@ -939,12 +950,11 @@ function refreshDashboard() {
   document.getElementById('kpi-ventas-sub').innerHTML    = deltaHTML(T.ventas, prevAgg.ventas);
   document.getElementById('kpi-valor-sub').innerHTML     = deltaHTML(T.valor, prevAgg.valor);
 
-  // Mejor asesor / activos
+  // Mejor asesor / activos — solo Residencial (Alexis y Tito); Garay Líneas y
+  // Tito Líneas se muestran en el KPI de Líneas Móviles, no aquí.
   const asesores = [
     { nombre: 'Alexis', monto: T.alexis, color: 'var(--c-alexis)' },
-    { nombre: 'Garay Líneas', monto: T.alejandro, color: 'var(--c-alejandro)' },
     { nombre: 'Tito', monto: T.tito, color: 'var(--c-tito)' },
-    { nombre: 'Tito Líneas', monto: T.titoLineas, color: 'var(--c-tito-lineas)' },
   ];
   const ordenados = asesores.slice().sort((a, b) => b.monto - a.monto);
   const mejor = ordenados[0];
