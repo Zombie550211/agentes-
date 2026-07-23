@@ -1,0 +1,124 @@
+/* ══ GLASS CARDS CREMA — versión clara para la sección de Líneas ══
+   Mismo set de selectores que glass-cards.css (tema oscuro), pero con la
+   paleta crema usada en residencial/facturacion.html (--bg:#f2ead9). Sirve
+   para que las páginas de /lineas/ dejen de forzar fondo oscuro + texto
+   blanco sin tener que tocar el CSS de cada componente uno por uno. */
+
+:root {
+  --card:      #ffffff;
+  --bg:        transparent;
+  --bdr:       rgba(13,20,32,0.10);
+  --bdr-soft:  rgba(13,20,32,0.06);
+  --t1: #1e1608;
+  --t2: #3f3a2e;
+  --t3: #64748b;
+  --t4: #64748b;
+  --sh: 0 4px 16px rgba(13,20,32,0.08);
+}
+
+/* Fondo del body y layout */
+html, body { background: transparent !important; color: #1e1608 !important; }
+.main-content, .layout, .content-wrap,
+.page-wrapper, .page-content, .app-content { background: transparent !important; z-index: 10 !important; position: relative !important; }
+
+/* Fondo crema plano (sin gradiente oscuro) para toda la sección de Líneas */
+body::before {
+  content: '' !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: -1 !important;
+  background: #f2ead9 !important;
+  pointer-events: none !important;
+  opacity: 1 !important;
+}
+
+/* ── Targeting directo de clases comunes ── */
+.rank-item, .rk-header, .rk-kpi, .rk-table-wrap, .rk-month,
+.card, .card-body, .card-header, .card-footer,
+.panel, .panel-body, .panel-heading, .panel-default > .panel-heading,
+.widget, .widget-body, .widget-header,
+.stat-card, .kpi-card, .kpi-box, .kpi-wrap,
+.box, .content-box, .info-box, .detail-box,
+.section-card, .content-card, .data-card,
+.table-card, .table-section,
+.filter-bar, .filter-row, .filters-wrap,
+.top-bar, .header-wrap, .header-section,
+.chart-card, .chart-section, .chart-box,
+.summary-card, .summary-box,
+.modal-content, .modal-body, .modal-header, .modal-footer,
+.dropdown-menu,
+.nav-pills, .nav-tabs,
+.list-group, .list-group-item,
+.alert,
+.jumbotron,
+.well {
+  background: #ffffff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: rgba(13,20,32,0.10) !important;
+  color: #1e1608 !important;
+  box-shadow: 0 4px 16px rgba(13,20,32,0.06) !important;
+}
+
+/* Hover en cards */
+.rk-kpi:hover, .card:hover, .stat-card:hover, .kpi-card:hover {
+  background: #fdf6e3 !important;
+}
+
+/* Tablas */
+table, .table { background: transparent !important; color: #1e1608 !important; }
+thead, thead tr, thead th {
+  background: #f5f0e2 !important;
+  border-color: rgba(13,20,32,0.10) !important;
+  color: #3f3a2e !important;
+}
+tbody tr {
+  background: transparent !important;
+  border-color: rgba(13,20,32,0.06) !important;
+}
+tbody tr:hover { background: rgba(13,20,32,0.035) !important; }
+td, th { border-color: rgba(13,20,32,0.08) !important; color: #1e1608 !important; }
+tfoot td, tfoot th { background: #f5f0e2 !important; }
+
+/* Tabs de navegación */
+.rk-tab, .tab-item, .nav-link,
+.btn-tab, [class*="-tab"]:not(.badge):not([class*="data"]) {
+  background: #ffffff !important;
+  border-color: rgba(13,20,32,0.10) !important;
+  color: #3f3a2e !important;
+}
+.rk-tab.active, .tab-item.active, .nav-link.active,
+.btn-tab.active {
+  background: rgba(37,99,235,0.90) !important;
+  border-color: rgba(37,99,235,0.90) !important;
+  color: #fff !important;
+}
+.rk-nav-btn {
+  background: #ffffff !important;
+  border-color: rgba(13,20,32,0.10) !important;
+  color: #1e1608 !important;
+}
+
+/* Inputs y selects */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+select, textarea,
+.form-control, .form-input, .search-input, .filter-select,
+.input-group-text {
+  background: #fffdf7 !important;
+  border-color: rgba(13,20,32,0.14) !important;
+  color: #1e1608 !important;
+}
+input::placeholder, textarea::placeholder { color: rgba(30,22,8,0.35) !important; }
+select option { background: #fffdf7; color: #1e1608; }
+
+/* Texto general — excepto bloques con paleta propia (.dcb / .mv = comisiones) */
+body *:not(.dcb):not(.dcb *):not(.mv):not(.mv *) { color: #1e1608 !important; }
+
+/* Excepciones — badges de colores propios se mantienen */
+.badge[style*="background"], .badge[class*="bg-"] { color: #fff !important; }
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(13,20,32,0.18); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(13,20,32,0.30); }

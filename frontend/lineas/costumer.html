@@ -515,6 +515,62 @@
       background: #E0E8F5 !important; flex-shrink: 0 !important;
     }
 
+    /* ═══ BARRA KPI COMPACTA (estilo pills) ═══
+       .kpix-bar es la barra realmente usada en el HTML (la vieja .kpi-strip
+       de arriba quedó sin markup que la use) — no tenía CSS en modo claro. */
+    .kpix-bar {
+      display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap;
+      background: #fff; border: 1px solid #D1DCF0;
+      border-radius: 14px; padding: 10px 16px; margin-bottom: 14px;
+      box-shadow: 0 2px 8px rgba(30,58,138,.07);
+    }
+    .kpix-pills { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; }
+    .kpix-item {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #F8FAFF; border: 1px solid #E0E8F5;
+      border-radius: 10px; padding: 6px 12px;
+      font-size: 11.5px; color: #64748B; white-space: nowrap;
+    }
+    .kpix-item b { color: #0F172A; font-size: 13px; font-weight: 800; }
+    .kpix-refresh {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: linear-gradient(135deg,#1E3A8A,#2563EB); color: #fff;
+      border: none; border-radius: 10px; padding: 8px 16px;
+      font-size: 12px; font-weight: 700; cursor: pointer;
+      box-shadow: 0 3px 12px rgba(37,99,235,.30); transition: filter .15s;
+    }
+    .kpix-refresh:hover { filter: brightness(1.08); }
+
+    /* ═══ BARRA DE FILTROS COMPACTA (.fbar) ═══
+       Igual que .kpix-bar: es la barra que usa el HTML, sin CSS en claro. */
+    .fbar {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      background: #fff; border: 1px solid #D1DCF0;
+      border-radius: 14px; padding: 10px 16px; margin-bottom: 14px;
+      box-shadow: 0 2px 8px rgba(30,58,138,.07);
+    }
+    .fbar-search { flex: 1.5; min-width: 200px; }
+    .fbar .search-input-field { border-radius: 50px !important; }
+    .fbar-dd {
+      display: flex; align-items: center; gap: 6px;
+      background: #F8FAFC; border: 1px solid #E0E8F5;
+      border-radius: 50px; padding: 2px 4px 2px 12px; min-width: 150px;
+    }
+    .fbar-dd-lbl { font-size: 11px; font-weight: 700; color: #64748B; white-space: nowrap; flex-shrink: 0; }
+    .fbar-dd .cs-wrap { flex: 1; min-width: 90px; }
+    .fbar-dd .cs-trigger {
+      background: transparent !important; border: none !important;
+      padding: 7px 8px !important; box-shadow: none !important;
+    }
+    /* El pill de filtro es angosto — el dropdown debe poder ser más ancho
+       que el trigger para no truncar nombres de agentes largos. */
+    .fbar-dd .cs-dropdown { min-width: 210px; right: auto; }
+    .fbar-dd .filter-select {
+      background: transparent !important; border: none !important; box-shadow: none !important;
+      padding: 7px 22px 7px 4px !important; width: auto !important; min-width: 70px;
+    }
+    .team-toggle { border-radius: 50px !important; }
+
     /* ═══ CLIENT CARDS ═══ */
     .costumer-table thead { display: none !important; }
     .costumer-table, .costumer-table tbody { background: transparent !important; }
@@ -528,11 +584,11 @@
     .costumer-table tbody tr.table-row:hover { background: transparent !important; box-shadow: none !important; }
 
     .client-card {
-      background: transparent;
+      background: #ffffff;
       border-radius: 14px;
-      border: none;
-      border-left: none;
-      box-shadow: none;
+      border: 1px solid rgba(13,20,32,.08);
+      border-left: 3px solid transparent;
+      box-shadow: 0 1px 3px rgba(13,20,32,.05);
       margin-bottom: 10px;
       overflow: hidden;
       transition: box-shadow .2s, transform .15s, border-color .2s;
@@ -651,256 +707,12 @@
 
     .table-wrapper { height: calc(100vh - 350px) !important; }
 
-  body { background: #0a1628 !important; }
-  body::before {
-    content: '';
-    position: fixed; inset: 0; z-index: -1;
-    background: linear-gradient(160deg,#0b1a33 0%,#0a1628 55%,#080f1f 100%);
-  opacity: 0.55;
-    pointer-events: none;
-  }
+  body { background: #f2ead9 !important; }
   </style>
-  <link rel="stylesheet" href="/css/glass-cards.css?v=20260716a">
-  <style>
-    /* ═══ TEMA OSCURO — overrides sobre el diseño claro original ═══
-       Va al final de la cascada (después de glass-cards.css) para ganar. */
-
-    /* KPI strip: de blanco → glass oscuro */
-    .kpi-strip{
-      background:rgba(8,18,48,.72)!important;
-      border:1px solid rgba(0,180,255,.12)!important;
-      backdrop-filter:blur(20px)!important;
-      box-shadow:0 4px 18px rgba(0,0,0,.30)!important;
-    }
-    .kpi-val{color:#fff!important}
-    .kpi-lbl{color:#94a3b8!important}
-    .kpi-sep{background:rgba(148,163,184,.18)!important}
-
-    /* Panel de filtros (tenía background:#fff inline) */
-    div[style*="background:#fff"][style*="border-radius:16px"]{
-      background:rgba(8,18,48,.72)!important;
-      border-color:rgba(0,180,255,.12)!important;
-      backdrop-filter:blur(20px);
-      box-shadow:0 4px 18px rgba(0,0,0,.30)!important;
-    }
-    .filter-label{color:#94a3b8!important}
-
-    /* Inputs y selects de filtros */
-    .search-input-field,.filter-select,.filter-input{
-      background:rgba(10,20,45,.65)!important;
-      border-color:rgba(148,163,184,.25)!important;
-      color:#e2e8f0!important;
-      color-scheme:dark;
-    }
-    .search-input-field:focus,.filter-select:focus,.filter-input:focus{
-      background:rgba(10,20,45,.85)!important;
-      border-color:#60a5fa!important;
-    }
-    .search-input-field::placeholder{color:#64748b!important}
-    .search-input-icon{color:#64748b!important}
-
-    /* Toggle de team */
-    .team-toggle{background:rgba(255,255,255,.06)!important}
-    .tt-btn{color:#94a3b8!important}
-    .tt-btn:hover:not(.tt-active){background:rgba(255,255,255,.10)!important;color:#e2e8f0!important}
-
-    /* Título "Lista de Clientes" + contador */
-    h2[style*="font-size: 18px"]{color:#e2e8f0!important}
-    .lead-counter-badge{background:rgba(37,99,235,.20)!important;color:#93c5fd!important;border:1px solid rgba(59,130,246,.35)!important}
-    div[style*="border-bottom: 1px solid #F1F5F9"]{border-bottom-color:rgba(148,163,184,.14)!important}
-
-    /* Pills de estado (antes blancas con texto invisible) */
-    .stab{
-      background:rgba(10,20,45,.60)!important;
-      border-color:rgba(148,163,184,.25)!important;
-      color:#cbd5e1!important;
-    }
-    .stab:hover{background:rgba(59,130,246,.16)!important;border-color:#60a5fa!important;color:#bfdbfe!important}
-    .stab.is-active{background:rgba(59,130,246,.20)!important;color:#bfdbfe!important}
-    .stab.all.is-active{background:rgba(59,130,246,.20)!important;color:#bfdbfe!important}
-    .stab.pending.is-active{background:rgba(245,158,11,.18)!important;color:#fcd34d!important}
-    .stab.active.is-active,.stab.completed.is-active{background:rgba(16,185,129,.18)!important;color:#6ee7b7!important}
-    .stab.colchon.is-active{background:rgba(139,92,246,.18)!important;color:#c4b5fd!important}
-    .stab.cancelled.is-active{background:rgba(239,68,68,.18)!important;color:#fca5a5!important}
-    .stab.hold.is-active{background:rgba(148,163,184,.18)!important;color:#cbd5e1!important}
-
-    /* Tarjetas de cliente: fuera el degradado blanco de la cabecera */
-    .client-card-header{background:none!important}
-    .client-card-name{color:#fff!important}
-    .client-card-divider{background:rgba(148,163,184,.14)!important}
-    .client-card-field{border-right-color:rgba(148,163,184,.14)!important}
-    .ccf-icon-wrap{background:rgba(255,255,255,.08)!important}
-    .ccf-icon-wrap i{color:#94a3b8!important}
-    .ccf-label{color:#64748b!important}
-    .ccf-value{color:#e2e8f0!important}
-    .row-arrow{color:#64748b!important}
-    .client-card:hover{box-shadow:0 8px 24px rgba(0,0,0,.35)!important}
-
-    /* Select de estado dentro de la tarjeta (era blanco) */
-    select.ile-status,select.ile-cant{
-      background-color:rgba(10,20,45,.70)!important;
-      border-color:rgba(148,163,184,.30)!important;
-      color:#e2e8f0!important;
-      color-scheme:dark;
-    }
-
-    /* Botón eliminar de la tarjeta (era rosa muy claro) */
-    .card-delete-btn{background:rgba(239,68,68,.14)!important;border-color:rgba(239,68,68,.35)!important;color:#fca5a5!important}
-
-    /* Barra de acciones inferior */
-    .quick-action-bar{background:rgba(8,18,48,.55)!important;border-top-color:rgba(148,163,184,.14)!important}
-
-    /* ── Lista de clientes: el wrapper tiene altura fija pero no tenía overflow,
-       las filas sobrantes se pintaban fuera del panel (se veían "transparentes") ── */
-    .table-wrapper{
-      overflow-y:auto!important;overflow-x:hidden!important;
-      scrollbar-width:thin;scrollbar-color:rgba(129,140,248,.35) transparent;
-    }
-    /* Fondo del panel contenedor de la lista */
-    .bg-white[style*="border-radius: 16px"]{
-      background:rgba(8,18,48,.72)!important;
-      border-color:rgba(0,180,255,.12)!important;
-      backdrop-filter:blur(20px);
-    }
-
-    /* ══ BARRA KPI COMPACTA (estilo pills) ══ */
-    .kpix-bar{
-      display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;
-      background:rgba(8,18,48,.72);border:1px solid rgba(0,180,255,.12);
-      backdrop-filter:blur(20px);border-radius:14px;
-      padding:10px 16px;margin-bottom:14px;
-      box-shadow:0 4px 18px rgba(0,0,0,.30);
-    }
-    .kpix-pills{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center}
-    .kpix-item{
-      display:inline-flex;align-items:center;gap:6px;
-      background:rgba(10,20,45,.65);border:1px solid rgba(148,163,184,.18);
-      border-radius:10px;padding:6px 12px;
-      font-size:11.5px;color:#94a3b8;white-space:nowrap;
-    }
-    .kpix-item b{color:#fff;font-size:13px;font-weight:800}
-    .kpix-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
-    .kpix-refresh{
-      display:inline-flex;align-items:center;gap:7px;
-      background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;
-      border:none;border-radius:10px;padding:8px 16px;
-      font-size:12px;font-weight:700;cursor:pointer;
-      box-shadow:0 3px 12px rgba(37,99,235,.35);transition:filter .15s;
-    }
-    .kpix-refresh:hover{filter:brightness(1.12)}
-
-    /* ══ BARRA DE FILTROS COMPACTA ══ */
-    .fbar{
-      display:flex;align-items:center;gap:10px;flex-wrap:wrap;
-      background:rgba(8,18,48,.72);border:1px solid rgba(0,180,255,.12);
-      backdrop-filter:blur(20px);border-radius:14px;
-      padding:10px 16px;margin-bottom:14px;
-      box-shadow:0 4px 18px rgba(0,0,0,.30);
-    }
-    .fbar-search{flex:1.5;min-width:200px}
-    .fbar .search-input-field{border-radius:50px!important}
-    .fbar-dd{
-      display:flex;align-items:center;gap:6px;
-      background:rgba(10,20,45,.65);border:1px solid rgba(148,163,184,.20);
-      border-radius:50px;padding:2px 4px 2px 12px;min-width:150px;
-    }
-    .fbar-dd-lbl{font-size:11px;font-weight:700;color:#64748b;white-space:nowrap;flex-shrink:0}
-    .fbar-dd .cs-wrap{flex:1;min-width:90px}
-    .fbar-dd .cs-trigger{
-      background:transparent!important;border:none!important;
-      padding:7px 8px!important;box-shadow:none!important;
-    }
-    .team-toggle{border-radius:50px!important}
-    .lead-counter-badge{border-radius:50px!important;padding:7px 16px!important;white-space:nowrap}
-
-    /* El custom select pinta el valor seleccionado en azul oscuro inline — forzar claro */
-    .cs-trigger .cs-label{color:#e2e8f0!important}
-
-    /* Pestañas de estado tipo pill (como la referencia) */
-    .stab{border-radius:50px!important;padding:7px 16px!important}
-    .stab.all.is-active{background:linear-gradient(135deg,#4f46e5,#6366f1)!important;border-color:#6366f1!important;color:#fff!important}
-
-    /* ── Custom select (Estado/Agente/Línea — JS reemplaza el <select> nativo) ── */
-    .cs-trigger{
-      background:rgba(10,20,45,.65)!important;
-      border-color:rgba(148,163,184,.25)!important;
-      color:#e2e8f0!important;
-      box-shadow:none!important;
-    }
-    .cs-trigger:hover{background:rgba(10,20,45,.85)!important;border-color:#60a5fa!important}
-    .cs-wrap.cs-open .cs-trigger{background:rgba(10,20,45,.90)!important;border-color:#60a5fa!important}
-    .cs-arrow{color:#60a5fa!important}
-    /* Menú desplegable: oscuro pero SÓLIDO (debe tapar lo de abajo) */
-    .cs-dropdown{background:#0f1e3d!important;border-color:rgba(96,165,250,.35)!important;box-shadow:0 10px 36px rgba(0,0,0,.55)!important}
-    .cs-option{color:#cbd5e1!important}
-    .cs-option:hover{background:rgba(59,130,246,.18)!important;color:#bfdbfe!important}
-    .cs-dropdown::-webkit-scrollbar-thumb{background:rgba(148,163,184,.35)!important}
-
-    /* Badge "N líneas" (era celeste con texto invisible) */
-    .card-lines-badge{
-      background:rgba(37,99,235,.22)!important;
-      color:#93c5fd!important;
-      border:1px solid rgba(59,130,246,.40)!important;
-    }
-
-    /* Badge "Colchón" (era lila claro con texto invisible) */
-    .badge-colchon{
-      background:rgba(139,92,246,.20)!important;
-      color:#c4b5fd!important;
-      border-color:rgba(139,92,246,.45)!important;
-    }
-    /* Fila colchón: tinte violeta oscuro en vez de lila claro */
-    .costumer-table tbody tr.row-colchon{background:rgba(139,92,246,.08)!important}
-
-    /* ── Editor expandido del cliente (details-row, generado por JS con fondos claros inline) ── */
-    .details-row td>div{background:rgba(8,18,48,.60)!important;border-color:rgba(148,163,184,.14)!important}
-    .details-row h4{color:#e2e8f0!important}
-    .details-row label{color:#94a3b8!important}
-    .details-row span[style*="color:#1e293b"]{color:#e2e8f0!important}
-    .details-row span[style*="background:#f1f5f9"]{background:rgba(255,255,255,.08)!important;color:#94a3b8!important}
-    .details-row input,.details-row select,.details-row textarea{
-      background:rgba(10,20,45,.70)!important;
-      border-color:rgba(148,163,184,.30)!important;
-      color:#e2e8f0!important;
-      color-scheme:dark;
-    }
-    .details-row input:disabled,.details-row select:disabled{opacity:.55}
-    /* Divs/botones generados con background blanco/claro inline */
-    .details-row div[style*="background:#fff"],.details-row div[style*="background: white"],
-    .details-row div[style*="background:white"],.details-row div[style*="background:#f8fafc"],
-    .details-row div[style*="background:#f8f9fa"],.details-row div[style*="background:#f0f4ff"]{
-      background:rgba(10,20,45,.55)!important;border-color:rgba(148,163,184,.25)!important;
-    }
-    .details-row button[style*="background:#fff"]{
-      background:rgba(10,20,45,.70)!important;color:#cbd5e1!important;border-color:rgba(148,163,184,.30)!important;
-    }
-    /* Tarjeta "Información general" (gradiente lila claro) */
-    .details-row .bg-gradient-to-r{background:rgba(124,58,237,.12)!important;border:1px solid rgba(139,92,246,.22)!important}
-    .details-row .text-gray-600{color:#94a3b8!important}
-    .details-row .text-gray-800{color:#e2e8f0!important}
-    /* Tarjetas de línea (Línea 1, 2…) dentro del editor — eran bg-white/gray-50 */
-    .details-row .line-card{background:rgba(10,20,45,.55)!important;border-color:rgba(148,163,184,.22)!important}
-    .details-row .line-card:hover{border-color:rgba(139,92,246,.45)!important}
-    .details-row .bg-gray-50{background:rgba(255,255,255,.05)!important}
-    .details-row .bg-blue-100{background:rgba(59,130,246,.18)!important}
-    .details-row .bg-gray-200{background:rgba(148,163,184,.25)!important;color:#cbd5e1!important}
-    .details-row .text-gray-500{color:#94a3b8!important}
-    .details-row .text-gray-700{color:#cbd5e1!important}
-    .details-row .note-text{color:#e2e8f0!important}
-    .details-row span[style*="color:#64748b"]{color:#94a3b8!important}
-
-    /* Notas y zona de imagen */
-    .ile-note-card{background:rgba(10,20,45,.70)!important;border-color:rgba(148,163,184,.25)!important}
-    .ile-note-card::after{background:linear-gradient(transparent,rgba(10,20,45,.95))!important}
-    .ile-note-texto{color:#cbd5e1!important}
-    .ile-note-form-box{background:rgba(10,20,45,.85)!important;border-color:#60a5fa!important}
-    .ile-add-note-btn-main{background:rgba(255,255,255,.05)!important;border-color:rgba(148,163,184,.30)!important;color:#94a3b8!important}
-    .ile-add-note-btn-main:hover{background:rgba(59,130,246,.12)!important;border-color:#60a5fa!important;color:#93c5fd!important}
-    .ile-img-zone{background:rgba(10,20,45,.55)!important;border-color:rgba(148,163,184,.30)!important}
-  </style>
+  <link rel="stylesheet" href="/css/glass-cards-cream.css?v=20260716a">
   <link rel="stylesheet" href="/css/sidebar-static.css?v=1">
 </head>
-<body style="background: #EEF2F7;">
+<body style="background: #f2ead9;">
   <script src="/js/theme-init.js" defer></script>
   <script src="/js/sidebar-static.js" defer></script>
   <script src="/js/llamadas-bloqueo.js" defer></script>
