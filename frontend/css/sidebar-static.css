@@ -35,33 +35,6 @@
   margin-left: calc(var(--sidebar-collapsed) + 16px);
 }
 
-/* Escritorio (>=769px): rail de solo iconos que se expande al pasar el mouse.
-   En colapsado se ocultan foto/nombre/rol, etiquetas, encabezados de sección
-   y la frase del footer — solo quedan los iconos de cada botón. */
-@media (min-width: 769px) {
-  #app-sidebar:hover { width: var(--sidebar-width); }
-
-  #app-sidebar .sb-user,
-  #app-sidebar .sb-lbl,
-  #app-sidebar .sb-sec,
-  #app-sidebar .sb-mov-head,
-  #app-sidebar .sb-quote {
-    display: none;
-  }
-  #app-sidebar:hover .sb-user  { display: flex; }
-  #app-sidebar:hover .sb-lbl   { display: block; }
-  #app-sidebar:hover .sb-sec   { display: block; }
-  #app-sidebar:hover .sb-mov-head { display: block; }
-  #app-sidebar:hover .sb-quote { display: block; }
-
-  #app-sidebar .sb-item, #app-sidebar .sb-logout, #app-sidebar .sb-user {
-    justify-content: center;
-  }
-  #app-sidebar:hover .sb-item, #app-sidebar:hover .sb-logout, #app-sidebar:hover .sb-user {
-    justify-content: flex-start;
-  }
-}
-
 /* Botón hamburguesa + overlay (inyectados por sidebar-static.js) */
 .sb-mobile-toggle {
   display: none;
@@ -316,3 +289,35 @@ body.sb-is-admin #app-sidebar .sb-mov-head[data-admin-only] { display: block; }
 #app-sidebar .sb-logout:hover { opacity: .8; }
 #app-sidebar .sb-logout .sb-ic { background: #dc2626; }
 #app-sidebar .sb-logout .sb-lbl { color: #374151 !important; }
+
+/* Escritorio (>=769px): rail de solo iconos que se expande al pasar el mouse.
+   En colapsado se ocultan foto/nombre/rol, etiquetas, encabezados de sección
+   y la frase del footer — solo quedan los iconos de cada botón.
+   Este bloque va al FINAL del archivo a propósito: comparte especificidad
+   (1,1,0) con las reglas base de .sb-user/.sb-lbl/.sb-sec/.sb-mov-head/.sb-quote
+   de más arriba, y en un empate de especificidad gana la regla que aparece
+   después en la hoja de estilos — si este bloque quedara antes, esas reglas
+   base lo pisarían y el contenido nunca se ocultaría. */
+@media (min-width: 769px) {
+  #app-sidebar:hover { width: var(--sidebar-width); }
+
+  #app-sidebar .sb-user,
+  #app-sidebar .sb-lbl,
+  #app-sidebar .sb-sec,
+  #app-sidebar .sb-mov-head,
+  #app-sidebar .sb-quote {
+    display: none;
+  }
+  #app-sidebar:hover .sb-user  { display: flex; }
+  #app-sidebar:hover .sb-lbl   { display: block; }
+  #app-sidebar:hover .sb-sec   { display: block; }
+  #app-sidebar:hover .sb-mov-head { display: block; }
+  #app-sidebar:hover .sb-quote { display: block; }
+
+  #app-sidebar .sb-item, #app-sidebar .sb-logout, #app-sidebar .sb-user {
+    justify-content: center;
+  }
+  #app-sidebar:hover .sb-item, #app-sidebar:hover .sb-logout, #app-sidebar:hover .sb-user {
+    justify-content: flex-start;
+  }
+}
