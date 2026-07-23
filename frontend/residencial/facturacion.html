@@ -6,7 +6,7 @@
   <title>Facturación</title>
   <link rel="icon" type="image/png" href="/images/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=Inter:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
@@ -26,10 +26,11 @@
       --c-alexis:    #7c3aed;
       --c-alejandro: #2563eb;
       --c-tito:      #0d9488;
+      --c-tito-lineas: #0891b2;
       --c-total:     #64748b;
       --header-h:  76px;
       --font-head: 'Syne', sans-serif;
-      --font-mono: 'DM Mono', monospace;
+      --font-mono: 'Inter', system-ui, -apple-system, sans-serif;
       --font-kpi:  'Inter', system-ui, -apple-system, sans-serif;
     }
 
@@ -48,6 +49,7 @@
     .layout { display: flex; min-height: 100vh; }
     .main-content { flex: 1; min-width: 0; }
     .central-container { padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 22px; }
+    #view-residencial, #view-lineas { display: flex; flex-direction: column; gap: 22px; }
 
     /* ─── TOPBAR ─────────────────────────────────────────────────── */
     .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
@@ -81,7 +83,6 @@
       font-family: var(--font-kpi); font-size: 13px; font-weight: 700; color: var(--text);
       text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 12px;
     }
-    .kpi-section-title:not(:first-of-type) { margin-top: 28px; }
     .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px; }
     .kpi-card {
       background: linear-gradient(180deg, var(--panel2), var(--panel));
@@ -110,8 +111,12 @@
 
     /* ─── TABLE ──────────────────────────────────────────────────── */
     .table-section { overflow: hidden; }
+    .table-toolbar {
+      display: flex; align-items: flex-end; justify-content: flex-end;
+      gap: 16px; flex-wrap: wrap; padding: 18px 20px 0;
+    }
     .table-scroll { overflow: auto; max-height: 460px; }
-    .fact-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .fact-table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
     .fact-table th, .fact-table td { padding: 9px 12px; text-align: right; white-space: nowrap; }
     /* Encabezados fijos al hacer scroll vertical */
     .fact-table thead th { color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--border2); position: sticky; z-index: 3; background: var(--panel2); }
@@ -124,9 +129,23 @@
     .gh-alexis    { color: var(--c-alexis); }
     .gh-alejandro { color: var(--c-alejandro); }
     .gh-tito      { color: var(--c-tito); }
+    .gh-tito-lineas { color: var(--c-tito-lineas); }
     .gh-total     { color: var(--c-total); }
     .gh-garay      { color: #f59e0b; }
     .gh-connecting { color: var(--accent); }
+
+    /* Línea separadora al final de cada grupo de columnas (Alexis / Garay Líneas /
+       Tito / Tito Líneas) para distinguirlas al hacer scroll horizontal. */
+    .group-header-row th:nth-child(2),
+    .group-header-row th:nth-child(3),
+    .group-header-row th:nth-child(4),
+    .group-header-row th:nth-child(5),
+    .fact-table :is(thead tr:not(.group-header-row) th, tbody td, tfoot td):nth-child(4),
+    .fact-table :is(thead tr:not(.group-header-row) th, tbody td, tfoot td):nth-child(7),
+    .fact-table :is(thead tr:not(.group-header-row) th, tbody td, tfoot td):nth-child(10),
+    .fact-table :is(thead tr:not(.group-header-row) th, tbody td, tfoot td):nth-child(13) {
+      border-right: 2px solid var(--border2);
+    }
 
     /* Botón cambio de modo (Residencial / Líneas) */
     .btn-mode {
@@ -195,6 +214,27 @@
     }
     @media (max-width: 820px) {
       .kpi-row, .bottom-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      .central-container { padding: 16px 14px 28px; gap: 16px; }
+      .kpi-card { padding: 14px; gap: 12px; }
+      .kpi-icon { width: 42px; height: 42px; font-size: 18px; }
+      .kpi-value { font-size: 21px; }
+      .card-title { font-size: 15px; padding: 14px 16px 0; }
+      .fact-table th, .fact-table td { padding: 7px 8px; font-size: 11.5px; }
+      .btn-save, .btn-mode { padding: 9px 16px; font-size: 13px; }
+      .chart-canvas-wrap { height: 220px; }
+    }
+    @media (max-width: 480px) {
+      .central-container { padding: 12px 10px 24px; gap: 14px; }
+      .topbar { gap: 10px; }
+      .kpi-row { gap: 10px; }
+      .kpi-card { padding: 12px; gap: 10px; }
+      .kpi-icon { width: 38px; height: 38px; font-size: 16px; }
+      .kpi-value { font-size: 18px; }
+      .kpi-label { font-size: 10px; }
+      .fact-table th, .fact-table td { padding: 6px 6px; font-size: 10.5px; }
+      .resumen-list, .top-list { padding: 10px 14px 16px; }
     }
   </style>
   <link rel="stylesheet" href="/css/sidebar-static.css?v=1">
@@ -277,34 +317,9 @@
         </div>
 
         <div class="filters-group">
-          <!-- TODO(redisño facturación): filtros temporalmente ocultos -->
-          <div class="filter-item" style="display:none">
-            <label for="filtroMes">Mes</label>
-            <select id="filtroMes">
-              <option value="1">Enero</option>
-              <option value="2">Febrero</option>
-              <option value="3">Marzo</option>
-              <option value="4">Abril</option>
-              <option value="5">Mayo</option>
-              <option value="6">Junio</option>
-              <option value="7">Julio</option>
-              <option value="8">Agosto</option>
-              <option value="9">Septiembre</option>
-              <option value="10">Octubre</option>
-              <option value="11">Noviembre</option>
-              <option value="12">Diciembre</option>
-            </select>
-          </div>
-          <div class="filter-item" style="display:none">
-            <label for="filtroAno">Año</label>
-            <select id="filtroAno"></select>
-          </div>
           <!-- TODO(redisño facturación): botón de modo (KPI) oculto por ahora — recolocar cuando se resuelva la vista de líneas -->
           <button class="btn-mode" id="btnModo" title="Cambiar de vista" style="display:none">
             <i class="fas fa-network-wired"></i> <span id="btnModoLabel">Líneas</span>
-          </button>
-          <button class="btn-save" id="btnGuardarFacturacion">
-            <i class="fas fa-save"></i> Guardar
           </button>
         </div>
       </div>
@@ -404,18 +419,46 @@
 
       <!-- ── TABLE ── -->
       <div class="card table-section">
+        <div class="table-toolbar">
+          <div class="filter-item">
+            <label for="filtroMes">Mes</label>
+            <select id="filtroMes">
+              <option value="1">Enero</option>
+              <option value="2">Febrero</option>
+              <option value="3">Marzo</option>
+              <option value="4">Abril</option>
+              <option value="5">Mayo</option>
+              <option value="6">Junio</option>
+              <option value="7">Julio</option>
+              <option value="8">Agosto</option>
+              <option value="9">Septiembre</option>
+              <option value="10">Octubre</option>
+              <option value="11">Noviembre</option>
+              <option value="12">Diciembre</option>
+            </select>
+          </div>
+          <div class="filter-item">
+            <label for="filtroAno">Año</label>
+            <select id="filtroAno"></select>
+          </div>
+          <button class="btn-save" id="btnGuardarFacturacion">
+            <i class="fas fa-save"></i> Guardar
+          </button>
+        </div>
         <div class="table-scroll">
           <table id="tablaExcel" class="fact-table">
             <thead>
               <tr class="group-header-row">
                 <th></th>
                 <th colspan="3" class="gh-alexis">Alexis</th>
-                <th colspan="3" class="gh-alejandro">Alejandro</th>
+                <th colspan="3" class="gh-alejandro">Garay Líneas</th>
                 <th colspan="3" class="gh-tito">Tito</th>
+                <th colspan="3" class="gh-tito-lineas">Tito Líneas</th>
                 <th colspan="5" class="gh-total">Totales</th>
               </tr>
               <tr>
                 <th>Fecha</th>
+                <th>Ventas</th><th>Valor venta</th><th>Monto</th>
                 <th>Ventas</th><th>Valor venta</th><th>Monto</th>
                 <th>Ventas</th><th>Valor venta</th><th>Monto</th>
                 <th>Ventas</th><th>Valor venta</th><th>Monto</th>
@@ -430,7 +473,8 @@
                 <td id="total-col-4"></td><td id="total-col-5"></td><td id="total-col-6"></td>
                 <td id="total-col-7"></td><td id="total-col-8"></td><td id="total-col-9"></td>
                 <td id="total-col-10"></td><td id="total-col-11"></td><td id="total-col-12"></td>
-                <td id="total-col-13"></td><td id="total-col-14"></td>
+                <td id="total-col-13"></td><td id="total-col-14"></td><td id="total-col-15"></td>
+                <td id="total-col-16"></td><td id="total-col-17"></td>
               </tr>
             </tfoot>
           </table>
@@ -610,6 +654,13 @@ let datosLineasIndex = {};        // fechaKey -> array de campos (9) líneas-pub
 let prevAggL = { fact: 0, ventas: 0 };
 let lineasInit = false;           // la vista líneas se carga la primera vez que se abre
 
+// Aporte de las columnas "Garay Líneas" y "Tito Líneas" (tabla residencial) a los
+// KPI de Líneas Móviles — se suma al total real de lineas_clientes, no al de Residencial.
+let manualLineasMonto = 0;
+let manualLineasVentas = 0;
+let ultimoTotalesL = null;        // último `t` calculado por renderFilaTotalesL, para poder
+                                   // refrescar los KPI de Líneas sin re-renderizar su tabla
+
 /* Selector de años */
 (function(){
   const yearNow = new Date().getFullYear();
@@ -652,15 +703,17 @@ function showToast(msg) {
 }
 
 /* Columnas (td index): 1 Alexis Ventas, 2 Alexis ValorVenta(calc), 3 Alexis Monto,
-   4 Alejandro Ventas, 5 Alejandro ValorVenta(calc), 6 Alejandro Monto,
+   4 Garay Líneas Ventas, 5 Garay Líneas ValorVenta(calc), 6 Garay Líneas Monto,
    7 Tito Ventas, 8 Tito ValorVenta(calc), 9 Tito Monto,
-   10 Total día(calc), 11 Total ventas(calc), 12 Valor venta(calc), 13 Puntos, 14 CPA puntos(calc) */
+   10 Tito Líneas Ventas, 11 Tito Líneas ValorVenta(calc), 12 Tito Líneas Monto,
+   13 Total día(calc), 14 Total ventas(calc), 15 Valor venta(calc), 16 Puntos, 17 CPA puntos(calc) */
 const COL = { aVentas:1, aValor:2, aMonto:3, jVentas:4, jValor:5, jMonto:6, tVentas:7, tValor:8, tMonto:9,
-              totalDia:10, totalVentas:11, valorVenta:12, puntos:13, cpa:14 };
-const EDIT_COLS = [1,3,4,6,7,9,13];                 // editables
-const CALC_COLS = [2,5,8,10,11,12,14];              // calculadas
-const MONEY_COLS = [2,3,5,6,8,9,10,12,14];          // se muestran con $
-const NUM_COLS = 15;                                // 0..14
+              tlVentas:10, tlValor:11, tlMonto:12,
+              totalDia:13, totalVentas:14, valorVenta:15, puntos:16, cpa:17 };
+const EDIT_COLS = [1,3,4,6,7,9,10,12,16];           // editables
+const CALC_COLS = [2,5,8,11,13,14,15,17];           // calculadas
+const MONEY_COLS = [2,3,5,6,8,9,11,12,13,15,17];    // se muestran con $
+const NUM_COLS = 18;                                // 0..17
 
 /* =====================================================================
    VISIBILIDAD ALEJANDRO (solo desde Febrero)
@@ -719,8 +772,8 @@ async function aggregateMes(mes, ano) {
     let fact = 0, ventas = 0;
     arr.forEach(row => {
       const c = Array.isArray(row.campos) ? row.campos : [];
-      fact   += num(c[0]) + num(c[3]) + num(c[9]);   // montos Alexis + Alejandro + Tito
-      ventas += num(c[1]) + num(c[4]) + num(c[10]);  // ventas Alexis + Alejandro + Tito
+      fact   += num(c[0]) + num(c[3]) + num(c[9]) + num(c[6]);   // montos Alexis + Garay Líneas + Tito + Tito Líneas
+      ventas += num(c[1]) + num(c[4]) + num(c[10]) + num(c[7]);  // ventas Alexis + Garay Líneas + Tito + Tito Líneas
     });
     return { fact, ventas, valor: ventas > 0 ? fact / ventas : 0 };
   } catch (_) { return { fact: 0, ventas: 0, valor: 0 }; }
@@ -746,6 +799,7 @@ async function renderTablaDias(mes, ano) {
     editVal[COL.aVentas] = g[1];  editVal[COL.aMonto] = g[0];
     editVal[COL.jVentas] = g[4];  editVal[COL.jMonto] = g[3];
     editVal[COL.tVentas] = g[10]; editVal[COL.tMonto] = g[9];
+    editVal[COL.tlVentas] = g[7]; editVal[COL.tlMonto] = g[6];
     editVal[COL.puntos]  = g[15];
 
     const tr = document.createElement("tr");
@@ -789,8 +843,14 @@ function recalcularFila(tr) {
   const tVentas = raw(COL.tVentas), tMonto = raw(COL.tMonto);
   tds[COL.tValor].textContent = tVentas > 0 ? money(tMonto / tVentas) : "";
 
-  const totalDia    = aMonto + jMonto + tMonto;
-  const totalVentas = aVentas + jVentas + tVentas;
+  const tlVentas = raw(COL.tlVentas), tlMonto = raw(COL.tlMonto);
+  tds[COL.tlValor].textContent = tlVentas > 0 ? money(tlMonto / tlVentas) : "";
+
+  // La columna Totales suma las 4 columnas (Alexis + Garay Líneas + Tito + Tito
+  // Líneas); Garay Líneas y Tito Líneas además alimentan el KPI de Líneas
+  // Móviles por separado (ver actualizarKpiLineasMoviles).
+  const totalDia    = aMonto + jMonto + tMonto + tlMonto;
+  const totalVentas = aVentas + jVentas + tVentas + tlVentas;
   tds[COL.totalDia].textContent    = totalDia > 0 ? money(totalDia) : "";
   tds[COL.totalVentas].textContent = totalVentas > 0 ? intFmt(totalVentas) : "";
 
@@ -823,8 +883,9 @@ function renderFilaTotalesFacturacion() {
   t[COL.aValor] = t[COL.aVentas] > 0 ? t[COL.aMonto] / t[COL.aVentas] : 0;
   t[COL.jValor] = t[COL.jVentas] > 0 ? t[COL.jMonto] / t[COL.jVentas] : 0;
   t[COL.tValor] = t[COL.tVentas] > 0 ? t[COL.tMonto] / t[COL.tVentas] : 0;
-  t[COL.totalDia]    = t[COL.aMonto]  + t[COL.jMonto]  + t[COL.tMonto];
-  t[COL.totalVentas] = t[COL.aVentas] + t[COL.jVentas] + t[COL.tVentas];
+  t[COL.tlValor] = t[COL.tlVentas] > 0 ? t[COL.tlMonto] / t[COL.tlVentas] : 0;
+  t[COL.totalDia]    = t[COL.aMonto]  + t[COL.jMonto]  + t[COL.tMonto]  + t[COL.tlMonto];
+  t[COL.totalVentas] = t[COL.aVentas] + t[COL.jVentas] + t[COL.tVentas] + t[COL.tlVentas];
   t[COL.valorVenta]  = t[COL.totalVentas] > 0 ? t[COL.totalDia] / t[COL.totalVentas] : 0;
   t[COL.cpa]         = t[COL.puntos] > 0 ? t[COL.valorVenta] / t[COL.puntos] : 0;
 
@@ -836,6 +897,11 @@ function renderFilaTotalesFacturacion() {
     else                              el.textContent = t[i] ? t[i].toLocaleString('en-US', { maximumFractionDigits: 2 }) : '';
   }
   refreshDashboard();
+
+  // Garay Líneas + Tito Líneas alimentan el KPI de Líneas Móviles, no el residencial.
+  manualLineasMonto  = t[COL.jMonto]  + t[COL.tlMonto];
+  manualLineasVentas = t[COL.jVentas] + t[COL.tlVentas];
+  actualizarKpiLineasMoviles();
 }
 
 /* Lee los totales actuales desde la fila de totales. */
@@ -846,9 +912,10 @@ function leerTotales() {
     ventas:    g('total-col-' + COL.totalVentas),
     valor:     g('total-col-' + COL.valorVenta),
     cpa:       g('total-col-' + COL.cpa),
-    alexis:    g('total-col-' + COL.aMonto),
-    alejandro: g('total-col-' + COL.jMonto),
-    tito:      g('total-col-' + COL.tMonto),
+    alexis:      g('total-col-' + COL.aMonto),
+    alejandro:   g('total-col-' + COL.jMonto),
+    tito:        g('total-col-' + COL.tMonto),
+    titoLineas:  g('total-col-' + COL.tlMonto),
   };
 }
 
@@ -875,8 +942,9 @@ function refreshDashboard() {
   // Mejor asesor / activos
   const asesores = [
     { nombre: 'Alexis', monto: T.alexis, color: 'var(--c-alexis)' },
-    { nombre: 'Alejandro', monto: T.alejandro, color: 'var(--c-alejandro)' },
+    { nombre: 'Garay Líneas', monto: T.alejandro, color: 'var(--c-alejandro)' },
     { nombre: 'Tito', monto: T.tito, color: 'var(--c-tito)' },
+    { nombre: 'Tito Líneas', monto: T.titoLineas, color: 'var(--c-tito-lineas)' },
   ];
   const ordenados = asesores.slice().sort((a, b) => b.monto - a.monto);
   const mejor = ordenados[0];
@@ -922,22 +990,21 @@ async function guardarTodoFacturacion() {
     const fecha = tds[0].textContent.trim();
     const cell = i => String(tds[i].textContent || '').replace(/[$,]/g, '').trim();
 
-    // Preservar campos previos (incl. Garay 6-8 y pad 16) y sobrescribir el resto
+    // Preservar campos previos (pad 16) y sobrescribir el resto
     const orig = camposGuardados(fecha);
     const g = Array.from({ length: 17 }, (_, i) => String(orig[i] ?? ''));
     g[0]  = cell(COL.aMonto);   g[1]  = cell(COL.aVentas);  g[2]  = cell(COL.aValor);
     g[3]  = cell(COL.jMonto);   g[4]  = cell(COL.jVentas);  g[5]  = cell(COL.jValor);
-    // g[6..8] = Garay -> preservados
+    g[6]  = cell(COL.tlMonto);  g[7]  = cell(COL.tlVentas); g[8]  = cell(COL.tlValor);
     g[9]  = cell(COL.tMonto);   g[10] = cell(COL.tVentas);  g[11] = cell(COL.tValor);
     g[12] = cell(COL.totalDia); g[13] = cell(COL.totalVentas); g[14] = cell(COL.valorVenta);
     g[15] = cell(COL.puntos);
     // g[16] = pad -> preservado
 
-    // Guardar solo si esta fila tiene algún dato propio (Alexis/Alejandro/Tito/Puntos)
-    const tieneDato = [COL.aVentas,COL.aMonto,COL.jVentas,COL.jMonto,COL.tVentas,COL.tMonto,COL.puntos]
+    // Guardar solo si esta fila tiene algún dato propio (Alexis/Garay Líneas/Tito/Tito Líneas/Puntos)
+    const tieneDato = [COL.aVentas,COL.aMonto,COL.jVentas,COL.jMonto,COL.tVentas,COL.tMonto,COL.tlVentas,COL.tlMonto,COL.puntos]
       .some(c => cell(c) !== "");
-    const garayPrevio = (g[6] || g[7] || g[8]);
-    if (!tieneDato && !garayPrevio) continue;
+    if (!tieneDato) continue;
 
     const res = await fetch('/api/facturacion', {
       method: 'POST',
@@ -984,7 +1051,7 @@ async function actualizarGrafica() {
           borderColor: 'transparent', borderRadius: 6,
           datalabels: {
             anchor: 'end', align: 'end', offset: 4, color: '#e6ebf5',
-            font: { family: "'DM Mono', monospace", weight: '700', size: 11 },
+            font: { family: "'Inter', sans-serif", weight: '700', size: 11 },
             formatter: v => v > 0 ? "$" + Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 }) : ''
           }
         }]
@@ -993,7 +1060,7 @@ async function actualizarGrafica() {
         plugins: { legend: { display: false }, datalabels: { display: ctx => Number(ctx?.dataset?.data?.[ctx?.dataIndex]) > 0 } },
         responsive: true, maintainAspectRatio: false, layout: { padding: { top: 30 } },
         scales: {
-          x: { grid: { display: false }, ticks: { color: "#64748b", font: { family: "'DM Mono', monospace", size: 11 } }, border: { display: false } },
+          x: { grid: { display: false }, ticks: { color: "#64748b", font: { family: "'Inter', sans-serif", size: 11 } }, border: { display: false } },
           y: { grid: { display: false }, ticks: { display: false }, border: { display: false } }
         }
       }
@@ -1139,20 +1206,36 @@ function renderFilaTotalesL() {
   refreshDashboardL(t);
 }
 
-function refreshDashboardL(t) {
-  const totMonto = (t[COLL.gM] || 0) + (t[COLL.cM] || 0);
+/* KPI Líneas Móviles = total real de lineas_clientes + lo cargado a mano en
+   "Garay Líneas" / "Tito Líneas" dentro de la tabla residencial. */
+function actualizarKpiLineasMoviles() {
+  const t = ultimoTotalesL;
+  const totMontoReal  = t ? (t[COLL.gM] || 0) + (t[COLL.cM] || 0) : 0;
+  const totVentasReal = t ? (t[COLL.totV] || 0) : 0;
+  const totLineas     = t ? (t[COLL.totL] || 0) : 0;
+  const valorLinea    = t ? (t[COLL.valL] || 0) : 0;
+
+  const totMonto   = totMontoReal + manualLineasMonto;
+  const totVentas  = totVentasReal + manualLineasVentas;
+  const valorVenta = totVentas > 0 ? totMonto / totVentas : 0;
+
   document.getElementById('lkpi-facturado').textContent = money(totMonto);
-  document.getElementById('lkpi-ventas').textContent    = intFmt(t[COLL.totV]);
-  document.getElementById('lkpi-lineas').textContent    = intFmt(t[COLL.totL]);
-  document.getElementById('lkpi-vventa').textContent    = money(t[COLL.valV]);
-  document.getElementById('lkpi-vlinea').textContent    = money(t[COLL.valL]);
+  document.getElementById('lkpi-ventas').textContent    = intFmt(totVentas);
+  document.getElementById('lkpi-lineas').textContent    = intFmt(totLineas);
+  document.getElementById('lkpi-vventa').textContent    = money(valorVenta);
+  document.getElementById('lkpi-vlinea').textContent    = money(valorLinea);
   document.getElementById('lkpi-facturado-sub').innerHTML = deltaHTML(totMonto, prevAggL.fact);
-  document.getElementById('lkpi-ventas-sub').innerHTML    = deltaHTML(t[COLL.totV], prevAggL.ventas);
+  document.getElementById('lkpi-ventas-sub').innerHTML    = deltaHTML(totVentas, prevAggL.ventas);
 
   document.getElementById('lres-facturado').textContent = money(totMonto);
-  document.getElementById('lres-ventas').textContent    = intFmt(t[COLL.totV]);
-  document.getElementById('lres-lineas').textContent    = intFmt(t[COLL.totL]);
-  document.getElementById('lres-vlinea').textContent    = money(t[COLL.valL]);
+  document.getElementById('lres-ventas').textContent    = intFmt(totVentas);
+  document.getElementById('lres-lineas').textContent    = intFmt(totLineas);
+  document.getElementById('lres-vlinea').textContent    = money(valorLinea);
+}
+
+function refreshDashboardL(t) {
+  ultimoTotalesL = t;
+  actualizarKpiLineasMoviles();
 
   const pubs = [
     { nombre: 'Garay', monto: t[COLL.gM] || 0, color: '#f59e0b' },
@@ -1233,7 +1316,7 @@ async function actualizarGraficaL() {
           borderColor: 'transparent', borderRadius: 6,
           datalabels: {
             anchor: 'end', align: 'end', offset: 4, color: '#e6ebf5',
-            font: { family: "'DM Mono', monospace", weight: '700', size: 11 },
+            font: { family: "'Inter', sans-serif", weight: '700', size: 11 },
             formatter: v => v > 0 ? "$" + Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 }) : ''
           }
         }]
@@ -1242,7 +1325,7 @@ async function actualizarGraficaL() {
         plugins: { legend: { display: false }, datalabels: { display: ctx => Number(ctx?.dataset?.data?.[ctx?.dataIndex]) > 0 } },
         responsive: true, maintainAspectRatio: false, layout: { padding: { top: 30 } },
         scales: {
-          x: { grid: { display: false }, ticks: { color: "#64748b", font: { family: "'DM Mono', monospace", size: 11 } }, border: { display: false } },
+          x: { grid: { display: false }, ticks: { color: "#64748b", font: { family: "'Inter', sans-serif", size: 11 } }, border: { display: false } },
           y: { grid: { display: false }, ticks: { display: false }, border: { display: false } }
         }
       }

@@ -64,4 +64,36 @@
   }
 
   getRole().then(applyAdminVisibility);
+
+  // Botón hamburguesa + overlay para <768px (el sidebar es fixed y no cabe
+  // junto al contenido en pantallas angostas; se inyecta acá para no tener
+  // que tocar el HTML de cada página que usa este sidebar).
+  function setupMobileToggle() {
+    const sidebar = document.getElementById('app-sidebar');
+    if (!sidebar || document.querySelector('.sb-mobile-toggle')) return;
+
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'sb-mobile-toggle';
+    toggle.setAttribute('aria-label', 'Abrir menú');
+    toggle.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>';
+
+    const overlay = document.createElement('div');
+    overlay.className = 'sb-mobile-overlay';
+
+    function close() { sidebar.classList.remove('sb-open'); overlay.classList.remove('sb-open'); }
+    function open() { sidebar.classList.add('sb-open'); overlay.classList.add('sb-open'); }
+
+    toggle.addEventListener('click', function () {
+      sidebar.classList.contains('sb-open') ? close() : open();
+    });
+    overlay.addEventListener('click', close);
+    sidebar.querySelectorAll('.sb-item').forEach(function (a) {
+      a.addEventListener('click', close);
+    });
+
+    document.body.appendChild(toggle);
+    document.body.appendChild(overlay);
+  }
+  setupMobileToggle();
 })();

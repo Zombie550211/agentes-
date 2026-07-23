@@ -32,8 +32,40 @@
   margin-left: calc(var(--sidebar-width) + 16px);
 }
 
-/* El comportamiento responsive (<768px) ya lo cubre responsive-sidebar.css
-   con su propio toggle (.sidebar.active) — no lo duplicamos acá. */
+/* Botón hamburguesa + overlay (inyectados por sidebar-static.js) */
+.sb-mobile-toggle {
+  display: none;
+  position: fixed;
+  top: 14px; left: 14px;
+  z-index: 1200;
+  width: 42px; height: 42px;
+  border-radius: 10px;
+  border: none;
+  background: #2f6fed;
+  color: #fff;
+  align-items: center; justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(28, 79, 201, .35);
+}
+.sb-mobile-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(15, 23, 42, .45);
+  z-index: 999;
+}
+
+/* <768px: el sidebar pasa a ser deslizante (fuera de pantalla por defecto) */
+@media (max-width: 768px) {
+  .sb-mobile-toggle { display: flex; }
+  #app-sidebar {
+    width: 280px;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+  }
+  #app-sidebar.sb-open { transform: translateX(0); }
+  .sb-mobile-overlay.sb-open { display: block; }
+  .main-content { margin-left: 0 !important; }
+}
 
 /* Marca (header) */
 #app-sidebar .sb-brand {
