@@ -111,8 +111,11 @@ select, textarea,
 input::placeholder, textarea::placeholder { color: rgba(30,22,8,0.35) !important; }
 select option { background: #fffdf7; color: #1e1608; }
 
-/* Texto general — excepto bloques con paleta propia (.dcb / .mv = comisiones) */
-body *:not(.dcb):not(.dcb *):not(.mv):not(.mv *) { color: #1e1608 !important; }
+/* NOTA: a diferencia de glass-cards.css (oscuro), aquí NO se fuerza el color
+   de texto de forma global (`body *`). Cada página de /lineas/ ya tiene sus
+   propios colores de texto retemados a crema; forzar todo a oscuro con
+   !important pisaba el texto blanco intencional de secciones decorativas
+   oscuras (banners, chips de avatar, tiles de KPI con gradiente, etc). */
 
 /* Excepciones — badges de colores propios se mantienen */
 .badge[style*="background"], .badge[class*="bg-"] { color: #fff !important; }
