@@ -44,6 +44,8 @@ from routers import (
     ui_config as ui_config_router,
     productividad_bo as productividad_bo_router,
     comisiones_stats as comisiones_stats_router,
+    permissions_admin as permissions_admin_router,
+    ai_chat as ai_chat_router,
 )
 
 # ── Rutas base ──────────────────────────────────────────────────
@@ -181,6 +183,34 @@ _MIGRATIONS: list[tuple[str, str]] = [
             UNION ALL SELECT 'servicio_linea', 'WEARABLE', 'WEARABLE (TABLETS / SMARTWATCH / OTROS)', 2, 1
         ) v
         WHERE NOT EXISTS (SELECT 1 FROM catalogos WHERE tipo = 'servicio_linea')"""),
+    # Catálogo administrable de permisos (constructor dinámico desde la página de Permisos)
+    # y sus asignaciones por equipo/usuario — ver CRM_PYTHON/permissions_data.py y permissions.py.
+    ("0041_create_permission_definitions", """CREATE TABLE IF NOT EXISTS permission_definitions (
+        id           INT AUTO_INCREMENT PRIMARY KEY,
+        perm_key     VARCHAR(100) NOT NULL UNIQUE,
+        label        VARCHAR(200) NOT NULL,
+        description  TEXT,
+        group_name   VARCHAR(80)  NOT NULL DEFAULT 'General',
+        scope        ENUM('user','team','both') NOT NULL DEFAULT 'user',
+        enforced     TINYINT(1) NOT NULL DEFAULT 0,
+        is_system    TINYINT(1) NOT NULL DEFAULT 0,
+        active       TINYINT(1) NOT NULL DEFAULT 1,
+        created_by   VARCHAR(150),
+        created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )"""),
+    ("0042_create_permission_assignments", """CREATE TABLE IF NOT EXISTS permission_assignments (
+        id           INT AUTO_INCREMENT PRIMARY KEY,
+        perm_key     VARCHAR(100) NOT NULL,
+        scope_type   ENUM('user','team') NOT NULL,
+        scope_value  VARCHAR(150) NOT NULL,
+        config       JSON NULL,
+        enabled      TINYINT(1) NOT NULL DEFAULT 1,
+        created_by   VARCHAR(150),
+        created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_assignment (perm_key, scope_type, scope_value)
+    )"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración
@@ -306,6 +336,13 @@ async def lifespan(app: FastAPI):
             await ensure_schedule(s)
     except Exception as e:
         print(f"[schedule] ensure: {e}")
+    try:
+        from permissions_data import ensure_permission_defs
+        from database_mysql import AsyncSessionLocal
+        async with AsyncSessionLocal() as s:
+            await ensure_permission_defs(s)
+    except Exception as e:
+        print(f"[permission-defs] ensure: {e}")
     yield
     await close_mysql()
 
@@ -417,6 +454,8 @@ app.include_router(schedule_router.router)
 app.include_router(ui_config_router.router)
 app.include_router(productividad_bo_router.router)
 app.include_router(comisiones_stats_router.router)
+app.include_router(permissions_admin_router.router)
+app.include_router(ai_chat_router.router)
 
 # ── Archivos estáticos ───────────────────────────────────────────
 class _RevalidateStaticFiles(StaticFiles):

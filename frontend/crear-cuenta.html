@@ -286,6 +286,19 @@
     .perm-item.checked .perm-item-label{color:var(--blue);font-weight:600}
     .danger-box{background:var(--red-dim);border:1px solid rgba(239,68,68,.2);border-radius:var(--r);padding:16px}
 
+    /* ── Permisos avanzados (catálogo dinámico) ── */
+    .pd-row{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border2)}
+    .pd-row-main{flex:1;min-width:0}
+    .pd-row-label{font-size:.8rem;font-weight:600;color:var(--ink)}
+    .pd-row-desc{font-size:.7rem;color:var(--ink3);margin-top:2px}
+    .pd-badge{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:3px 8px;border-radius:20px;white-space:nowrap}
+    .pd-badge.on{background:rgba(16,185,129,.12);color:#10b981}
+    .pd-badge.off{background:var(--bg);color:var(--ink3);border:1px solid var(--border2)}
+    .pd-suggestion-card{border:1px solid var(--border2);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;background:var(--surface)}
+    .pd-suggestion-title{font-size:.8rem;font-weight:700;color:var(--ink)}
+    .pd-suggestion-desc{font-size:.7rem;color:var(--ink3);line-height:1.4;flex:1}
+    .pd-suggestion-meta{font-size:.65rem;color:var(--ink3)}
+
     /* ── Selects mejorados: chevron personalizado + estados visuales ── */
     select.form-select,
     select.form-input,
@@ -953,6 +966,7 @@
         <button class="view-tab" id="tab-servicios" onclick="switchSection('servicios')"><i class="fas fa-tags"></i> Servicios y Puntajes</button>
         <button class="view-tab" id="tab-catalogos" onclick="switchSection('catalogos')"><i class="fas fa-list-ul"></i> Catálogos</button>
         <button class="view-tab" id="tab-finesemana" onclick="switchSection('finesemana')"><i class="fas fa-calendar-week"></i> Fines de Semana</button>
+        <button class="view-tab" id="tab-permisos" onclick="switchSection('permisos')"><i class="fas fa-shield-alt"></i> Permisos avanzados</button>
       </div>
       <div class="user-av-top" id="top-user-av" title="Mi perfil" style="width:30px;height:30px;font-size:.58rem;flex-shrink:0">??</div>
     </div>
@@ -1104,6 +1118,47 @@
         <button class="btn btn-primary btn-sm" onclick="saveRotation()"><i class="fas fa-save"></i> Guardar rotación</button>
       </div>
       <div class="form-hint" id="wk-hint" style="margin-top:10px"></div>
+    </div>
+
+    <!-- ═══ SECCIÓN: PERMISOS AVANZADOS (catálogo dinámico) ═══ -->
+    <div id="section-permisos" style="display:none;padding:18px 28px 60px">
+      <div class="form-hint" style="margin-bottom:12px">
+        Catálogo completo de permisos del CRM. Los marcados <b>"Activo en el sistema"</b> ya
+        tienen lógica real conectada (el CRM los aplica de verdad). Los marcados
+        <b>"Solo informativo"</b> son permisos que creaste pero que todavía no controlan nada
+        hasta que se programe su lógica — quedan documentados aquí para no perder la idea.
+        Los permisos clásicos (por usuario) se siguen asignando desde la pestaña
+        <b>Usuarios → Permisos</b>; acá solo aparecen listados para tener todo en un solo lugar.
+      </div>
+
+      <div class="form-row">
+        <div class="form-group"><label class="form-label" id="pd-form-title">Nuevo permiso</label><input class="form-input" id="pd-key" type="text" placeholder="key (ej. billing:read_only)"/></div>
+        <div class="form-group"><label class="form-label">Nombre</label><input class="form-input" id="pd-label" type="text" placeholder="Cómo se muestra"/></div>
+        <div class="form-group"><label class="form-label">Alcance</label>
+          <select class="form-input" id="pd-scope">
+            <option value="user">Por usuario</option>
+            <option value="team">Por equipo</option>
+            <option value="both">Usuario o equipo</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Grupo</label><input class="form-input" id="pd-group" type="text" placeholder="Ej. Facturación" value="General"/></div>
+        <div class="form-group" style="flex:2"><label class="form-label">Descripción</label><input class="form-input" id="pd-description" type="text" placeholder="Qué hace este permiso, dónde aplica, a quién afecta"/></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:18px">
+        <button class="btn btn-primary btn-sm" onclick="savePermDef()"><i class="fas fa-save"></i> Guardar permiso</button>
+        <button class="btn btn-ghost btn-sm" onclick="resetPermDefForm()">Limpiar</button>
+      </div>
+
+      <div class="form-hint" style="margin-bottom:6px"><span id="pd-count">0</span> permisos en el catálogo</div>
+      <div id="pd-list"></div>
+
+      <div style="margin-top:36px">
+        <div class="perm-section-title" style="margin-bottom:4px">Ideas para futuros permisos</div>
+        <div class="form-hint" style="margin-bottom:14px">Sugerencias listas para crear — cada tarjeta explica qué haría en el CRM, en qué pantallas actuaría y a qué usuarios afectaría. Al crearlas quedan "solo informativas" hasta que se programe la lógica.</div>
+        <div id="pd-suggestions" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px"></div>
+      </div>
     </div>
 
   </main>
@@ -1271,6 +1326,23 @@
       <div style="flex:1"></div>
       <button class="btn btn-ghost" onclick="closeModal('modal-perms')">Cancelar</button>
       <button class="btn btn-primary" onclick="savePerms()"><i class="fas fa-save"></i> Guardar permisos</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: PERMISOS DEL EQUIPO (mercado, etc.) ═══ -->
+<div class="modal-overlay" id="modal-team-perms">
+  <div class="modal wide">
+    <div class="modal-head">
+      <div class="modal-title"><i class="fas fa-shield-alt" style="color:var(--amber);margin-right:8px"></i>Permisos de <span id="tp-team-name"></span></div>
+      <button class="modal-close" onclick="closeModal('modal-team-perms')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-hint" style="margin-bottom:12px">Permisos que se aplican a TODOS los agentes de este equipo automáticamente, sin marcarlos uno por uno.</div>
+      <div id="tp-body"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-team-perms')">Cerrar</button>
     </div>
   </div>
 </div>
@@ -1603,7 +1675,7 @@ function switchView(v){
 
 /* ── Secciones principales: Usuarios · Servicios y Puntajes · Catálogos ── */
 function switchSection(s){
-  ['usuarios','servicios','catalogos','finesemana'].forEach(function(name){
+  ['usuarios','servicios','catalogos','finesemana','permisos'].forEach(function(name){
     var sec=document.getElementById('section-'+name);
     var tab=document.getElementById('tab-'+name);
     if(sec) sec.style.display = (name===s)?'block':'none';
@@ -1612,6 +1684,7 @@ function switchSection(s){
   if(s==='servicios'){ resetProdForm(); loadProductos(); }
   else if(s==='catalogos'){ resetCatForm(); loadCatalogos(); }
   else if(s==='finesemana'){ loadRotation(); }
+  else if(s==='permisos'){ resetPermDefForm(); loadPermissionDefs(); renderPermSuggestions(); }
 }
 
 /* ── Filter teams view ── */
@@ -2056,6 +2129,7 @@ function _renderDetailRaw(teamName){
       +'<div class="md-detail-head">'
         +'<div><div class="md-detail-title-label">Equipo activo</div><div class="md-detail-team-name">'+teamName+'</div></div>'
         +'<div class="md-detail-options">'
+          +'<button class="md-detail-option-btn" onclick="openTeamPermsModal(\''+tnSafe+'\')"><i class="fas fa-shield-alt"></i> Permisos</button>'
           +'<button class="md-detail-option-btn" onclick="openRenameTeamModal(\''+tnSafe+'\')"><i class="fas fa-pencil-alt"></i> Renombrar</button>'
           +'<button class="md-detail-option-btn danger" onclick="deleteTeam(\''+tnSafe+'\')"><i class="fas fa-trash"></i> Eliminar</button>'
         +'</div>'
@@ -2212,6 +2286,7 @@ function showTeamDetail(teamName){
             +'<div class="md-detail-team-name">'+teamName+'</div>'
           +'</div>'
           +'<div class="md-detail-options">'
+            +'<button class="md-detail-option-btn" onclick="openTeamPermsModal(\''+tnSafe+'\')"><i class="fas fa-shield-alt"></i> Permisos</button>'
             +'<button class="md-detail-option-btn" onclick="openRenameTeamModal(\''+tnSafe+'\')"><i class="fas fa-pencil-alt"></i> Renombrar</button>'
             +'<button class="md-detail-option-btn danger" onclick="deleteTeam(\''+tnSafe+'\')"><i class="fas fa-trash"></i> Eliminar</button>'
           +'</div>'
@@ -3244,6 +3319,194 @@ async function deleteCat(id){
   const data = await res.json();
   if(res.ok && data.success!==false){ toast('Eliminado','ok'); loadCatalogos(); }
   else toast(data.message||'Error al eliminar','err');
+}
+
+/* ── Permisos avanzados (catálogo dinámico) ── */
+var _permDefs=[], _pdEditingId=null;
+const PERM_SCOPE_LABEL={ user:'Por usuario', team:'Por equipo', both:'Usuario o equipo' };
+async function loadPermissionDefs(){
+  const res = await AUTH.sf('/api/permission-defs');
+  if(!res){ toast('Error de conexión','err'); return; }
+  const data = await res.json();
+  _permDefs = (data && data.items) || [];
+  renderPermDefs();
+}
+function renderPermDefs(){
+  const groups={};
+  _permDefs.forEach(function(p){ (groups[p.group_name]=groups[p.group_name]||[]).push(p); });
+  const html = Object.keys(groups).sort().map(function(g){
+    return '<div class="perm-group-title" style="margin-top:16px">'+_escP(g)+'</div>'
+      + groups[g].map(function(p){
+        const badge = p.enforced
+          ? '<span class="pd-badge on" title="El backend ya aplica este permiso">Activo en el sistema</span>'
+          : '<span class="pd-badge off" title="Creado desde el catálogo, aún sin lógica programada">Solo informativo</span>';
+        const lock = p.is_system;
+        return '<div class="pd-row">'
+          +'<div class="pd-row-main">'
+            +'<div class="pd-row-label">'+_escP(p.label)+' <span class="form-hint">('+_escP(p.perm_key)+' · '+PERM_SCOPE_LABEL[p.scope]+')</span></div>'
+            +(p.description?'<div class="pd-row-desc">'+_escP(p.description)+'</div>':'')
+          +'</div>'
+          + badge
+          +'<label style="display:inline-flex;align-items:center;gap:5px;font-size:.68rem;color:var(--ink3);cursor:pointer">'
+            +'<input type="checkbox" '+(p.active?'checked':'')+' onchange="togglePermDefActive('+p.id+',this.checked)"/> Activo</label>'
+          +'<button class="btn btn-icon" title="Editar" onclick="editPermDef('+p.id+')"><i class="fas fa-pen"></i></button>'
+          +'<button class="btn btn-icon danger" title="'+(lock?'Permiso del sistema: no se puede eliminar':'Eliminar')+'" '+(lock?'disabled style="opacity:.35;cursor:not-allowed"':'onclick="deletePermDef('+p.id+')"')+'><i class="fas fa-trash"></i></button>'
+        +'</div>';
+      }).join('');
+  }).join('');
+  document.getElementById('pd-list').innerHTML = html || '<div class="form-hint">Sin permisos aún</div>';
+  document.getElementById('pd-count').textContent = _permDefs.length;
+}
+function resetPermDefForm(){
+  _pdEditingId=null;
+  ['pd-key','pd-label','pd-description'].forEach(function(id){ document.getElementById(id).value=''; });
+  document.getElementById('pd-group').value='General';
+  document.getElementById('pd-scope').value='user';
+  document.getElementById('pd-key').disabled=false;
+  document.getElementById('pd-form-title').textContent='Nuevo permiso';
+}
+function editPermDef(id){
+  const p=_permDefs.find(function(x){ return x.id===id; }); if(!p) return;
+  _pdEditingId=id;
+  document.getElementById('pd-key').value=p.perm_key;
+  document.getElementById('pd-key').disabled=true; // la key no se cambia en edición
+  document.getElementById('pd-label').value=p.label||'';
+  document.getElementById('pd-description').value=p.description||'';
+  document.getElementById('pd-group').value=p.group_name||'General';
+  document.getElementById('pd-scope').value=p.scope||'user';
+  document.getElementById('pd-form-title').textContent='Editar: '+p.label;
+  document.getElementById('pd-key').scrollIntoView({behavior:'smooth',block:'center'});
+}
+async function savePermDef(){
+  const key=document.getElementById('pd-key').value.trim();
+  const label=document.getElementById('pd-label').value.trim();
+  if(!key||!label){ toast('Key y nombre son requeridos','err'); return; }
+  const body={
+    perm_key:key, label:label,
+    description:document.getElementById('pd-description').value.trim(),
+    group_name:document.getElementById('pd-group').value.trim()||'General',
+    scope:document.getElementById('pd-scope').value,
+  };
+  const res = _pdEditingId
+    ? await AUTH.sf('/api/permission-defs/'+_pdEditingId,{ method:'PUT', body:JSON.stringify(body) })
+    : await AUTH.sf('/api/permission-defs',{ method:'POST', body:JSON.stringify(body) });
+  if(!res){ toast('Error de conexión','err'); return; }
+  const data = await res.json();
+  if(res.ok && data.success!==false){ toast('Guardado','ok'); resetPermDefForm(); loadPermissionDefs(); }
+  else toast(data.message||'Error al guardar','err');
+}
+async function togglePermDefActive(id,active){
+  const res = await AUTH.sf('/api/permission-defs/'+id,{ method:'PUT', body:JSON.stringify({active:active}) });
+  if(!res){ toast('Error de conexión','err'); loadPermissionDefs(); return; }
+  const data = await res.json();
+  if(!(res.ok && data.success!==false)){ toast(data.message||'Error','err'); loadPermissionDefs(); }
+}
+async function deletePermDef(id){
+  if(!confirm('¿Eliminar este permiso del catálogo?')) return;
+  const res = await AUTH.sf('/api/permission-defs/'+id,{ method:'DELETE' });
+  if(!res){ toast('Error de conexión','err'); return; }
+  const data = await res.json();
+  if(res.ok && data.success!==false){ toast('Eliminado','ok'); loadPermissionDefs(); }
+  else toast(data.message||'Error al eliminar','err');
+}
+
+/* Ideas estáticas de futuros permisos: qué harían, dónde y a quién afectarían */
+const PERM_SUGGESTIONS=[
+  { key:'billing:read_only', label:'Solo lectura en Facturación', group:'Facturación', scope:'both',
+    desc:'El usuario/equipo puede ver Facturación pero no editar montos ni status.',
+    meta:'Actuaría en: Facturación residencial y líneas · Afectaría a: roles Agente/Backoffice que hoy pueden editar.' },
+  { key:'commissions:hide', label:'Ocultar comisiones a agentes', group:'Comisiones', scope:'user',
+    desc:'Oculta los montos de comisión en las pantallas de Comisiones para el usuario.',
+    meta:'Actuaría en: Comisiones residencial y líneas · Afectaría a: Agentes (no a Supervisores/Admin).' },
+  { key:'export:daily_limit', label:'Límite diario de exportaciones', group:'Admin', scope:'user',
+    desc:'Bloquea exportar datos después de N descargas en el mismo día.',
+    meta:'Actuaría en: cualquier botón de exportar (leads, ranking, líneas) · Afectaría a: usuarios con export:data.' },
+  { key:'leads:date_range', label:'Restringir por rango de fechas', group:'General', scope:'both',
+    desc:'El usuario/equipo solo ve leads dentro de un rango de fechas configurado (ej. últimos 30 días).',
+    meta:'Actuaría en: Leads/Ventas, Estadísticas · Afectaría a: equipos temporales o de soporte externo.' },
+];
+function renderPermSuggestions(){
+  const box=document.getElementById('pd-suggestions'); if(!box) return;
+  box.innerHTML = PERM_SUGGESTIONS.map(function(s,i){
+    return '<div class="pd-suggestion-card">'
+      +'<div class="pd-suggestion-title">'+_escP(s.label)+'</div>'
+      +'<div class="pd-suggestion-desc">'+_escP(s.desc)+'</div>'
+      +'<div class="pd-suggestion-meta">'+_escP(s.meta)+'</div>'
+      +'<button class="btn btn-ghost btn-sm" onclick="applyPermSuggestion('+i+')"><i class="fas fa-plus"></i> Crear este permiso</button>'
+    +'</div>';
+  }).join('');
+}
+function applyPermSuggestion(i){
+  const s=PERM_SUGGESTIONS[i]; if(!s) return;
+  resetPermDefForm();
+  document.getElementById('pd-key').value=s.key;
+  document.getElementById('pd-label').value=s.label;
+  document.getElementById('pd-description').value=s.desc;
+  document.getElementById('pd-group').value=s.group;
+  document.getElementById('pd-scope').value=s.scope;
+  document.getElementById('pd-key').scrollIntoView({behavior:'smooth',block:'center'});
+  toast('Revisá los datos y guardá para crearlo (quedará "solo informativo")','ok');
+}
+
+/* ── Permisos del equipo (modal desde el panel de detalle) ── */
+var _tpTeam='', _tpMercados=[];
+async function openTeamPermsModal(teamName){
+  _tpTeam=teamName;
+  document.getElementById('tp-team-name').textContent=teamName;
+  document.getElementById('tp-body').innerHTML='<div class="form-hint">Cargando…</div>';
+  openModal('modal-team-perms');
+
+  const [defsRes, assignRes, catRes] = await Promise.all([
+    AUTH.sf('/api/permission-defs'),
+    AUTH.sf('/api/permission-assignments?scope_type=team&scope_value='+encodeURIComponent(teamName)),
+    AUTH.sf('/api/catalogos/mercado'),
+  ]);
+  const defs = defsRes ? ((await defsRes.json()).items||[]) : [];
+  const assignments = assignRes ? ((await assignRes.json()).items||[]) : [];
+  _tpMercados = catRes ? ((await catRes.json()).items||[]) : [];
+
+  const teamDefs = defs.filter(function(d){ return d.active && (d.scope==='team'||d.scope==='both'); });
+  const byKey={}; assignments.forEach(function(a){ byKey[a.perm_key]=a; });
+
+  if(!teamDefs.length){ document.getElementById('tp-body').innerHTML='<div class="form-hint">Todavía no hay permisos con alcance "por equipo" en el catálogo.</div>'; return; }
+
+  document.getElementById('tp-body').innerHTML = teamDefs.map(function(d){
+    const a = byKey[d.perm_key];
+    const on = !!(a && a.enabled);
+    const mercadoVal = (a && a.config && a.config.mercado) || '';
+    let extra='';
+    if(d.perm_key==='market:restrict_view'){
+      const opts = _tpMercados.map(function(m){ return '<option value="'+_escP(m.valor)+'" '+(m.valor===mercadoVal?'selected':'')+'>'+_escP(m.label||m.valor)+'</option>'; }).join('');
+      extra = '<select class="form-input" id="tp-mercado-'+_escP(d.perm_key)+'" style="max-width:220px;margin-top:8px;'+(on?'':'display:none')+'" onchange="saveTeamPerm(\''+d.perm_key.replace(/'/g,"\\'")+'\',true)"><option value="">— Selecciona mercado —</option>'+opts+'</select>';
+    }
+    return '<div class="pd-row" style="flex-direction:column;align-items:stretch;gap:6px">'
+      +'<div style="display:flex;align-items:center;gap:10px">'
+        +'<div class="pd-row-main">'
+          +'<div class="pd-row-label">'+_escP(d.label)+'</div>'
+          +(d.description?'<div class="pd-row-desc">'+_escP(d.description)+'</div>':'')
+        +'</div>'
+        +'<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">'
+          +'<input type="checkbox" '+(on?'checked':'')+' onchange="onToggleTeamPerm(\''+d.perm_key.replace(/'/g,"\\'")+'\',this.checked)"/> Activo</label>'
+      +'</div>'
+      +extra
+    +'</div>';
+  }).join('');
+}
+function onToggleTeamPerm(permKey,checked){
+  const sel=document.getElementById('tp-mercado-'+permKey);
+  if(sel) sel.style.display = checked?'':'none';
+  if(permKey==='market:restrict_view' && checked && sel && !sel.value) return; // espera a que elija mercado
+  saveTeamPerm(permKey,checked);
+}
+async function saveTeamPerm(permKey,enabled){
+  const body={ perm_key:permKey, scope_type:'team', scope_value:_tpTeam, enabled:enabled };
+  const sel=document.getElementById('tp-mercado-'+permKey);
+  if(sel && sel.value) body.config={ mercado:sel.value };
+  const res = await AUTH.sf('/api/permission-assignments',{ method:'PUT', body:JSON.stringify(body) });
+  if(!res){ toast('Error de conexión','err'); return; }
+  const data = await res.json();
+  if(res.ok && data.success!==false) toast('Permiso del equipo actualizado','ok');
+  else toast(data.message||'Error','err');
 }
 
 /* ── Rotación de fines de semana ── */

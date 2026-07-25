@@ -63,11 +63,10 @@ def _is_agent(user: dict) -> bool:
     return not _is_admin_or_bo(user) and not _is_supervisor(user)
 
 
-def _mercado_restrict(user: dict) -> str:
-    r = _normalize(user.get("role", ""))
-    if "rol_bamo" in r or r == "bamo":
-        return "BAMO"
-    return ""
+async def _mercado_restrict(user: dict) -> str:
+    """Delega en el resolver compartido (hack de rol + permiso dinámico por equipo/usuario)."""
+    from permissions import resolve_market_restriction
+    return await resolve_market_restriction(user)
 
 
 def _serialize_lead(row) -> dict:
@@ -161,6 +160,20 @@ async def leads_bootstrap(
     limit:       int           = Query(5000),
     user: dict = Depends(current_user),
 ):
+    return await _leads_bootstrap_core(
+        month=month, year=year, noAutoMonth=noAutoMonth, allData=allData, stats=stats,
+        seccion=seccion, salesTeams=salesTeams, limit=limit, user=user,
+    )
+
+
+async def _leads_bootstrap_core(
+    month=None, year=None, noAutoMonth=None, allData=None, stats=None,
+    seccion=None, salesTeams=None, limit=5000, user=None,
+):
+    """Lógica de /api/leads/bootstrap como función plana (sin defaults de FastAPI
+    Query()), para poder llamarla en proceso desde otros lugares (ej. tools de la IA)
+    sin pasar por la inyección de dependencias — reutiliza el mismo filtrado por
+    permisos (_mercado_restrict, agente propio) que usa el endpoint HTTP."""
     # Modo estadísticas: devuelve totales GLOBALES (los mismos que ve el admin) con un
     # serializador reducido sin PII. No filtra por agente, así los KPIs de la página de
     # Estadísticas no quedan acotados a las ventas del propio agente. La restricción por
@@ -170,7 +183,7 @@ async def leads_bootstrap(
     async def _get_leads():
         where = ["1=1"]
         params: dict = {}
-        mercado_restrict = _mercado_restrict(user)
+        mercado_restrict = await _mercado_restrict(user)
         if mercado_restrict:
             where.append("UPPER(TRIM(COALESCE(mercado,''))) = :mer")
             params["mer"] = mercado_restrict
@@ -642,7 +655,7 @@ async def list_leads(
         params["dir"] = f"%{direccion}%"
 
     # Mercado restriction
-    mercado_restrict = _mercado_restrict(user)
+    mercado_restrict = await _mercado_restrict(user)
     if mercado_restrict:
         where.append("UPPER(TRIM(COALESCE(mercado,''))) = :mer")
         params["mer"] = mercado_restrict

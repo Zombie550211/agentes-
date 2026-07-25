@@ -3,6 +3,7 @@ from fastapi import Body
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
+from permissions import resolve_market_restriction
 from datetime import datetime, timezone
 from typing import Optional, List
 
@@ -72,6 +73,13 @@ async def equipo_estadisticas(
     scope:       Optional[str] = Query(None),
     user: dict = Depends(current_user),
 ):
+    return await _equipo_estadisticas_core(fechaInicio=fechaInicio, fechaFin=fechaFin, scope=scope, user=user)
+
+
+async def _equipo_estadisticas_core(fechaInicio=None, fechaFin=None, scope=None, user=None):
+    """Lógica de GET /api/equipos/estadisticas como función plana (sin defaults de
+    FastAPI Query()), para poder llamarla en proceso desde otros lugares (ej. tools de
+    la IA) reutilizando el mismo filtrado por permisos (resolve_market_restriction)."""
     now = _utcnow()
     if not fechaInicio or not fechaFin:
         fi = _to_ymd(datetime(now.year, now.month, 1))
@@ -82,9 +90,17 @@ async def equipo_estadisticas(
 
     params = {"fi": fechaInicio, "ff": fechaFin}
 
+    # Permiso 'market:restrict_view' (por equipo o usuario): limita también esta
+    # vista global de productividad al mercado asignado.
+    mercado_restrict = await resolve_market_restriction(user)
+    mercado_where = ""
+    if mercado_restrict:
+        mercado_where = "AND UPPER(TRIM(COALESCE(mercado,''))) = :mer"
+        params["mer"] = mercado_restrict
+
     try:
         async with AsyncSessionLocal() as s:
-            r = await s.execute(text("""
+            r = await s.execute(text(f"""
                 SELECT
                     UPPER(TRIM(COALESCE(supervisor, team, equipo, ''))) AS team_raw,
                     UPPER(TRIM(COALESCE(mercado, 'SIN MERCADO')))       AS mercado_norm,
@@ -92,6 +108,7 @@ async def equipo_estadisticas(
                     COALESCE(puntaje, 0)                                AS puntaje
                 FROM leads
                 WHERE dia_venta BETWEEN :fi AND :ff
+                {mercado_where}
             """), params)
             rows = r.mappings().all()
     except Exception as e:

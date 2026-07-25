@@ -96,4 +96,14 @@
     document.body.appendChild(overlay);
   }
   setupMobileToggle();
+
+  // Asistente de IA flotante: se inyecta acá para no tener que tocar el HTML de cada
+  // página que usa este sidebar (mismo criterio que el toggle móvil de arriba).
+  function loadAiAssistant() {
+    if (document.querySelector('script[src="/js/ai-assistant.js"]')) return;
+    var script = document.createElement('script');
+    script.src = '/js/ai-assistant.js';
+    document.body.appendChild(script);
+  }
+  loadAiAssistant();
 })();

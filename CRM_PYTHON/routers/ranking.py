@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
+from permissions import resolve_market_restriction
 from datetime import datetime, timezone
 from typing import Optional
 import unicodedata, re, time, json
@@ -62,7 +63,27 @@ async def get_ranking(
     debug:       Optional[str] = Query(None),
     user: dict = Depends(current_user),
 ):
+    return await _get_ranking_core(
+        fechaInicio=fechaInicio, fechaFin=fechaFin, month=month, year=year,
+        statuses=statuses, agente=agente, mercado=mercado, servicio=servicio,
+        limit=limit, debug=debug, user=user,
+    )
+
+
+async def _get_ranking_core(
+    fechaInicio=None, fechaFin=None, month=None, year=None, statuses=None,
+    agente=None, mercado=None, servicio=None, limit=None, debug=None, user=None,
+):
+    """Lógica de GET /api/ranking como función plana (sin defaults de FastAPI Query()),
+    para poder llamarla en proceso desde otros lugares (ej. tools de la IA) reutilizando
+    el mismo filtrado por permisos (resolve_market_restriction)."""
     now = _utcnow()
+
+    # Permiso 'market:restrict_view' (por equipo o usuario): si aplica, ignora el
+    # mercado pedido por query y fuerza el asignado — el cliente no puede sortearlo.
+    mercado_restrict = await resolve_market_restriction(user)
+    if mercado_restrict:
+        mercado = mercado_restrict
 
     allowed_statuses = None
     if statuses:
