@@ -11,26 +11,17 @@
   <script src="/js/user-info.js" defer></script>
   <style>
     :root{
-      --bg:          transparent;
-      --surface:     rgba(5,15,35,0.48);
-      --border:      rgba(255,255,255,0.12);
-      --border2:     rgba(255,255,255,0.14);
-      --ink:   #f1f5f9; --ink2:#cbd5e1; --ink3:#94a3b8; --ink4:#64748b;
-      --blue:#818cf8; --blue-dim:rgba(99,102,241,.20);
-      --green:#34d399; --green-dim:rgba(52,211,153,.15);
-      --red:#f87171;   --red-dim:rgba(248,113,113,.15);
-      --amber:#fbbf24; --amber-dim:rgba(251,191,36,.15);
-      --purple:#a78bfa;
+      --bg:          #f2ead9;
+      --surface:     #ffffff;
+      --border:      rgba(30,22,8,0.10);
+      --border2:     rgba(30,22,8,0.16);
+      --ink:   #1e1608; --ink2:#55524a; --ink3:#8a8578; --ink4:#a8a396;
+      --blue:#4f46e5; --blue-dim:rgba(79,70,229,.10);
+      --green:#059669; --green-dim:rgba(5,150,105,.12);
+      --red:#dc2626;   --red-dim:rgba(220,38,38,.10);
+      --amber:#d97706; --amber-dim:rgba(217,119,6,.12);
+      --purple:#7c3aed;
       --nav-w:220px; --r:12px; --f:'Plus Jakarta Sans',sans-serif; --fm:'JetBrains Mono',monospace;
-    }
-    /* ── Dark mode: reemplaza las variables de la paleta ── */
-    body.dark-theme{
-      --bg:#0f172a; --surface:#1e293b; --border:#334155; --border2:#253351;
-      --ink:#e2e8f0; --ink2:#94a3b8; --ink3:#64748b; --ink4:#475569;
-      --blue-dim:rgba(79,70,229,.16);
-      --green-dim:rgba(16,185,129,.12);
-      --red-dim:rgba(239,68,68,.12);
-      --amber-dim:rgba(245,158,11,.12);
     }
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     html{font-size:14px}
@@ -298,6 +289,21 @@
     .pd-suggestion-title{font-size:.8rem;font-weight:700;color:var(--ink)}
     .pd-suggestion-desc{font-size:.7rem;color:var(--ink3);line-height:1.4;flex:1}
     .pd-suggestion-meta{font-size:.65rem;color:var(--ink3)}
+    .pd-list-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:4px 16px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+    .pd-row:last-child{border-bottom:none}
+
+    /* ── Fines de semana (rotación) ── */
+    .wk-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.04);margin-bottom:14px}
+    .wk-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .wk-card-title{font-size:.84rem;font-weight:800;color:var(--ink)}
+    .wk-day-label{display:flex;align-items:center;gap:6px;font-size:.66rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px}
+    .wk-day-block{margin-bottom:14px}
+    .wk-day-block:last-child{margin-bottom:0}
+    .wk-chips{display:flex;flex-wrap:wrap;gap:8px}
+    .wk-chip{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:20px;border:1px solid var(--border2);background:var(--bg);font-size:.75rem;color:var(--ink2);cursor:pointer;transition:all .12s}
+    .wk-chip:hover{border-color:var(--border);background:var(--surface)}
+    .wk-chip:has(input:checked){border-color:rgba(79,70,229,.35);background:var(--blue-dim);color:var(--blue);font-weight:700}
+    .wk-chip input{accent-color:var(--blue);cursor:pointer}
 
     /* ── Selects mejorados: chevron personalizado + estados visuales ── */
     select.form-select,
@@ -323,26 +329,6 @@
       border-color: var(--blue);
       box-shadow: 0 0 0 3px rgba(79,70,229,.11);
       outline: none;
-    }
-    /* Dark mode: chevron claro */
-    body.dark-theme select.form-select,
-    body.dark-theme select.form-input,
-    body.dark-theme select.filter-role {
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");
-      background-color: var(--surface);
-      color: var(--ink);
-      border-color: var(--border2);
-    }
-    body.dark-theme select.form-select:hover,
-    body.dark-theme select.form-input:hover,
-    body.dark-theme select.filter-role:hover {
-      border-color: #818cf8;
-    }
-    body.dark-theme select.form-select:focus,
-    body.dark-theme select.form-input:focus,
-    body.dark-theme select.filter-role:focus {
-      border-color: #818cf8;
-      box-shadow: 0 0 0 3px rgba(129,140,248,.14);
     }
     .danger-box p{font-size:.8rem;color:var(--ink2)}
     .danger-box strong{color:var(--red)}
@@ -736,119 +722,12 @@
       animation:navItemOut 160ms cubic-bezier(.4,0,.6,1) forwards !important;
     }
 
-  body { background: #000 !important; }
-  body::before {
-    content: '';
-    position: fixed; inset: 0; z-index: 0;
-    background: linear-gradient(160deg,#0b1a33 0%,#0a1628 55%,#080f1f 100%);
-    pointer-events: none;
-  }
   </style>
-  <link rel="stylesheet" href="/css/glass-cards.css?v=20260716a">
+  <link rel="stylesheet" href="/css/glass-cards-cream.css?v=20260716a">
   <style>
-    body, html { background: transparent !important; }
-    body * { color: #fff !important; }
-
-    /* ── Layout principal ── */
-    .layout, .main {
-      background: transparent !important;
-    }
-
-    /* ── Topbar ── */
-    .topbar {
-      background: rgba(5,15,35,0.70) !important;
-      backdrop-filter: blur(16px) !important;
-      border-color: rgba(255,255,255,0.10) !important;
-    }
-
-    /* ── View tabs ── */
-    .view-tab {
-      background: rgba(5,15,35,0.45) !important;
-      border-color: rgba(255,255,255,0.12) !important;
-    }
-    .view-tab.active {
-      background: rgba(79,70,229,0.70) !important;
-      border-color: rgba(79,70,229,0.50) !important;
-    }
-
-    /* ── Panel izquierdo sin asignar ── */
-    .unassigned-panel, .up-header, .up-search {
-      background: rgba(5,15,35,0.60) !important;
-      backdrop-filter: blur(14px) !important;
-      border-color: rgba(255,255,255,0.10) !important;
-    }
-
-    /* ── Master-detail nav panel ── */
-    .md-nav, .md-nav-header, .md-nav-search {
-      background: rgba(5,15,35,0.60) !important;
-      backdrop-filter: blur(14px) !important;
-      border-color: rgba(255,255,255,0.10) !important;
-    }
-    .md-nav-item:hover {
-      background: rgba(255,255,255,0.06) !important;
-    }
-    .md-nav-item.active {
-      background: rgba(79,70,229,0.25) !important;
-      border-color: rgba(79,70,229,0.35) !important;
-    }
-
-    /* ── Panel detalle derecho ── */
-    .md-detail {
-      background: transparent !important;
-    }
-
-    /* ── Hero card (supervisor) ── */
-    .md-hero {
-      background: rgba(5,15,35,0.55) !important;
-      backdrop-filter: blur(12px) !important;
-      border-color: rgba(255,255,255,0.10) !important;
-    }
-
-    /* ── Filas de agentes ── */
-    .md-agent-row, .agent-row, .sup-row, .backup-row, .up-item {
-      background: rgba(5,15,35,0.42) !important;
-      backdrop-filter: blur(8px) !important;
-      border-color: rgba(255,255,255,0.10) !important;
-    }
-    .md-agent-row:hover, .agent-row:hover {
-      background: rgba(255,255,255,0.06) !important;
-    }
-
-    /* ── Sección agregar agente ── */
-    .md-add-section {
-      background: rgba(5,15,35,0.40) !important;
-      border-color: rgba(255,255,255,0.15) !important;
-    }
-
-    /* ── Team cards / tcard ── */
-    /* OJO: el selector [class*="card"] es GLOTÓN — matchea también elementos
-       internos como .ucard-head, .ucard-time, .ucard-name, etc. Por eso NO se
-       pone aquí backdrop-filter: cada elemento interno se volvería su propio
-       contexto de apilamiento y taparía al dropdown del menú (que vive dentro
-       de .ucard-head). El glass se aplica solo a los contenedores más abajo. */
-    .tcard, [class*="card"], [class*="-card"] {
-      background: rgba(5,15,35,0.45) !important;
-      border-color: rgba(255,255,255,0.10) !important;
-    }
-    /* Contenedores de tarjeta: fondo opaco (sin backdrop-filter para no romper
-       el apilamiento del menú desplegable). */
-    .ucard, .tcard, .team-card {
-      background: rgba(10,18,40,0.86) !important;
-    }
-
-    /* ── Dropdowns ── */
-    .team-dropdown, .ucard-dropdown {
-      background: #111c3f !important;          /* opaco: sin bleed-through de la tarjeta */
-      backdrop-filter: none !important;
-      -webkit-backdrop-filter: none !important;
-      border-color: rgba(255,255,255,0.14) !important;
-      box-shadow: 0 12px 32px rgba(0,0,0,0.55) !important;
-      opacity: 1 !important;
-    }
-    .team-dropdown-item, .ucard-dd-item {
-      color: #e7edf7 !important;               /* texto legible sobre fondo oscuro */
-    }
-    /* El menú abierto debe quedar POR ENCIMA de las tarjetas vecinas */
+    /* El menú abierto debe quedar POR ENCIMA de las tarjetas vecinas
+       (esto es lógica de apilamiento, no de color — se mantiene igual
+       en el tema claro). */
     .ucard:has(.ucard-dropdown.open),
     .tcard:has(.team-dropdown.open),
     .team-card:has(.team-dropdown.open) {
@@ -856,47 +735,8 @@
       position: relative !important;
     }
     .ucard-dropdown.open, .team-dropdown.open { z-index: 950 !important; }
-    .team-dropdown-item:hover, .ucard-dd-item:hover {
-      background: rgba(255,255,255,0.10) !important;
-      color: #ffffff !important;
-    }
-
-    /* ── Modales ── */
-    .modal {
-      background: rgba(10,20,50,0.92) !important;
-      backdrop-filter: blur(20px) !important;
-      border: 1px solid rgba(255,255,255,0.12) !important;
-    }
-    .modal-head, .modal-foot {
-      border-color: rgba(255,255,255,0.10) !important;
-      background: transparent !important;
-    }
-
-    /* ── Búsquedas e inputs ── */
-    .search-top, .search-box, .up-search-wrap,
-    .md-nav-search, .toolbar {
-      background: rgba(5,15,35,0.50) !important;
-      border-color: rgba(255,255,255,0.14) !important;
-      backdrop-filter: blur(8px) !important;
-    }
-    .form-input, input, select, textarea {
-      background: rgba(5,15,35,0.55) !important;
-      border-color: rgba(255,255,255,0.18) !important;
-      color: #fff !important;
-    }
-    input::placeholder { color: rgba(255,255,255,0.4) !important; }
-    select option { background: #0d1b2a; color: #fff; }
-
-    /* ── Tabla ── */
-    .table-wrap, .ptable thead tr {
-      background: rgba(5,15,35,0.50) !important;
-      border-color: rgba(255,255,255,0.08) !important;
-    }
-    tr:hover { background: rgba(255,255,255,0.05) !important; }
-    td, th { border-color: rgba(255,255,255,0.08) !important; }
   </style>
-  <link rel="stylesheet" href="/css/sidebar-static.css?v=1">
-  <link rel="stylesheet" href="/css/dark-mode.css?v=20260601">
+  <link rel="stylesheet" href="/css/sidebar-static.css?v=2">
 </head>
 <body>
   <script src="/js/theme-init.js" defer></script>
@@ -941,6 +781,7 @@
 <a href="/residencial/empleado-mes.html" class="sb-item"><span class="sb-ic" style="background:#fef9c3;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#ca8a04"><path d="M12 2l3 6.5 7 .8-5.2 4.8 1.4 7-6.2-3.6L5.8 21.1l1.4-7L2 9.3l7-.8z"/></svg></span><span class="sb-lbl">Empleado del Mes</span></a>
 <a href="/residencial/tabla-puntaje.html" class="sb-item"><span class="sb-ic" style="background:#ffedd5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#ea580c"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4.5" cy="6" r="1.3" fill="currentColor"/><circle cx="4.5" cy="12" r="1.3" fill="currentColor"/><circle cx="4.5" cy="18" r="1.3" fill="currentColor"/></svg></span><span class="sb-lbl">Tabla de Puntaje</span></a>
 <a href="/crear-cuenta.html" class="sb-item active" data-admin-only><span class="sb-ic" style="background:#e0e7ff;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#4f46e5"><path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span><span class="sb-lbl">Permisos</span></a>
+<a href="/residencial/tiempo-laboral.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#e0f2fe;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0284c7"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></span><span class="sb-lbl">Tiempo laboral</span></a>
 <a href="/chat.html" class="sb-item"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><path d="M4 5h16v11H9l-5 4V5z"/></svg></span><span class="sb-lbl">Chat</span></a>
 <div class="sb-mov-head" data-admin-only>SERVICIOS MÓVILES</div>
 <a href="/lineas/inicio.html" class="sb-item mov" data-admin-only><span class="sb-ic" style="background:#d1fae5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#059669"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg></span><span class="sb-lbl">Inicio</span></a>
@@ -1050,70 +891,108 @@
 
     <!-- ═══ SECCIÓN: SERVICIOS Y PUNTAJES ═══ -->
     <div id="section-servicios" style="display:none;padding:18px 28px 60px">
-      <div class="form-hint" style="margin-bottom:12px">El catálogo lo gestiona el backend. Aquí agregas, editas o eliminas servicios y su puntaje; los formularios y el cálculo se actualizan solos.</div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label" id="prod-form-title">Agregar servicio</label><input class="form-input" id="prod-servicio" type="text" placeholder="Servicio (ej. HAWAIIAN 1G)"/></div>
-        <div class="form-group"><label class="form-label">Categoría</label><input class="form-input" id="prod-categoria" type="text" placeholder="Ej. HAWAIIAN"/></div>
+      <div class="form-hint" style="margin-bottom:16px">El catálogo lo gestiona el backend. Aquí agregás, editás o eliminás servicios y su puntaje; los formularios y el cálculo se actualizan solos.</div>
+
+      <div class="tcard" style="margin-bottom:22px;max-width:760px">
+        <div class="tcard-head">
+          <div class="tcard-icon" style="background:#4f46e5"><i class="fas fa-tag"></i></div>
+          <div class="tcard-info">
+            <div class="tcard-name" id="prod-form-title">Agregar servicio</div>
+            <div class="tcard-count">Categoría, tipo, sistema y puntaje base</div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Servicio</label><input class="form-input" id="prod-servicio" type="text" placeholder="Ej. HAWAIIAN 1G"/></div>
+          <div class="form-group"><label class="form-label">Categoría</label><input class="form-input" id="prod-categoria" type="text" placeholder="Ej. HAWAIIAN"/></div>
+        </div>
+        <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
+          <div class="form-group"><label class="form-label">Tipo</label><input class="form-input" id="prod-tipo" type="text" placeholder="Ej. HAWAIIAN"/></div>
+          <div class="form-group"><label class="form-label">Sistema</label><input class="form-input" id="prod-sistema" type="text" placeholder="Ej. SARA"/></div>
+          <div class="form-group"><label class="form-label">Puntaje</label><input class="form-input" id="prod-score" type="number" step="0.05" placeholder="0.35"/></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary btn-sm" onclick="saveProducto()"><i class="fas fa-save"></i> Guardar</button>
+          <button class="btn btn-ghost btn-sm" onclick="resetProdForm()">Limpiar</button>
+        </div>
       </div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">Tipo</label><input class="form-input" id="prod-tipo" type="text" placeholder="Ej. HAWAIIAN"/></div>
-        <div class="form-group"><label class="form-label">Sistema</label><input class="form-input" id="prod-sistema" type="text" placeholder="Ej. SARA"/></div>
-        <div class="form-group"><label class="form-label">Puntaje</label><input class="form-input" id="prod-score" type="number" step="0.05" placeholder="0.35"/></div>
+
+      <div class="toolbar">
+        <div class="search-box"><i class="fas fa-search"></i><input type="text" id="prod-search" placeholder="Buscar servicio..." oninput="renderProductos()"/></div>
+        <span class="form-hint"><span id="prod-count">0</span> servicios</span>
       </div>
-      <div style="display:flex;gap:8px;margin-bottom:14px">
-        <button class="btn btn-primary btn-sm" onclick="saveProducto()"><i class="fas fa-save"></i> Guardar</button>
-        <button class="btn btn-ghost btn-sm" onclick="resetProdForm()">Limpiar</button>
+      <div class="table-wrap">
+        <table class="ptable">
+          <thead><tr><th>Servicio</th><th>Categoría</th><th>Tipo</th><th>Sistema</th><th style="text-align:right">Puntaje</th><th></th></tr></thead>
+          <tbody id="prod-list"></tbody>
+        </table>
       </div>
-      <input class="form-input" id="prod-search" type="text" placeholder="Buscar servicio..." oninput="renderProductos()" style="margin-bottom:10px"/>
-      <div class="form-hint" style="margin-bottom:6px"><span id="prod-count">0</span> servicios</div>
-      <div id="prod-list"></div>
     </div>
 
     <!-- ═══ SECCIÓN: CATÁLOGOS ═══ -->
     <div id="section-catalogos" style="display:none;padding:18px 28px 60px">
-      <div class="form-hint" style="margin-bottom:12px">Listas del formulario gestionadas por el backend: mercados, motivos, riesgo, status, autopago y modalidades de tipo de servicio. Los formularios se actualizan solos.</div>
-      <div class="form-group">
-        <label class="form-label">Tipo de catálogo</label>
-        <select class="form-input" id="cat-tipo" onchange="renderCatalogos()">
-          <option value="mercado">Mercado</option>
-          <option value="motivo">Motivos (¿por qué llamó?)</option>
-          <option value="riesgo">Riesgo</option>
-          <option value="status">Status</option>
-          <option value="autopago">Autopago</option>
-          <option value="tipo_extra">Tipo de Servicio (modalidades: DOUBLE PLAY…)</option>
-        </select>
+      <div class="form-hint" style="margin-bottom:16px">Listas del formulario gestionadas por el backend: mercados, motivos, riesgo, status, autopago y modalidades de tipo de servicio. Los formularios se actualizan solos.</div>
+
+      <div class="tcard" style="margin-bottom:22px;max-width:760px">
+        <div class="tcard-head">
+          <div class="tcard-icon" style="background:#0891b2"><i class="fas fa-list-ul"></i></div>
+          <div class="tcard-info">
+            <div class="tcard-name" id="cat-form-title">Agregar valor</div>
+            <div class="tcard-count">Elegí el catálogo y completá el valor</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo de catálogo</label>
+          <select class="form-input" id="cat-tipo" onchange="renderCatalogos()">
+            <option value="mercado">Mercado</option>
+            <option value="motivo">Motivos (¿por qué llamó?)</option>
+            <option value="riesgo">Riesgo</option>
+            <option value="status">Status</option>
+            <option value="autopago">Autopago</option>
+            <option value="tipo_extra">Tipo de Servicio (modalidades: DOUBLE PLAY…)</option>
+          </select>
+        </div>
+        <div class="form-row" style="grid-template-columns:1fr 1fr 90px">
+          <div class="form-group"><label class="form-label">Valor</label><input class="form-input" id="cat-valor" type="text" placeholder="Ej. NUEVO MERCADO"/></div>
+          <div class="form-group"><label class="form-label">Etiqueta (opcional)</label><input class="form-input" id="cat-label" type="text" placeholder="Cómo se muestra"/></div>
+          <div class="form-group"><label class="form-label">Orden</label><input class="form-input" id="cat-orden" type="number" placeholder="0"/></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary btn-sm" onclick="saveCat()"><i class="fas fa-save"></i> Guardar</button>
+          <button class="btn btn-ghost btn-sm" onclick="resetCatForm()">Limpiar</button>
+        </div>
       </div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label" id="cat-form-title">Agregar valor</label><input class="form-input" id="cat-valor" type="text" placeholder="Valor (ej. NUEVO MERCADO)"/></div>
-        <div class="form-group"><label class="form-label">Etiqueta (opcional)</label><input class="form-input" id="cat-label" type="text" placeholder="Cómo se muestra"/></div>
-        <div class="form-group"><label class="form-label">Orden</label><input class="form-input" id="cat-orden" type="number" placeholder="0" style="max-width:90px"/></div>
+
+      <div class="toolbar">
+        <span class="form-hint"><span id="cat-count">0</span> valores</span>
       </div>
-      <div style="display:flex;gap:8px;margin-bottom:14px">
-        <button class="btn btn-primary btn-sm" onclick="saveCat()"><i class="fas fa-save"></i> Guardar</button>
-        <button class="btn btn-ghost btn-sm" onclick="resetCatForm()">Limpiar</button>
+      <div class="table-wrap">
+        <table class="ptable">
+          <thead><tr><th>Valor</th><th>Etiqueta</th><th style="text-align:right">Orden</th><th></th></tr></thead>
+          <tbody id="cat-list"></tbody>
+        </table>
       </div>
-      <div class="form-hint" style="margin-bottom:6px"><span id="cat-count">0</span> valores</div>
-      <div id="cat-list"></div>
     </div>
 
     <!-- ═══ SECCIÓN: FINES DE SEMANA (rotación de equipos) ═══ -->
     <div id="section-finesemana" style="display:none;padding:18px 28px 60px">
-      <div class="form-hint" style="margin-bottom:12px">
+      <div class="form-hint" style="margin-bottom:16px">
         De lunes a viernes trabajan todos los equipos. Los <b>sábados y domingos</b> rota:
         definí el ciclo de fines de semana y qué equipos trabajan cada día. El sistema calcula
         automáticamente qué mostrar en la tabla de <b>Ventas del Día</b> de Estadísticas.
       </div>
-      <div class="form-row" style="align-items:end">
-        <div class="form-group" style="max-width:220px">
-          <label class="form-label">Sábado de referencia (inicio del ciclo)</label>
-          <input class="form-input" id="wk-anchor" type="date"/>
-        </div>
-        <div class="form-group">
-          <div class="form-hint">El “Finde 1” corresponde a ese sábado; luego el ciclo se repite en orden.</div>
+
+      <div class="tcard" style="margin-bottom:18px;max-width:640px">
+        <div class="form-row" style="grid-template-columns:220px 1fr;align-items:end">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Sábado de referencia</label>
+            <input class="form-input" id="wk-anchor" type="date"/>
+          </div>
+          <div class="form-hint">El "Finde 1" corresponde a ese sábado; luego el ciclo se repite en orden.</div>
         </div>
       </div>
-      <div id="wk-cycle" style="display:flex;flex-direction:column;gap:14px;margin:10px 0"></div>
-      <div style="display:flex;gap:8px;margin-top:12px">
+
+      <div id="wk-cycle"></div>
+      <div style="display:flex;gap:8px;margin-top:4px">
         <button class="btn btn-ghost btn-sm" onclick="addWeekend()"><i class="fas fa-plus"></i> Agregar fin de semana</button>
         <button class="btn btn-primary btn-sm" onclick="saveRotation()"><i class="fas fa-save"></i> Guardar rotación</button>
       </div>
@@ -1131,28 +1010,42 @@
         <b>Usuarios → Permisos</b>; acá solo aparecen listados para tener todo en un solo lugar.
       </div>
 
-      <div class="form-row">
-        <div class="form-group"><label class="form-label" id="pd-form-title">Nuevo permiso</label><input class="form-input" id="pd-key" type="text" placeholder="key (ej. billing:read_only)"/></div>
-        <div class="form-group"><label class="form-label">Nombre</label><input class="form-input" id="pd-label" type="text" placeholder="Cómo se muestra"/></div>
-        <div class="form-group"><label class="form-label">Alcance</label>
-          <select class="form-input" id="pd-scope">
-            <option value="user">Por usuario</option>
-            <option value="team">Por equipo</option>
-            <option value="both">Usuario o equipo</option>
-          </select>
+      <div class="tcard" style="margin-bottom:22px;max-width:820px">
+        <div class="tcard-head">
+          <div class="tcard-icon" style="background:#4f46e5"><i class="fas fa-shield-alt"></i></div>
+          <div class="tcard-info">
+            <div class="tcard-name" id="pd-form-title">Nuevo permiso</div>
+            <div class="tcard-count">Queda "solo informativo" hasta que se programe su lógica</div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Key</label><input class="form-input" id="pd-key" type="text" placeholder="Ej. billing:read_only"/></div>
+          <div class="form-group"><label class="form-label">Nombre</label><input class="form-input" id="pd-label" type="text" placeholder="Cómo se muestra"/></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Alcance</label>
+            <select class="form-input" id="pd-scope">
+              <option value="user">Por usuario</option>
+              <option value="team">Por equipo</option>
+              <option value="both">Usuario o equipo</option>
+            </select>
+          </div>
+          <div class="form-group"><label class="form-label">Grupo</label><input class="form-input" id="pd-group" type="text" placeholder="Ej. Facturación" value="General"/></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descripción</label>
+          <input class="form-input" id="pd-description" type="text" placeholder="Qué hace este permiso, dónde aplica, a quién afecta"/>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary btn-sm" onclick="savePermDef()"><i class="fas fa-save"></i> Guardar permiso</button>
+          <button class="btn btn-ghost btn-sm" onclick="resetPermDefForm()">Limpiar</button>
         </div>
       </div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">Grupo</label><input class="form-input" id="pd-group" type="text" placeholder="Ej. Facturación" value="General"/></div>
-        <div class="form-group" style="flex:2"><label class="form-label">Descripción</label><input class="form-input" id="pd-description" type="text" placeholder="Qué hace este permiso, dónde aplica, a quién afecta"/></div>
-      </div>
-      <div style="display:flex;gap:8px;margin-bottom:18px">
-        <button class="btn btn-primary btn-sm" onclick="savePermDef()"><i class="fas fa-save"></i> Guardar permiso</button>
-        <button class="btn btn-ghost btn-sm" onclick="resetPermDefForm()">Limpiar</button>
-      </div>
 
-      <div class="form-hint" style="margin-bottom:6px"><span id="pd-count">0</span> permisos en el catálogo</div>
-      <div id="pd-list"></div>
+      <div class="toolbar">
+        <span class="form-hint"><span id="pd-count">0</span> permisos en el catálogo</span>
+      </div>
+      <div class="pd-list-wrap" id="pd-list"></div>
 
       <div style="margin-top:36px">
         <div class="perm-section-title" style="margin-bottom:4px">Ideas para futuros permisos</div>
@@ -1190,6 +1083,10 @@
             <option value="Lineas-Agentes">Líneas Agentes</option>
           </select>
         </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Fecha de ingreso</label>
+        <input class="form-input" id="c-fecha-ingreso" type="date"/>
       </div>
       <!-- Fila para Agentes: Supervisor + Equipo -->
       <div class="form-row" id="c-agent-row">
@@ -1259,6 +1156,10 @@
         <div class="form-group" id="r-supervisor-wrap"><label class="form-label">Supervisor</label>
           <select class="form-select" id="r-supervisor" onchange="onSupervisorChange('r')"><option value="">— Selecciona supervisor —</option></select>
         </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Fecha de ingreso</label>
+        <input class="form-input" id="r-fecha-ingreso" type="date"/>
       </div>
       <!-- Equipo — para Agentes/Backoffice/Admin -->
       <div class="form-group" id="r-team-wrap">
@@ -1951,7 +1852,7 @@ function buildTeamCard(teamName, supervisor, agents){
         <button class="tcard-menu-btn" title="Opciones" onclick="_openTeamMenu(event,'${tid}')">
           <i class="fas fa-ellipsis-v"></i>
         </button>
-        <div class="team-dropdown" id="menu_${tid}" style="background:#111c3f !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;box-shadow:0 12px 32px rgba(0,0,0,.6) !important;">
+        <div class="team-dropdown" id="menu_${tid}">
           <button class="team-dropdown-item" onclick="_closeAllMenus();openRenameTeamModal('${teamName.replace(/'/g,"\\'")}')"><i class="fas fa-pencil-alt" style="width:14px"></i> Renombrar equipo</button>
           <div class="team-dropdown-sep"></div>
           <button class="team-dropdown-item danger" onclick="_closeAllMenus();deleteTeam('${teamName.replace(/'/g,"\\'")}')"><i class="fas fa-trash" style="width:14px"></i> Eliminar equipo</button>
@@ -2654,7 +2555,7 @@ function renderCards(users){
         <div class="ucard-av" style="background:${avBg}">${initials(displayName)}</div>
         <div style="position:relative">
           <button class="ucard-menu-btn" onclick="_toggleUCardMenu(event,'${menuId}')"><i class="fas fa-ellipsis-v"></i></button>
-          <div class="ucard-dropdown" id="${menuId}" style="background:#111c3f !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;box-shadow:0 12px 32px rgba(0,0,0,.6) !important;">
+          <div class="ucard-dropdown" id="${menuId}">
             <button class="ucard-dd-item" onclick="_closeUCardMenus();openRoleModal('${uid}')"><i class="fas fa-id-badge" style="width:13px"></i> Editar perfil</button>
             <button class="ucard-dd-item" onclick="_closeUCardMenus();openPermsModal('${uid}')"><i class="fas fa-key" style="width:13px"></i> Editar permisos</button>
             <button class="ucard-dd-item" style="color:#7c3aed" onclick="_closeUCardMenus();openMergeModal('${uid}')"><i class="fas fa-code-merge" style="width:13px"></i> Unificar usuario</button>
@@ -2751,17 +2652,19 @@ async function createUser(){
     ? document.getElementById('c-team-encargado').value.trim()
     : document.getElementById('c-team').value.trim();
   const supervisorKey=isSup?'':document.getElementById('c-supervisor').value.trim();
+  const fechaIngreso=document.getElementById('c-fecha-ingreso').value;
   if(!username||!password||!role){ toast('Usuario, contraseña y rol son requeridos','err'); return; }
   if(password.length<8){ toast('La contraseña debe tener al menos 8 caracteres','err'); return; }
   if(isSup&&!team){ toast('Selecciona el team que supervisará','err'); return; }
   const permissions=Array.from(document.querySelectorAll('#c-perms-grid input[type=checkbox]:checked')).map(cb=>cb.value);
-  const res=await AUTH.sf('/api/auth/register',{ method:'POST', body:JSON.stringify({ username, password, role, name, team, supervisor:supervisorKey&&supervisorKey!=='__none__'?supervisorKey:'', permissions }) });
+  const res=await AUTH.sf('/api/auth/register',{ method:'POST', body:JSON.stringify({ username, password, role, name, team, supervisor:supervisorKey&&supervisorKey!=='__none__'?supervisorKey:'', permissions, fecha_ingreso:fechaIngreso }) });
   if(!res){ toast('Error de conexión','err'); return; }
   const data=await res.json();
   if(res.ok&&data.success!==false){
     toast('Usuario creado correctamente','ok');
     closeModal('modal-create');
     ['c-username','c-password','c-name'].forEach(id=>{ document.getElementById(id).value=''; });
+    document.getElementById('c-fecha-ingreso').value='';
     document.getElementById('c-role').value='';
     document.getElementById('c-team-encargado').value='';
     buildPermsGrid('c-perms-grid',[]);
@@ -2777,6 +2680,7 @@ function openRoleModal(userId){
   _editingId=String(userId); _editingUsername=u.username;
   document.getElementById('r-name').value=u.name||'';
   document.getElementById('r-username').value=u.username||'';
+  document.getElementById('r-fecha-ingreso').value=(u.fecha_ingreso||'').slice(0,10);
   // Botón suspender/activar
   var isActive=u.active===undefined||u.active===null||u.active===1||u.active===true||u.active==='1';
   var suspendBtn=document.getElementById('r-suspend-btn');
@@ -2885,6 +2789,14 @@ async function saveRole(){
     var data2=await res2.json();
     if(!res2.ok||data2.success===false){ toast(data2.message||'Error al actualizar credenciales','err'); closeModal('modal-role'); loadUsers(); return; }
     if(credPayload.username) _editingUsername=newUsername;
+  }
+
+  // Fecha de ingreso, si cambió
+  var newFecha=(document.getElementById('r-fecha-ingreso').value||'').trim();
+  var origFecha=(_origUser?(_origUser.fecha_ingreso||''):'').slice(0,10);
+  if(newFecha!==origFecha){
+    var resF=await AUTH.sf('/api/users/'+_editingId+'/fecha-ingreso',{ method:'PUT', body:JSON.stringify({ fecha_ingreso:newFecha }) });
+    if(resF){ var dataF=await resF.json(); if(!resF.ok||dataF.success===false){ toast(dataF.message||'Error al guardar fecha de ingreso','warn'); } }
   }
 
   // Cambiar contraseña si se llenó
@@ -3209,17 +3121,25 @@ async function loadProductos(){
 function renderProductos(){
   const q = (document.getElementById('prod-search').value||'').toLowerCase();
   const list = _prodItems.filter(p => !q || String(p.servicio||'').toLowerCase().includes(q));
+  document.getElementById('prod-count').textContent = list.length;
+  if(!list.length){
+    document.getElementById('prod-list').innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--ink3);padding:24px">Sin servicios que coincidan</td></tr>';
+    return;
+  }
   document.getElementById('prod-list').innerHTML = list.map(function(p){
     const sc = p.score_base!=null ? p.score_base : ('LOW '+p.score_low+' MED '+p.score_medium+' HIGH '+p.score_high+' N/A '+p.score_na);
-    return '<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border2)">'
-      +'<span style="flex:1">'+_escP(p.servicio)+'</span>'
-      +'<span class="form-hint" style="min-width:90px">'+_escP(p.categoria||'')+'</span>'
-      +'<span style="min-width:60px;text-align:right;font-weight:700">'+sc+'</span>'
+    return '<tr>'
+      +'<td style="font-weight:700;color:var(--ink)">'+_escP(p.servicio)+'</td>'
+      +'<td>'+_escP(p.categoria||'—')+'</td>'
+      +'<td>'+_escP(p.tipo||'—')+'</td>'
+      +'<td>'+_escP(p.sistema||'—')+'</td>'
+      +'<td style="text-align:right;font-weight:700">'+sc+'</td>'
+      +'<td class="actions-cell">'
       +'<button class="btn btn-icon" title="Editar" onclick="editProducto('+p.id+')"><i class="fas fa-pen"></i></button>'
       +'<button class="btn btn-icon danger" title="Eliminar" onclick="deleteProducto('+p.id+')"><i class="fas fa-trash"></i></button>'
-      +'</div>';
+      +'</td>'
+      +'</tr>';
   }).join('');
-  document.getElementById('prod-count').textContent = list.length;
 }
 function editProducto(id){
   const p = _prodItems.find(x => x.id===id); if(!p) return;
@@ -3275,16 +3195,22 @@ async function loadCatalogos(){
 function _catTipo(){ return document.getElementById('cat-tipo').value; }
 function renderCatalogos(){
   const items = _catData[_catTipo()] || [];
+  document.getElementById('cat-count').textContent = items.length;
+  if(!items.length){
+    document.getElementById('cat-list').innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--ink3);padding:24px">Sin valores en este catálogo</td></tr>';
+    return;
+  }
   document.getElementById('cat-list').innerHTML = items.map(function(it){
-    return '<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border2)">'
-      +'<span style="flex:1">'+_escP(it.valor)+'</span>'
-      +'<span class="form-hint" style="min-width:120px">'+_escP(it.label||'')+'</span>'
-      +'<span class="form-hint" style="min-width:30px;text-align:right">#'+(it.orden||0)+'</span>'
+    return '<tr>'
+      +'<td style="font-weight:700;color:var(--ink)">'+_escP(it.valor)+'</td>'
+      +'<td>'+_escP(it.label||'—')+'</td>'
+      +'<td style="text-align:right">#'+(it.orden||0)+'</td>'
+      +'<td class="actions-cell">'
       +'<button class="btn btn-icon" title="Editar" onclick="editCat('+it.id+')"><i class="fas fa-pen"></i></button>'
       +'<button class="btn btn-icon danger" title="Eliminar" onclick="deleteCat('+it.id+')"><i class="fas fa-trash"></i></button>'
-      +'</div>';
+      +'</td>'
+      +'</tr>';
   }).join('');
-  document.getElementById('cat-count').textContent = items.length;
 }
 function editCat(id){
   const items = _catData[_catTipo()] || [];
@@ -3529,20 +3455,20 @@ async function loadRotation(){
 function _teamChecks(dayArr, wi, day){
   return _wkTeams.map(function(tm){
     var on = dayArr.some(function(x){ return String(x).toUpperCase() === String(tm).toUpperCase(); });
-    return '<label style="display:inline-flex;align-items:center;gap:6px;font-size:.78rem;margin:0 14px 6px 0;white-space:nowrap">'
+    return '<label class="wk-chip">'
       + '<input type="checkbox" class="wk-chk" data-wi="'+wi+'" data-day="'+day+'" value="'+String(tm).replace(/"/g,'&quot;')+'"'+(on?' checked':'')+'> '+tm+'</label>';
   }).join('');
 }
 function renderCycle(){
   var box = document.getElementById('wk-cycle'); if(!box) return;
   box.innerHTML = _wkCycle.map(function(e, i){
-    return '<div style="border:1px solid var(--border2);border-radius:10px;padding:12px 14px">'
-      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
-        + '<b style="font-size:.82rem">Finde '+(i+1)+'</b>'
+    return '<div class="wk-card">'
+      + '<div class="wk-card-head">'
+        + '<span class="wk-card-title">Finde '+(i+1)+'</span>'
         + (_wkCycle.length>1 ? '<button class="btn btn-icon danger" title="Quitar" onclick="removeWeekend('+i+')"><i class="fas fa-trash"></i></button>' : '')
       + '</div>'
-      + '<div style="margin-bottom:8px"><div class="form-hint" style="margin-bottom:4px">🗓️ Sábado</div>'+_teamChecks(e.sat,i,'sat')+'</div>'
-      + '<div><div class="form-hint" style="margin-bottom:4px">🗓️ Domingo</div>'+_teamChecks(e.sun,i,'sun')+'</div>'
+      + '<div class="wk-day-block"><div class="wk-day-label"><i class="fas fa-calendar-day"></i> Sábado</div><div class="wk-chips">'+_teamChecks(e.sat,i,'sat')+'</div></div>'
+      + '<div class="wk-day-block"><div class="wk-day-label"><i class="fas fa-calendar-day"></i> Domingo</div><div class="wk-chips">'+_teamChecks(e.sun,i,'sun')+'</div></div>'
     + '</div>';
   }).join('');
   var hint = document.getElementById('wk-hint');

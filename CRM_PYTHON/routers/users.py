@@ -84,6 +84,7 @@ def _serialize(u: dict) -> dict:
         "permissions": u.get("permissions") if isinstance(u.get("permissions"), list) else [],
         "active":      int(u.get("active", 1)),
         "created_at":  str(u.get("created_at") or ""),
+        "fecha_ingreso": str(u.get("fecha_ingreso") or ""),
     }
 
 
@@ -203,7 +204,7 @@ async def admin_list(user: dict = Depends(current_user)):
     if not _is_admin_or_bo(user):
         raise HTTPException(403, "No autorizado para listar usuarios")
     async with AsyncSessionLocal() as s:
-        r = await s.execute(text("SELECT id, username, name, email, role, team, supervisor, avatar_url, permissions, active, created_at FROM users ORDER BY username"))
+        r = await s.execute(text("SELECT id, username, name, email, role, team, supervisor, avatar_url, permissions, active, created_at, fecha_ingreso FROM users ORDER BY username"))
         users = [_row_to_user(row) for row in r.mappings().all()]
     sanitized = [_serialize(u) for u in users]
     return {"success": True, "users": sanitized, "agents": sanitized}
@@ -254,6 +255,38 @@ async def update_role(user_id: str, body: UpdateRoleBody, user: dict = Depends(c
         })
         await s.commit()
         r2 = await s.execute(text("SELECT id, username, name, email, role, team, supervisor, avatar_url, permissions FROM users WHERE id = :id"), {"id": uid})
+        updated = _row_to_user(r2.mappings().first())
+
+    return {"success": True, "user": _serialize(updated)}
+
+
+class UpdateFechaIngresoBody(BaseModel):
+    fecha_ingreso: Optional[str] = None
+
+
+@router.put("/{user_id}/fecha-ingreso")
+async def update_fecha_ingreso(user_id: str, body: UpdateFechaIngresoBody, user: dict = Depends(current_user)):
+    if _norm_role(user.get("role","")) not in ADMIN_ROLES:
+        raise HTTPException(403, "No autorizado para actualizar usuarios")
+
+    try:
+        uid = int(user_id)
+    except ValueError:
+        raise HTTPException(404, "Usuario no encontrado")
+
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("SELECT id FROM users WHERE id = :id LIMIT 1"), {"id": uid})
+        if not r.mappings().first():
+            raise HTTPException(404, "Usuario no encontrado")
+
+        await s.execute(text("""
+            UPDATE users SET fecha_ingreso = :fecha_ingreso, updated_at = :now WHERE id = :id
+        """), {
+            "fecha_ingreso": (body.fecha_ingreso or "").strip() or None,
+            "now": _utcnow(), "id": uid,
+        })
+        await s.commit()
+        r2 = await s.execute(text("SELECT id, username, name, email, role, team, supervisor, avatar_url, permissions, fecha_ingreso FROM users WHERE id = :id"), {"id": uid})
         updated = _row_to_user(r2.mappings().first())
 
     return {"success": True, "user": _serialize(updated)}

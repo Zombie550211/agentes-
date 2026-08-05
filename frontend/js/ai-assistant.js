@@ -14,7 +14,67 @@
   if (document.getElementById('aiw-root')) return; // ya inyectado
 
   var _history = [];
+  var _transcript = []; // todo lo mostrado en pantalla (incluye saludo/errores, no solo Q&A)
   var _busy = false;
+  var _userFirstName = null; // cacheado, se pide una sola vez por carga de página
+  // Si ya se mostró el saludo inicial en esta sesión. OJO: esto NO se puede inferir de
+  // `_history.length===0` — un intercambio "solo saludo" (ver esSoloSaludo) responde sin
+  // tocar _history a propósito (para no gastar una llamada al modelo por un "hola"), así
+  // que si se usara _history como proxy, el saludo grande volvía a aparecer en la
+  // PRÓXIMA pregunta real de la misma sesión (isFirst seguía dando true).
+  var _greeted = false;
+
+  /* Persistencia entre páginas: el widget se re-inyecta desde cero en cada carga (es
+   * un sitio multi-página, no una SPA), así que sin esto el chat se "borraba" cada vez
+   * que el agente navegaba a otra pantalla. sessionStorage sobrevive la navegación y
+   * se limpia solo al cerrar la pestaña. */
+  var STORAGE_KEY = 'aiw_chat_state';
+  function saveState(isOpen) {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+        history: _history, transcript: _transcript, open: !!isOpen, greeted: _greeted,
+      }));
+    } catch (_) {}
+  }
+  function loadState() {
+    try {
+      var raw = sessionStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (_) { return null; }
+  }
+
+  /* Saludo instantáneo (sin pasar por el modelo — 0 latencia) en el primer mensaje de
+   * la sesión: hora real del navegador del usuario + su nombre, mientras el pedido
+   * lento (tools + IA) corre en paralelo. */
+  async function getUserFirstName() {
+    if (_userFirstName !== null) return _userFirstName;
+    try {
+      var r = await fetch('/api/auth/verify-server', { credentials: 'include' });
+      if (r.ok) {
+        var d = await r.json();
+        var full = (d && d.user && d.user.name) || '';
+        _userFirstName = full.trim().split(/\s+/)[0] || '';
+        return _userFirstName;
+      }
+    } catch (_) {}
+    _userFirstName = '';
+    return _userFirstName;
+  }
+  function saludoSegunHora() {
+    var h = new Date().getHours();
+    if (h >= 5 && h < 12) return 'Buenos días';
+    if (h >= 12 && h < 19) return 'Buenas tardes';
+    return 'Buenas noches';
+  }
+
+  // Si el mensaje es SOLO un saludo (sin ninguna pregunta real), no tiene sentido
+  // arrancar todo el circuito lento de IA+tools solo para que el modelo diga "¡Hola!" —
+  // se responde al toque, sin pasar por el backend ni mostrar "Pensando…".
+  var SOLO_SALUDO_RE = /^(holi+s?|hola+s?|hey+|hi+|hello|buen[ao]s?(\s*(d[ií]as|tardes|noches))?|qu[ée]\s*tal|saludos)[\s!.,¡¿?]*$/i;
+  function esSoloSaludo(text) {
+    return SOLO_SALUDO_RE.test(text.trim());
+  }
 
   function injectStyles() {
     var css = ''
@@ -64,7 +124,10 @@
       + '<div class="aiw-panel" id="aiw-panel">'
         + '<div class="aiw-head"><div><div>Asistente del CRM</div>'
           + '<div class="aiw-head-sub">Responde solo con datos que ya podés ver</div></div>'
-          + '<button class="aiw-close" id="aiw-close-btn" aria-label="Cerrar">✕</button></div>'
+          + '<div style="display:flex;align-items:center;gap:10px">'
+            + '<button class="aiw-close" id="aiw-clear-btn" title="Borrar conversación" aria-label="Borrar conversación"><i class="fas fa-trash"></i></button>'
+            + '<button class="aiw-close" id="aiw-close-btn" aria-label="Cerrar">✕</button>'
+          + '</div></div>'
         + '<div class="aiw-body" id="aiw-body"></div>'
         + '<div class="aiw-foot">'
           + '<textarea class="aiw-input" id="aiw-input" rows="1" placeholder="Preguntá algo, ej. ¿cuántas ventas hay este mes?"></textarea>'
@@ -75,6 +138,7 @@
 
     var toggleBtn = document.getElementById('aiw-toggle-btn');
     var closeBtn  = document.getElementById('aiw-close-btn');
+    var clearBtn  = document.getElementById('aiw-clear-btn');
     var panel     = document.getElementById('aiw-panel');
     var input     = document.getElementById('aiw-input');
     var sendBtn   = document.getElementById('aiw-send-btn');
@@ -82,8 +146,30 @@
     toggleBtn.addEventListener('click', function () {
       panel.classList.toggle('aiw-open');
       if (panel.classList.contains('aiw-open')) input.focus();
+      saveState(isPanelOpen());
     });
-    closeBtn.addEventListener('click', function () { panel.classList.remove('aiw-open'); });
+    closeBtn.addEventListener('click', function () {
+      panel.classList.remove('aiw-open');
+      saveState(false);
+    });
+    clearBtn.addEventListener('click', function () {
+      _history = [];
+      _transcript = [];
+      _greeted = false;
+      document.getElementById('aiw-body').innerHTML = '';
+      try { sessionStorage.removeItem(STORAGE_KEY); } catch (_) {}
+    });
+
+    // Restaurar conversación previa (si el agente venía de otra página, no de recién
+    // abrir el CRM): repinta cada burbuja guardada y reabre el panel si estaba abierto.
+    var saved = loadState();
+    if (saved) {
+      _history = Array.isArray(saved.history) ? saved.history : [];
+      (saved.transcript || []).forEach(function (m) { renderMsg(m.role, m.text); });
+      _transcript = saved.transcript || [];
+      _greeted = !!saved.greeted;
+      if (saved.open) panel.classList.add('aiw-open');
+    }
 
     function send() {
       var text = input.value.trim();
@@ -97,7 +183,7 @@
     });
   }
 
-  function appendMsg(role, text) {
+  function renderMsg(role, text) {
     var body = document.getElementById('aiw-body');
     var div = document.createElement('div');
     div.className = 'aiw-msg ' + (role === 'user' ? 'user' : role === 'error' ? 'err' : 'bot');
@@ -105,6 +191,16 @@
     body.appendChild(div);
     body.scrollTop = body.scrollHeight;
     return div;
+  }
+  function appendMsg(role, text) {
+    var div = renderMsg(role, text);
+    _transcript.push({ role: role, text: text });
+    saveState(isPanelOpen());
+    return div;
+  }
+  function isPanelOpen() {
+    var panel = document.getElementById('aiw-panel');
+    return !!(panel && panel.classList.contains('aiw-open'));
   }
 
   function setStatus(text) {
@@ -123,60 +219,116 @@
 
   var TOOL_LABELS = {
     consultar_leads: 'Consultando leads/ventas…',
+    consultar_mis_ventas: 'Consultando tus ventas…',
     consultar_ranking: 'Consultando ranking…',
     consultar_productividad_equipos: 'Consultando productividad de equipos…',
+    consultar_empleado_del_mes: 'Consultando empleado del mes…',
+    consultar_premios_activos: 'Consultando premios/promociones…',
+    consultar_permisos_activos: 'Consultando permisos activos…',
+    consultar_facturacion: 'Consultando facturación…',
+    consultar_comisiones: 'Consultando comisiones…',
   };
+
+  /* Un intento de pedir la respuesta. Devuelve {done, retryText}:
+   *  - done=true  → ya se mostró la respuesta final en pantalla, no hay que hacer nada más.
+   *  - done=false → no se resolvió (stream cortado sin avisar, o un error que puede ser
+   *    transitorio como el timeout del túnel gratuito ~100s). retryText trae el mensaje
+   *    a mostrar SI el reintento también falla — no se pinta nada todavía, para poder
+   *    reintentar en silencio primero. */
+  async function attemptChat(text) {
+    var res = await fetch('/api/ai/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text, history: _history }),
+    });
+    if (!res) return { done: false, retryText: null };
+    if (!res.ok) {
+      // Un error HTTP real (401/403/500/etc.) NO es lo mismo que "se cortó el stream":
+      // hay que mostrarlo tal cual, no reintentar a ciegas.
+      var detail = '';
+      try {
+        var body = await res.text();
+        try { detail = (JSON.parse(body).detail) || body; } catch (_) { detail = body; }
+      } catch (_) {}
+      appendMsg('error', 'Error del asistente (' + res.status + ')' + (detail ? ': ' + String(detail).slice(0, 200) : '.'));
+      return { done: true, retryText: null };
+    }
+    if (!res.body) return { done: false, retryText: null };
+
+    var reader = res.body.getReader();
+    var decoder = new TextDecoder();
+    var buffer = '';
+    var result = { done: false, retryText: null };
+    while (true) {
+      var chunk = await reader.read();
+      if (chunk.done) break;
+      buffer += decoder.decode(chunk.value, { stream: true });
+      var parts = buffer.split('\n\n');
+      buffer = parts.pop();
+      for (var i = 0; i < parts.length; i++) {
+        var line = parts[i].trim();
+        if (!line.startsWith('data:')) continue;
+        var payload;
+        try { payload = JSON.parse(line.slice(5).trim()); } catch (_) { continue; }
+        if (payload.type === 'tool_start') {
+          setStatus(TOOL_LABELS[payload.tool] || ('Consultando ' + payload.tool + '…'));
+        } else if (payload.type === 'tool_end') {
+          setStatus('Pensando…');
+        } else if (payload.type === 'answer') {
+          setStatus('');
+          _history.push({ role: 'user', content: text });
+          _history.push({ role: 'assistant', content: payload.text });
+          if (_history.length > 20) _history = _history.slice(-20);
+          appendMsg('bot', payload.text); // guarda el estado ya con el turno completo
+          result = { done: true, retryText: null };
+        } else if (payload.type === 'error') {
+          // Errores del backend (gateway/túnel caído, timeout, etc.) suelen ser
+          // transitorios — no se muestran todavía, se reintenta en silencio una vez
+          // y solo se pintan si el reintento también falla.
+          setStatus('');
+          result = { done: false, retryText: payload.message || 'El asistente no está disponible en este momento.' };
+        }
+      }
+    }
+    return result;
+  }
 
   async function sendMessage(text) {
     _busy = true;
     document.getElementById('aiw-send-btn').disabled = true;
     appendMsg('user', text);
-    setStatus('Pensando…');
 
-    var answered = false;
     try {
-      var res = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, history: _history }),
-      });
-      if (!res || !res.body) throw new Error('sin respuesta');
+      var isFirst = !_greeted;
+      var soloSaludo = esSoloSaludo(text);
 
-      var reader = res.body.getReader();
-      var decoder = new TextDecoder();
-      var buffer = '';
-      while (true) {
-        var chunk = await reader.read();
-        if (chunk.done) break;
-        buffer += decoder.decode(chunk.value, { stream: true });
-        var parts = buffer.split('\n\n');
-        buffer = parts.pop();
-        for (var i = 0; i < parts.length; i++) {
-          var line = parts[i].trim();
-          if (!line.startsWith('data:')) continue;
-          var payload;
-          try { payload = JSON.parse(line.slice(5).trim()); } catch (_) { continue; }
-          if (payload.type === 'tool_start') {
-            setStatus(TOOL_LABELS[payload.tool] || ('Consultando ' + payload.tool + '…'));
-          } else if (payload.type === 'tool_end') {
-            setStatus('Pensando…');
-          } else if (payload.type === 'answer') {
-            setStatus('');
-            appendMsg('bot', payload.text);
-            _history.push({ role: 'user', content: text });
-            _history.push({ role: 'assistant', content: payload.text });
-            if (_history.length > 20) _history = _history.slice(-20);
-            answered = true;
-          } else if (payload.type === 'error') {
-            setStatus('');
-            appendMsg('error', payload.message || 'El asistente no está disponible en este momento.');
-            answered = true;
-          }
+      if (isFirst) {
+        _greeted = true;
+        var nombre = await getUserFirstName();
+        var saludo = saludoSegunHora() + (nombre ? ', ' + nombre : '');
+        if (soloSaludo) {
+          // Nada más que un saludo: no tiene sentido gastar 30-100s de IA para que
+          // diga "¡Hola!" — se responde al toque, sin tocar el backend.
+          appendMsg('bot', saludo + '. ¿En qué te puedo ayudar?');
+          return;
         }
+        appendMsg('bot', saludo + '. Con gusto te ayudo, dame unos segundos…');
+      } else if (soloSaludo) {
+        appendMsg('bot', '¡Hola de nuevo! ¿En qué más te puedo ayudar?');
+        return;
       }
-      if (!answered) {
+
+      setStatus('Pensando…');
+      var r = await attemptChat(text);
+      if (!r.done) {
+        // No se resolvió (stream cortado, o un error que puede ser transitorio como el
+        // timeout del túnel gratuito). Reintenta una vez en silencio antes de rendirse.
+        setStatus('Casi listo, un momento más…');
+        r = await attemptChat(text);
+      }
+      if (!r.done) {
         setStatus('');
-        appendMsg('error', 'El asistente no respondió. Probá de nuevo en un momento.');
+        appendMsg('error', r.retryText || 'El asistente no respondió. Probá de nuevo en un momento.');
       }
     } catch (e) {
       setStatus('');

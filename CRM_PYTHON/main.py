@@ -211,6 +211,8 @@ _MIGRATIONS: list[tuple[str, str]] = [
         updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY uq_assignment (perm_key, scope_type, scope_value)
     )"""),
+    # Fecha de ingreso del empleado, para calcular antigüedad en "Tiempo laboral".
+    ("0043_users_fecha_ingreso", "ALTER TABLE users ADD COLUMN fecha_ingreso DATE NULL"),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración

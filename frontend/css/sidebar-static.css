@@ -19,6 +19,12 @@
   left: 0;
   top: 0;
   width: var(--sidebar-collapsed);
+  /* Neutraliza `.sidebar { min-width: 240px }` de responsive-sidebar.css (≤1024px):
+     ese archivo viejo apunta a la clase .sidebar que el <nav> también trae por
+     compatibilidad, y como nunca se pisaba el min-width acá, el rail quedaba
+     pegado en ~240px en pantallas ≤1024px (o zoom que reduce el viewport a ese
+     rango) sin importar el hover. */
+  min-width: var(--sidebar-collapsed);
   height: 100vh;
   background: #faf6ee;
   border-right: 2px solid #d9c79e;

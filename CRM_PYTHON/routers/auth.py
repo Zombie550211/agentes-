@@ -58,6 +58,7 @@ class RegisterBody(BaseModel):
     supervisorName: str = ""
     supervisorId: Optional[str] = None
     permissions: List[str] = []
+    fecha_ingreso: Optional[str] = None
 
 class ForgotPasswordBody(BaseModel):
     username: str
@@ -372,8 +373,8 @@ async def register(body: RegisterBody, user: dict = Depends(require_roles(*ADMIN
         sup_user_final = (derived_sup.get("supervisor") or body.supervisor or "").strip() if use_derived else (body.supervisor or derived_sup.get("supervisor") or "").strip()
 
         res = await s.execute(text("""
-            INSERT INTO users (username, password_hash, role, permissions, team, name, email, supervisor)
-            VALUES (:username, :password_hash, :role, :permissions, :team, :name, :email, :supervisor)
+            INSERT INTO users (username, password_hash, role, permissions, team, name, email, supervisor, fecha_ingreso)
+            VALUES (:username, :password_hash, :role, :permissions, :team, :name, :email, :supervisor, :fecha_ingreso)
         """), {
             "username":      username,
             "password_hash": hashed,
@@ -383,6 +384,7 @@ async def register(body: RegisterBody, user: dict = Depends(require_roles(*ADMIN
             "name":          body.name,
             "email":         body.email,
             "supervisor":    sup_user_final or sup_name_final,
+            "fecha_ingreso": (body.fecha_ingreso or "").strip() or None,
         })
         # id capturado ANTES del commit (tras commit el pool puede cambiar de conexión)
         new_id = res.lastrowid

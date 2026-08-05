@@ -1,103 +1,50 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Restablecer contraseña - CRM Agente</title>
+  <title>Tiempo Laboral — CRM</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/theme.css?v=20251124f">
-  <script>
-    // Proteger: solo ADMIN usando sesión por cookie
-    (async function() {
-      try {
-        const res = await fetch('/api/protected', { method: 'GET', credentials: 'include' });
-        if (!res.ok) { location.href = 'login.html'; return; }
-        const data = await res.json();
-        const role = ((data && data.user && data.user.role) || '').toLowerCase();
-        if (role !== 'admin') { location.href = '/residencial/inicio.html'; return; }
-      } catch (e) { location.href = 'login.html'; }
-    })();
-  </script>
-  <script src="agentes/js/auth-check.js"></script>
-  <script src="/js/logout-handler.js"></script>
-  <script src="/js/user-info.js"></script>
+  <script src="/js/fetch-interceptor.js" defer></script>
+  <script src="/js/logout-handler.js" defer></script>
+  <script src="/js/user-info.js" defer></script>
   <style>
-    body {
-      font-family: 'Roboto', sans-serif;
-      background:
-        radial-gradient(800px 400px at 10% 10%, rgba(34,179,236,.08), transparent 60%),
-        radial-gradient(600px 300px at 90% 20%, rgba(14,165,233,.07), transparent 60%),
-        linear-gradient(135deg, #f8fbff 0%, #eef3f9 100%);
-    }
-    /* Layout con sidebar a la izquierda, contenido centrado */
-    .container { margin-left: 260px; padding: 40px 48px; min-height: 100vh; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{min-height:100vh;background:#f2ead9;font-family:'Inter',system-ui,sans-serif;color:#1e1608;color-scheme:light}
+    .layout{display:flex;min-height:100vh}
+    .sidebar{flex:0 0 auto}
+    .main-content{flex:1;min-width:0;padding:26px 30px 50px}
 
-    /* Tarjeta (Neumorphism) */
-    .card { width: 100%; max-width: 640px; background:#eef3f9; border:0; border-radius:20px; 
-      box-shadow: 12px 12px 24px #d0d7e2, -12px -12px 24px #ffffff; padding:30px; position: relative; overflow: hidden; margin: 0 24px; }
-    .card::before {
-      content: '';
-      position: absolute; inset: 0 0 auto 0; height: 5px;
-      background: linear-gradient(90deg, rgba(34,179,236,.9), rgba(56,189,248,.9), rgba(34,179,236,.9));
-      opacity: .35; /* más sutil para combinar con neumorphism */
-    }
-    .card h1 { font-size:22px; margin:8px 0 8px; display:flex; align-items:center; gap:10px; color:#0f172a; }
-    .card h1 i { background:#ecfeff; color:#0891b2; border:1px solid #cffafe; width:28px; height:28px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; }
-    .card .subhead { display:flex; align-items:center; gap:10px; justify-content: space-between; padding-bottom: 14px; border-bottom: 1px solid #e5e7eb; margin-bottom: 18px; }
-    .badge { display:inline-block; font-size:12px; font-weight:700; color:#0f172a; background:#e0f2fe; border:1px solid #bae6fd; padding:4px 10px; border-radius:999px; }
-    .card p.help { color:#6b7280; margin:0; font-size:14px; }
+    /* ── Header ── */
+    .tl-header{margin-bottom:22px}
+    .tl-eyebrow{font-size:.66rem;font-weight:700;letter-spacing:.14em;color:#0284c7;text-transform:uppercase}
+    .tl-title{font-size:1.7rem;font-weight:800;letter-spacing:-.01em;color:#1e1608}
+    .tl-sub{font-size:.8rem;color:#7a6e5a;margin-top:4px;max-width:640px;line-height:1.5}
 
-    /* Formularios */
-    .form-group { margin: 12px 0 16px; }
-    .form-group label { display:block; font-weight:700; margin-bottom:6px; color:#111827; font-size:14px; }
-    .form-control { width:100%; border:1px solid rgba(15,23,42,.03); border-radius:12px; padding:10px 12px !important; font-size:14px !important; background:#eef3f9; transition: box-shadow .2s ease, background .2s ease, border-color .2s ease; min-height: 40px !important;
-      box-shadow: inset 6px 6px 12px #d0d7e2, inset -6px -6px 12px #ffffff; }
-    .form-control::placeholder { color:#94a3b8; }
-    .form-control:focus { border-color: rgba(34,179,236,.45); outline:none; background:#eef3f9;
-      box-shadow: inset 8px 8px 16px #c8d0db, inset -8px -8px 16px #ffffff, 0 0 0 3px rgba(34,179,236,.12); }
+    /* ── Grid de equipos ── */
+    .tl-teams{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:18px}
+    .tl-team{background:#fff;border:1.5px solid rgba(13,20,32,.12);border-radius:14px;box-shadow:0 8px 24px rgba(13,20,32,.10);overflow:hidden}
+    .tl-team-head{display:flex;align-items:center;gap:12px;padding:14px 16px}
+    .tl-team-ic{width:38px;height:38px;border-radius:9px;background:#14477d;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0}
+    .tl-team-name{font-size:1.05rem;font-weight:800;letter-spacing:.01em;color:#14477d;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-    /* Grilla ordenada para contraseñas */
-    .form-grid { display:grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); gap:12px; }
+    table.tl-tbl{width:100%;border-collapse:collapse;font-size:.85rem}
+    .tl-tbl thead th{background:#14477d;color:#fff;font-weight:600;font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;padding:10px 16px;text-align:left}
+    .tl-tbl thead th:last-child{text-align:center;border-left:1px solid rgba(255,255,255,.22)}
+    .tl-tbl tbody td{padding:9px 16px;border-bottom:1px solid #e6e9ed;color:#223a55}
+    .tl-tbl tbody tr:last-child td{border-bottom:none}
+    .tl-tbl td.tl-time{text-align:center;border-left:1px solid #e6e9ed;white-space:nowrap}
+    .tl-tbl tfoot td{padding:11px 16px;background:#bcd8f0;font-weight:700;color:#14477d}
+    .tl-tbl tfoot td:last-child{text-align:center;border-left:1px solid rgba(20,71,125,.18)}
 
-    /* Input con icono */
-    .input-icon { position: relative; }
-    .input-icon i.leading {
-      position:absolute; left:12px; top:0; bottom:0; transform:none;
-      color:#64748b; display:flex; align-items:center; justify-content:center;
-      width:28px; font-size:16px; line-height:1; pointer-events:none;
-    }
-    .input-icon input.form-control { padding-left: 44px !important; }
-
-    /* Acciones */
-    .actions { display:flex; justify-content:center; margin-top: 8px; }
-    .btn { display:inline-flex; align-items:center; gap:8px; border:none; border-radius:14px; padding:10px 16px !important; cursor:pointer; font-weight:700; font-size:14px !important; transition: box-shadow .2s ease, transform .1s ease, background .2s ease; }
-    .btn-primary { background:#22b3ec; color:#0f172a; box-shadow: 6px 6px 12px #c7d0dd, -6px -6px 12px #ffffff; }
-    .btn-primary:hover { background:#1aa7df; box-shadow: inset 6px 6px 12px #c7d0dd, inset -6px -6px 12px #ffffff; }
-    .btn-primary:disabled { opacity:.6; cursor:not-allowed; }
-
-    /* Mensajes */
-    .msg { display:none; margin-top:12px; padding:12px 14px; border-radius:10px; font-size:14px; }
-    .msg.success { display:block; background:#ecfdf5; color:#065f46; border:1px solid #34d399; }
-    .msg.error { display:block; background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
-
-    /* Campo con icono ojo centrado respecto al input */
-    .field { position: relative; }
-    .field .eye {
-      position:absolute; right:12px; top:50%; transform: translateY(-50%);
-      display:flex; align-items:center; justify-content:center;
-      color:#6b7280; cursor:pointer; width:26px; height:26px;
-    }
-    .field .eye i { line-height:1; display:block; font-size:16px; }
-    .field > .form-control { padding-right: 38px; }
-
-    /* Margen lateral sutil para evitar pegarse al borde en pantallas amplias */
-    .container { margin-left: 260px; padding: 40px 48px; }
-
-    @media (max-width: 720px) {
-      .container { margin-left: 0; padding: 16px 20px; }
-      .card { border-radius: 14px; padding: 22px; margin: 0 24px; }
-    }
+    .tl-loading{padding:40px;text-align:center;color:#7a6e5a;font-size:.85rem}
+    .tl-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:70vh;gap:8px;text-align:center}
+    .tl-empty-ic{font-size:2.6rem}
+    .tl-empty-title{font-size:1rem;font-weight:800;color:#1e1608}
+    .tl-empty-sub{font-size:.82rem;color:#7a6e5a}
   </style>
   <link rel="stylesheet" href="/css/sidebar-static.css?v=2">
   <link rel="stylesheet" href="/css/dark-mode.css?v=20260601">
@@ -105,10 +52,9 @@
 <body>
   <script src="/js/theme-init.js" defer></script>
   <script src="/js/sidebar-static.js" defer></script>
-  <script src="/js/llamadas-bloqueo.js" defer></script>
   <script src="/js/sidebar-user.js" defer></script>
-  <div class="layout">
-    <nav class="sidebar" id="app-sidebar">
+<div class="layout">
+  <nav class="sidebar" id="app-sidebar">
   <div class="sb-user">
     <div class="sb-user-avatar-wrap">
       <div class="sb-user-avatar">
@@ -126,7 +72,7 @@
     </div>
   </div>
   <div class="sb-scroll">
-<a href="/residencial/inicio.html" class="sb-item active"><span class="sb-ic" style="background:#dbeafe;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#2563eb"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg></span><span class="sb-lbl">Inicio</span></a>
+<a href="/residencial/inicio.html" class="sb-item"><span class="sb-ic" style="background:#dbeafe;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#2563eb"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg></span><span class="sb-lbl">Inicio</span></a>
 <a href="/residencial/formulario-registro.html" class="sb-item"><span class="sb-ic" style="background:#d1fae5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#059669"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-4 3-6 6-6s6 2 6 6"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg></span><span class="sb-lbl">Formulario</span></a>
 <a href="/residencial/costumer.html" class="sb-item"><span class="sb-ic" style="background:#ede9fe;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#7c3aed"><circle cx="8" cy="8" r="3"/><path d="M2 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14c2.6.4 4.5 2.6 4.5 6"/></svg></span><span class="sb-lbl">Lista de Clientes</span></a>
 <a href="/residencial/normativas-tipificacion.html" class="sb-item"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><path d="M3 11l9-8 9 8-9 9-9-9z"/><circle cx="15" cy="8" r="1.3" fill="currentColor"/></svg></span><span class="sb-lbl">Tipificación</span></a>
@@ -146,7 +92,7 @@
 <a href="/residencial/empleado-mes.html" class="sb-item"><span class="sb-ic" style="background:#fef9c3;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#ca8a04"><path d="M12 2l3 6.5 7 .8-5.2 4.8 1.4 7-6.2-3.6L5.8 21.1l1.4-7L2 9.3l7-.8z"/></svg></span><span class="sb-lbl">Empleado del Mes</span></a>
 <a href="/residencial/tabla-puntaje.html" class="sb-item"><span class="sb-ic" style="background:#ffedd5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#ea580c"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4.5" cy="6" r="1.3" fill="currentColor"/><circle cx="4.5" cy="12" r="1.3" fill="currentColor"/><circle cx="4.5" cy="18" r="1.3" fill="currentColor"/></svg></span><span class="sb-lbl">Tabla de Puntaje</span></a>
 <a href="/crear-cuenta.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#e0e7ff;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#4f46e5"><path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span><span class="sb-lbl">Permisos</span></a>
-<a href="/residencial/tiempo-laboral.html" class="sb-item" data-admin-only><span class="sb-ic" style="background:#e0f2fe;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0284c7"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></span><span class="sb-lbl">Tiempo laboral</span></a>
+<a href="/residencial/tiempo-laboral.html" class="sb-item active" data-admin-only><span class="sb-ic" style="background:#e0f2fe;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0284c7"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></span><span class="sb-lbl">Tiempo laboral</span></a>
 <a href="/chat.html" class="sb-item"><span class="sb-ic" style="background:#ccfbf1;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#0d9488"><path d="M4 5h16v11H9l-5 4V5z"/></svg></span><span class="sb-lbl">Chat</span></a>
 <div class="sb-mov-head" data-admin-only>SERVICIOS MÓVILES</div>
 <a href="/lineas/inicio.html" class="sb-item mov" data-admin-only><span class="sb-ic" style="background:#d1fae5;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:#059669"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg></span><span class="sb-lbl">Inicio</span></a>
@@ -163,105 +109,124 @@
     </button>
   </div>
 </nav>
-    <main class="container">
-      <div class="card">
-        <h1><i class="fas fa-key"></i> Restablecer contraseña</h1>
-        <div class="subhead">
-          <p class="help">Solo administradores. Ingresa el usuario (username) y la nueva contraseña.</p>
-          <span class="badge">Solo Admin</span>
-        </div>
-        <form id="resetForm">
-          <div class="form-group input-icon">
-            <label for="username">Usuario (username)</label>
-            <i class="fas fa-user leading" aria-hidden="true"></i>
-            <input type="text" id="username" class="form-control" placeholder="Ej. jdoe" required />
-          </div>
-          <div class="form-grid">
-            <div class="form-group toggle">
-              <label for="newPassword">Nueva contraseña</label>
-              <div class="field">
-                <input type="password" id="newPassword" class="form-control" minlength="8" placeholder="Mínimo 8 caracteres" required />
-                <span class="eye" data-eye="newPassword"><i class="fas fa-eye"></i></span>
-              </div>
-            </div>
-            <div class="form-group toggle">
-              <label for="confirmPassword">Confirmar contraseña</label>
-              <div class="field">
-                <input type="password" id="confirmPassword" class="form-control" minlength="8" required />
-                <span class="eye" data-eye="confirmPassword"><i class="fas fa-eye"></i></span>
-              </div>
-            </div>
-          </div>
-          <div class="actions">
-            <button type="submit" class="btn btn-primary"><i class="fas fa-rotate"></i> Restablecer</button>
-          </div>
-          <div id="message" class="msg"></div>
-        </form>
-      </div>
-    </main>
-  </div>
-  <script>
-    function setMsg(type, text) {
-      const el = document.getElementById('message');
-      el.className = `msg ${type}`;
-      el.textContent = text;
-      el.style.display = 'block';
+  <main class="main-content">
+
+    <div class="tl-header">
+      <div class="tl-eyebrow">Administración</div>
+      <div class="tl-title">Tiempo Laboral</div>
+      <div class="tl-sub">Antigüedad de cada agente por equipo, calculada automáticamente desde su fecha de ingreso (se carga desde Permisos → Usuarios → Editar Perfil).</div>
+    </div>
+
+    <div id="tl-content"><div class="tl-loading">Cargando…</div></div>
+
+  </main>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var currentUser=null;
+
+  function esc(s){ var d=document.createElement('div'); d.textContent=String(s==null?'':s); return d.innerHTML; }
+
+  function normTok(label){
+    var n=String(label||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+    return n.replace(/^\s*team\s+/,'').replace(/[^a-z0-9]/g,'');
+  }
+
+  function isAdminOrBO(role){
+    var r=String(role||'').toLowerCase();
+    return r==='admin'||r==='administrador'||r.includes('backoffice');
+  }
+
+  function tenureText(fecha){
+    if(!fecha) return 'Sin fecha';
+    var d=new Date(String(fecha).slice(0,10)+'T00:00:00');
+    if(isNaN(d.getTime())) return 'Sin fecha';
+    var days=Math.floor((Date.now()-d.getTime())/86400000);
+    if(days<0) return 'Sin fecha';
+    if(days<30) return days<=0?'Hoy':(days+(days===1?' día':' días'));
+    var months=Math.floor(days/30.44);
+    if(months<12) return months+(months===1?' mes':' meses');
+    var years=Math.floor(months/12);
+    var remMonths=months%12;
+    var yTxt=years+(years===1?' año':' años');
+    return remMonths?(yTxt+' '+remMonths+(remMonths===1?' mes':' meses')):yTxt;
+  }
+
+  async function loadCurrentUser(){
+    try{
+      var r=await fetch('/api/auth/verify-server',{credentials:'include'});
+      if(!r.ok) return;
+      var j=await r.json();
+      if(j&&j.authenticated) currentUser=j.user||j;
+    }catch(e){ console.warn('[tl] user',e); }
+  }
+
+  async function loadTeams(){
+    var r;
+    try{ r=await fetch('/api/users/admin-list',{credentials:'include'}); }
+    catch(e){ return {error:'network'}; }
+    if(r.status===403) return {error:'forbidden'};
+    var j=await r.json();
+    var users=j.users||j.agents||[];
+    var byTeam={};
+    users.forEach(function(u){
+      var active=(u.active===undefined||u.active===null||u.active===1||u.active===true||u.active==='1');
+      if(!active) return;
+      var role=String(u.role||'').toLowerCase();
+      if(/supervisor|admin|backoffice/.test(role)) return;
+      if(!/agente|vendedor|agent|seller/.test(role)) return;
+      var label=String(u.team||'').trim();
+      if(!label) return;
+      var tok=normTok(label);
+      if(!tok||/backoffice|icon|usa|administra|monitoreo/.test(tok)) return;
+      if(!byTeam[tok]) byTeam[tok]={token:tok,label:label,agents:[],lineas:/linea/.test(tok)};
+      byTeam[tok].agents.push({name:(u.name||u.username||'').trim(),fecha:u.fecha_ingreso||''});
+    });
+    var teams=Object.values(byTeam).sort(function(a,b){
+      if(a.lineas!==b.lineas) return a.lineas?1:-1;
+      return a.label.localeCompare(b.label);
+    });
+    teams.forEach(function(t){ t.agents.sort(function(a,b){ return a.name.localeCompare(b.name); }); });
+    return {teams:teams};
+  }
+
+  function teamCard(t){
+    var rows=t.agents.map(function(a){
+      return '<tr><td>'+esc(a.name)+'</td><td class="tl-time">'+esc(tenureText(a.fecha))+'</td></tr>';
+    }).join('');
+    return '<div class="tl-team">'
+      +'<div class="tl-team-head">'
+        +'<div class="tl-team-ic"><i class="fas fa-user-group"></i></div>'
+        +'<div class="tl-team-name">'+esc(t.label)+'</div>'
+      +'</div>'
+      +'<table class="tl-tbl"><thead><tr><th>Agente</th><th style="text-align:center">Tiempo</th></tr></thead>'
+      +'<tbody>'+(rows||'<tr><td colspan="2" style="text-align:center;color:#9aa0ac;padding:16px">Sin agentes</td></tr>')+'</tbody>'
+      +'<tfoot><tr><td>Suma Total Agentes</td><td>'+t.agents.length+'</td></tr></tfoot>'
+      +'</table>'
+    +'</div>';
+  }
+
+  (async function init(){
+    await loadCurrentUser();
+    if(!currentUser||!isAdminOrBO(currentUser.role)){
+      document.querySelector('.main-content').innerHTML='<div class="tl-empty"><div class="tl-empty-ic">🔒</div><div class="tl-empty-title">Acceso restringido</div><div class="tl-empty-sub">Solo administradores y Back Office pueden ver esta página</div></div>';
+      return;
     }
-
-    document.addEventListener('click', (e)=>{
-      const btn = e.target.closest('.eye');
-      if (!btn) return;
-      const id = btn.getAttribute('data-eye');
-      const input = document.getElementById(id);
-      if (!input) return;
-      if (input.type === 'password') { input.type = 'text'; btn.firstElementChild.className = 'fas fa-eye-slash'; }
-      else { input.type = 'password'; btn.firstElementChild.className = 'fas fa-eye'; }
-    });
-
-    document.getElementById('resetForm').addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const username = document.getElementById('username').value.trim();
-      const newPassword = document.getElementById('newPassword').value;
-      const confirmPassword = document.getElementById('confirmPassword').value;
-
-      // Validaciones básicas
-      if (!username) { setMsg('error', 'Ingresa el username.'); return; }
-      if (newPassword.length < 8) { setMsg('error', 'La nueva contraseña debe tener al menos 8 caracteres.'); return; }
-      if (newPassword !== confirmPassword) { setMsg('error', 'Las contraseñas no coinciden.'); return; }
-
-      // Estado de carga en el botón
-      const btn = e.target.querySelector('button[type="submit"]');
-      const prevText = btn.innerHTML;
-      btn.disabled = true;
-      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
-      try {
-        const resp = await fetch('/api/auth/reset-password', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          credentials: 'include',
-          body: JSON.stringify({ username, newPassword })
-        });
-        const data = await resp.json().catch(()=>({ success:false, message:'Respuesta inválida del servidor'}));
-        if (!resp.ok || data.success === false) {
-          const msg = data.message || `Error ${resp.status}: No se pudo restablecer la contraseña`;
-          setMsg('error', msg);
-          return;
-        }
-        // Éxito
-        setMsg('success', data.message || 'Contraseña restablecida correctamente');
-        // Limpiar campos
-        document.getElementById('newPassword').value = '';
-        document.getElementById('confirmPassword').value = '';
-      } catch (err) {
-        setMsg('error', 'Error de red o del servidor. Inténtalo nuevamente.');
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = prevText;
-      }
-    });
-  </script>
+    var box=document.getElementById('tl-content');
+    var res=await loadTeams();
+    if(res.error){
+      box.innerHTML='<div class="tl-loading">'+(res.error==='forbidden'?'Solo administradores y Back Office pueden ver esta página':'Error de conexión')+'</div>';
+      return;
+    }
+    if(!res.teams.length){
+      box.innerHTML='<div class="tl-loading">Sin equipos para mostrar</div>';
+      return;
+    }
+    box.innerHTML='<div class="tl-teams">'+res.teams.map(teamCard).join('')+'</div>';
+  })();
+})();
+</script>
 </body>
 </html>
-

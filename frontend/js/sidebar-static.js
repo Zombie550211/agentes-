@@ -100,9 +100,13 @@
   // Asistente de IA flotante: se inyecta acá para no tener que tocar el HTML de cada
   // página que usa este sidebar (mismo criterio que el toggle móvil de arriba).
   function loadAiAssistant() {
-    if (document.querySelector('script[src="/js/ai-assistant.js"]')) return;
+    if (document.querySelector('script[src^="/js/ai-assistant.js"]')) return;
     var script = document.createElement('script');
-    script.src = '/js/ai-assistant.js';
+    // Versión en la URL para forzar al navegador a bajar la versión nueva cuando este
+    // archivo cambia (sin esto, el cache del navegador puede seguir sirviendo una
+    // versión vieja del widget indefinidamente). Subir el número cada vez que se edite
+    // frontend/js/ai-assistant.js.
+    script.src = '/js/ai-assistant.js?v=20260801a';
     document.body.appendChild(script);
   }
   loadAiAssistant();

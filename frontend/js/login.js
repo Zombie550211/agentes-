@@ -83,13 +83,20 @@
   if (urlMsg) showAlert('alertLogin', 'alertLoginIcon', 'alertLoginText', decodeURIComponent(urlMsg), 'info');
 
   /* ── Toggle contraseña login ── */
-  document.getElementById('pwToggle').addEventListener('click', function () {
-    var inp = document.getElementById('password');
-    var ico = document.getElementById('pwIcon');
-    var show = inp.type === 'password';
-    inp.type      = show ? 'text' : 'password';
-    ico.className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
-  });
+  // OJO: el formulario de login (usuario/contraseña/checkbox/botón) se sacó de la
+  // página a pedido — estos elementos pueden no existir. Todo lo de acá abajo que
+  // depende de ellos queda con guardas `if (el)` para que el resto del script (el
+  // flujo de "olvidé mi contraseña", que sigue existiendo aparte) no se rompa.
+  var pwToggleBtn = document.getElementById('pwToggle');
+  if (pwToggleBtn) {
+    pwToggleBtn.addEventListener('click', function () {
+      var inp = document.getElementById('password');
+      var ico = document.getElementById('pwIcon');
+      var show = inp.type === 'password';
+      inp.type      = show ? 'text' : 'password';
+      ico.className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
+    });
+  }
 
   /* ── Checkbox "Recordar sesión" ── */
   var cbRemember = document.getElementById('rememberMe');
@@ -114,32 +121,38 @@
   }
 
   function syncCheck() {
+    if (!cbRemember || !checkVis) return;
     var on = cbRemember.checked;
     checkVis.style.background  = on ? 'var(--accent)' : '';
     checkVis.style.borderColor = on ? 'var(--accent)' : '';
     checkVis.style.color       = on ? '#fff' : 'transparent';
   }
-  cbRemember.addEventListener('change', syncCheck);
-  checkVis.addEventListener('click', function () {
-    cbRemember.checked = !cbRemember.checked;
-    syncCheck();
-  });
+  if (cbRemember) cbRemember.addEventListener('change', syncCheck);
+  if (checkVis) {
+    checkVis.addEventListener('click', function () {
+      cbRemember.checked = !cbRemember.checked;
+      syncCheck();
+    });
+  }
 
   // Pre-llenar usuario si estaba guardado en cookie
   var _savedUsername = getCookie('crm_remember_username');
   if (_savedUsername) {
     var _uInput = document.getElementById('username');
     if (_uInput) _uInput.value = _savedUsername;
-    cbRemember.checked = true;
+    if (cbRemember) cbRemember.checked = true;
   }
   syncCheck();
 
   /* ── Panel switcher login ↔ forgot ── */
-  document.getElementById('btnShowForgot').addEventListener('click', function () {
-    showMainPanel('mainForgot');
-    clearAlert('alertForgot');
-    resetForgot();
-  });
+  var btnShowForgot = document.getElementById('btnShowForgot');
+  if (btnShowForgot) {
+    btnShowForgot.addEventListener('click', function () {
+      showMainPanel('mainForgot');
+      clearAlert('alertForgot');
+      resetForgot();
+    });
+  }
   document.getElementById('btnBack').addEventListener('click', function () {
     showMainPanel('mainLogin');
     clearAlert('alertLogin');
@@ -448,7 +461,8 @@
   var lockTimerID      = null;
   var MAX_LOGIN_ATTEMPTS = 5;
 
-  document.getElementById('loginForm').addEventListener('submit', async function (e) {
+  var loginFormEl = document.getElementById('loginForm');
+  if (loginFormEl) loginFormEl.addEventListener('submit', async function (e) {
     e.preventDefault();
     clearAlert('alertLogin');
 

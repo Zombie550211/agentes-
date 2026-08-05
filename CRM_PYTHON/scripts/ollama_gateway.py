@@ -18,6 +18,7 @@ Variables de entorno (en CRM_PYTHON/.env o exportadas manualmente):
     OLLAMA_URL        (opcional, default http://localhost:11434)
     GATEWAY_PORT      (opcional, default 11500)
 """
+import asyncio
 import os
 import sys
 from pathlib import Path
@@ -32,6 +33,7 @@ from fastapi.responses import JSONResponse
 GATEWAY_TOKEN = os.getenv("AI_GATEWAY_TOKEN", "")
 OLLAMA_URL    = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
 GATEWAY_PORT  = int(os.getenv("GATEWAY_PORT", "11500"))
+AI_MODEL      = os.getenv("AI_MODEL", "qwen2.5:7b-instruct")
 
 if not GATEWAY_TOKEN:
     print("ERROR: falta la variable de entorno AI_GATEWAY_TOKEN. Generá una (ej. "
@@ -55,13 +57,39 @@ async def health():
     return {"ok": True, "ollama_url": OLLAMA_URL}
 
 
+async def _force_stop_ollama() -> None:
+    """Mata la generación en curso llamando al CLI `ollama stop` (fire-and-forget).
+
+    Cerrar nuestra conexión httpx a Ollama (al vencer el timeout de abajo) NO alcanza:
+    probado en la práctica que Ollama sigue generando igual, huérfano, consumiendo CPU
+    — con qwen2.5 + tool-calling se vio un caso real de >9 minutos así. `ollama stop`
+    sí corta la generación de verdad (confirmado a mano varias veces). Como acá corre
+    con -np 1 (una sola cosa a la vez), si no se mata esto explícitamente cada pedido
+    lento deja al siguiente pedido real esperando en la cola detrás de un fantasma."""
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "ollama", "stop", AI_MODEL,
+            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
+        )
+        await proc.wait()
+    except Exception:
+        pass  # best-effort — no puede tumbar el gateway por esto
+
+
 @app.post("/api/chat")
 async def proxy_chat(request: Request):
     _check_auth(request)
     body = await request.json()
+    # Timeout corto A PROPÓSITO (no 180s): con qwen2.5 + tool-calling, Ollama ignora el
+    # tope de tokens (options.num_predict) y puede seguir generando indefinidamente. Acá
+    # no alcanza con solo cortar la conexión (ver _force_stop_ollama) — por eso además
+    # se manda `ollama stop` explícito cuando vence este timeout.
     try:
-        async with httpx.AsyncClient(timeout=180) as client:
+        async with httpx.AsyncClient(timeout=75) as client:
             resp = await client.post(f"{OLLAMA_URL}/api/chat", json=body)
+    except httpx.TimeoutException:
+        asyncio.create_task(_force_stop_ollama())
+        return JSONResponse({"error": "Ollama tardó demasiado y se abortó el pedido."}, status_code=504)
     except httpx.RequestError as e:
         return JSONResponse({"error": f"No se pudo contactar a Ollama local: {e}"}, status_code=502)
     return JSONResponse(resp.json(), status_code=resp.status_code)
