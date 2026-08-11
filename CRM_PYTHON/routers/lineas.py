@@ -1133,6 +1133,65 @@ async def lineas_registrar_llamada(
 # ── GET /api/lineas/team-stats ─────────────────────────────────────────────
 # Devuelve ventas del mes y del día por equipo de líneas, usando los supervisores
 # registrados como "Supervisor Team Lineas" en la tabla users.
+# ── GET /api/lineas-stats — datos GLOBALES para métricas (sanitizados) ──
+# Las pantallas de métricas de Líneas (inicio, ranking, estadísticas) son
+# globales por diseño: todo agente ve el ranking/las ventas de TODOS. Lo que
+# sí queda restringido por alcance es la lista de clientes con sus datos
+# (GET /api/lineas-team → costumer). Por eso este endpoint devuelve todos los
+# registros pero SOLO columnas no sensibles: sin teléfonos, número de cuenta,
+# PIN, dirección ni imágenes (de lines_data se conserva solo el servicio).
+
+_STATS_COLS = ("id, team, supervisor, agente, agente_nombre, agente_asignado, "
+               "collection_name, cantidad_lineas, dia_venta, dia_instalacion, "
+               "status, mercado, nombre_cliente, servicios, lineas_status, "
+               "lines_data, created_at")
+
+
+@router.get("/api/lineas-stats")
+async def lineas_stats_global(
+    month:   Optional[str] = None,   # YYYY-MM → solo ese mes
+    allData: Optional[str] = None,   # true → sin filtro de fecha (colchón)
+    user: dict = Depends(current_user),
+):
+    where = ""
+    params: dict = {}
+    if allData not in ("true", "1", "yes"):
+        if month and re.match(r"^\d{4}-\d{2}$", month):
+            where = "WHERE LEFT(COALESCE(dia_venta, created_at), 7) = :p"
+            params["p"] = month
+        else:
+            # Sin mes → año actual completo (la gráfica anual de inicio lo usa)
+            where = "WHERE LEFT(COALESCE(dia_venta, created_at), 4) = :p"
+            params["p"] = str(_utcnow().year)
+
+    cache_key = f"__stats__{params.get('p', '__all__')}"
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return {"success": True, "data": cached, "count": len(cached)}
+
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text(f"""
+            SELECT {_STATS_COLS}
+            FROM lineas_clientes
+            {where}
+            ORDER BY created_at DESC
+            LIMIT 20000
+        """), params)
+        records = []
+        for row in r.mappings().all():
+            d = _fmt_lc(row)
+            ld = d.get("lines_data")
+            if isinstance(ld, list):
+                d["lines_data"] = [
+                    {"servicio": (x.get("servicio") if isinstance(x, dict) else None)}
+                    for x in ld
+                ]
+            records.append(d)
+
+    _cache_set(cache_key, records)
+    return {"success": True, "data": records, "count": len(records)}
+
+
 @router.get("/api/lineas-equipos/stats")
 async def lineas_team_stats(
     month: Optional[str] = None,   # YYYY-MM, default: mes actual

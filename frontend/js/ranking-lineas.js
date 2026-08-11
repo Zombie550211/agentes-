@@ -29,7 +29,7 @@ async function loadRankingData() {
     // Teams válidos de Líneas desde permisos
     const lineasTokens = await getLineasTokens();
     // Obtener datos de líneas del endpoint
-    const endpoint = `/api/leads-lineas?month=${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+    const endpoint = `/api/lineas-stats?month=${currentYear}-${String(currentMonth).padStart(2, '0')}`;
     const response = await fetch(endpoint);
 
     if (!response.ok) {
