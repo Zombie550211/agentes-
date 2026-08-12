@@ -82,6 +82,24 @@ SCORING_SEED = {
     'METRONET': {'categoria': 'METRONET', 'base': 1.0},
     'VIVINT': {'categoria': 'VIVINT', 'base': 1.0},
     'MOBILITY': {'categoria': 'MOBILITY', 'base': 0.5},
+
+    # ── BUSINESS (solo Residencial) ──────────────────────────────
+    # Nombres con prefijo de marca para no chocar con los residenciales
+    # (la columna `servicio` es UNIQUE) y para que el reporte por producto
+    # distinga business de residencial.
+    'AT&T CONSUMER INTERNET FIBRA': {'categoria': 'LINEA BUSINESS', 'base': 1.5},
+    'AT&T CONSUMER INTERNET AIR':   {'categoria': 'LINEA BUSINESS', 'base': 1.25},
+    'SPECTRUM BUSINESS':            {'categoria': 'LINEA BUSINESS', 'base': 1.0},
+    'VIASAT BUSINESS':              {'categoria': 'LINEA BUSINESS', 'base': 1.0, 'sistema': 'CHUZO'},
+    'OPTIMUM BUSINESS':             {'categoria': 'LINEA BUSINESS', 'base': 1.0},
+    'DIRECTV BUSINESS':                      {'categoria': 'DIRECTV BUSINESS', 'base': 1.5},
+    'LINEAS AT&T CON DISPOSITIVO/BUSINESS':  {'categoria': 'DIRECTV BUSINESS', 'base': 1.0},
+    'STARLINK BUSINESS 500 GB': {'categoria': 'STARLINK BUSINESS', 'base': 0.5},
+    'STARLINK BUSINESS 1 TB':   {'categoria': 'STARLINK BUSINESS', 'base': 0.8},
+    'STARLINK BUSINESS 2 TB':   {'categoria': 'STARLINK BUSINESS', 'base': 1.25},
+    'STARLINK BUSINESS 4 TB':   {'categoria': 'STARLINK BUSINESS', 'base': 2.0},
+    'STARLINK BUSINESS 10 TB':  {'categoria': 'STARLINK BUSINESS', 'base': 3.5},
+    'STARLINK BUSINESS 20 TB':  {'categoria': 'STARLINK BUSINESS', 'base': 3.5},
 }
 
 # ── tipo_servicio / sistema por categoría ────────────────────────
@@ -92,12 +110,21 @@ _TIPO_BY_CAT = {
     'OPTIMUM': 'OPTIMUM', 'WINDSTREAM': 'WINDSTREAM', 'WOW': 'WOW', 'ZIPLY': 'ZIPLY FIBER',
     'EARTHLINK': 'EARTHLINK', 'STARLINK': 'STARLINK', 'VIASAT': 'VIASAT',
     'HUGHESNET': 'HUGHESNET', 'MOBILITY': 'WIRELESS', 'VIVINT': 'VIVINT', 'METRONET': 'METRONET',
+    # Business: el tipo de servicio es la misma categoría, para que el select
+    # "Tipo de servicio" muestre la sección business igual que la tabla.
+    'LINEA BUSINESS': 'LINEA BUSINESS', 'DIRECTV BUSINESS': 'DIRECTV BUSINESS',
+    'STARLINK BUSINESS': 'STARLINK BUSINESS',
 }
-_SISTEMA_CHUZO = {'HUGHESNET', 'VIASAT', 'STARLINK', 'VIVINT', 'MOBILITY'}
+_SISTEMA_CHUZO = {'HUGHESNET', 'VIASAT', 'STARLINK', 'VIVINT', 'MOBILITY', 'STARLINK BUSINESS'}
 
 
 def service_meta(servicio: str, categoria: str) -> tuple:
-    """(tipo_servicio, sistema) para un servicio, según su categoría."""
+    """(tipo_servicio, sistema) para un servicio, según su categoría.
+
+    El seed puede fijar 'sistema' por servicio (ver SCORING_SEED) cuando no
+    coincide con el de su categoría — p. ej. VIASAT BUSINESS, que va en
+    LINEA BUSINESS pero se provisiona por CHUZO.
+    """
     if categoria == 'ATT':
         tipo = 'AT&T AIR' if 'AIR' in (servicio or '').upper() else 'INTERNET'
     else:
@@ -180,6 +207,7 @@ async def ensure_productos(session) -> None:
         base = cfg.get("base")
         br = cfg.get("byRisk") or {}
         tipo, sistema = service_meta(servicio, cfg.get("categoria") or "")
+        sistema = cfg.get("sistema") or sistema
         await session.execute(text("""
             INSERT INTO productos (servicio, categoria, tipo, sistema, score_base, score_low, score_medium, score_high, score_na)
             VALUES (:s, :c, :tp, :sis, :b, :l, :m, :h, :n)

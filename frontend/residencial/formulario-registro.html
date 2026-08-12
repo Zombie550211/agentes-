@@ -679,6 +679,20 @@
   const gaugeLabel = document.querySelector('.gauge-label');
   const scoreNum = document.getElementById('score-num');
 
+  // Puntaje más alto del catálogo (para escalar la rueda). 1.5 de respaldo
+  // si productos aún no cargó.
+  function maxScore() {
+    var items = (window.Productos && window.Productos.list()) || [];
+    var max = 0;
+    items.forEach(function(p) {
+      ['score_base', 'score_low', 'score_medium', 'score_high', 'score_na'].forEach(function(k) {
+        var v = parseFloat(p[k]);
+        if (!isNaN(v) && v > max) max = v;
+      });
+    });
+    return max || 1.5;
+  }
+
   // Calcular score
   async function calcScore() {
     const svc = selServicio.value;
@@ -690,7 +704,9 @@
     }
     const score = window.Productos ? await window.Productos.scoreFor(svc, riesgo, tipoServicio) : 0;
     gaugeLabel.textContent = score; scoreNum.textContent = score;
-    const normalized = Math.round((score / 1.5) * 100);
+    // El tope sale del catálogo, no de un 1.5 fijo: los servicios business
+    // (Starlink 4/10/20 TB) llegan a 3.5 y dejaban la rueda clavada al 100%.
+    const normalized = Math.round((score / maxScore()) * 100);
     gaugeRing.style.background = `conic-gradient(#0d9488 ${Math.min(normalized, 100)}%, rgba(13,148,136,0.12) 0%)`;
   }
 
