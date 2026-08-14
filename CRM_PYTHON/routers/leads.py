@@ -510,9 +510,10 @@ def _parse_date_str(s: str) -> Optional[str]:
 
 
 async def _count_llamadas_vencidas(user: dict) -> int:
-    """Cuántos leads del usuario tienen llamada vencida (para bloqueo server-side).
+    """Cuántos leads del usuario tienen llamada vencida.
 
-    El bloqueo aplica SOLO a agentes: admin, backoffice y supervisores exentos
+    Solo informativo: el bloqueo server-side está DESACTIVADO (ver create_lead).
+    Cuenta solo para agentes: admin, backoffice y supervisores quedan exentos
     (misma regla que /api/leads/llamadas-pendientes)."""
     if _is_admin_or_bo(user) or _is_supervisor(user):
         return 0
@@ -528,8 +529,11 @@ async def _count_llamadas_vencidas(user: dict) -> int:
 
 @router.post("/api/leads")
 async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
-    if await _count_llamadas_vencidas(user) > 0:
-        raise HTTPException(423, "Tienes clientes completados por llamar. Registra las llamadas pendientes para continuar.")
+    # Bloqueo por llamadas pendientes DESACTIVADO: al agente se le sigue
+    # notificando (frontend/js/llamadas-bloqueo.js) pero puede crear leads.
+    # Para reactivarlo, restaurar:
+    #   if await _count_llamadas_vencidas(user) > 0:
+    #       raise HTTPException(423, "Tienes clientes completados por llamar. ...")
     now = _utcnow()
     # Auto-asignar supervisor/team desde el perfil del agente si no viene en el body
     if not body.supervisor:
@@ -1092,10 +1096,11 @@ async def llamadas_pendientes(
     user: dict = Depends(current_user),
 ):
     """Leads del usuario actual con llamada de verificación/seguimiento vencida.
-    Si hay alguno, el frontend bloquea el CRM hasta que registre todas las llamadas.
+    Si hay alguno, el frontend AVISA (notificación + banner) sin bloquear el CRM.
     Con full=1 devuelve los leads completos (para la lista de costumer).
 
-    El bloqueo aplica SOLO a agentes: admin, backoffice y supervisores quedan exentos."""
+    `blocked` se conserva por compatibilidad: hoy significa "tiene pendientes".
+    Aplica SOLO a agentes: admin, backoffice y supervisores quedan exentos."""
     if _is_admin_or_bo(user) or _is_supervisor(user):
         return {"success": True, "blocked": False, "total": 0, "leads": []}
 
