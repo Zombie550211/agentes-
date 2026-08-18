@@ -41,7 +41,7 @@ async def _get_lead_id_for_mongo(mongo_id: str) -> int | None:
 
 # ── GET /api/comments?leadId= ────────────────────────────────────
 @router.get("/api/comments")
-async def get_comments(leadId: str = Query(...)):
+async def get_comments(leadId: str = Query(...), user: dict = Depends(current_user)):
     lead_id = await _get_lead_id_for_mongo(leadId)
     if not lead_id:
         return {"success": True, "comments": []}

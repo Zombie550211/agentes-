@@ -69,6 +69,28 @@ async def _mercado_restrict(user: dict) -> str:
     return await resolve_market_restriction(user)
 
 
+# Columnas que salen de la BD pero NO se envían al navegador. Se comprobó una por
+# una contra los 74 archivos .js/.html de frontend/ (en snake_case y camelCase) y
+# ninguna se usa. Son sobre todo metadatos de auditoría y restos de la migración
+# desde Mongo.
+#
+# Nota sobre created_by: costumer-main.js lo lista como fallback del agente, pero
+# busca la clave "createdBy"; lo que se enviaba es "created_by", así que ese
+# fallback nunca llegaba a activarse y quitarlo no cambia el comportamiento.
+#
+# updated_at se descarta DESPUÉS de derivar updatedAt (ver abajo), que sí se usa.
+#
+# Si alguna vez hace falta uno de estos campos en el frontend, quítalo de aquí; no
+# hay ninguna otra capa filtrando. Ojo: el ahorro es modesto (~9 % sobre la
+# respuesta ya comprimida) — el peso real se resolvió activando gzip en main.py.
+_CAMPOS_INTERNOS = frozenset({
+    "created_by", "updated_by", "updated_at",
+    "excluir_de_reporte", "source_collection", "mongo_id",
+    "fecha_completed", "fecha_ultima_llamada",
+    "llamada_cliente", "llamadas_realizadas",
+})
+
+
 def _serialize_lead(row) -> dict:
     d = dict(row)
     d["_id"] = str(d.get("id", ""))
@@ -86,7 +108,8 @@ def _serialize_lead(row) -> dict:
     if d.get("fecha_contratacion"): d["fecha_contratacion"] = str(d["fecha_contratacion"])
     if d.get("created_at"):       d["createdAt"] = str(d["created_at"])
     if d.get("updated_at"):       d["updatedAt"] = str(d["updated_at"])
-    return d
+    # Se poda al final, para que updatedAt ya esté derivado de updated_at.
+    return {k: v for k, v in d.items() if k not in _CAMPOS_INTERNOS}
 
 
 def _serialize_lead_stats(row) -> dict:
@@ -198,18 +221,18 @@ async def _leads_bootstrap_core(
             now = _utcnow()
             if month and re.match(r"^\d{4}-\d{2}$", month):
                 yr, mo = map(int, month.split("-"))
-                has_month_filter = True
             else:
                 yr, mo = now.year, now.month
-                has_month_filter = False
 
-            # Si NO hay mes específico, retorna últimos 3 meses para permitir búsquedas
-            if not has_month_filter:
-                _mo_back = mo - 3 if mo >= 3 else mo + 9
-                _yr_back = yr if mo >= 3 else yr - 1
-                params["dts"] = f"{_yr_back}-{_mo_back:02d}-01"
-            else:
-                params["dts"] = f"{yr}-{mo:02d}-01"
+            # Sin mes específico (primera carga) se devuelve SOLO el mes en curso.
+            #
+            # Antes se devolvían los últimos 4 meses "para permitir búsquedas" en el
+            # cliente, pero eso hacía que la carga inicial trajera ~3.100 registros para
+            # mostrar los ~500 del mes: cinco veces más datos de los que la tabla enseña.
+            # Los meses anteriores se piden al cambiar el filtro de mes, que ya provoca
+            # una nueva petición (ver el listener de monthFilter en costumer-main.js), y
+            # la opción "Todos" sigue trayéndolo todo vía allData=true.
+            params["dts"] = f"{yr}-{mo:02d}-01"
 
             dts = params["dts"]
             _, last_day = calendar.monthrange(yr, mo)
@@ -348,14 +371,6 @@ async def _leads_bootstrap_core(
     return {"success": True, "v": "v2", "leads": leads, "total_mes": total_mes,
             "teams": teams, "agents": agents,
             "months": months, "renames": renames, "lineas_stats": lineas_stats}
-
-
-@router.get("/api/leads/collection-counts-public")
-async def leads_collection_counts_public():
-    async with AsyncSessionLocal() as s:
-        r = await s.execute(text("SELECT COUNT(*) as cnt FROM leads"))
-        total = r.scalar()
-    return {"success": True, "data": {"leads": total}}
 
 
 @router.get("/api/leads/collection-counts")

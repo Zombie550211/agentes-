@@ -11,6 +11,7 @@ from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from contextlib import asynccontextmanager
@@ -21,6 +22,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from limiter import limiter
+from deps import decode_token
 from database_mysql import init_mysql, close_mysql, engine
 from sqlalchemy import text as _sa_text
 from routers import auth as auth_router
@@ -403,12 +405,76 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Compresión gzip ──────────────────────────────────────────────
+# Nada se comprimía: /api/leads/bootstrap son ~4,2 MB de JSON que el navegador
+# descarga en cada carga de Costumer, y comprimen a ~0,57 MB (−86 %). Afecta
+# igual al resto de respuestas JSON y a los .js/.css grandes.
+#
+# Las rutas SSE quedan FUERA a propósito: comprimir un text/event-stream hace que
+# los eventos se queden en el búfer del compresor, y el tiempo real (semáforo,
+# notificaciones, chat) deja de llegar al instante. Es un fallo difícil de
+# diagnosticar después, así que se excluye por ruta en vez de confiar en que el
+# compresor haga flush por cada chunk.
+_SSE_PATHS = {"/api/stream", "/api/chat/stream"}
+
+
+class _GzipSalvoSSE:
+    """GZipMiddleware para todo excepto las rutas SSE."""
+
+    def __init__(self, app, **kwargs):
+        self._directo = app
+        self._comprimido = GZipMiddleware(app, **kwargs)
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") == "http" and scope.get("path", "") in _SSE_PATHS:
+            await self._directo(scope, receive, send)
+        else:
+            await self._comprimido(scope, receive, send)
+
+
+# minimum_size=1000: por debajo de ~1 KB comprimir cuesta más de lo que ahorra.
+app.add_middleware(_GzipSalvoSSE, minimum_size=1000, compresslevel=6)
+
 # ── Cabeceras de seguridad ───────────────────────────────────────
 # Defensa en profundidad para todas las respuestas (incluidas las páginas HTML).
-# La CSP es deliberadamente acotada: NO fija script-src/default-src porque el
+# La CSP ACTIVA es deliberadamente acotada: NO fija script-src/default-src porque el
 # frontend usa scripts inline y CDNs (Tailwind, jsdelivr, cdnjs, unpkg). Aun así
 # bloquea clickjacking (frame-ancestors), plugins (object-src) e inyección de
 # <base> (base-uri), sin romper la app.
+_CSP = "frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
+
+# CSP candidata, en modo SOLO-REPORTE: el navegador NO bloquea nada, únicamente
+# avisa por consola de lo que la política rechazaría. Sirve para descubrir qué
+# orígenes usa la app de verdad antes de aplicarla en serio.
+#
+# Los hosts salen de un barrido del frontend; ojo con los falsos positivos al
+# repetir ese barrido: schemas.openxmlformats.org, w3.org y apache.org aparecen
+# muchísimo pero son namespaces XML dentro de SheetJS, no cargas de red.
+#
+# Qué gana la app al activarla (cuando la consola esté limpia):
+#   - script-src acotado: un XSS ya no puede cargar código desde un host arbitrario.
+#   - connect-src 'self': corta la exfiltración de datos a servidores externos.
+# Lo que NO resuelve: sigue haciendo falta 'unsafe-inline' mientras el frontend
+# tenga scripts inline, así que un XSS inline (como el del chat) no lo frena.
+# Eliminar esa necesidad exige mover los inline a archivos .js o usar nonces.
+#
+# Para pasarla a modo bloqueo: cambiar la cabecera de abajo por "Content-Security-Policy"
+# — pero sólo después de navegar TODAS las páginas sin violaciones en consola.
+_CSP_REPORT_ONLY = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' "
+        "https://cdn.tailwindcss.com https://cdnjs.cloudflare.com "
+        "https://cdn.jsdelivr.net https://unpkg.com https://code.jquery.com; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com "
+        "https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
+    "font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
+    "img-src 'self' data: blob: https://tiles.stadiamaps.com https://www.gstatic.com; "
+    "media-src 'self' blob: data:; "
+    "worker-src 'self' blob:; "
+    "connect-src 'self'; "
+    "frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
+)
+
 
 @app.middleware("http")
 async def _security_headers(request: Request, call_next):
@@ -416,9 +482,8 @@ async def _security_headers(request: Request, call_next):
     resp.headers["X-Content-Type-Options"] = "nosniff"
     resp.headers["X-Frame-Options"] = "DENY"
     resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    resp.headers["Content-Security-Policy"] = (
-        "frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
-    )
+    resp.headers["Content-Security-Policy"] = _CSP
+    resp.headers["Content-Security-Policy-Report-Only"] = _CSP_REPORT_ONLY
     if _IS_PROD:
         resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return resp
@@ -481,13 +546,46 @@ for _name, _rel in _static_dirs.items():
         app.mount(f"/{_name}", _cls(directory=str(_d)), name=_name)
 
 class _UploadsStaticFiles(StaticFiles):
-    """Sirve /uploads con nosniff; contenido activo (html/svg/js/xml) se fuerza
-    como descarga para que un archivo subido no pueda ejecutar scripts (XSS)."""
+    """Sirve /uploads SOLO a usuarios con sesión válida.
+
+    Antes era un montaje estático abierto: cualquiera sin autenticar podía leer
+    /uploads/files/... (grabaciones de llamadas, documentos, capturas de
+    verificación) si conocía o adivinaba el nombre. Proteger /api/files/{id} no
+    bastaba, porque _fix_api_file_urls() reescribe imagen_url justo hacia aquí y
+    cualquier respuesta de API que devuelva imagen_url filtra el nombre.
+
+    Se comprueba la sesión en get_response en vez de sustituir el montaje por un
+    endpoint propio para no perder lo que StaticFiles ya hace bien: peticiones
+    Range (streaming de audio/vídeo), ETag y 304. Las URLs no cambian, así que
+    las que ya están guardadas en la BD siguen siendo válidas — sin migración.
+
+    Además, contenido activo (html/svg/js/xml) se fuerza como descarga para que
+    un archivo subido no pueda ejecutar scripts (XSS almacenado).
+    """
     _ACTIVE_TYPES = ("html", "svg", "javascript", "xml")
 
+    @staticmethod
+    def _tiene_sesion(scope) -> bool:
+        # Mismo orden que deps._get_token: cookie primero, cabecera después.
+        request = Request(scope)
+        token = request.cookies.get("token")
+        if not token:
+            auth = request.headers.get("Authorization", "")
+            if auth.startswith("Bearer "):
+                token = auth[7:]
+        return bool(token) and decode_token(token) is not None
+
     async def get_response(self, path, scope):
+        if not self._tiene_sesion(scope):
+            return Response(
+                content="No autenticado",
+                status_code=401,
+                headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+            )
         resp = await super().get_response(path, scope)
         resp.headers["X-Content-Type-Options"] = "nosniff"
+        # Contenido privado: que no quede en cachés compartidas.
+        resp.headers["Cache-Control"] = "private, max-age=86400"
         ctype = resp.headers.get("content-type", "")
         if any(t in ctype for t in self._ACTIVE_TYPES):
             resp.headers["Content-Disposition"] = "attachment"

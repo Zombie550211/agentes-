@@ -114,7 +114,7 @@ def _avatar_path(name: str) -> Path | None:
 
 
 @router.get("/uploads/avatars/{filename}")
-async def serve_avatar_upload(filename: str):
+async def serve_avatar_upload(filename: str, user: dict = Depends(current_user)):
     path = _avatar_path(filename)
     if path and path.is_file():
         ext  = path.suffix.lower().lstrip(".")
@@ -176,7 +176,7 @@ async def upload_avatar(
 
 # ── GET /api/user-avatars/:filename_or_id ─────────────────────
 @router.get("/api/user-avatars/{file_ref}")
-async def serve_avatar(file_ref: str):
+async def serve_avatar(file_ref: str, user: dict = Depends(current_user)):
     # Support old MongoDB ObjectId refs (24 hex chars) — return SVG fallback
     if re.match(r"^[0-9a-f]{24}$", file_ref):
         return Response(

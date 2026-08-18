@@ -178,7 +178,7 @@ async def upload_file(
 
 # ── GET /api/files/:id/image — sirve imagen desde BD ─────────
 @router.get("/api/files/{file_id}/image")
-async def serve_image(file_id: str):
+async def serve_image(file_id: str, user: dict = Depends(current_user)):
     try:
         fid = int(file_id)
     except ValueError:
@@ -199,7 +199,9 @@ async def serve_image(file_id: str):
         content_type = row["content_type"] or "image/jpeg"
         data = bytes(row["content"])
         resp_headers = {
-            "Cache-Control": "public, max-age=31536000, immutable",
+            # "private": el contenido ahora exige sesión — un proxy compartido no debe
+            # cachearlo y servírselo a otro usuario.
+            "Cache-Control": "private, max-age=31536000, immutable",
             "Content-Length": str(len(data)),
             "X-Content-Type-Options": "nosniff",
         }
@@ -227,7 +229,7 @@ async def serve_image(file_id: str):
             return Response(
                 content=data,
                 media_type=row["content_type"] or "image/jpeg",
-                headers={"Cache-Control": "public, max-age=86400"},
+                headers={"Cache-Control": "private, max-age=86400"},
             )
 
     raise HTTPException(404, "Imagen no disponible")
@@ -235,7 +237,7 @@ async def serve_image(file_id: str):
 
 # ── GET /api/files/:id ────────────────────────────────────────
 @router.get("/api/files/{file_id}")
-async def serve_file(file_id: str, request: Request):
+async def serve_file(file_id: str, request: Request, user: dict = Depends(current_user)):
     try:
         fid = int(file_id)
     except ValueError:
@@ -311,7 +313,7 @@ async def serve_file(file_id: str, request: Request):
 
 # ── GET /api/files/:id/download ───────────────────────────────
 @router.get("/api/files/{file_id}/download")
-async def download_file(file_id: str):
+async def download_file(file_id: str, user: dict = Depends(current_user)):
     try:
         fid = int(file_id)
     except ValueError:
