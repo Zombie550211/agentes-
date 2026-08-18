@@ -115,18 +115,18 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <!-- Sidebar CSS (obligatorio para el sidebar) -->
-<link rel="stylesheet" href="/css/responsive-sidebar.css">
+<link rel="stylesheet" href="/css/base/responsive-sidebar.css">
 
 <!-- Scripts -->
-<script src="/js/fetch-interceptor.js"></script>
-<script src="/js/logout-handler.js"></script>
-<script src="/js/user-info.js"></script>
-<script src="/js/crm-config.js"></script>
-<script src="/js/inactivity-manager.js?v=20260611a"></script>
-<script src="/js/crm-init.js"></script>
+<script src="/js/core/fetch-interceptor.js"></script>
+<script src="/js/core/logout-handler.js"></script>
+<script src="/js/core/user-info.js"></script>
+<script src="/js/core/crm-config.js"></script>
+<script src="/js/core/inactivity-manager.js?v=20260611a"></script>
+<script src="/js/core/crm-init.js"></script>
 
 <!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.js"></script>
@@ -148,8 +148,8 @@
   })();
 </script>
 
-<script src="/js/logout-handler.js?v=20250905-163930"></script>
-<script src="/js/user-info.js?v=20250905-163930"></script>
+<script src="/js/core/logout-handler.js?v=20250905-163930"></script>
+<script src="/js/core/user-info.js?v=20250905-163930"></script>
 
 <script>
   (function(){
@@ -192,134 +192,15 @@
   })();
 </script>
 
-<style>
-  /* Sidebar offset */
-  html { overflow-x: hidden; }
-  .main-content { min-height: 100vh; overflow-x: hidden; }
-  /* sidebar-shared.css ya aplica margin-left al main-content automáticamente */
-
-  /* Gauge — JS controla background vía conic-gradient */
-  .gauge-ring {
-    width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
-    background: conic-gradient(rgba(200,200,200,.3) 0%, rgba(200,200,200,.1) 0%);
-    border: 2px solid rgba(200,200,200,.5);
-    display: flex; align-items: center; justify-content: center;
-  }
-  .gauge-label { color:#1a1a1a; font-weight:800; font-size:.9rem; }
-  .score-num   { display:none; }
-
-  /* Chip activo */
-  .chip.active { border-color:#0d9488 !important; background:rgba(13,148,136,0.25) !important; color:#5eead4 !important; font-weight:700; }
-
-  /* Radio-btn checked */
-  .radio-btn.checked { background:#0d9488 !important; border-color:#0d9488 !important; color:#fff !important; }
-  .radio-btn input, .radio-dot { display:none; }
-
-  /* Upload hover */
-  #img-upload-zone:hover { border-color:#0d9488; background:#e0f2f1; }
-
-  /* Validation error */
-  .field-error { border-color:#ef4444 !important; box-shadow:0 0 0 3px rgba(239,68,68,.15) !important; }
-
-  /* Agent note */
-  .agents-note { font-size:.6rem; color:#94a3b8; font-style:italic; margin-top:2px; }
-
-  @keyframes slideIn  { from{transform:translateX(400px);opacity:0} to{transform:translateX(0);opacity:1} }
-  @keyframes slideOut { from{transform:translateX(0);opacity:1}   to{transform:translateX(400px);opacity:0} }
-
-  /* ── Animación de entrada (igual que inicio.html) ── */
-  @keyframes fsu { from{opacity:0;transform:translateY(44px)} to{opacity:1;transform:translateY(0)} }
-  .fsu     { opacity:0; animation:fsu 1.8s cubic-bezier(.16,1,.3,1) forwards; animation-play-state:paused; }
-  .fsu.go  { animation-play-state:running; }
-
-  /* ── DARK MODE — overrides para clases Tailwind ── */
-  body.dark-theme { background:#0d1420 !important; }
-
-  /* Header sticky */
-  body.dark-theme .sticky.bg-white { background-color:#1e293b !important; border-color:#334155 !important; }
-
-  /* Cards */
-  body.dark-theme .bg-white { background-color:#1e293b !important; }
-  body.dark-theme .border-slate-200 { border-color:#334155 !important; }
-  body.dark-theme .border-slate-100 { border-color:#1e3a5f !important; }
-
-  /* Textos */
-  body.dark-theme .text-slate-800 { color:#e2e8f0 !important; }
-  body.dark-theme .text-slate-700 { color:#cbd5e1 !important; }
-  body.dark-theme .text-slate-600 { color:#94a3b8 !important; }
-  body.dark-theme .text-slate-500 { color:#64748b !important; }
-  body.dark-theme .text-slate-400 { color:#475569 !important; }
-
-  /* Inputs y selects */
-  body.dark-theme .bg-slate-50,
-  body.dark-theme input[class*="bg-slate"],
-  body.dark-theme select[class*="bg-slate"] { background-color:#0f172a !important; }
-  body.dark-theme input, body.dark-theme select {
-    background-color:#0f172a !important;
-    border-color:#334155 !important;
-    color:#e2e8f0 !important;
-  }
-  body.dark-theme input::placeholder { color:#475569 !important; }
-  body.dark-theme select option { background:#0f172a !important; color:#e2e8f0 !important; }
-
-  /* Iconos en inputs */
-  body.dark-theme .fa-user, body.dark-theme .fa-phone, body.dark-theme .fa-location-dot,
-  body.dark-theme .fa-hashtag, body.dark-theme .fa-layer-group, body.dark-theme .fa-tag,
-  body.dark-theme .fa-credit-card, body.dark-theme .fa-globe, body.dark-theme .fa-display,
-  body.dark-theme .fa-calendar-days, body.dark-theme .fa-magnifying-glass {
-    color:#475569 !important;
-  }
-
-  /* Cajas de iconos de sección */
-  body.dark-theme .bg-purple-100 { background-color:rgba(139,92,246,.18) !important; }
-  body.dark-theme .bg-amber-100  { background-color:rgba(245,158,11,.18) !important; }
-  body.dark-theme .bg-teal-50    { background-color:rgba(13,148,136,.15) !important; }
-  body.dark-theme .bg-blue-50    { background-color:rgba(59,130,246,.10) !important; }
-  body.dark-theme .border-blue-100 { border-color:rgba(59,130,246,.20) !important; }
-  body.dark-theme .text-blue-700 { color:#60a5fa !important; }
-  body.dark-theme .text-blue-500 { color:#93c5fd !important; }
-  body.dark-theme .fa-circle-info { color:#60a5fa !important; }
-  body.dark-theme .fa-clipboard-check { color:rgba(59,130,246,.25) !important; }
-
-  /* Chips inactivos */
-  body.dark-theme .chip:not(.active) {
-    background-color:#0f172a !important;
-    border-color:#334155 !important;
-    color:#64748b !important;
-  }
-
-  /* Radio btn inactivo */
-  body.dark-theme .radio-btn:not(.checked) {
-    background-color:#0f172a !important;
-    border-color:#334155 !important;
-    color:#64748b !important;
-  }
-
-  /* Botón buscar agente */
-  body.dark-theme .bg-teal-50.border-teal-200 {
-    background-color:rgba(13,148,136,.12) !important;
-    border-color:rgba(13,148,136,.30) !important;
-  }
-
-  /* Upload zone */
-  body.dark-theme #img-upload-zone {
-    background-color:#0f172a !important;
-    border-color:#334155 !important;
-  }
-  body.dark-theme #img-upload-zone .text-slate-500 { color:#475569 !important; }
-  body.dark-theme #img-upload-zone .text-slate-400 { color:#334155 !important; }
-
-  /* Separadores */
-  body.dark-theme .border-t.border-slate-100 { border-color:#334155 !important; }
-</style>
-  <link rel="stylesheet" href="/css/sidebar-static.css?v=2">
-  <link rel="stylesheet" href="/css/dark-mode.css?v=20260601">
+<link rel="stylesheet" href="/css/residencial/formulario-registro.css">
+  <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
+  <link rel="stylesheet" href="/css/base/dark-mode.css?v=20260601">
 </head>
 <body>
-  <script src="/js/theme-init.js" defer></script>
-  <script src="/js/sidebar-static.js" defer></script>
-  <script src="/js/llamadas-bloqueo.js" defer></script>
-  <script src="/js/sidebar-user.js" defer></script>
+  <script src="/js/core/theme-init.js" defer></script>
+  <script src="/js/layout/sidebar-static.js" defer></script>
+  <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
+  <script src="/js/layout/sidebar-user.js" defer></script>
 <nav class="sidebar" id="app-sidebar">
   <div class="sb-user">
     <div class="sb-user-avatar-wrap">

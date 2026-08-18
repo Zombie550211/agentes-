@@ -100,14 +100,29 @@
   // Asistente de IA flotante: se inyecta acá para no tener que tocar el HTML de cada
   // página que usa este sidebar (mismo criterio que el toggle móvil de arriba).
   function loadAiAssistant() {
-    if (document.querySelector('script[src^="/js/ai-assistant.js"]')) return;
+    if (document.querySelector('script[src^="/js/componentes/ai-assistant.js"]')) return;
     var script = document.createElement('script');
     // Versión en la URL para forzar al navegador a bajar la versión nueva cuando este
     // archivo cambia (sin esto, el cache del navegador puede seguir sirviendo una
     // versión vieja del widget indefinidamente). Subir el número cada vez que se edite
     // frontend/js/ai-assistant.js.
-    script.src = '/js/ai-assistant.js?v=20260801a';
+    script.src = '/js/componentes/ai-assistant.js?v=20260801a';
     document.body.appendChild(script);
   }
   loadAiAssistant();
+
+  // Alerta de instalaciones del día. La cargaba sidebar-loader.js, que desapareció
+  // al reescribir el sidebar como HTML estático (commit cf7cab1); desde entonces el
+  // script existía y su endpoint respondía, pero nadie lo pedía y la alerta no salía
+  // en ninguna parte. Se reengancha aquí, que es el sustituto natural de aquel loader.
+  //
+  // No hace falta filtrar por página: el propio script sólo se activa en inicio,
+  // index y costumer, y descarta backoffice por rol.
+  function loadInstallAlert() {
+    if (document.querySelector('script[src^="/js/componentes/instalaciones-hoy.js"]')) return;
+    var script = document.createElement('script');
+    script.src = '/js/componentes/instalaciones-hoy.js?v=20260817a';
+    document.body.appendChild(script);
+  }
+  loadInstallAlert();
 })();

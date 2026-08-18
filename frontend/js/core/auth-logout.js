@@ -15,7 +15,7 @@
     }
 
     var script = document.createElement('script');
-    script.src = 'js/logout-handler.js';
+    script.src = 'js/core/logout-handler.js';
     script.async = false; // mantener orden razonable
     script.onload = function() {
       window.__logoutHandlerLoaded = true;

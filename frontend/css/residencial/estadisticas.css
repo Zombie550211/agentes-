@@ -1,0 +1,204 @@
+/* Estilos de estadisticas.html
+   Extraídos del HTML: este archivo debe cargarse en la misma posición
+   en la que estaba el <style> original — hay reglas que dependen de
+   aplicarse después de dark-mode.css. */
+    /* ── Tokens de Diseño Premium ── */
+    :root {
+      --bg:        #f0f4f8;
+      --card:      #ffffff;
+      --card-alt:  #f8fafc;
+      --bdr:       #e2e8f0;
+      --bdr-soft:  #f1f5f9;
+      --t1: #0f172a; --t2: #334155; --t3: #64748b; --t4: #94a3b8;
+      --blue:   #3b82f6; --blue-s:  rgba(59,130,246,.06);  --blue-t:   #2563eb;
+      --purple: #8b5cf6; --purple-s:rgba(139,92,246,.06); --purple-t: #7c3aed;
+      --teal:   #14b8a6; --teal-s:  rgba(20,184,166,.06);  --teal-t:   #0d9488;
+      --amber:  #f59e0b; --amber-s: rgba(245,158,11,.06);  --amber-t:  #d97706;
+      --green:  #22c55e; --red: #ef4444;
+      --sh: 0 1px 3px rgba(0,0,0,.04),0 4px 12px rgba(0,0,0,.03);
+      --sh-lg: 0 10px 25px -5px rgba(0,0,0,.05),0 8px 10px -6px rgba(0,0,0,.05);
+    }
+    body.dark-theme {
+      --bg:       #0b0f19;
+      --card:     rgba(17,24,39,.4);
+      --card-alt: rgba(13,19,31,.6);
+      --bdr:      rgba(255,255,255,.05);
+      --bdr-soft: rgba(255,255,255,.02);
+      --t1: #f1f5f9; --t2: #cbd5e1; --t3: #64748b; --t4: #475569;
+      --blue-s:  rgba(59,130,246,.08);  --blue-t:   #60a5fa;
+      --purple-s:rgba(139,92,246,.08); --purple-t: #c084fc;
+      --teal-s:  rgba(20,184,166,.08);  --teal-t:   #2dd4bf;
+      --amber-s: rgba(245,158,11,.08);  --amber-t:  #fbbf24;
+      --sh: 0 4px 20px rgba(0,0,0,.35);
+      --sh-lg: 0 12px 36px rgba(0,0,0,.45);
+    }
+
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;font-family:'Outfit',sans-serif;-webkit-font-smoothing:antialiased}
+    body{
+      background: var(--bg);
+      color:var(--t1);overflow:hidden;transition:background .25s,color .25s;
+    }
+
+    .layout{display:flex;height:100vh;overflow:hidden;position:relative;z-index:1}
+    .sidebar{flex:0 0 auto}
+    .main-content{flex:1;overflow-y:auto;min-width:0;height:100vh;background:transparent !important;position:relative;z-index:1}
+
+    /* ── Page Container ── */
+    .page{padding:24px 32px;display:flex;flex-direction:column;gap:18px;min-height:100%}
+
+    /* ── Header ── */
+    .header{display:flex;justify-content:space-between;align-items:center;
+      background:var(--card);border:1px solid var(--bdr);
+      padding:18px 24px;border-radius:16px;box-shadow:var(--sh)}
+    .header-title{font-size:1.1rem;font-weight:700;font-family:'Cinzel',serif;color:var(--t1);letter-spacing:.06em}
+    .header-sub  {font-size:.74rem;color:var(--t3);margin-top:2px}
+    .month-ctrl{display:flex;align-items:center;gap:4px;
+      background:var(--card-alt);padding:5px;border-radius:12px;
+      border:1px solid var(--bdr)}
+    .mbtn{padding:5px 12px;font-size:.72rem;color:var(--t3);background:none;border:none;
+      cursor:pointer;transition:color .15s, background-color .15s;font-family:'Outfit',sans-serif;font-weight:600;border-radius:8px}
+    .mbtn:hover{color:var(--t1);background:rgba(255,255,255,.05)}
+    .mpill{padding:5px 16px;background:#2563eb;color:#fff;font-size:.74rem;
+      font-weight:700;border-radius:8px;box-shadow:0 4px 12px rgba(37,99,235,.3);
+      white-space:nowrap}
+
+    /* ── KPI Grid ── */
+    .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+    .kpi{background:var(--card);border:1px solid var(--bdr);
+      padding:20px;border-radius:16px;display:flex;align-items:center;
+      justify-content:space-between;box-shadow:var(--sh);
+      transition:transform .2s,box-shadow .2s}
+    .kpi:hover{transform:translateY(-2px);box-shadow:var(--sh-lg)}
+    .kpi-label{font-size:.65rem;font-weight:700;font-family:'Cinzel',serif;color:var(--t3);letter-spacing:.06em}
+    .kpi-value{font-size:1.85rem;font-weight:900;line-height:1.1;margin:4px 0;letter-spacing:-.02em;color:var(--t1)}
+    .kpi-hint {font-size:.68rem;font-weight:500;color:var(--t3)}
+    .kpi-icon {width:46px;height:46px;border-radius:14px;font-size:1.1rem;border:1px solid;flex-shrink:0;
+               display:flex;align-items:center;justify-content:center}
+
+    .kpi.blue  .kpi-icon{background:var(--blue-s);  border-color:rgba(59,130,246,.18);  color:var(--blue-t)}
+    .kpi.purple .kpi-icon{background:var(--purple-s);border-color:rgba(139,92,246,.18);  color:var(--purple-t)}
+    .kpi.teal  .kpi-icon{background:var(--teal-s);  border-color:rgba(20,184,166,.18);   color:var(--teal-t)}
+    .kpi.amber .kpi-icon{background:var(--amber-s); border-color:rgba(245,158,11,.18);   color:var(--amber-t)}
+    .kpi.green .kpi-icon{background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.18);color:#16a34a}
+
+    /* ── Rejilla Asimétrica Bento Grid Avanzada ── */
+    .main-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:18px;flex:1;min-height:0}
+    .col-left{grid-column:span 8;display:flex;flex-direction:column;gap:18px}
+    .col-right{grid-column:span 4;display:flex;flex-direction:column;gap:18px;align-self:start}
+
+    /* ── Card Estilo Glass ── */
+    .glass{background:var(--card);border:1px solid var(--bdr);
+      border-radius:16px;box-shadow:var(--sh);
+      display:flex;flex-direction:column;overflow:hidden}
+    .glass-header{padding:16px 20px;border-bottom:1px solid var(--bdr)}
+    .glass-title{font-size:.85rem;font-weight:700;font-family:'Cinzel',serif;color:var(--t1);letter-spacing:.06em;display:flex;align-items:center;gap:6px}
+    .glass-sub  {font-size:.68rem;color:var(--t4);margin-top:1px;font-family:'Outfit',sans-serif}
+
+    /* ── Tabla Analítica Limpia (Sin cajas pesadas) ── */
+    .tbl-wrap{flex:1;overflow:auto}
+    .tbl-wrap::-webkit-scrollbar{width:4px;height:4px}
+    .tbl-wrap::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:4px}
+    .tbl{width:100%;border-collapse:collapse;font-size:.76rem;table-layout:auto}
+    .tbl thead tr{background:var(--card-alt);border-bottom:1px solid var(--bdr)}
+    .tbl thead th{padding:12px 16px;font-size:.65rem;font-weight:700;text-transform:uppercase;
+      letter-spacing:.08em;white-space:nowrap;color:var(--t3)}
+    .tbl thead th:first-child{text-align:left;min-width:180px}
+    .tbl thead .th-hoy{color:var(--blue-t);background:var(--blue-s);text-align:center;font-weight:800}
+    .tbl thead .th-mes {color:var(--purple-t);background:var(--purple-s);text-align:center;font-weight:800}
+    .tbl tbody tr{border-bottom:1px solid var(--bdr-soft);transition:background .12s}
+    .tbl tbody tr:hover{background:rgba(255,255,255,0.08)!important}
+    .tbl tbody tr:last-child{border-bottom:none}
+    .tbl tbody td{padding:11px 16px;color:var(--t2);font-weight:500;vertical-align:middle}
+    .tbl tbody td.center{text-align:center}
+    
+    /* Celdas con contraste armónico */
+    .tbl tbody td.val-hoy{color:var(--t1);font-weight:700;background:var(--blue-s);text-align:center}
+    .tbl tbody td.val-mes {color:var(--t1);font-weight:700;background:var(--purple-s);text-align:center}
+    .tbl tbody td.val-pts {color:var(--amber-t);font-weight:700;text-align:center}
+    .tbl tbody td.val-icon{color:var(--t3);text-align:center;font-family:monospace;font-size:.72rem}
+    
+    .total-row td{font-weight:900!important;color:var(--blue-t)!important;background:rgba(255,255,255,0.08)!important;border-top:2px solid rgba(255,255,255,0.15)!important;padding:14px 16px!important}
+    .t-avatar{display:inline-flex;align-items:center;justify-content:center;
+      width:26px;height:26px;border-radius:8px;font-size:.62rem;font-weight:800;
+      flex-shrink:0;letter-spacing:.02em}
+    .t-name{display:flex;align-items:center;gap:10px}
+    .t-label{font-weight:700;color:var(--t1);text-transform:uppercase;letter-spacing:.03em;font-size:.74rem}
+
+    /* ── Donut Chart Config ── */
+    .donut-wrap{display:grid;grid-template-columns:140px 1fr;gap:24px;align-items:center;padding:20px}
+    .donut-pos{position:relative;width:140px;height:140px;flex-shrink:0}
+    .donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+    .donut-val{font-size:1.6rem;font-weight:900;color:var(--t1);line-height:1;letter-spacing:-.02em}
+    .donut-sub{font-size:.60rem;color:var(--t4);margin-top:3px;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+    .leg{display:flex;flex-direction:column;gap:8px;max-height:160px;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;-ms-overflow-style:none}
+    .leg::-webkit-scrollbar{display:none}
+    .leg-row{display:flex;align-items:center;gap:8px;font-size:.72rem}
+    .leg-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+    .leg-name{flex:1;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .leg-n{font-weight:700;color:var(--t1);min-width:24px;text-align:right}
+    .leg-p{color:var(--t4);font-size:.68rem;min-width:36px;text-align:right;font-weight:500}
+
+    /* ── Trend Canvas Config ── */
+    .trend-body{padding:16px}
+    .trend-canvas{height:280px;position:relative;width:100%}
+
+    /* ── Summary Footer Grid ── */
+    .summary{display:grid;grid-template-columns:repeat(6,1fr);
+      background:var(--card);border:1px solid var(--bdr);
+      border-radius:16px;box-shadow:var(--sh);flex-shrink:0}
+    .sum-it{padding:14px 12px;text-align:center;border-right:1px solid var(--bdr)}
+    .sum-it:last-child{border-right:none}
+    .sum-v{font-size:1.45rem;font-weight:900;line-height:1;letter-spacing:-.02em}
+    .sum-l{font-size:.62rem;color:var(--t4);margin-top:5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em}
+    .c-blue  {color:var(--blue-t)} .c-teal{color:var(--teal-t)} .c-purple{color:var(--purple-t)}
+    .c-amber {color:var(--amber-t)} .c-white{color:var(--t1)}
+
+    /* ── Team Líneas Cards ── */
+    .lt-row{display:flex;align-items:center;justify-content:space-between;
+      padding:10px 12px;border-radius:10px;background:var(--card-alt);
+      border:1px solid var(--bdr)}
+    .lt-name{font-size:.72rem;font-weight:700;color:var(--t2);letter-spacing:.02em}
+    .lt-val{font-size:1.4rem;font-weight:900;line-height:1;letter-spacing:-.02em;color:var(--teal-t)}
+    .lt-label{font-size:.58rem;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.06em;text-align:right;margin-top:2px}
+    .lt-total{display:flex;justify-content:space-between;align-items:center;
+      padding:8px 12px;border-top:1px solid var(--bdr);margin-top:2px}
+    .lt-total-label{font-size:.65rem;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em}
+    .lt-total-val{font-size:1rem;font-weight:900;color:var(--t1)}
+
+    /* ── Flip Card ── */
+    .flip-scene{border-radius:16px;overflow:hidden}
+    .flip-face{display:none;flex-direction:column}
+    .flip-face.active{display:flex}
+    .flip-face.glass{border-radius:16px}
+    .flip-btn{padding:5px 13px;border-radius:8px;font-size:.72rem;font-weight:700;
+      background:var(--blue-s);color:var(--blue-t);border:1px solid rgba(59,130,246,.2);
+      cursor:pointer;white-space:nowrap;transition:all .15s;font-family:'Outfit',sans-serif}
+    .flip-btn:hover{background:var(--blue);color:#fff}
+
+    /* ── Animaciones Fluídas de Entrada ── */
+    /* ── Caída del cielo con rebote ── */
+    @keyframes dropIn {
+      0%   { opacity:0; transform:translateY(-80px) scale(.95); }
+      65%  { opacity:1; transform:translateY(8px)   scale(1.01); }
+      82%  { transform:translateY(-4px) scale(.995); }
+      100% { opacity:1; transform:translateY(0)     scale(1); }
+    }
+    .drop { opacity:0; animation:dropIn .65s cubic-bezier(.22,1,.36,1) both; }
+
+    @media(max-width:1250px){
+      .main-grid{grid-template-columns:1fr}
+      .col-left, .col-right{grid-column:span 12}
+    }
+    @media(max-width:850px) {.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:600px) {.summary{grid-template-columns:repeat(3,1fr); gap:1px; background:var(--bdr)} .sum-it{border-right:none}}
+  
+    /* ── Encabezados de tabla coloreados ── */
+    .glass-header.res-header {
+      background: rgba(135,206,250,0.22) !important;
+      border-bottom-color: rgba(135,206,250,0.40) !important;
+    }
+    .glass-header.lineas-header {
+      background: rgba(134,239,172,0.22) !important;
+      border-bottom-color: rgba(134,239,172,0.40) !important;
+    }

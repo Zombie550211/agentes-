@@ -216,7 +216,7 @@
     if (labelEl) labelEl.textContent = filter ? 'Resultados' : 'Recientes';
 
     if (!items.length) {
-      list.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-3);font-size:.82rem;">${filter ? 'Sin resultados para "' + filter + '"' : 'Sin actividad reciente'}</div>`;
+      list.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-3);font-size:.82rem;">${filter ? 'Sin resultados para "' + escapeHtml(filter) + '"' : 'Sin actividad reciente'}</div>`;
       return;
     }
 
@@ -231,13 +231,15 @@
       presenceDot.dataset.user = item.username;
       av.appendChild(presenceDot);
 
+      // name/lastMessage vienen de OTRO usuario (el remitente): siempre escapados.
+      // Sin esto, un mensaje con HTML se ejecuta en la sesión de quien abre el chat.
       el.innerHTML = `
         <div class="chat-item-info">
           <div class="chat-item-top">
-            <span class="chat-item-name">${item.name}</span>
+            <span class="chat-item-name">${escapeHtml(item.name)}</span>
             <span class="chat-item-time">${item.lastTime ? formatTime(item.lastTime) : ''}</span>
           </div>
-          <div class="chat-item-preview">${item.lastMessage || item.role || ''}</div>
+          <div class="chat-item-preview">${escapeHtml(item.lastMessage || item.role || '')}</div>
         </div>
         <div class="unread-dot"></div>
       `;

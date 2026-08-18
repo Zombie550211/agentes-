@@ -1854,6 +1854,16 @@
       if(mEl){
         var _mn=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
         var cur=mEl.value;
+        // En la primera carga el selector viene vacío, pero el servidor sólo manda el
+        // mes en curso. Dejarlo en "Todos" haría creer que están todos los clientes
+        // cargados y que los meses anteriores no tienen ventas. Se marca el mes actual
+        // para que el filtro diga la verdad de lo que hay en la tabla; elegir otro mes
+        // (o "Todos") vuelve a pedir los datos al servidor.
+        if(!cur&&!__allDataLoaded){
+          var _hoy=new Date();
+          cur=_hoy.getFullYear()+'-'+String(_hoy.getMonth()+1).padStart(2,'0');
+          __allAvailableMonths.add(cur);
+        }
         mEl.innerHTML='<option value="">Todos</option>';
         Array.from(__allAvailableMonths).sort().reverse().forEach(function(m){
           var o=document.createElement('option');var p=m.split('-');

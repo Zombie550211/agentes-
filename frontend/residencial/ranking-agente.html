@@ -9,158 +9,21 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <script src="/js/fetch-interceptor.js" defer></script>
-  <script src="/js/logout-handler.js" defer></script>
-  <script src="/js/user-info.js" defer></script>
-  <script src="/js/crm-config.js" defer></script>
-  <script src="/js/inactivity-manager.js?v=20260611a" defer></script>
-  <script src="/js/crm-init.js" defer></script>
-  <style>
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    html,body{height:100%;font-family:'Outfit',sans-serif;-webkit-font-smoothing:antialiased;background:#f0f4f8}
-    body{color:#0f172a}
-
-    :root{
-      --bg:#f0f4f8;--card:#fff;--bdr:#e2e8f0;--bdr-soft:#f1f5f9;
-      --t1:#0f172a;--t2:#334155;--t3:#64748b;--t4:#94a3b8;
-      --blue:#3b82f6;--blue-d:#2563eb;--blue-s:rgba(59,130,246,.08);
-      --purple:#8b5cf6;--purple-s:rgba(139,92,246,.08);
-      --amber:#f59e0b;--amber-s:rgba(245,158,11,.08);
-      --green:#22c55e;--red:#ef4444;
-      --sh:0 1px 3px rgba(0,0,0,.04),0 4px 12px rgba(0,0,0,.03);
-      --sh-md:0 4px 16px rgba(0,0,0,.08);
-    }
-    body.dark-theme{
-      --bg:#0b0f19;--card:rgba(17,24,39,.5);--bdr:rgba(255,255,255,.06);--bdr-soft:rgba(255,255,255,.03);
-      --t1:#f1f5f9;--t2:#cbd5e1;--t3:#64748b;--t4:#475569;
-      --sh:0 4px 20px rgba(0,0,0,.4);
-    }
-
-    .layout{display:flex;height:100vh;overflow:hidden}
-    .sidebar{flex:0 0 auto}
-    .main-content{flex:1;overflow-y:auto;min-width:0;height:100vh;padding:20px 28px;display:flex;flex-direction:column;gap:16px;background:var(--bg)}
-
-    @keyframes dropIn{0%{opacity:0;transform:translateY(-40px) scale(.97)}100%{opacity:1;transform:translateY(0) scale(1)}}
-    .drop{opacity:0;animation:dropIn .5s cubic-bezier(.22,1,.36,1) both}
-
-    /* HEADER */
-    .rk-header{background:var(--card);border:1px solid var(--bdr);border-radius:18px;padding:18px 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;box-shadow:var(--sh)}
-    .rk-title-wrap{display:flex;align-items:center;gap:14px;flex:1;min-width:0}
-    .rk-icon-wrap{width:48px;height:48px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(245,158,11,.35);flex-shrink:0}
-    .rk-icon-wrap i{color:#fff;font-size:1.2rem}
-    .rk-title{font-family:'Cinzel',serif;font-size:1.3rem;font-weight:700;color:var(--t1);letter-spacing:.03em}
-    .rk-sub{font-size:.68rem;color:var(--t3);margin-top:2px}
-
-    .rk-tabs{display:flex;gap:6px;flex-wrap:wrap}
-    .rk-tab{display:flex;align-items:center;gap:7px;padding:8px 16px;border-radius:10px;border:1.5px solid var(--bdr);background:transparent;color:var(--t3);font-size:.76rem;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif;transition:all .18s;white-space:nowrap}
-    .rk-tab:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-s)}
-    .rk-tab.active{background:var(--blue-d);border-color:var(--blue-d);color:#fff;box-shadow:0 4px 14px rgba(37,99,235,.30)}
-    .rk-tab i{font-size:.8rem}
-
-    .rk-month{display:flex;align-items:center;border:1.5px solid var(--bdr);border-radius:12px;overflow:hidden;background:var(--card)}
-    .rk-nav-btn{width:32px;height:36px;border:none;border-right:1px solid var(--bdr);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--t3);transition:all .15s;font-size:.75rem}
-    .rk-nav-btn:last-child{border-right:none;border-left:1px solid var(--bdr)}
-    .rk-nav-btn:hover{background:var(--blue-s);color:var(--blue-d)}
-    .rk-month-label{display:flex;align-items:center;gap:7px;padding:0 12px;font-size:.78rem;font-weight:700;color:var(--t1);white-space:nowrap;min-width:130px}
-    .rk-month-label i{color:var(--t3);font-size:.75rem}
-    #rank-period-label{font-size:.78rem;font-weight:700;color:var(--t1)}
-
-    /* KPIs */
-    .rk-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
-    .rk-kpi{background:var(--card);border:1px solid var(--bdr);border-radius:16px;padding:16px 18px;display:flex;align-items:center;gap:14px;box-shadow:var(--sh);transition:transform .2s,box-shadow .2s}
-    .rk-kpi:hover{transform:translateY(-2px);box-shadow:var(--sh-md)}
-    .rk-kpi-icon{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
-    .rk-kpi-label{font-size:.58rem;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em}
-    .rk-kpi-val{font-size:1.7rem;font-weight:900;line-height:1.1;letter-spacing:-.02em;margin:3px 0}
-    .rk-kpi-sub{font-size:.62rem;color:var(--t4);font-weight:500}
-
-    /* TABLE */
-    .rk-table-card{background:var(--card);border:1px solid var(--bdr);border-radius:18px;box-shadow:var(--sh);overflow:hidden;flex:1;min-height:0;display:flex;flex-direction:column}
-    .rk-table-top{padding:16px 22px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0}
-    .rk-table-title{font-family:'Cinzel',serif;font-size:.95rem;font-weight:700;color:var(--t1);letter-spacing:.03em;display:flex;align-items:center;gap:8px}
-    .rk-table-sub{font-size:.66rem;color:var(--t3);margin-top:2px}
-
-    .rk-toggle{display:flex;background:var(--bdr-soft);border-radius:10px;padding:3px;border:1px solid var(--bdr)}
-    .rk-toggle-btn{padding:6px 16px;border-radius:8px;border:none;background:transparent;font-size:.74rem;font-weight:600;color:var(--t3);cursor:pointer;font-family:'Outfit',sans-serif;display:flex;align-items:center;gap:5px;transition:all .18s}
-    .rk-toggle-btn.active{background:var(--card);color:var(--blue-d);box-shadow:0 1px 4px rgba(0,0,0,.08)}
-
-    .rk-thead{display:grid;grid-template-columns:60px 1fr 90px 90px 90px 160px;padding:10px 22px;border-bottom:1px solid var(--bdr-soft);background:var(--bdr-soft)}
-    .rk-thead span{font-size:.62rem;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em}
-    .rk-thead span:not(:first-child){text-align:center}
-    .rk-thead span:last-child{text-align:right;padding-right:4px}
-
-    #rank-list-dynamic{overflow-y:auto;flex:1;min-height:0}
-    #rank-list-dynamic::-webkit-scrollbar{width:4px}
-    #rank-list-dynamic::-webkit-scrollbar-thumb{background:rgba(0,0,0,.08);border-radius:4px}
-
-    .rank-item{display:grid;grid-template-columns:60px 1fr 90px 90px 90px 160px;align-items:center;padding:12px 22px;border-bottom:1px solid var(--bdr-soft);transition:background .12s}
-    .rank-item:last-child{border-bottom:none}
-    .rank-item:hover{background:var(--bdr-soft)}
-
-    .rank-number{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;border:1.5px solid var(--bdr);color:var(--t3);background:var(--bdr-soft)}
-    .rank-number.pos-1{background:#fff7ed;color:#ea580c;border-color:#fed7aa;font-weight:900}
-    .rank-number.pos-2{background:#f8fafc;color:#64748b;border-color:#e2e8f0}
-    .rank-number.pos-3{background:#f0fdf4;color:#16a34a;border-color:#bbf7d0}
-
-    .agent-info{display:flex;align-items:center;gap:10px;min-width:0}
-    .agent-avatar{width:36px;height:36px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;color:#fff;background:linear-gradient(135deg,#6366f1,#8b5cf6)}
-    .agent-avatar img{width:100%;height:100%;object-fit:cover;border-radius:10px;display:block}
-    .agent-details h4{font-size:.8rem;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .agent-details p{font-size:.65rem;color:var(--t3);margin-top:1px}
-
-    .rk-cell{text-align:center;font-size:.85rem;font-weight:600;color:var(--t2)}
-    .rk-cell.muted{color:var(--t4)}
-
-    .agent-stats{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
-    .points{font-size:.85rem;font-weight:700;color:var(--blue-d)}
-    .rk-bar-wrap{width:100%;height:5px;background:var(--bdr);border-radius:99px;overflow:hidden}
-    .rk-bar{height:100%;border-radius:99px;background:#1e293b;transition:width .8s cubic-bezier(.34,1.56,.64,1)}
-    .rk-bar.top{background:linear-gradient(90deg,#2563eb,#3b82f6)}
-
-    .rk-loading{display:flex;align-items:center;justify-content:center;padding:48px;color:var(--t3);font-size:.85rem;gap:10px}
-    .rk-spinner{width:18px;height:18px;border:2px solid var(--bdr);border-top-color:var(--blue-d);border-radius:50%;animation:spin .7s linear infinite}
-    @keyframes spin{to{transform:rotate(360deg)}}
-
-    /* ── Team cards grid ── */
-    .team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;padding:18px 22px}
-    .team-card{background:var(--bdr-soft);border:1.5px solid var(--bdr);border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:10px;transition:transform .18s,box-shadow .18s;cursor:default}
-    .team-card:hover{transform:translateY(-3px);box-shadow:0 6px 20px rgba(0,0,0,.10)}
-    .team-card-header{display:flex;align-items:center;gap:10px}
-    .team-card-avatar{width:40px;height:40px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;color:#fff}
-    .team-card-name{font-size:.8rem;font-weight:700;color:var(--t1);line-height:1.2}
-    .team-card-agents{font-size:.62rem;color:var(--t3);margin-top:1px}
-    .team-card-pos{margin-left:auto;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:800;border:1.5px solid var(--bdr);color:var(--t3);flex-shrink:0}
-    .team-card-pos.pos-1{background:rgba(234,88,12,.12);color:#ea580c;border-color:rgba(234,88,12,.3)}
-    .team-card-pos.pos-2{background:rgba(100,116,139,.10);color:#64748b;border-color:rgba(100,116,139,.25)}
-    .team-card-pos.pos-3{background:rgba(22,163,74,.10);color:#16a34a;border-color:rgba(22,163,74,.25)}
-    .team-card-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
-    .team-stat{display:flex;flex-direction:column;align-items:center;background:var(--card);border:1px solid var(--bdr);border-radius:10px;padding:6px 4px}
-    .team-stat-val{font-size:.95rem;font-weight:800;color:var(--t1);line-height:1}
-    .team-stat-lbl{font-size:.55rem;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-top:3px}
-    .team-card-bar-wrap{height:4px;background:var(--bdr);border-radius:99px;overflow:hidden}
-    .team-card-bar{height:100%;border-radius:99px;background:linear-gradient(90deg,#2563eb,#3b82f6);transition:width .8s cubic-bezier(.34,1.56,.64,1)}
-    .team-card-pts{font-size:.75rem;font-weight:700;color:var(--blue-d);text-align:right}
-
-    body.dark-theme .rk-header,body.dark-theme .rk-kpi,body.dark-theme .rk-table-card{background:var(--card);border-color:var(--bdr)}
-    body.dark-theme .rk-toggle-btn.active{box-shadow:0 1px 4px rgba(0,0,0,.25)}
-
-    @media(max-width:1100px){.rk-kpis{grid-template-columns:repeat(3,1fr)}}
-    @media(max-width:780px){
-      .rk-kpis{grid-template-columns:repeat(2,1fr)}
-      .rk-header{flex-direction:column;align-items:flex-start}
-      .rk-thead,.rank-item{grid-template-columns:50px 1fr 70px 120px}
-      .rk-thead span:nth-child(3),.rk-thead span:nth-child(4),
-      .rank-item .rk-cell:nth-child(3),.rank-item .rk-cell:nth-child(4){display:none}
-    }
-  </style>
-  <link rel="stylesheet" href="/css/sidebar-static.css?v=2">
-  <link rel="stylesheet" href="/css/dark-mode.css?v=20260601">
+  <script src="/js/core/fetch-interceptor.js" defer></script>
+  <script src="/js/core/logout-handler.js" defer></script>
+  <script src="/js/core/user-info.js" defer></script>
+  <script src="/js/core/crm-config.js" defer></script>
+  <script src="/js/core/inactivity-manager.js?v=20260611a" defer></script>
+  <script src="/js/core/crm-init.js" defer></script>
+  <link rel="stylesheet" href="/css/residencial/ranking-agente.css">
+  <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
+  <link rel="stylesheet" href="/css/base/dark-mode.css?v=20260601">
 </head>
 <body>
-  <script src="/js/theme-init.js" defer></script>
-  <script src="/js/sidebar-static.js" defer></script>
-  <script src="/js/llamadas-bloqueo.js" defer></script>
-  <script src="/js/sidebar-user.js" defer></script>
+  <script src="/js/core/theme-init.js" defer></script>
+  <script src="/js/layout/sidebar-static.js" defer></script>
+  <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
+  <script src="/js/layout/sidebar-user.js" defer></script>
 <div class="layout">
   <nav class="sidebar" id="app-sidebar">
   <div class="sb-user">
