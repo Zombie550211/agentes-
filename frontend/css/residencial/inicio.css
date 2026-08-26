@@ -68,55 +68,27 @@ body::before {
   min-height: 100vh;
 }
 
-/* ══ HERO ══ */
-.hero {
-  flex-shrink: 0;
-  background: var(--glass); border: 1px solid var(--glass-b);
-  border-radius: 16px; backdrop-filter: blur(28px) saturate(160%);
-  box-shadow: var(--sh); padding: 11px 20px;
-  display: flex; align-items: center;
-  position: relative; overflow: hidden;
-  animation: up 1.1s ease both;
-}
-.hero::before {
-  content: ''; position: absolute; top: -60px; right: -60px;
-  width: 200px; height: 200px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(99,102,241,.09) 0%, transparent 70%);
-  pointer-events: none;
-}
-.hero-greet  { font-size: .62rem; color: var(--t2); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 1px; }
-.hero-name   {
-  font-family: 'Space Grotesk', sans-serif; font-size: 1.30rem; font-weight: 700;
-  background: linear-gradient(100deg, #0d1420 20%, #2563eb 80%);
-  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; line-height: 1.1;
-}
-.hero-sub    { font-size: .71rem; color: var(--t2); margin-top: 2px; }
-
 /* ══ Temporada (Mes de la Independencia) ══ */
-/* La imagen es 2:1, proporción de póster. A todo el ancho del panel se comería
-   media pantalla, así que se limita el ancho y se centra: se ve entera, con su
-   texto legible, sin desplazar los KPIs fuera de la vista. */
+/* El banner ocupa TODO el ancho del panel y se ve entero, sin recortar. Como la
+   imagen es 2:1, su alto sale del ancho disponible: en una pantalla ancha son
+   varios cientos de píxeles y los KPIs quedan por debajo del pliegue durante la
+   temporada. Es deliberado. */
 .banner-temporada {
   display: block;
   width: 100%;
-  max-width: 1040px;
   height: auto;
-  margin: 0 auto 2px;
   border-radius: 16px;
   box-shadow: var(--sh);
 }
-/* Franja pequeña, al otro extremo de la barra de bienvenida */
+/* Franja pequeña, bajo el banner y pegada a la derecha */
 .hero-viva {
+  display: block;
   height: 44px;
   width: auto;
-  margin-left: auto;
-  flex-shrink: 0;
+  margin: 2px 0 0 auto;
   border-radius: 8px;
 }
 .hero-viva[hidden] { display: none; }
-@media (max-width: 860px) {
-  .hero-viva { display: none; }   /* en móvil la barra no da para las dos cosas */
-}
 
 /* ══ ROWS ══ */
 .row-top {
@@ -308,7 +280,6 @@ body.dark-theme {
   --text: #e2e8f0; --t2: #94a3b8; --t3: #64748b;
   background: #0a1628 !important;
 }
-body.dark-theme .hero,
 body.dark-theme .gpanel { background: rgba(255,255,255,0.07) !important; border-color: rgba(255,255,255,0.16) !important; }
 body.dark-theme .mgrid-item { background: rgba(255,255,255,0.10) !important; border-color: rgba(255,255,255,0.18) !important; }
 body.dark-theme .mgrid-item:hover { background: rgba(255,255,255,0.18) !important; }
@@ -318,10 +289,6 @@ body.dark-theme .sitem  { background: rgba(255,255,255,0.09) !important; border-
 body.dark-theme .sitem:hover { background: rgba(255,255,255,0.16) !important; }
 body.dark-theme .sbar   { background: rgba(255,255,255,.10) !important; }
 body.dark-theme .tp-bar-wrap { background: rgba(255,255,255,.10) !important; }
-body.dark-theme .hero-name {
-  background: linear-gradient(100deg, #e2e8f0 20%, #818cf8 80%) !important;
-  -webkit-background-clip: text !important; background-clip: text !important;
-}
 body.dark-theme .sem-note { background: rgba(99,102,241,.08) !important; border-color: rgba(99,102,241,.18) !important; }
 body.dark-theme .map-tooltip { background: #1e293b !important; border-color: #334155 !important; color: #e2e8f0 !important; }
 body.dark-theme .tp-bar-wrap { background: rgba(255,255,255,.08) !important; }

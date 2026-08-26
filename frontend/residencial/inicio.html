@@ -89,16 +89,8 @@
        ventana de fechas; fuera de ella este div queda vacío y no ocupa nada. -->
   <div id="banner-temporada"></div>
 
-  <!-- HERO -->
-  <div class="hero fsu">
-    <div>
-      <div class="hero-greet" id="hero-greet">BIENVENIDO 👋</div>
-      <div class="hero-name"  id="hero-name">Cargando...</div>
-      <div class="hero-sub"><span id="hero-role">CRM</span> &nbsp;·&nbsp; <span id="hero-date"></span></div>
-    </div>
-    <img id="hero-viva" class="hero-viva" src="/images/viva-el-salvador.webp"
-         alt="¡Que viva El Salvador!" width="229" height="70" hidden>
-  </div>
+  <img id="hero-viva" class="hero-viva" src="/images/viva-el-salvador.webp"
+       alt="¡Que viva El Salvador!" width="229" height="70" hidden>
 
   <!-- ROW TOP: Ventas Mensuales + Mapa de Clientes -->
   <div class="row-top">
@@ -338,12 +330,7 @@ window.__homeDataPromise = fetch('/api/dashboard/home', { credentials: 'include'
 </script>
 
 <script>
-// ── Greeting + date ───────────────────────────────────────────────────────
-const _now = new Date(), _h = _now.getHours();
-document.getElementById('hero-greet').textContent =
-  (_h < 12 ? 'BUENOS DÍAS' : _h < 19 ? 'BUENAS TARDES' : 'BUENAS NOCHES') + ' 👋';
-document.getElementById('hero-date').textContent =
-  _now.toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'long' });
+// (El saludo y la fecha se pintaban en la barra de bienvenida, que ya no existe.)
 
 // ── INIT: awaita la Promise que ya se inició arriba ───────────────────────
 document.addEventListener('DOMContentLoaded', async function() {
@@ -372,8 +359,6 @@ document.addEventListener('DOMContentLoaded', async function() {
   const _set        = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   _set('nav-name',          displayName);
   _set('nav-role',          user.role || 'Rol');
-  _set('hero-name',         `Bienvenido/a, ${displayName}`);
-  _set('hero-role',         user.role || 'Usuario');
   _set('welcome-user-name', displayName);
   _set('welcome-user-role', user.role || '');
   _set('user-name',         displayName);
@@ -841,19 +826,6 @@ function renderSemaforoFromTeams(teams) {
   } catch (e) { console.warn('[inicio] semaforo render:', e); }
 }
 
-// ── Initials del nav-avatar ───────────────────────────────────────────────
-const hn = document.getElementById('hero-name');
-if (hn) {
-  const updateInitials = () => {
-    const match = hn.textContent.match(/,\s*(.+)/) || hn.textContent.match(/(.+)/);
-    if (match && match[1]) {
-      const ini = match[1].trim().split(' ').slice(0,2).map(w=>w[0].toUpperCase()).join('');
-      if (ini) { const navAv = document.getElementById('nav-av'); if (navAv) navAv.textContent = ini; }
-    }
-  };
-  updateInitials();
-  new MutationObserver(updateInitials).observe(hn, { childList:true, subtree:true, characterData:true });
-}
 </script>
 
 <script>
@@ -879,9 +851,6 @@ if (hn) {
       });
     });
   }
-
-  // Hero aparece de inmediato
-  go(document.querySelector('.hero.fsu'), 0);
 
   // Paneles aparecen cuando los datos están listos
   document.addEventListener('crm:data-ready', function(){
