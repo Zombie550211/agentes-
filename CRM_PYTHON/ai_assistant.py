@@ -9,8 +9,8 @@ probados (rol, agente propio, resolve_market_restriction) sin reimplementar nada
 
 El modelo corre en Ollama LOCAL (no Claude/OpenAI/Gemini — decisión explícita del
 usuario: sin costo por token, los datos del CRM no salen hacia un tercero). Como Ollama
-no tiene autenticación propia y el CRM corre en Render, se llama a través de un gateway
-con token (scripts/ollama_gateway.py) expuesto por un túnel — nunca directo.
+no tiene autenticación propia y el CRM corre en el EC2 de AWS, se llama a través de un
+gateway con token (scripts/ollama_gateway.py) expuesto por un túnel — nunca directo.
 """
 import os
 import json

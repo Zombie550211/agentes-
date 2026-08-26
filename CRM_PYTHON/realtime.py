@@ -1,8 +1,8 @@
 """Broker pub/sub en memoria para tiempo real (SSE).
 
 Notas de arquitectura:
-- Funciona porque el despliegue corre con UN SOLO worker uvicorn (Render free,
-  ver render.yaml). El estado vive en memoria del proceso, así que NO se comparte
+- Funciona porque el despliegue corre con UN SOLO worker uvicorn (EC2, servicio
+  systemd detrás de nginx). El estado vive en memoria del proceso, así que NO se comparte
   entre workers/instancias. Si algún día se escala a varios workers, hay que
   reemplazar este broker por Redis pub/sub (o similar) — el resto del código
   (routers y frontend) puede quedarse igual.

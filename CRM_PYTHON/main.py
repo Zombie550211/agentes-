@@ -615,7 +615,7 @@ class _RevalidateStaticFiles(StaticFiles):
         resp.headers["X-Content-Type-Options"] = "nosniff"
         return resp
 
-# Condicionales: no crashea si el directorio no existe (ej. en Render sin frontend)
+# Condicionales: no crashea si el directorio no existe (ej. un deploy solo-API sin frontend)
 # css/js se revalidan siempre (evita la pelea de la caché); images/vendor cachean normal.
 _static_dirs = {"images": "images", "css": "css", "js": "js", "vendor": "vendor"}
 _revalidate_dirs = {"css", "js"}

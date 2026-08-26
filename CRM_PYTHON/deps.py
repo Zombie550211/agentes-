@@ -20,7 +20,8 @@ JWT_EXPIRES_REMEMBER = 30 * 24 * 60 * 60  # 30 días — cuando el usuario tilda
 IS_PROD     = os.getenv("NODE_ENV") == "production"
 # Debe coincidir con routers/auth.py. Por defecto "lax": el frontend usa URLs
 # relativas (API_BASE_URL=''), así que todas las peticiones son same-origin
-# (incluido el proxy de Netlify a /api). Lax mitiga CSRF. Poner "none" solo si
+# (nginx en el EC2 sirve el frontend y la API bajo el mismo dominio). Lax mitiga
+# CSRF. Poner "none" solo si
 # alguna vez el frontend hace fetch cross-origin directo a la API.
 COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax").lower()
 

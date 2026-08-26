@@ -1,5 +1,5 @@
 """
-Gateway con token para exponer Ollama local hacia el CRM (que corre en Render).
+Gateway con token para exponer Ollama local hacia el CRM (que corre en el EC2 de AWS).
 
 Ollama NO tiene autenticación propia y solo debe escuchar en localhost:11434 — nunca
 exponerlo directo a internet. Este gateway es el ÚNICO punto que se expone (vía un
@@ -38,7 +38,7 @@ AI_MODEL      = os.getenv("AI_MODEL", "qwen2.5:7b-instruct")
 if not GATEWAY_TOKEN:
     print("ERROR: falta la variable de entorno AI_GATEWAY_TOKEN. Generá una (ej. "
           "`python -c \"import secrets; print(secrets.token_hex(32))\"`) y exportala "
-          "acá y en las env vars del CRM (Render) antes de arrancar este gateway.",
+          "acá y en las env vars del CRM (el .env del EC2) antes de arrancar este gateway.",
           file=sys.stderr)
     sys.exit(1)
 

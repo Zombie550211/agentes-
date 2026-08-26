@@ -4,9 +4,13 @@ Capa de base de datos MySQL — SQLAlchemy 2.0 async
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from dotenv import load_dotenv
+from pathlib import Path
 import ssl, os
 
-load_dotenv()
+# Ruta explícita, no búsqueda por cwd — ver el porqué en main.py (hay un .env
+# legado en la raíz del repo, sin MYSQL_URL, que se colaba según desde dónde
+# se arrancara).
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 MYSQL_URL = os.getenv(
     "MYSQL_URL",
@@ -20,8 +24,8 @@ _use_ssl = os.getenv("MYSQL_SSL", "").lower() in ("1", "true", "yes") or (
 
 _connect_args: dict = {}
 if _use_ssl:
-    _ssl_ca  = os.getenv("MYSQL_SSL_CA")      # ruta a un archivo CA cert (p.ej. Secret File en Render)
-    _ssl_pem = os.getenv("MYSQL_SSL_CA_PEM")  # contenido del CA cert inline (cómodo en env vars de Render)
+    _ssl_ca  = os.getenv("MYSQL_SSL_CA")      # ruta a un archivo CA cert (p.ej. rds-ca.pem en el EC2)
+    _ssl_pem = os.getenv("MYSQL_SSL_CA_PEM")  # contenido del CA cert inline, por si conviene ponerlo en la env var
 
     if _ssl_pem:
         # El CA cert viene pegado directamente en la variable de entorno.
