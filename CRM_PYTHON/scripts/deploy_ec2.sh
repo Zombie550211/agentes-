@@ -92,7 +92,12 @@ rsync -az --files-from="$LISTA" -e "ssh -o ConnectTimeout=20 -i $SSH_KEY" \
 
 if [ -n "$BORRADOS" ]; then
   echo "-- 2b/5 eliminando los borrados en git"
-  echo "$BORRADOS" | "${SSH[@]}" "cd $DESTINO && xargs -r rm -f --"
+  # Separador NUL, no salto de línea: `xargs` parte por CUALQUIER espacio en
+  # blanco, así que un archivo como "mejor requipo.png" llegaba a rm como dos
+  # argumentos ("mejor" y "requipo.png"). Ninguno existe, rm -f los ignora en
+  # silencio y el archivo real sobrevivía. Pasó de verdad: cuatro imágenes con
+  # espacio en el nombre se quedaron en el EC2 tras el despliegue.
+  printf '%s\0' "$BORRADOS" | "${SSH[@]}" "cd $DESTINO && tr '\n' '\0' | xargs -0 -r rm -f --"
 fi
 
 echo "-- 3/5 dependencias"
