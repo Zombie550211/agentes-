@@ -479,41 +479,73 @@ app.add_middleware(_GzipSalvoSSE, minimum_size=1000, compresslevel=6)
 
 # ── Cabeceras de seguridad ───────────────────────────────────────
 # Defensa en profundidad para todas las respuestas (incluidas las páginas HTML).
-# La CSP ACTIVA es deliberadamente acotada: NO fija script-src/default-src porque el
-# frontend usa scripts inline y CDNs (Tailwind, jsdelivr, cdnjs, unpkg). Aun así
-# bloquea clickjacking (frame-ancestors), plugins (object-src) e inyección de
-# <base> (base-uri), sin romper la app.
-_CSP = "frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
-
-# CSP candidata, en modo SOLO-REPORTE: el navegador NO bloquea nada, únicamente
-# avisa por consola de lo que la política rechazaría. Sirve para descubrir qué
-# orígenes usa la app de verdad antes de aplicarla en serio.
+# CSP ACTIVA (modo bloqueo). Antes era sólo "frame-ancestors/object-src/base-uri"
+# y esta política vivía en modo reporte; se activó tras recorrer las 42 páginas del
+# CRM con un navegador real y comprobar que no produce ni una violación
+# (scripts/csp-audit.js repite esa comprobación cuando haga falta).
 #
-# Los hosts salen de un barrido del frontend; ojo con los falsos positivos al
-# repetir ese barrido: schemas.openxmlformats.org, w3.org y apache.org aparecen
-# muchísimo pero son namespaces XML dentro de SheetJS, no cargas de red.
+# Lo que aporta frente a la versión anterior:
+#   - script-src acotado: un XSS ya no puede traerse código de un host cualquiera.
+#   - connect-src 'self': corta la exfiltración: no hay un solo fetch/XHR/EventSource
+#     a dominio externo en todo el frontend, así que no rompe nada.
+#   - form-action 'self': un XSS tampoco puede postear un formulario a otro dominio.
 #
-# Qué gana la app al activarla (cuando la consola esté limpia):
-#   - script-src acotado: un XSS ya no puede cargar código desde un host arbitrario.
-#   - connect-src 'self': corta la exfiltración de datos a servidores externos.
-# Lo que NO resuelve: sigue haciendo falta 'unsafe-inline' mientras el frontend
-# tenga scripts inline, así que un XSS inline (como el del chat) no lo frena.
-# Eliminar esa necesidad exige mover los inline a archivos .js o usar nonces.
+# SIN CDNs de JavaScript. Antes script-src listaba jsdelivr, unpkg, cdnjs,
+# code.jquery.com y cdn.tailwindcss.com: cinco terceros con permiso para ejecutar
+# código en un CRM con datos de clientes, y ninguna de las etiquetas <script>
+# llevaba integrity=, así que ni siquiera se detectaría un fichero alterado. Todas
+# esas librerías se descargaron a frontend/vendor/ y las páginas las sirven desde
+# el propio dominio. Al no haber origen externo, sobra el SRI: nada puede cambiar
+# bajo nuestros pies.
 #
-# Para pasarla a modo bloqueo: cambiar la cabecera de abajo por "Content-Security-Policy"
-# — pero sólo después de navegar TODAS las páginas sin violaciones en consola.
-_CSP_REPORT_ONLY = (
+# SIN 'unsafe-eval'. Sólo hacía falta por @babel/standalone, que compilaba el JSX
+# de lineas/comisiones.html EN EL NAVEGADOR. Ese JSX ahora se precompila
+# (scripts/build-comisiones.js) y se sirve como JS plano. Se verificó que ninguna
+# librería vendorizada usa eval() ni Function().
+#
+# Sigue con 'unsafe-inline' a propósito: el frontend tiene 71 bloques <script>
+# inline y 265 atributos de evento (onclick, onerror…). Quitarlo exige migrar todo
+# eso a addEventListener, y los nonces NO cubren los atributos de evento.
+# Mientras siga ahí, la CSP no frena un XSS inline — de eso se encarga escapar la
+# salida (ver escapeAttr en el frontend).
+#
+# Lo único externo que queda son las tipografías de Google (fonts.googleapis.com /
+# fonts.gstatic.com), que no pueden ejecutar JavaScript, y los tiles de los mapas.
+#
+# Ojo con los falsos positivos al rebarrer el frontend: schemas.openxmlformats.org,
+# w3.org y apache.org salen muchísimo, pero son namespaces XML de SheetJS, no
+# cargas de red. www.gstatic.com sólo lo cita vendor/model-viewer.min.js, que no
+# lo carga ninguna página.
+_CSP = (
     "default-src 'self'; "
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' "
-        "https://cdn.tailwindcss.com https://cdnjs.cloudflare.com "
-        "https://cdn.jsdelivr.net https://unpkg.com https://code.jquery.com; "
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com "
-        "https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
-    "font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
-    "img-src 'self' data: blob: https://tiles.stadiamaps.com https://www.gstatic.com; "
+    "script-src 'self' 'unsafe-inline'; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "font-src 'self' data: https://fonts.gstatic.com; "
+    "img-src 'self' data: blob: https://tiles.stadiamaps.com https://www.gstatic.com "
+        "https://*.basemaps.cartocdn.com; "
     "media-src 'self' blob: data:; "
     "worker-src 'self' blob:; "
     "connect-src 'self'; "
+    "form-action 'self'; "
+    "frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
+)
+
+# Siguiente meta, en modo SOLO-REPORTE: la misma política pero SIN 'unsafe-inline'.
+# El navegador no bloquea nada, sólo avisa por consola de lo que rechazaría — así se
+# mide cuánto falta para la CSP estricta a medida que se migren los <script> inline
+# y los onclick a addEventListener. Cuando la consola quede limpia, esta pasa a ser
+# _CSP y la política deja de tener puntos débiles.
+_CSP_REPORT_ONLY = (
+    "default-src 'self'; "
+    "script-src 'self'; "
+    "style-src 'self' https://fonts.googleapis.com; "
+    "font-src 'self' data: https://fonts.gstatic.com; "
+    "img-src 'self' data: blob: https://tiles.stadiamaps.com https://www.gstatic.com "
+        "https://*.basemaps.cartocdn.com; "
+    "media-src 'self' blob:; "
+    "worker-src 'self' blob:; "
+    "connect-src 'self'; "
+    "form-action 'self'; "
     "frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
 )
 
@@ -526,6 +558,12 @@ async def _security_headers(request: Request, call_next):
     resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     resp.headers["Content-Security-Policy"] = _CSP
     resp.headers["Content-Security-Policy-Report-Only"] = _CSP_REPORT_ONLY
+    # El CRM no usa ninguna de estas APIs del navegador (se comprobó en todo el
+    # frontend), así que se niegan: si un XSS llegara a colarse, no puede pedirlas.
+    # `clipboard` NO se bloquea — sí se usa, para copiar datos de leads.
+    resp.headers["Permissions-Policy"] = (
+        "geolocation=(), camera=(), microphone=(), payment=(), usb=()"
+    )
     if _IS_PROD:
         resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return resp

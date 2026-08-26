@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chat — CRM Connecting</title>
   <link rel="icon" type="image/png" href="images/favicon.png">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="js/core/inactivity-manager.js?v=20260611a" defer></script>
   <script src="js/core/crm-init.js" defer></script>
   <script src="js/core/dashboard-init.js" defer></script>
-  <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1.29.1/index.js"></script>
+  <script type="module" src="/vendor/emoji-picker/index.js"></script>
   <style>
     :root {
       --sidebar-w: 56px;
@@ -802,7 +802,10 @@
             <button class="btn-emoji-toggle" id="btnEmojiToggle" title="Emoji"><i class="fas fa-smile"></i></button>
             <button class="btn-send" id="btnSend"><i class="fas fa-paper-plane"></i></button>
             <div class="emoji-picker-wrap" id="emojiPickerWrap">
-              <emoji-picker id="mainEmojiPicker"></emoji-picker>
+              <!-- data-source apunta al JSON local. Sin él, emoji-picker-element se lo
+                   pide a cdn.jsdelivr.net en tiempo de ejecución y la CSP lo bloquea
+                   (connect-src 'self'): el panel se quedaba vacío. -->
+              <emoji-picker id="mainEmojiPicker" data-source="/vendor/emoji-picker/emoji-data-en.json"></emoji-picker>
             </div>
           </div>
         </div>
