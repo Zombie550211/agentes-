@@ -1,6 +1,7 @@
 /* ═══════════════════════════════════════════════
-   SIDEBAR ESTÁTICO — sin JS de generación, sin auto-hide,
-   sin colapso, sin dependencia de body.dark-theme.
+   SIDEBAR — sin auto-hide y sin dependencia de body.dark-theme.
+   El marcado lo genera js/layout/sidebar.js a partir de datos;
+   el comportamiento vive en js/layout/sidebar-ui.js.
 
    Nota: varias páginas tienen reglas globales agresivas tipo
    `body * { color: #fff !important; }` (leftovers de temas viejos).
@@ -41,7 +42,7 @@
   margin-left: calc(var(--sidebar-collapsed) + 16px);
 }
 
-/* Botón hamburguesa + overlay (inyectados por sidebar-static.js) */
+/* Botón de menú + overlay (inyectados por sidebar-ui.js) */
 .sb-mobile-toggle {
   display: none;
   position: fixed;
@@ -63,8 +64,12 @@
   z-index: 999;
 }
 
-/* <768px: el sidebar pasa a ser deslizante (fuera de pantalla por defecto) */
-@media (max-width: 768px) {
+/* El sidebar pasa a ser deslizante en dos casos: pantalla angosta, o CUALQUIER
+   dispositivo sin ratón. En escritorio el menú se despliega con :hover, pero en
+   una tablet ese evento no existe: a 1024px caía en el bloque de escritorio y se
+   quedaba en modo icono, sin etiquetas y sin ningún gesto para expandirlo. La
+   coma en un media query es un OR. */
+@media (max-width: 768px), (hover: none) {
   .sb-mobile-toggle { display: flex; }
   #app-sidebar {
     width: 280px;
@@ -75,25 +80,6 @@
   .sb-mobile-overlay.sb-open { display: block; }
   .main-content { margin-left: 0 !important; }
 }
-
-/* Marca (header) */
-#app-sidebar .sb-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 20px 18px 14px 18px;
-  flex-shrink: 0;
-}
-#app-sidebar .sb-brand-mark {
-  width: 34px; height: 34px; border-radius: 9px;
-  background: linear-gradient(160deg, #2f6fed, #1c4fc9);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 700; color: #fff !important; flex-shrink: 0;
-}
-#app-sidebar .sb-brand-text { display: flex; flex-direction: column; line-height: 1.15; }
-#app-sidebar .sb-brand-text strong { font-size: 14px; font-weight: 700; letter-spacing: .4px; color: #111827 !important; }
-#app-sidebar .sb-brand-text span { font-size: 9px; letter-spacing: 3px; color: #9ca3af !important; }
-
 /* Usuario (avatar + nombre + rol) */
 #app-sidebar .sb-user {
   display: flex;
@@ -245,7 +231,7 @@
   text-transform: uppercase;
 }
 
-/* Solo visible para admins (activado por sidebar-static.js) */
+/* Solo visible para admins (activado por sidebar-ui.js) */
 #app-sidebar [data-admin-only] { display: none; }
 body.sb-is-admin #app-sidebar [data-admin-only] { display: flex; }
 #app-sidebar .sb-sec[data-admin-only],
@@ -256,11 +242,13 @@ body.sb-is-admin #app-sidebar .sb-mov-head[data-admin-only] { display: block; }
 /* La regla de arriba (más específica, para mostrar solo a admins) le gana a la
    de "ocultar en colapsado" del media query de escritorio — se refuerza acá con
    la misma especificidad para que el colapso siga funcionando también en admins. */
-@media (min-width: 769px) {
+@media (min-width: 769px) and (hover: hover) {
   body.sb-is-admin #app-sidebar .sb-sec[data-admin-only],
   body.sb-is-admin #app-sidebar .sb-mov-head[data-admin-only] { display: none; }
   body.sb-is-admin #app-sidebar:hover .sb-sec[data-admin-only],
-  body.sb-is-admin #app-sidebar:hover .sb-mov-head[data-admin-only] { display: block; }
+  body.sb-is-admin #app-sidebar:focus-within .sb-sec[data-admin-only],
+  body.sb-is-admin #app-sidebar:hover .sb-mov-head[data-admin-only],
+  body.sb-is-admin #app-sidebar:focus-within .sb-mov-head[data-admin-only] { display: block; }
 }
 
 /* Footer */
@@ -296,16 +284,27 @@ body.sb-is-admin #app-sidebar .sb-mov-head[data-admin-only] { display: block; }
 #app-sidebar .sb-logout .sb-ic { background: #dc2626; }
 #app-sidebar .sb-logout .sb-lbl { color: #374151 !important; }
 
-/* Escritorio (>=769px): rail de solo iconos que se expande al pasar el mouse.
+/* Escritorio con ratón: rail de solo iconos que se expande al pasar el mouse.
    En colapsado se ocultan foto/nombre/rol, etiquetas, encabezados de sección
    y la frase del footer — solo quedan los iconos de cada botón.
+
+   `(hover: hover)`: sin esto, el bloque también aplicaba en tablets, donde
+   :hover no ocurre nunca — el menú quedaba colapsado para siempre. Los
+   dispositivos sin ratón caen ahora en el bloque deslizante de más arriba.
+
+   `:focus-within` va junto a `:hover` en TODAS las reglas: al navegar con el
+   teclado, Tab mueve el foco por los botones pero no dispara :hover, así que
+   las etiquetas no aparecían y se recorrían 25 iconos a ciegas. Con esto, en
+   cuanto el foco entra en el sidebar, se despliega igual que con el ratón.
+
    Este bloque va al FINAL del archivo a propósito: comparte especificidad
    (1,1,0) con las reglas base de .sb-user/.sb-lbl/.sb-sec/.sb-mov-head/.sb-quote
    de más arriba, y en un empate de especificidad gana la regla que aparece
    después en la hoja de estilos — si este bloque quedara antes, esas reglas
    base lo pisarían y el contenido nunca se ocultaría. */
-@media (min-width: 769px) {
-  #app-sidebar:hover { width: var(--sidebar-width); }
+@media (min-width: 769px) and (hover: hover) {
+  #app-sidebar:hover,
+  #app-sidebar:focus-within { width: var(--sidebar-width); }
 
   #app-sidebar .sb-user,
   #app-sidebar .sb-lbl,
@@ -314,16 +313,36 @@ body.sb-is-admin #app-sidebar .sb-mov-head[data-admin-only] { display: block; }
   #app-sidebar .sb-quote {
     display: none;
   }
-  #app-sidebar:hover .sb-user  { display: flex; }
-  #app-sidebar:hover .sb-lbl   { display: block; }
-  #app-sidebar:hover .sb-sec   { display: block; }
-  #app-sidebar:hover .sb-mov-head { display: block; }
-  #app-sidebar:hover .sb-quote { display: block; }
+  #app-sidebar:hover .sb-user,
+  #app-sidebar:focus-within .sb-user     { display: flex; }
+  #app-sidebar:hover .sb-lbl,
+  #app-sidebar:focus-within .sb-lbl      { display: block; }
+  #app-sidebar:hover .sb-sec,
+  #app-sidebar:focus-within .sb-sec      { display: block; }
+  #app-sidebar:hover .sb-mov-head,
+  #app-sidebar:focus-within .sb-mov-head { display: block; }
+  #app-sidebar:hover .sb-quote,
+  #app-sidebar:focus-within .sb-quote    { display: block; }
 
   #app-sidebar .sb-item, #app-sidebar .sb-logout, #app-sidebar .sb-user {
     justify-content: center;
   }
-  #app-sidebar:hover .sb-item, #app-sidebar:hover .sb-logout, #app-sidebar:hover .sb-user {
+  #app-sidebar:hover .sb-item,
+  #app-sidebar:hover .sb-logout,
+  #app-sidebar:hover .sb-user,
+  #app-sidebar:focus-within .sb-item,
+  #app-sidebar:focus-within .sb-logout,
+  #app-sidebar:focus-within .sb-user {
     justify-content: flex-start;
   }
+}
+
+/* El foco de teclado tiene que verse. Sin esto, con el sidebar desplegado por
+   :focus-within no había forma de saber en qué botón estabas. */
+#app-sidebar .sb-item:focus-visible,
+#app-sidebar .sb-logout:focus-visible,
+#app-sidebar .sb-user-edit-btn:focus-visible,
+.sb-mobile-toggle:focus-visible {
+  outline: 2px solid #2f6fed;
+  outline-offset: 2px;
 }
