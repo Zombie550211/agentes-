@@ -22,6 +22,58 @@ _ADMIN_ROLES = {"admin", "administrador", "administrator", "backoffice", "bo"}
 def _is_admin(user: dict) -> bool:
     return any(r in str(user.get("role", "")).lower() for r in _ADMIN_ROLES)
 
+
+def _vision_global(user: dict) -> bool:
+    """¿El rol ve TODOS los leads (y por tanto todos sus archivos)?
+
+    Mismo criterio que el listado de leads: admin, back office y supervisores.
+    Se reusa la clasificación de routers.leads para no divergir (import perezoso
+    para evitar ciclos de importación entre routers)."""
+    if _is_admin(user):
+        return True
+    from routers.leads import _is_admin_or_bo, _is_supervisor
+    return _is_admin_or_bo(user) or _is_supervisor(user)
+
+
+async def _puede_ver_archivo(user: dict, row) -> bool:
+    """Frontera de acceso a un note_files. Antes NO existía: cualquier usuario
+    autenticado bajaba cualquier archivo iterando /api/files/{id} (IDOR sobre
+    grabaciones de llamadas, capturas de verificación, etc.).
+
+    Regla: lo ve quien tiene visión global, quien lo subió, o el agente dueño del
+    lead al que está adjunto — la misma frontera de propiedad que en los leads."""
+    if _vision_global(user):
+        return True
+    username = str(user.get("username") or "").strip()
+    if not username:
+        return False
+    if str((row.get("uploaded_by") if hasattr(row, "get") else None) or "").strip() == username:
+        return True
+    lead_id = row.get("lead_id") if hasattr(row, "get") else None
+    if not lead_id:
+        return False
+    # ¿El lead adjunto es de este agente? lead_id puede ser id numérico o mongo_id.
+    try:
+        cond, val = "id = :v", int(lead_id)
+    except (ValueError, TypeError):
+        cond, val = "mongo_id = :v", str(lead_id)
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text(f"""
+            SELECT 1 FROM leads
+            WHERE {cond} AND (agente_nombre = :u OR agente = :u OR created_by = :u)
+            LIMIT 1
+        """), {"v": val, "u": username})
+        if r.first():
+            return True
+        if isinstance(val, int):
+            r = await s.execute(text("""
+                SELECT 1 FROM lineas_clientes
+                WHERE id = :v AND (agente = :u OR agente_nombre = :u) LIMIT 1
+            """), {"v": val, "u": username})
+            if r.first():
+                return True
+    return False
+
 _FILES_DIR = Path(__file__).resolve().parent.parent.parent / "uploads" / "files"
 _FILES_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -186,13 +238,16 @@ async def serve_image(file_id: str, user: dict = Depends(current_user)):
 
     async with AsyncSessionLocal() as s:
         r = await s.execute(
-            text("SELECT content, content_type, file_path FROM note_files WHERE id = :id"),
+            text("SELECT content, content_type, file_path, lead_id, uploaded_by FROM note_files WHERE id = :id"),
             {"id": fid}
         )
         row = r.mappings().first()
 
     if not row:
         raise HTTPException(404, "Imagen no encontrada")
+
+    if not await _puede_ver_archivo(user, row):
+        raise HTTPException(403, "No autorizado para ver este archivo")
 
     # Imagen guardada en BD (nuevo sistema)
     if row["content"]:
@@ -251,6 +306,9 @@ async def serve_file(file_id: str, request: Request, user: dict = Depends(curren
 
     if not row:
         raise HTTPException(404, "Archivo no encontrado")
+
+    if not await _puede_ver_archivo(user, row):
+        raise HTTPException(403, "No autorizado para ver este archivo")
 
     # Si es imagen con content en BD → redirigir al endpoint correcto
     if row["content"] and (row["content_type"] or "").startswith("image/"):
@@ -327,6 +385,9 @@ async def download_file(file_id: str, user: dict = Depends(current_user)):
 
     if not row:
         raise HTTPException(404, "Archivo no encontrado")
+
+    if not await _puede_ver_archivo(user, row):
+        raise HTTPException(403, "No autorizado para ver este archivo")
 
     content_type = row["content_type"] or "application/octet-stream"
     orig_name    = row["original_name"] or row["filename"] or "file"

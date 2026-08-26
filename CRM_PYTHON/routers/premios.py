@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
-from deps import current_user
+from deps import current_user, require_roles, ADMIN_ROLES
 from typing import Optional
 from datetime import datetime, date, timezone
 
@@ -42,7 +42,7 @@ class Ganador(BaseModel):
 
 # ── ACTIVOS ────────────────────────────────────────────────────────
 @router.get("/activos")
-async def get_activos():
+async def get_activos(user: dict = Depends(current_user)):
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("SELECT * FROM premios_activos ORDER BY created_at ASC"))
         items = [_doc(row) for row in r.mappings().all()]
@@ -50,7 +50,7 @@ async def get_activos():
 
 
 @router.post("/activos")
-async def create_activo(body: PremioActivo, user: dict = Depends(current_user)):
+async def create_activo(body: PremioActivo, user: dict = Depends(require_roles(*ADMIN_ROLES))):
     if body.tipo not in TIPOS_VALIDOS:
         raise HTTPException(400, "Tipo inválido")
     now = _utcnow()
@@ -71,7 +71,7 @@ async def create_activo(body: PremioActivo, user: dict = Depends(current_user)):
 
 
 @router.delete("/activos/{premio_id}")
-async def delete_activo(premio_id: str, user: dict = Depends(current_user)):
+async def delete_activo(premio_id: str, user: dict = Depends(require_roles(*ADMIN_ROLES))):
     try:
         pid = int(premio_id)
     except ValueError:
@@ -86,7 +86,7 @@ async def delete_activo(premio_id: str, user: dict = Depends(current_user)):
 
 # ── GANADORES ─────────────────────────────────────────────────────
 @router.get("/ganadores")
-async def get_ganadores():
+async def get_ganadores(user: dict = Depends(current_user)):
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("SELECT * FROM premios_ganadores ORDER BY created_at ASC"))
         items = [_doc(row) for row in r.mappings().all()]
@@ -94,7 +94,7 @@ async def get_ganadores():
 
 
 @router.post("/ganadores")
-async def create_ganador(body: Ganador, user: dict = Depends(current_user)):
+async def create_ganador(body: Ganador, user: dict = Depends(require_roles(*ADMIN_ROLES))):
     if not body.nombre or not body.iniciales:
         raise HTTPException(400, "Nombre e iniciales requeridos")
     now = _utcnow()
@@ -118,7 +118,7 @@ async def create_ganador(body: Ganador, user: dict = Depends(current_user)):
 
 
 @router.delete("/ganadores/{ganador_id}")
-async def delete_ganador(ganador_id: str, user: dict = Depends(current_user)):
+async def delete_ganador(ganador_id: str, user: dict = Depends(require_roles(*ADMIN_ROLES))):
     try:
         gid = int(ganador_id)
     except ValueError:

@@ -1313,6 +1313,23 @@ async def get_lead(lead_id: str, user: dict = Depends(current_user)):
         row = r.mappings().first()
     if not row:
         raise HTTPException(404, "Lead no encontrado")
+
+    # Frontera de propiedad — la misma que el listado (_leads_bootstrap_core).
+    # Antes NO se aplicaba aquí: un agente leía CUALQUIER lead por su id (nombre,
+    # teléfono, dirección de todos los clientes) aunque el listado solo le mostrara
+    # los suyos. Se responde 404, no 403, para no confirmar la existencia del id.
+    mercado_restrict = await _mercado_restrict(user)
+    if mercado_restrict:
+        mrow = str(row.get("mercado") or "").strip().upper()
+        if mrow != mercado_restrict:
+            raise HTTPException(404, "Lead no encontrado")
+    if _is_agent(user):
+        username = user.get("username", "")
+        propios = {str(row.get("agente_nombre") or ""), str(row.get("agente") or ""),
+                   str(row.get("created_by") or "")}
+        if not username or username not in propios:
+            raise HTTPException(404, "Lead no encontrado")
+
     doc = _serialize_lead(row)
     return {"success": True, "data": doc, "lead": doc, "foundInCollection": "leads"}
 

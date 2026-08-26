@@ -39,7 +39,7 @@ class EmployeeBody(BaseModel):
 
 
 @router.get("")
-async def get_employees():
+async def get_employees(user: dict = Depends(current_user)):
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("SELECT * FROM employees_month ORDER BY updated_at DESC"))
         docs = r.mappings().all()
