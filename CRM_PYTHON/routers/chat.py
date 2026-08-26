@@ -8,6 +8,7 @@ from deps import current_user
 from datetime import datetime, timezone
 from typing import List
 import realtime
+import session_guard
 
 def _utcnow() -> datetime:
     """UTC naive (reemplazo de _utcnow() deprecado en Python 3.12+)."""
@@ -274,6 +275,10 @@ async def chat_stream(request: Request):
     if not user:
         return JSONResponse({"detail": "No autenticado"}, status_code=401)
 
+    revocado = await session_guard.is_session_revoked(user)
+    if revocado:
+        return JSONResponse({"detail": revocado}, status_code=401)
+
     channel = f"chat:{user.get('username', '')}"
     queue = realtime.subscribe(channel)
 
@@ -287,7 +292,11 @@ async def chat_stream(request: Request):
                     event = await asyncio.wait_for(queue.get(), timeout=_HEARTBEAT_SECS)
                     yield realtime.event_payload(event)
                 except asyncio.TimeoutError:
-                    yield ": ping\n\n"   # heartbeat (las líneas ':' se ignoran)
+                    # Heartbeat + revalidación de sesión: igual que en stream.py,
+                    # esta conexión dura horas y aquí viajan mensajes privados.
+                    if await session_guard.is_session_revoked(user):
+                        break
+                    yield ": ping\n\n"   # las líneas ':' se ignoran
         except asyncio.CancelledError:
             pass
         finally:

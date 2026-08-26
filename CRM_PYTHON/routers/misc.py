@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
+import session_guard
 from typing import Optional
 import datetime as _dt
 import re, json, calendar
@@ -360,6 +361,11 @@ async def force_logout_all(user: dict = Depends(current_user)):
             ON DUPLICATE KEY UPDATE value = :v, updated_by = :by
         """), {"v": json.dumps(ts), "by": user.get("username")})
         await s.commit()
+
+    # Quien aplica este corte es session_guard, comparándolo con el `iat` de cada
+    # token. Se invalida la caché para que surta efecto ya, sin esperar al TTL.
+    session_guard.invalidate_force_logout()
+
     return {"success": True, "message": "Todas las sesiones han sido cerradas", "ts": ts}
 
 

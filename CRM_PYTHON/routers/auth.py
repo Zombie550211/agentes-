@@ -14,13 +14,57 @@ from deps import (
     make_token as _make_token,
     decode_token as _decode_token,
     set_token_cookie as _set_token_cookie,
+    clear_token_cookie as _clear_token_cookie,
 )
+import session_guard
 import unicodedata, re, os, json, math, time, secrets, smtplib
 import datetime as _dt
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
+
+
+# ── Bloqueo de fuerza bruta POR CUENTA ───────────────────────────
+# El rate limit de slowapi es por IP de origen: frena a un atacante desde una
+# sola IP, pero NO protege una cuenta concreta atacada desde muchas IPs (botnet).
+# Esto añade un freno independiente de la IP: tras varios fallos seguidos sobre
+# el MISMO usuario, se bloquea esa cuenta un rato. En memoria del proceso (el
+# despliegue corre 1 worker); un reinicio limpia los contadores, lo cual es
+# aceptable para este fin. Un login correcto limpia el contador de esa cuenta.
+import time as _time
+
+_LOGIN_MAX_FALLOS   = 8       # fallos seguidos antes de bloquear
+_LOGIN_BLOQUEO_SEGS = 15 * 60 # duración del bloqueo
+# username_normalizado -> {"n": fallos, "hasta": epoch_desbloqueo}
+_login_fallos: dict[str, dict] = {}
+
+
+def _login_key(username: str) -> str:
+    return str(username or "").strip().lower()
+
+
+def _login_bloqueado(username: str) -> int:
+    """Segundos que quedan de bloqueo para esa cuenta (0 si no está bloqueada)."""
+    e = _login_fallos.get(_login_key(username))
+    if not e:
+        return 0
+    restante = int(e.get("hasta", 0) - _time.time())
+    return restante if restante > 0 else 0
+
+
+def _login_registra_fallo(username: str) -> None:
+    k = _login_key(username)
+    e = _login_fallos.get(k) or {"n": 0, "hasta": 0}
+    e["n"] += 1
+    if e["n"] >= _LOGIN_MAX_FALLOS:
+        e["hasta"] = _time.time() + _LOGIN_BLOQUEO_SEGS
+        e["n"] = 0   # reinicia el conteo; el bloqueo temporal toma el relevo
+    _login_fallos[k] = e
+
+
+def _login_limpia(username: str) -> None:
+    _login_fallos.pop(_login_key(username), None)
 
 
 def _utcnow() -> _dt.datetime:
@@ -128,8 +172,11 @@ def _load_maintenance() -> dict:
     try:
         if MAINTENANCE_FILE.exists():
             return json.loads(MAINTENANCE_FILE.read_text())
-    except Exception:
-        pass
+    except Exception as e:
+        # Si el fichero está corrupto se cae al estado "sin mantenimiento", que es
+        # lo seguro (no deja a nadie fuera). Pero hay que avisar: en silencio, un
+        # mantenimiento activo se ignoraría sin que nadie se entere.
+        print(f"[maintenance] no se pudo leer {MAINTENANCE_FILE}: {e}")
     return {"active": False, "message": "", "activeSince": None}
 
 def _save_maintenance(state: dict):
@@ -144,15 +191,28 @@ def _save_maintenance(state: dict):
 @limiter.limit("3/minute")
 async def login(request: Request, body: LoginBody, response: Response):
     ip = request.client.host if request.client else "unknown"
+
+    # Freno por cuenta (independiente de la IP): si esta cuenta acumuló demasiados
+    # fallos, se rechaza sin ni siquiera comprobar la contraseña.
+    bloqueo = _login_bloqueado(body.username)
+    if bloqueo:
+        log_login_fail(body.username, ip)
+        raise HTTPException(
+            status_code=429,
+            detail=f"Demasiados intentos fallidos. Intenta de nuevo en {bloqueo // 60 + 1} min.",
+        )
+
     variants = _username_variants(body.username)
     user = await _find_user_by_variants(variants)
     if not user or not _verify_pwd(body.password, user.get("password", "")):
+        _login_registra_fallo(body.username)
         log_login_fail(body.username, ip)
         raise HTTPException(401, "Credenciales inválidas")
     if int(user.get("active", 1)) == 0:
         log_login_fail(body.username, ip)
         raise HTTPException(403, "Cuenta suspendida. Contacta al administrador.")
 
+    _login_limpia(body.username)   # login correcto: se reinicia el contador
     log_login_ok(user.get("username", ""), ip)
     token = _make_token(user, remember=body.remember)
     _set_token_cookie(response, token, max_age=(JWT_EXPIRES_REMEMBER if body.remember else JWT_EXPIRES))
@@ -205,6 +265,18 @@ async def verify_server(request: Request, response: Response):
     if not decoded:
         return {"success": False, "authenticated": False, "role": None, "username": None}
 
+    # Este endpoint es el que el frontend consulta para decidir si sigue logueado
+    # (ver fetch-interceptor.js: ante un 401 pregunta aquí y solo redirige al login
+    # si la respuesta dice que no). Por eso tiene que aplicar las mismas revocaciones
+    # que deps.current_user: sin esto, a un usuario suspendido le fallaban todas las
+    # peticiones con 401 pero aquí se le respondía "authenticated: true", así que se
+    # quedaba atrapado en una página rota en vez de volver al login.
+    revocado = await session_guard.is_session_revoked(decoded)
+    if revocado:
+        _clear_token_cookie(response)
+        return {"success": False, "authenticated": False, "role": None,
+                "username": None, "reason": revocado}
+
     # Sliding session: renovar el token si queda menos de la mitad de vida.
     # Respeta el claim "remember" para no recortar una sesión "recordada"
     # (30 días) al criterio de una sesión corta (30 min).
@@ -216,8 +288,9 @@ async def verify_server(request: Request, response: Response):
         if exp - time.time() < own_ttl / 2:
             ttl = JWT_EXPIRES_REMEMBER if remember else JWT_EXPIRES
             _set_token_cookie(response, _make_token(decoded, remember=remember), max_age=ttl)
-    except Exception:
-        pass
+    except Exception as e:
+        # Igual que en deps.current_user: no rompe la petición, pero se avisa.
+        print(f"[auth] no se pudo renovar la sesión de {decoded.get('username','?')}: {e}")
 
     maint = _load_maintenance()
     if maint.get("active") and maint.get("activeSince") and decoded.get("iat", 0) < maint["activeSince"]:

@@ -8,6 +8,8 @@ from fastapi import Request, Response, HTTPException, Depends
 from jose import jwt, JWTError
 import os, time, math
 
+import session_guard
+
 JWT_SECRET = os.getenv("JWT_SECRET")
 if not JWT_SECRET:
     raise RuntimeError("JWT_SECRET no configurado en variables de entorno. "
@@ -91,6 +93,11 @@ def set_token_cookie(response: Response, token: str, max_age: int = JWT_EXPIRES)
     )
 
 
+def clear_token_cookie(response: Response) -> None:
+    """Borra la cookie de sesión (logout, o token revocado del lado servidor)."""
+    response.delete_cookie("token", path="/", samesite=COOKIE_SAMESITE)
+
+
 def _renew_token_cookie(response: Response, payload: dict) -> None:
     """Sliding session: re-emite el token preservando sus claims con exp fresca.
 
@@ -113,6 +120,21 @@ async def current_user(request: Request, response: Response) -> dict:
     decoded = decode_token(token)
     if decoded is None:
         raise HTTPException(status_code=401, detail="Token inválido")
+
+    # La firma sea válida no basta: el token pudo emitirse antes de que
+    # suspendieran al usuario o de que un admin cerrara todas las sesiones.
+    # Ver session_guard (ambas comprobaciones van cacheadas).
+    revocado = await session_guard.is_session_revoked(decoded)
+    if revocado:
+        # La cookie va en la propia excepción: al lanzar HTTPException, FastAPI
+        # descarta este `response` y arma otro, así que tocarlo aquí no serviría.
+        _borrar = Response()
+        clear_token_cookie(_borrar)
+        raise HTTPException(
+            status_code=401, detail=revocado,
+            headers={"set-cookie": _borrar.headers["set-cookie"]},
+        )
+
     # Renovar el token si le queda menos de la mitad de vida —
     # mientras el usuario esté activo, la sesión nunca se cierra.
     # El umbral es proporcional a la duración propia del token, para que
@@ -124,8 +146,11 @@ async def current_user(request: Request, response: Response) -> dict:
         own_ttl = (exp - iat) if (exp and iat and exp > iat) else JWT_EXPIRES
         if exp - time.time() < own_ttl / 2:
             _renew_token_cookie(response, decoded)
-    except Exception:
-        pass
+    except Exception as e:
+        # No se corta la petición: el token sigue siendo válido, sólo no se ha
+        # renovado. Pero se avisa, porque si esto falla de forma sistemática los
+        # usuarios acaban expulsados al llegar al exp sin entender por qué.
+        print(f"[auth] no se pudo renovar la sesión de {decoded.get('username','?')}: {e}")
     return decoded
 
 

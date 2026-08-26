@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user, team_seccion
+import session_guard
 from datetime import datetime, timezone
 from typing import Optional, List
 import unicodedata, json
@@ -257,6 +258,10 @@ async def update_role(user_id: str, body: UpdateRoleBody, user: dict = Depends(c
         r2 = await s.execute(text("SELECT id, username, name, email, role, team, supervisor, avatar_url, permissions FROM users WHERE id = :id"), {"id": uid})
         updated = _row_to_user(r2.mappings().first())
 
+    # El rol nuevo no está en el token que el usuario trae: session_guard detecta
+    # el desajuste y lo obliga a reloguear.
+    session_guard.invalidate_user(uid)
+
     return {"success": True, "user": _serialize(updated)}
 
 
@@ -384,6 +389,10 @@ async def suspend_user(user_id: str, body: SuspendBody, user: dict = Depends(cur
         )
         await s.commit()
 
+    # Sin esto la suspensión no echaría al usuario hasta que caducara su token
+    # (hasta 30 días con "Recordar sesión").
+    session_guard.invalidate_user(uid)
+
     estado = "activado" if body.active else "suspendido"
     return {"success": True, "message": f"Usuario {estado} correctamente", "active": int(body.active)}
 
@@ -408,5 +417,7 @@ async def delete_user(user_id: str, user: dict = Depends(current_user)):
             raise HTTPException(404, "Usuario no encontrado")
         await s.execute(text("DELETE FROM users WHERE id = :id"), {"id": uid})
         await s.commit()
+
+    session_guard.invalidate_user(uid)
 
     return {"success": True, "message": "Usuario eliminado correctamente"}
