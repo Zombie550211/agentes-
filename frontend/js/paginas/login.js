@@ -83,10 +83,11 @@
   if (urlMsg) showAlert('alertLogin', 'alertLoginIcon', 'alertLoginText', decodeURIComponent(urlMsg), 'info');
 
   /* ── Toggle contraseña login ── */
-  // OJO: el formulario de login (usuario/contraseña/checkbox/botón) se sacó de la
-  // página a pedido — estos elementos pueden no existir. Todo lo de acá abajo que
-  // depende de ellos queda con guardas `if (el)` para que el resto del script (el
-  // flujo de "olvidé mi contraseña", que sigue existiendo aparte) no se rompa.
+  // Los elementos del formulario de login se consultan con guardas `if (el)`:
+  // este mismo script maneja también el flujo de "olvidé mi contraseña", que
+  // vive en otro panel, y no debe romperse si el login no está en la página.
+  // El icono refleja el ESTADO: oculta = ojo tachado, visible = ojo abierto
+  // (el HTML arranca en fa-eye-slash porque el campo arranca oculto).
   var pwToggleBtn = document.getElementById('pwToggle');
   if (pwToggleBtn) {
     pwToggleBtn.addEventListener('click', function () {
@@ -94,13 +95,14 @@
       var ico = document.getElementById('pwIcon');
       var show = inp.type === 'password';
       inp.type      = show ? 'text' : 'password';
-      ico.className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
+      ico.className = show ? 'fas fa-eye' : 'fas fa-eye-slash';
     });
   }
 
-  /* ── Checkbox "Recordar sesión" ── */
+  /* ── Checkbox "Recuérdame" ── */
+  // El aspecto marcado/desmarcado lo resuelve el CSS con
+  // `input:checked + .custom-check`; acá sólo se lee el valor.
   var cbRemember = document.getElementById('rememberMe');
-  var checkVis   = document.getElementById('checkVis');
 
   // Helpers de cookie (más compatibles que localStorage en todos los navegadores)
   function setCookie(name, value, days) {
@@ -120,21 +122,6 @@
     document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/';
   }
 
-  function syncCheck() {
-    if (!cbRemember || !checkVis) return;
-    var on = cbRemember.checked;
-    checkVis.style.background  = on ? 'var(--accent)' : '';
-    checkVis.style.borderColor = on ? 'var(--accent)' : '';
-    checkVis.style.color       = on ? '#fff' : 'transparent';
-  }
-  if (cbRemember) cbRemember.addEventListener('change', syncCheck);
-  if (checkVis) {
-    checkVis.addEventListener('click', function () {
-      cbRemember.checked = !cbRemember.checked;
-      syncCheck();
-    });
-  }
-
   // Pre-llenar usuario si estaba guardado en cookie
   var _savedUsername = getCookie('crm_remember_username');
   if (_savedUsername) {
@@ -142,7 +129,6 @@
     if (_uInput) _uInput.value = _savedUsername;
     if (cbRemember) cbRemember.checked = true;
   }
-  syncCheck();
 
   /* ── Panel switcher login ↔ forgot ── */
   var btnShowForgot = document.getElementById('btnShowForgot');
@@ -193,7 +179,7 @@
       var ico  = document.getElementById(iconId);
       var show = inp.type === 'password';
       inp.type      = show ? 'text' : 'password';
-      ico.className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
+      ico.className = show ? 'fas fa-eye' : 'fas fa-eye-slash';
     });
   }
   makePwToggle('tglNew',  'fpNewPw',  'icoNew');
@@ -576,6 +562,32 @@
 
       document.getElementById('username').focus();
     }
+  });
+
+  /* ── Efecto de fondo (splash cursor) ── */
+  // Vive acá y no en un <script> inline de login.html porque la CSP que el
+  // backend ya envía en modo report-only usa `script-src 'self'` (sin
+  // 'unsafe-inline'): cuando esa política pase a aplicarse de verdad, un
+  // script inline dejaría de ejecutarse.
+  document.addEventListener('DOMContentLoaded', function () {
+    try {
+      if (typeof initSplashCursor === 'function') {
+        initSplashCursor({ RAINBOW_MODE: true, SPLAT_RADIUS: 0.15, DENSITY_DISSIPATION: 4 });
+      }
+    } catch (e) { console.warn('[login] Splash Cursor no disponible:', e); }
+
+    // El efecto se monta como un canvas fijo a pantalla completa con
+    // z-index:50, o sea POR ENCIMA de todo — así era como lavaba el
+    // formulario. Bajándolo a 1 queda sobre el video (que está al nivel del
+    // .stage) pero debajo del panel derecho, que es opaco y z-index:2.
+    //
+    // Se corrige sobre el nodo ya insertado y FUERA del try de arriba, no
+    // sobre lo que devuelve initSplashCursor: la librería inserta el canvas
+    // antes de inicializar WebGL, así que si esa inicialización falla (por
+    // ejemplo, sin aceleración por hardware) el canvas igual quedó en el DOM
+    // tapando todo, y nunca llegaríamos a leer el valor de retorno.
+    var fluid = document.getElementById('fluid');
+    if (fluid && fluid.parentElement) fluid.parentElement.style.zIndex = '1';
   });
 
 })();

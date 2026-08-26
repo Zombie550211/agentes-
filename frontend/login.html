@@ -3,233 +3,243 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CRM Agente — Acceso</title>
+  <title>CRM Connecting — Acceso</title>
   <link rel="icon" type="image/png" href="images/favicon.png">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/paginas/login.css">
   <script src="vendor/reactbits/splash-cursor.js" defer></script>
 </head>
 
 <body>
-  <video class="bg-video" autoplay muted loop playsinline>
-    <source src="images/videologin.webm" type="video/webm">
-    <source src="images/videologin.mp4" type="video/mp4">
-  </video>
-  <div class="bg-overlay"></div>
-
   <div class="page">
 
-    <!-- ════════════════ RIGHT PANEL ════════════════ -->
-    <div class="right-panel">
-      <div class="right-stack">
+    <!-- ════════════════ IZQUIERDA — escenario ════════════════ -->
+    <section class="stage">
+      <img class="stage-logo" src="images/logo-mark.png" alt="Connecting">
+    </section>
 
-      <!-- ══ PANEL LOGIN ══ -->
-      <div class="main-panel login-card active" id="mainLogin">
+    <!-- ════════════════ DERECHA — formulario ════════════════ -->
+    <section class="form-side">
+      <div class="form-inner">
 
-        <h2 class="glass-title">Bienvenido</h2>
+        <!-- ══ PANEL LOGIN ══ -->
+        <div class="main-panel active" id="mainLogin">
 
-        <div class="maintenance-banner" id="maintenanceBanner" role="alert" aria-live="polite">
-          <i class="fas fa-triangle-exclamation mb-icon"></i>
-          <div class="mb-body">
-            <div class="mb-title">Sistema en mantenimiento</div>
-            <div class="mb-msg" id="maintenanceBannerMsg">El sistema se encuentra en mantenimiento.</div>
-          </div>
-        </div>
+          <div class="form-crest"><i class="fas fa-right-to-bracket"></i></div>
+          <h2 class="panel-title">Iniciar sesión</h2>
+          <p class="panel-sub">Ingresa tus credenciales para continuar.</p>
 
-        <div id="alertLogin" class="alert" role="alert" aria-live="polite">
-          <i id="alertLoginIcon" class="fas fa-circle-info"></i>
-          <span id="alertLoginText"></span>
-        </div>
-
-        <div id="lockBadge" class="lock-badge">
-          <i class="fas fa-triangle-exclamation"></i>
-          <span id="lockText"></span>
-        </div>
-
-        <form id="loginForm" novalidate autocomplete="on">
-          <div class="field">
-            <div class="input-wrap">
-              <input class="ctrl" type="text" id="username" name="username"
-                placeholder="Usuario" aria-label="Usuario" autocomplete="username" required>
-              <i class="fas fa-at fi"></i>
+          <div class="maintenance-banner" id="maintenanceBanner" role="alert" aria-live="polite">
+            <i class="fas fa-triangle-exclamation mb-icon"></i>
+            <div class="mb-body">
+              <div class="mb-title">Sistema en mantenimiento</div>
+              <div class="mb-msg" id="maintenanceBannerMsg">El sistema se encuentra en mantenimiento.</div>
             </div>
           </div>
-          <div class="field">
-            <div class="input-wrap pw-wrap">
-              <input class="ctrl" type="password" id="password" name="password"
-                placeholder="Contraseña" aria-label="Contraseña" autocomplete="current-password" required>
-              <i class="fas fa-lock fi"></i>
-              <button type="button" class="pw-toggle" id="pwToggle" aria-label="Mostrar u ocultar contraseña">
-                <i class="fas fa-eye" id="pwIcon"></i>
+
+          <div id="alertLogin" class="alert" role="alert" aria-live="polite">
+            <i id="alertLoginIcon" class="fas fa-circle-info"></i>
+            <span id="alertLoginText"></span>
+          </div>
+
+          <div id="lockBadge" class="lock-badge">
+            <i class="fas fa-triangle-exclamation"></i>
+            <span id="lockText"></span>
+          </div>
+
+          <form id="loginForm" novalidate autocomplete="on">
+            <div class="field">
+              <label class="field-label" for="username">Usuario</label>
+              <div class="input-wrap">
+                <input class="ctrl" type="text" id="username" name="username"
+                  placeholder="Tu nombre de usuario" autocomplete="username" required>
+                <i class="fas fa-user fi"></i>
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="password">Contraseña</label>
+              <div class="input-wrap pw-wrap">
+                <input class="ctrl" type="password" id="password" name="password"
+                  placeholder="Ingresa tu contraseña" autocomplete="current-password" required>
+                <i class="fas fa-lock fi"></i>
+                <button type="button" class="pw-toggle" id="pwToggle" aria-label="Mostrar u ocultar contraseña">
+                  <i class="fas fa-eye-slash" id="pwIcon"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label class="remember-label">
+                <input type="checkbox" id="rememberMe" name="rememberMe">
+                <span class="custom-check" aria-hidden="true"><i class="fas fa-check"></i></span>
+                Recuérdame
+              </label>
+              <button type="button" class="forgot-link" id="btnShowForgot">¿Olvidé mi contraseña?</button>
+            </div>
+
+            <button type="submit" class="btn-submit" id="submitBtn">
+              <i class="fas fa-circle-arrow-right btn-ico"></i>
+              <div class="spinner" id="loginSpinner"></div>
+              <span class="btn-text">Iniciar sesión</span>
+            </button>
+          </form>
+
+        </div><!-- /mainLogin -->
+
+
+        <!-- ══ PANEL RECUPERAR CONTRASEÑA ══ -->
+        <div class="main-panel" id="mainForgot">
+
+          <button type="button" class="back-link" id="btnBack">
+            <i class="fas fa-arrow-left"></i> Volver al inicio de sesión
+          </button>
+
+          <div class="step-indicator" id="stepperWrap">
+            <div class="step active" id="step1"><div class="step-num" id="snum1">1</div><span>Usuario</span></div>
+            <div class="step-line"></div>
+            <div class="step" id="step2"><div class="step-num" id="snum2">2</div><span>Verificar</span></div>
+            <div class="step-line"></div>
+            <div class="step" id="step3"><div class="step-num" id="snum3">3</div><span>Nueva clave</span></div>
+          </div>
+
+          <div id="alertForgot" class="alert" role="alert" aria-live="polite">
+            <i id="alertForgotIcon" class="fas fa-circle-info"></i>
+            <span id="alertForgotText"></span>
+          </div>
+
+          <!-- Paso 1: Usuario -->
+          <div class="fp-panel active" id="fp1">
+            <div class="form-header">
+              <div class="form-tag"><i class="fas fa-user-slash"></i> Recuperar acceso</div>
+              <h2 class="form-title">¿Olvidaste tu <em>contraseña?</em></h2>
+              <p class="form-subtitle">
+                Ingresa tu nombre de usuario. Si existe en el sistema, enviaremos un código
+                de 6 dígitos al correo electrónico registrado en tu cuenta.
+              </p>
+            </div>
+            <form id="frmFP1" novalidate autocomplete="off">
+              <div class="field">
+                <label class="field-label" for="fpUser">Nombre de usuario</label>
+                <div class="input-wrap">
+                  <input class="ctrl" type="text" id="fpUser" placeholder="Tu username"
+                    autocomplete="off" spellcheck="false" maxlength="60">
+                  <i class="fas fa-user fi"></i>
+                </div>
+              </div>
+              <button type="submit" class="btn-submit" id="btnFP1">
+                <i class="fas fa-paper-plane btn-ico"></i>
+                <div class="spinner" id="spFP1"></div>
+                <span class="btn-text">Enviar código al correo</span>
+              </button>
+            </form>
+          </div>
+
+          <!-- Paso 2: Código -->
+          <div class="fp-panel" id="fp2">
+            <div class="form-header">
+              <div class="form-tag"><i class="fas fa-envelope-open-text"></i> Código enviado</div>
+              <h2 class="form-title">Verifica tu <em>identidad</em></h2>
+              <p class="form-subtitle" id="fpCodeHint">
+                Ingresa el código de 6 dígitos enviado al correo asociado a tu cuenta.
+              </p>
+            </div>
+            <form id="frmFP2" novalidate autocomplete="off">
+              <div class="field">
+                <label class="field-label">Código de verificación</label>
+                <div class="code-inputs" id="codeInputsWrap">
+                  <input class="code-digit" type="text" inputmode="numeric" maxlength="1" data-i="0" aria-label="Dígito 1">
+                  <input class="code-digit" type="text" inputmode="numeric" maxlength="1" data-i="1" aria-label="Dígito 2">
+                  <input class="code-digit" type="text" inputmode="numeric" maxlength="1" data-i="2" aria-label="Dígito 3">
+                  <input class="code-digit" type="text" inputmode="numeric" maxlength="1" data-i="3" aria-label="Dígito 4">
+                  <input class="code-digit" type="text" inputmode="numeric" maxlength="1" data-i="4" aria-label="Dígito 5">
+                  <input class="code-digit" type="text" inputmode="numeric" maxlength="1" data-i="5" aria-label="Dígito 6">
+                </div>
+                <div class="resend-row">
+                  <span id="timerLabel">Reenviar en <strong id="timerCount">60</strong>s</span>
+                  <button type="button" class="resend-btn" id="btnResend" disabled>Reenviar código</button>
+                </div>
+              </div>
+              <button type="submit" class="btn-submit" id="btnFP2">
+                <i class="fas fa-shield-halved btn-ico"></i>
+                <div class="spinner" id="spFP2"></div>
+                <span class="btn-text">Verificar código</span>
+              </button>
+            </form>
+          </div>
+
+          <!-- Paso 3: Nueva contraseña -->
+          <div class="fp-panel" id="fp3">
+            <div class="form-header">
+              <div class="form-tag"><i class="fas fa-key"></i> Último paso</div>
+              <h2 class="form-title">Nueva <em>contraseña</em></h2>
+              <p class="form-subtitle">Elige una contraseña segura de al menos 8 caracteres.</p>
+            </div>
+            <form id="frmFP3" novalidate autocomplete="off">
+              <div class="field">
+                <label class="field-label" for="fpNewPw">Nueva contraseña</label>
+                <div class="input-wrap pw-wrap">
+                  <input class="ctrl" type="password" id="fpNewPw"
+                    placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+                  <i class="fas fa-lock fi"></i>
+                  <button type="button" class="pw-toggle" id="tglNew" aria-label="Mostrar u ocultar contraseña">
+                    <i class="fas fa-eye-slash" id="icoNew"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="strength-bars">
+                <span id="sb1"></span><span id="sb2"></span><span id="sb3"></span><span id="sb4"></span>
+              </div>
+              <div class="strength-label" id="strengthLabel"></div>
+              <div class="field">
+                <label class="field-label" for="fpConfPw">Confirmar contraseña</label>
+                <div class="input-wrap pw-wrap">
+                  <input class="ctrl" type="password" id="fpConfPw"
+                    placeholder="Repite la contraseña" autocomplete="new-password">
+                  <i class="fas fa-lock fi"></i>
+                  <button type="button" class="pw-toggle" id="tglConf" aria-label="Mostrar u ocultar contraseña">
+                    <i class="fas fa-eye-slash" id="icoConf"></i>
+                  </button>
+                </div>
+              </div>
+              <button type="submit" class="btn-submit" id="btnFP3">
+                <i class="fas fa-circle-check btn-ico"></i>
+                <div class="spinner" id="spFP3"></div>
+                <span class="btn-text">Cambiar contraseña</span>
+              </button>
+            </form>
+          </div>
+
+          <!-- Paso 4: Éxito -->
+          <div class="fp-panel" id="fp4">
+            <div class="success-state">
+              <div class="success-icon"><i class="fas fa-check"></i></div>
+              <div class="success-title">¡Contraseña actualizada!</div>
+              <p class="success-desc">
+                Tu contraseña fue cambiada exitosamente.<br>
+                Puedes iniciar sesión con tus nuevas credenciales.
+              </p>
+              <button type="button" class="btn-submit" id="btnGoLogin">
+                <i class="fas fa-arrow-right btn-ico"></i>
+                <span class="btn-text">Ir al inicio de sesión</span>
               </button>
             </div>
           </div>
-          <label class="remember-label">
-            <input type="checkbox" id="rememberMe" name="rememberMe">
-            <span class="custom-check" id="checkVis"><i class="fas fa-check"></i></span>
-            Recordar sesión
-          </label>
-          <button type="submit" class="btn-submit" id="submitBtn">
-            <div class="spinner" id="loginSpinner"></div>
-            <span class="btn-text">Iniciar sesión</span>
-          </button>
-          <button type="button" class="forgot-link" id="btnShowForgot">¿Olvidaste tu contraseña?</button>
-        </form>
 
-      </div><!-- /mainLogin -->
+        </div><!-- /mainForgot -->
 
+        <p class="form-foot">
+          <i class="fas fa-circle-question"></i>
+          ¿Problemas para entrar? Habla con tu supervisor o con el área de sistemas.
+        </p>
 
-      <!-- ══ PANEL FORGOT PASSWORD ══ -->
-      <div class="main-panel login-card" id="mainForgot">
-
-        <button type="button" class="back-link" id="btnBack">
-          <i class="fas fa-arrow-left"></i> Volver al inicio de sesión
-        </button>
-
-        <div class="step-indicator" id="stepperWrap">
-          <div class="step active" id="step1"><div class="step-num" id="snum1">1</div><span>Usuario</span></div>
-          <div class="step-line"></div>
-          <div class="step" id="step2"><div class="step-num" id="snum2">2</div><span>Verificar</span></div>
-          <div class="step-line"></div>
-          <div class="step" id="step3"><div class="step-num" id="snum3">3</div><span>Nueva clave</span></div>
-        </div>
-
-        <div id="alertForgot" class="alert" role="alert" aria-live="polite">
-          <i id="alertForgotIcon" class="fas fa-circle-info"></i>
-          <span id="alertForgotText"></span>
-        </div>
-
-        <!-- Paso 1: Usuario -->
-        <div class="fp-panel active" id="fp1">
-          <div class="form-header">
-            <div class="form-tag"><i class="fas fa-user-slash"></i> Recuperar acceso</div>
-            <h2 class="form-title">¿Olvidaste tu<br><em style="color:var(--accent);font-style:italic;">contraseña?</em></h2>
-            <p class="form-subtitle">
-              Ingresa tu nombre de usuario. Si existe en el sistema, enviaremos un código
-              de 6 dígitos al correo electrónico registrado en tu cuenta.
-            </p>
-          </div>
-          <form id="frmFP1" novalidate autocomplete="off">
-            <div class="field">
-              <label class="field-label" for="fpUser">Nombre de usuario</label>
-              <div class="input-wrap">
-                <input class="ctrl" type="text" id="fpUser" placeholder="Tu username"
-                  autocomplete="off" spellcheck="false" maxlength="60">
-                <i class="fas fa-at fi"></i>
-              </div>
-            </div>
-            <button type="submit" class="btn-submit" id="btnFP1">
-              <div class="spinner" id="spFP1"></div>
-              <span class="btn-text"><i class="fas fa-paper-plane" style="margin-right:6px"></i>Enviar código al correo</span>
-            </button>
-          </form>
-        </div>
-
-        <!-- Paso 2: Código -->
-        <div class="fp-panel" id="fp2">
-          <div class="form-header">
-            <div class="form-tag"><i class="fas fa-envelope-open-text"></i> Código enviado</div>
-            <h2 class="form-title">Verifica tu<br><em style="color:var(--accent);font-style:italic;">identidad</em></h2>
-            <p class="form-subtitle" id="fpCodeHint">
-              Ingresa el código de 6 dígitos enviado al correo asociado a tu cuenta.
-            </p>
-          </div>
-          <form id="frmFP2" novalidate autocomplete="off">
-            <div class="field">
-              <label class="field-label">Código de verificación</label>
-              <div class="code-inputs" id="codeInputsWrap">
-                <input class="code-digit" type="text" inputmode="numeric" maxlength="1" data-i="0">
-                <input class="code-digit" type="text" inputmode="numeric" maxlength="1" data-i="1">
-                <input class="code-digit" type="text" inputmode="numeric" maxlength="1" data-i="2">
-                <input class="code-digit" type="text" inputmode="numeric" maxlength="1" data-i="3">
-                <input class="code-digit" type="text" inputmode="numeric" maxlength="1" data-i="4">
-                <input class="code-digit" type="text" inputmode="numeric" maxlength="1" data-i="5">
-              </div>
-              <div class="resend-row">
-                <span id="timerLabel">Reenviar en <strong id="timerCount">60</strong>s</span>
-                <button type="button" class="resend-btn" id="btnResend" disabled>Reenviar código</button>
-              </div>
-            </div>
-            <button type="submit" class="btn-submit" id="btnFP2">
-              <div class="spinner" id="spFP2"></div>
-              <span class="btn-text">Verificar código</span>
-            </button>
-          </form>
-        </div>
-
-        <!-- Paso 3: Nueva contraseña -->
-        <div class="fp-panel" id="fp3">
-          <div class="form-header">
-            <div class="form-tag"><i class="fas fa-key"></i> Último paso</div>
-            <h2 class="form-title">Nueva<br><em style="color:var(--accent);font-style:italic;">contraseña</em></h2>
-            <p class="form-subtitle">Elige una contraseña segura de al menos 8 caracteres.</p>
-          </div>
-          <form id="frmFP3" novalidate autocomplete="off">
-            <div class="field">
-              <label class="field-label" for="fpNewPw">Nueva contraseña</label>
-              <div class="input-wrap pw-wrap">
-                <input class="ctrl" type="password" id="fpNewPw"
-                  placeholder="Mínimo 8 caracteres" autocomplete="new-password">
-                <i class="fas fa-lock fi"></i>
-                <button type="button" class="pw-toggle" id="tglNew"><i class="fas fa-eye" id="icoNew"></i></button>
-              </div>
-            </div>
-            <div class="strength-bars">
-              <span id="sb1"></span><span id="sb2"></span><span id="sb3"></span><span id="sb4"></span>
-            </div>
-            <div class="strength-label" id="strengthLabel"></div>
-            <div class="field">
-              <label class="field-label" for="fpConfPw">Confirmar contraseña</label>
-              <div class="input-wrap pw-wrap">
-                <input class="ctrl" type="password" id="fpConfPw"
-                  placeholder="Repite la contraseña" autocomplete="new-password">
-                <i class="fas fa-lock fi"></i>
-                <button type="button" class="pw-toggle" id="tglConf"><i class="fas fa-eye" id="icoConf"></i></button>
-              </div>
-            </div>
-            <button type="submit" class="btn-submit" id="btnFP3">
-              <div class="spinner" id="spFP3"></div>
-              <span class="btn-text">Cambiar contraseña</span>
-            </button>
-          </form>
-        </div>
-
-        <!-- Paso 4: Éxito -->
-        <div class="fp-panel" id="fp4">
-          <div class="success-state">
-            <div class="success-icon"><i class="fas fa-check"></i></div>
-            <div class="success-title">¡Contraseña actualizada!</div>
-            <p class="success-desc">
-              Tu contraseña fue cambiada exitosamente.<br>
-              Puedes iniciar sesión con tus nuevas credenciales.
-            </p>
-            <button type="button" class="btn-submit" id="btnGoLogin">
-              <i class="fas fa-arrow-right"></i>
-              <span>Ir al inicio de sesión</span>
-            </button>
-          </div>
-        </div>
-
-      </div><!-- /mainForgot -->
-
-      </div><!-- /right-stack -->
-    </div><!-- /right-panel -->
+      </div><!-- /form-inner -->
+    </section>
   </div><!-- /page -->
 
   <script src="js/paginas/login.js"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      // Cada efecto va en su propio try/catch: si uno falla (ej. sin WebGL
-      // disponible), no debe tumbar a los demás.
-      try {
-        if (typeof initSplashCursor === 'function') {
-          initSplashCursor({ RAINBOW_MODE: true, SPLAT_RADIUS: 0.15, DENSITY_DISSIPATION: 4 });
-        }
-      } catch (e) { console.warn('[login] Splash Cursor no disponible:', e); }
-
-    });
-  </script>
 </body>
 </html>
