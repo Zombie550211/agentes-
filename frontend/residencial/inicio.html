@@ -85,6 +85,10 @@
 <div class="main-content">
 <div class="page">
 
+  <!-- Banner de temporada. Se rellena al final del archivo y sólo dentro de su
+       ventana de fechas; fuera de ella este div queda vacío y no ocupa nada. -->
+  <div id="banner-temporada"></div>
+
   <!-- HERO -->
   <div class="hero fsu">
     <div>
@@ -92,6 +96,8 @@
       <div class="hero-name"  id="hero-name">Cargando...</div>
       <div class="hero-sub"><span id="hero-role">CRM</span> &nbsp;·&nbsp; <span id="hero-date"></span></div>
     </div>
+    <img id="hero-viva" class="hero-viva" src="/images/viva-el-salvador.webp"
+         alt="¡Que viva El Salvador!" width="229" height="70" hidden>
   </div>
 
   <!-- ROW TOP: Ventas Mensuales + Mapa de Clientes -->
@@ -919,6 +925,28 @@ if (hn) {
     if (window.CRMRealtime) window.__rt = CRMRealtime.connect('residencial', reloadHome);
   });
 })();
+</script>
+
+<script>
+  /* Contenido de temporada (Mes de la Independencia).
+     La ventana de fechas NO se define aquí: la publica sidebar.js en
+     window.Temporada, que ya se carga en esta página. Así el CRM entero entra y
+     sale de la temporada a la vez y las fechas viven en un solo sitio.
+     Va en DOMContentLoaded porque sidebar.js es `defer` y aún no ha corrido
+     cuando el navegador llega a esta línea. */
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!(window.Temporada && window.Temporada.independencia())) return;
+
+    var cont = document.getElementById('banner-temporada');
+    if (cont) {
+      cont.innerHTML =
+        '<img class="banner-temporada" src="/images/independencia-hero.webp" ' +
+        'alt="Mes de la Independencia de El Salvador — 15 de septiembre de 1821" ' +
+        'width="1400" height="685">';
+    }
+    var viva = document.getElementById('hero-viva');
+    if (viva) viva.hidden = false;
+  });
 </script>
 </body>
 </html>

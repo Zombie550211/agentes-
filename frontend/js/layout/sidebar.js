@@ -189,6 +189,13 @@
       '</div>';
   }
 
+  // Se publica para que otras páginas usen la MISMA ventana de fechas en vez de
+  // copiarla. Este módulo se carga en las 37 páginas, así que está disponible en
+  // todas sin añadir otro <script>. Ojo: es defer, así que quien lo consulte debe
+  // esperar a DOMContentLoaded.
+  window.Temporada = window.Temporada || {};
+  window.Temporada.independencia = enTemporadaIndependencia;
+
   const nav = document.getElementById('app-sidebar');
   if (nav) {
     render(nav);
