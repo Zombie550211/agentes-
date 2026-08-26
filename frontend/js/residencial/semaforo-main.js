@@ -626,8 +626,8 @@
           <div class="agent-rank">${idx+1}</div>
           <div class="agent-avatar">${renderAgentAvatarHtml(agent,initials,name)}</div>
           <div class="agent-meta">
-            <div class="agent-name">${name}</div>
-            <div class="agent-sub">${subtitle}</div>
+            <div class="agent-name">${escapeAttr(name)}</div>
+            <div class="agent-sub">${escapeAttr(subtitle)}</div>
           </div>
         </div>
         <div class="agent-right">
@@ -881,13 +881,16 @@
     if (!list.length) { container.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Sin resultados</div>'; return; }
     container.innerHTML='';
     list.slice(0,500).forEach(item=>{
-      const name=String(item?.name||'').trim()||'Sin nombre';
-      const phone=String(item?.phone||'').trim();
-      const service=String(item?.service||'').trim()||'Sin servicio';
-      const reason=String(item?.reason||'').trim();
-      const candSvc=String(item?.candidateService||'').trim();
-      const candName=String(item?.candidateName||'').trim();
-      const candStatus=String(item?.candidateStatus||'').trim();
+      // Todo esto viene de la BD (nombre_cliente, servicios, status) y del Excel
+      // que sube el usuario: se escapa al declararlo para que el template de abajo
+      // no pueda volver a insertarlo en crudo.
+      const name=escapeAttr(String(item?.name||'').trim()||'Sin nombre');
+      const phone=escapeAttr(String(item?.phone||'').trim());
+      const service=escapeAttr(String(item?.service||'').trim()||'Sin servicio');
+      const reason=escapeAttr(String(item?.reason||'').trim());
+      const candSvc=escapeAttr(String(item?.candidateService||'').trim());
+      const candName=escapeAttr(String(item?.candidateName||'').trim());
+      const candStatus=escapeAttr(String(item?.candidateStatus||'').trim());
       const dupCount=Number(item?._count||0);
       const row=document.createElement('div');
       row.className='cuadratura-row';
@@ -955,7 +958,7 @@
       }
       for (const r of filteredExcel) { const k=buildExcelKey(r); if (!k) continue; sampleExcelKeys.push(k); if (sampleExcelKeys.length>=3) break; }
       const checks=sampleExcelKeys.map(k=>`${k} => ${(crmByKey.get(k)?.length)?'SI':'NO'}`);
-      if (debugBox) debugBox.innerHTML=`<div><b>CRM leads:</b> ${crmLeads.length}</div><div><b>Con teléfono:</b> ${withPhone} · <b>Con servicio:</b> ${withService} · <b>Con llave completa:</b> ${withKey}</div><div style="margin-top:6px;"><b>Ejemplos CRM:</b><br>${sampleCrmKeys.join('<br>')||'—'}</div><div style="margin-top:6px;"><b>Ejemplos Excel (en CRM?):</b><br>${checks.join('<br>')||'—'}</div>`;
+      if (debugBox) debugBox.innerHTML=`<div><b>CRM leads:</b> ${crmLeads.length}</div><div><b>Con teléfono:</b> ${withPhone} · <b>Con servicio:</b> ${withService} · <b>Con llave completa:</b> ${withKey}</div><div style="margin-top:6px;"><b>Ejemplos CRM:</b><br>${sampleCrmKeys.map(escapeAttr).join('<br>')||'—'}</div><div style="margin-top:6px;"><b>Ejemplos Excel (en CRM?):</b><br>${checks.map(escapeAttr).join('<br>')||'—'}</div>`;
     } catch(_) {}
 
     const duplicates=[],crmDupByTeam=new Map();
