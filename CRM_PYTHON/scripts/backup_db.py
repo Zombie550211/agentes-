@@ -91,6 +91,12 @@ async def dump(verify: bool = False) -> Path:
     total_rows = 0
     t0 = time.time()
 
+    # El volcado lleva la base entera (datos de clientes y hashes de contraseñas),
+    # así que se restringe a su dueño antes de escribir nada: con el umask normal
+    # nacería 644 y lo podría leer cualquier usuario de la máquina.
+    out_path.touch(mode=0o600, exist_ok=True)
+    os.chmod(out_path, 0o600)
+
     with gzip.open(out_path, "wt", encoding="utf-8") as f:
         f.write(f"-- CRM Connecting backup {stamp}\n")
         f.write(f"-- Host: {cfg['host']}  DB: {cfg['db']}  Tablas: {len(tables)}\n")
@@ -100,20 +106,38 @@ async def dump(verify: bool = False) -> Path:
             create_sql = (await cur.fetchone())[1]
             f.write(f"DROP TABLE IF EXISTS `{table}`;\n{create_sql};\n\n")
 
-            await cur.execute(f"SELECT * FROM `{table}`")
-            rows = await cur.fetchall()
-            if rows:
-                cols = ", ".join(f"`{d[0]}`" for d in cur.description)
-                # INSERTs por lotes de 200 filas (dump legible y restaurable)
-                for i in range(0, len(rows), 200):
-                    chunk = rows[i:i + 200]
+            # Cursor NO bufferizado (SSCursor) + fetchmany: las filas se piden al
+            # servidor a medida que se escriben.
+            #
+            # Antes esto era `SELECT *` + fetchall(), que se traía la tabla ENTERA a
+            # memoria antes de escribir un solo byte. Con note_files —LONGBLOB con
+            # los adjuntos, hoy ~300 MB— el backup se quedaba colgado consumiendo
+            # cientos de MB de RAM sin avanzar, que es la razón por la que existe
+            # backup_ec2.sh (mysqldump, streaming nativo). Con SSCursor la memoria
+            # que se usa es la del lote, no la de la tabla.
+            #
+            # OJO: mientras un SSCursor está abierto no se puede lanzar otra consulta
+            # por la misma conexión — de ahí que se agote y se cierre dentro del
+            # bucle, antes de pasar a la siguiente tabla.
+            filas_tabla = 0
+            data_cur = await conn.cursor(aiomysql.SSCursor)
+            try:
+                await data_cur.execute(f"SELECT * FROM `{table}`")
+                cols = ", ".join(f"`{d[0]}`" for d in data_cur.description)
+                while True:
+                    chunk = await data_cur.fetchmany(200)   # INSERTs por lotes de 200
+                    if not chunk:
+                        break
                     values = ",\n".join(
                         "(" + ", ".join(_sql_literal(v) for v in row) + ")"
                         for row in chunk
                     )
                     f.write(f"INSERT INTO `{table}` ({cols}) VALUES\n{values};\n")
-            total_rows += len(rows)
-            print(f"  {table}: {len(rows)} filas")
+                    filas_tabla += len(chunk)
+            finally:
+                await data_cur.close()
+            total_rows += filas_tabla
+            print(f"  {table}: {filas_tabla} filas")
         f.write("\nSET FOREIGN_KEY_CHECKS=1;\n")
 
     conn.close()
