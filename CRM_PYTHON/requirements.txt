@@ -18,6 +18,20 @@ python-dotenv==1.2.2
 aiofiles==25.1.0
 httpx==0.28.1
 cloudinary==1.44.2
-Pillow==12.2.0   # fijado (evita rango sin pinear; versión instalada y probada)
+Pillow==12.3.0   # 12.2.0 tenía 13 CVEs (7 HIGH: escritura fuera de límites en paste/crop
+                 # y en ImageCmsTransform/RankFilter, lectura OOB, bypass de anti-bomba).
+                 # Nos afectaban de verdad: routers/files.py abre con PIL toda imagen subida.
+
+# ── Pins de seguridad de dependencias indirectas ─────────────
+# No las importamos nosotros: las arrastran fastapi y python-jose. Van fijadas
+# porque las versiones que instalaban por defecto tenían CVEs. Al subir fastapi
+# o python-jose, revisar si estos pines siguen haciendo falta o estorban.
+starlette==1.3.1      # vía fastapi (que sólo pide >=0.46.0). 1.0.0 ignoraba los
+                      # límites de request.form() en urlencoded (DoS, HIGH) y dejaba
+                      # que la cabecera Host envenenara request.url.path.
+cryptography==50.0.0  # vía python-jose/PyMySQL/pymongo. 48.0.0 empaquetaba un OpenSSL
+                      # vulnerable (HIGH) y tenía un oráculo Bleichenbacher en PKCS#7.
+pyasn1==0.6.4         # vía python-jose. 0.6.3 tenía 3 DoS (complejidad cuadrática en
+                      # OID, consumo sin límite al decodificar REAL y tags long-form).
 
 # Herramientas de auditoría (solo desarrollo): ver requirements-dev.txt
