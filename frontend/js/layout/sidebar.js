@@ -18,12 +18,12 @@
   'use strict';
 
   // ── Datos ────────────────────────────────────────────────────────
-  // {href,label,color,icon} = botón · {sec} = título de sección · {head} = título
-  // del bloque de líneas. `color` es el color sólido del chip del icono (el icono
-  // va en blanco encima). Antes ese color se calculaba en tiempo de ejecución:
-  // el HTML traía un chip pastel y un JS lo reescribía a color sólido en cada
-  // carga, lo que provocaba un parpadeo y repartía el diseño entre 37 HTML y una
-  // función. Ahora el valor final está aquí y se pinta directamente.
+  // {href,label,icon} = botón · {sec} = título de sección · {head} = título del
+  // bloque de líneas.
+  //
+  // `color` ya no se pinta: en el diseño actual todos los chips comparten el
+  // mismo azul sobre el fondo marino, y ese color lo pone el CSS. Se conserva el
+  // dato de cada ítem por si alguna vez se vuelve a un icono por color.
   const MENU = {
   RESIDENCIAL: [
     {"href": "/residencial/inicio.html", "label": "Inicio", "color": "#2563eb", "icon": "<path d=\"M3 11l9-7 9 7\"/><path d=\"M5 10v10h14V10\"/>"},
@@ -87,9 +87,12 @@
       (soloAdmin ? ' data-admin-only' : '') +
       (activo ? ' aria-current="page"' : '') +
       ' aria-label="' + esc(it.label) + '" title="' + esc(it.label) + '">' +
-      '<span class="sb-ic" style="background:' + esc(it.color) + '">' +
-      '<svg ' + SVG_ATTRS + ' aria-hidden="true" focusable="false">' + it.icon + '</svg></span>' +
-      '<span class="sb-lbl">' + esc(it.label) + '</span></a>';
+      '<span class="sb-ic"><svg ' + SVG_ATTRS + ' aria-hidden="true" focusable="false">' +
+        it.icon + '</svg></span>' +
+      '<span class="sb-lbl">' + esc(it.label) + '</span>' +
+      '<svg class="sb-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" ' +
+        'stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" ' +
+        'aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"/></svg></a>';
   }
 
   function grupoHtml(lista, soloAdmin, mov, rutaActual) {
@@ -101,6 +104,23 @@
     }).join('\n');
   }
 
+  /** Ventana del banner de independencia: del 15 de agosto al 30 de septiembre.
+   *  Fuera de ella vuelve la frase del pie. Se hace por fecha y no a mano porque
+   *  este módulo alimenta las 37 páginas: si dependiera de acordarse de quitarlo,
+   *  el 15 de septiembre seguiría ahí en diciembre. Para moverlo, tocar sólo
+   *  estas dos constantes. */
+  const BANNER_DESDE = { mes: 7, dia: 15 };   // 7 = agosto (los meses van de 0 a 11)
+  const BANNER_HASTA = { mes: 8, dia: 30 };   // 8 = septiembre
+
+  function enTemporadaIndependencia(hoy) {
+    const d = hoy || new Date();
+    const m = d.getMonth(), dia = d.getDate();
+    if (m < BANNER_DESDE.mes || m > BANNER_HASTA.mes) return false;
+    if (m === BANNER_DESDE.mes) return dia >= BANNER_DESDE.dia;
+    if (m === BANNER_HASTA.mes) return dia <= BANNER_HASTA.dia;
+    return true;
+  }
+
   function render(nav) {
     const ruta = normPath(location.pathname);
     const enLineas = ruta.indexOf('/lineas/') === 0;
@@ -109,12 +129,19 @@
 
     nav.setAttribute('aria-label', 'Menú principal');
     nav.innerHTML =
+      // Franja de bandera. Es decorativa, así que va con aria-hidden y sin alt:
+      // no aporta nada a quien navega con lector de pantalla y sería ruido.
+      '<div class="sb-flag" aria-hidden="true"></div>' +
       '<div class="sb-user">' +
         '<div class="sb-user-avatar-wrap">' +
           '<div class="sb-user-avatar">' +
             '<img id="sb-user-avatar-img" alt="" hidden>' +
             '<span id="sb-user-initials">?</span>' +
           '</div>' +
+          '<span class="sb-user-badge" aria-hidden="true">' +
+            '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">' +
+            '<path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z" opacity=".95"/></svg>' +
+          '</span>' +
           '<button type="button" class="sb-user-edit-btn" id="sb-user-edit-btn" ' +
             'title="Cambiar foto de perfil" aria-label="Cambiar foto de perfil">' +
             '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
@@ -126,20 +153,38 @@
         '<div class="sb-user-meta">' +
           '<div class="sb-user-name" id="sb-user-name">Usuario</div>' +
           '<div class="sb-user-role" id="sb-user-role">Rol</div>' +
+          // Se rellena desde la API; si el usuario no tiene correo, sidebar-user.js
+          // deja la fila oculta en vez de mostrarla vacía.
+          '<div class="sb-user-mail" id="sb-user-mail" hidden>' +
+            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+              'stroke-width="2" aria-hidden="true" focusable="false">' +
+              '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>' +
+            '<span id="sb-user-mail-text"></span>' +
+          '</div>' +
         '</div>' +
+        '<div class="sb-user-rule" aria-hidden="true"></div>' +
       '</div>' +
       '<div class="sb-scroll">' +
         grupoHtml(propio, false, enLineas, ruta) +
         grupoHtml(ajeno,  true,  !enLineas, ruta) +
       '</div>' +
       '<div class="sb-footer">' +
-        '<p class="sb-quote">"El éxito es la suma de pequeños esfuerzos repetidos día tras día"</p>' +
+        // Banner de temporada. Se pinta sólo dentro de su ventana de fechas: si no,
+        // el 16 de septiembre seguiría ahí y habría que acordarse de quitarlo a mano
+        // en un módulo que alimenta 37 páginas.
+        (enTemporadaIndependencia()
+          ? '<img class="sb-banner" src="/images/mesindependencia.webp" width="323" height="136" ' +
+            'alt="Mes de la Independencia de El Salvador, 15 de septiembre" loading="lazy">'
+          : '<p class="sb-quote">"El éxito es la suma de pequeños esfuerzos repetidos día tras día"</p>') +
         '<button type="button" class="sb-logout" data-logout-button title="Cerrar Sesión" aria-label="Cerrar Sesión">' +
-          '<span class="sb-ic" style="background:#dc2626">' +
+          '<span class="sb-ic">' +
             '<svg ' + SVG_ATTRS + ' aria-hidden="true" focusable="false">' +
             '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>' +
             '</svg></span>' +
           '<span class="sb-lbl">Cerrar Sesión</span>' +
+          '<svg class="sb-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+            'stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' +
+            '<path d="m9 18 6-6-6-6"/></svg>' +
         '</button>' +
       '</div>';
   }

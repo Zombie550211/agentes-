@@ -50,6 +50,22 @@
     if (nameEl) nameEl.textContent = displayName;
     if (roleEl) roleEl.textContent = roleLabel(user.role);
     if (initialsEl) initialsEl.textContent = initials(displayName);
+    // El correo puede no estar (la columna admite NULL, y el objeto de
+    // localStorage de sesiones viejas no lo trae). En ese caso la fila queda
+    // oculta en vez de mostrarse vacía o con el icono suelto.
+    const mailWrap = document.getElementById('sb-user-mail');
+    const mailText = document.getElementById('sb-user-mail-text');
+    const email = (user.email || '').trim();
+    if (mailWrap && mailText) {
+      if (email) {
+        mailText.textContent = email;
+        mailWrap.hidden = false;
+        mailWrap.title = email;
+      } else {
+        mailWrap.hidden = true;
+      }
+    }
+
     const avatarUrl = user.avatarUrl || user.avatar_url || '';
     if (avatarUrl) setAvatar(avatarUrl);
   }

@@ -313,6 +313,9 @@ async def verify_server(request: Request, response: Response):
         if doc.get("role"):       user_data["role"]       = doc["role"]
         if doc.get("supervisor"): user_data["supervisor"] = doc["supervisor"]
         if doc.get("avatar_url"): user_data["avatarUrl"]  = doc["avatar_url"]
+        # El sidebar muestra el correo del propio usuario bajo su nombre. La columna
+        # ya existía en la tabla; simplemente no se devolvía.
+        if doc.get("email"):      user_data["email"]      = doc["email"]
 
     return {"success": True, "authenticated": True, "user": user_data}
 

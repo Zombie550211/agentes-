@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════
-   SIDEBAR — sin auto-hide y sin dependencia de body.dark-theme.
+   SIDEBAR — tema azul marino.
    El marcado lo genera js/layout/sidebar.js a partir de datos;
    el comportamiento vive en js/layout/sidebar-ui.js.
 
@@ -11,8 +11,18 @@
    ═══════════════════════════════════════════════ */
 
 :root {
-  --sidebar-width: 260px;
+  --sidebar-width: 268px;
   --sidebar-collapsed: 68px;
+
+  /* Paleta. Cambiar el tema del sidebar es cambiar estas ocho variables. */
+  --sb-bg-top:    #0b3080;
+  --sb-bg-bottom: #06184a;
+  --sb-gold:      #e8b04b;
+  --sb-chip:      #1a55b8;
+  --sb-chip-ring: rgba(255, 255, 255, .22);
+  --sb-active:    #1668e3;
+  --sb-rule:      rgba(255, 255, 255, .11);
+  --sb-danger:    #ff6a5a;
 }
 
 #app-sidebar {
@@ -20,16 +30,11 @@
   left: 0;
   top: 0;
   width: var(--sidebar-collapsed);
-  /* Neutraliza `.sidebar { min-width: 240px }` de responsive-sidebar.css (≤1024px):
-     ese archivo viejo apunta a la clase .sidebar que el <nav> también trae por
-     compatibilidad, y como nunca se pisaba el min-width acá, el rail quedaba
-     pegado en ~240px en pantallas ≤1024px (o zoom que reduce el viewport a ese
-     rango) sin importar el hover. */
   min-width: var(--sidebar-collapsed);
   height: 100vh;
-  background: #faf6ee;
-  border-right: 2px solid #d9c79e;
-  box-shadow: 3px 0 14px rgba(120, 90, 40, .08);
+  background: linear-gradient(180deg, var(--sb-bg-top) 0%, var(--sb-bg-bottom) 62%, #04102f 100%);
+  border-right: none;
+  box-shadow: 4px 0 22px rgba(4, 16, 47, .28);
   display: flex;
   flex-direction: column;
   z-index: 1000;
@@ -42,7 +47,7 @@
   margin-left: calc(var(--sidebar-collapsed) + 16px);
 }
 
-/* Botón de menú + overlay (inyectados por sidebar-ui.js) */
+/* ── Botón de menú + overlay (inyectados por sidebar-ui.js) ─────── */
 .sb-mobile-toggle {
   display: none;
   position: fixed;
@@ -51,16 +56,16 @@
   width: 42px; height: 42px;
   border-radius: 10px;
   border: none;
-  background: #2f6fed;
+  background: var(--sb-active);
   color: #fff;
   align-items: center; justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(28, 79, 201, .35);
+  box-shadow: 0 4px 14px rgba(11, 48, 128, .4);
 }
 .sb-mobile-overlay {
   display: none;
   position: fixed; inset: 0;
-  background: rgba(15, 23, 42, .45);
+  background: rgba(4, 16, 47, .55);
   z-index: 999;
 }
 
@@ -72,7 +77,8 @@
 @media (max-width: 768px), (hover: none) {
   .sb-mobile-toggle { display: flex; }
   #app-sidebar {
-    width: 280px;
+    width: var(--sidebar-width);
+    min-width: var(--sidebar-width);
     transform: translateX(-100%);
     transition: transform .25s ease;
   }
@@ -80,269 +86,389 @@
   .sb-mobile-overlay.sb-open { display: block; }
   .main-content { margin-left: 0 !important; }
 }
-/* Usuario (avatar + nombre + rol) */
+
+/* ── Franja de bandera ──────────────────────────────────────────── */
+/* La imagen es una bandera ondeando: se deja asomar arriba y se funde con el
+   fondo por abajo, para que la tarjeta de usuario quede montada encima sin un
+   corte recto. El degradado de máscara hace ese desvanecido. */
+#app-sidebar .sb-flag {
+  height: 104px;
+  flex-shrink: 0;
+  background: url('/images/banderasidebar.webp') center / cover no-repeat;
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 52%, transparent 100%);
+          mask-image: linear-gradient(180deg, #000 0%, #000 52%, transparent 100%);
+}
+
+/* ── Tarjeta de usuario ─────────────────────────────────────────── */
 #app-sidebar .sb-user {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 14px 18px 16px 18px;
+  gap: 3px;
+  padding: 0 16px 12px;
+  margin-top: -46px;          /* monta el avatar sobre la bandera */
   flex-shrink: 0;
+  position: relative;
+  z-index: 1;
 }
 #app-sidebar .sb-user-avatar-wrap {
   position: relative;
   flex-shrink: 0;
-  width: 46px;
-  height: 46px;
+  width: 92px;
+  height: 92px;
+  margin-bottom: 8px;
 }
 #app-sidebar .sb-user-avatar {
-  width: 46px;
-  height: 46px;
+  width: 100%; height: 100%;
   border-radius: 50%;
-  background: linear-gradient(160deg, #2f6fed, #1c4fc9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(28, 79, 201, .28);
+  background: #0f3a92;
+  border: 4px solid #fff;
+  box-shadow: 0 6px 18px rgba(4, 16, 47, .45);
+  display: flex; align-items: center; justify-content: center;
 }
 #app-sidebar .sb-user-avatar img {
-  width: 100%;
-  height: 100%;
+  width: 100%; height: 100%;
   object-fit: cover;
   display: block;
 }
+/* El <img> del avatar nace con el atributo `hidden` y sidebar-user.js sólo lo
+   descubre si el usuario tiene foto. `hidden` es display:none en la hoja del
+   navegador, pero la regla de arriba es más específica y se lo comía: el <img>
+   vacío ocupaba el ancho completo y empujaba las iniciales fuera del centro. */
+#app-sidebar .sb-user-avatar img[hidden] { display: none; }
 #app-sidebar .sb-user-avatar span {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 30px; font-weight: 700;
   color: #fff !important;
-  letter-spacing: .3px;
+  letter-spacing: .5px;
+}
+/* Escudo decorativo, esquina inferior derecha del avatar */
+#app-sidebar .sb-user-badge {
+  position: absolute;
+  right: 2px; bottom: -2px;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: var(--sb-active);
+  border: 3px solid #fff;
+  color: var(--sb-gold) !important;
+  display: flex; align-items: center; justify-content: center;
 }
 #app-sidebar .sb-user-edit-btn {
   position: absolute;
-  right: -2px;
-  bottom: -2px;
-  width: 20px;
-  height: 20px;
+  left: 2px; bottom: -2px;
+  width: 26px; height: 26px;
   border-radius: 50%;
-  background: #faf6ee;
-  border: 2px solid #faf6ee;
-  color: #2f6fed;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border: 2px solid #fff;
+  background: rgba(6, 24, 74, .92);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   padding: 0;
-  box-shadow: 0 1px 4px rgba(15, 23, 42, .25);
-  transition: transform .15s ease, background .15s ease, color .15s ease;
+  transition: transform .15s ease, background .15s ease;
 }
-#app-sidebar .sb-user-edit-btn:hover { background: #2f6fed; color: #fff; transform: scale(1.08); }
+#app-sidebar .sb-user-edit-btn:hover { background: var(--sb-active); transform: scale(1.1); }
 #app-sidebar .sb-user-edit-btn:disabled { pointer-events: none; opacity: .55; }
+
 #app-sidebar .sb-user-meta {
-  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  width: 100%;
+  text-align: center;
 }
 #app-sidebar .sb-user-name {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #111827 !important;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 17px; font-weight: 700;
+  color: #fff !important;
+  letter-spacing: .2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%;
 }
 #app-sidebar .sb-user-role {
-  font-size: 10px;
-  font-weight: 700;
-  color: #6b7280 !important;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-transform: uppercase;
-  letter-spacing: .5px;
+  font-size: 13.5px; font-weight: 600;
+  color: var(--sb-gold) !important;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%;
 }
+#app-sidebar .sb-user-mail {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, .8) !important;
+  max-width: 100%;
+}
+#app-sidebar .sb-user-mail span {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#app-sidebar .sb-user-mail[hidden] { display: none; }
 
-/* Lista scrolleable */
+/* Filete dorado con estrella al centro, bajo los datos del usuario */
+#app-sidebar .sb-user-rule {
+  width: 100%;
+  margin-top: 12px;
+  height: 12px;
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px;
+  color: var(--sb-gold);
+}
+#app-sidebar .sb-user-rule::before,
+#app-sidebar .sb-user-rule::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--sb-gold));
+}
+#app-sidebar .sb-user-rule::after { background: linear-gradient(90deg, var(--sb-gold), transparent); }
+
+/* ── Lista ──────────────────────────────────────────────────────── */
 #app-sidebar .sb-scroll {
   flex: 1;
-  min-height: 0;
   overflow-y: auto;
-  padding: 4px 10px 10px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  scrollbar-width: auto;
-  scrollbar-color: #c7cad1 transparent;
+  overflow-x: hidden;
+  padding: 4px 12px 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, .28) transparent;
 }
-#app-sidebar .sb-scroll::-webkit-scrollbar { width: 9px; }
+#app-sidebar .sb-scroll::-webkit-scrollbar { width: 8px; }
 #app-sidebar .sb-scroll::-webkit-scrollbar-track { background: transparent; }
-#app-sidebar .sb-scroll::-webkit-scrollbar-thumb { background: #c7cad1; border-radius: 5px; border: 2px solid #fff; }
-#app-sidebar .sb-scroll::-webkit-scrollbar-thumb:hover { background: #9aa0ac; }
+#app-sidebar .sb-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, .26);
+  border-radius: 5px;
+}
+#app-sidebar .sb-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, .42); }
 
-/* Items */
 #app-sidebar .sb-item {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 9px 10px;
-  border-radius: 10px;
-  cursor: pointer;
+  border-radius: 11px;
   text-decoration: none;
-  transition: background .18s ease, transform .18s ease;
+  border-bottom: 1px solid var(--sb-rule);
+  transition: background .15s ease, transform .15s ease;
 }
-#app-sidebar .sb-item:hover { background: #f4f4f5; transform: translateX(3px); }
-#app-sidebar .sb-item.mov:hover { background: #ecfdf5; }
-#app-sidebar .sb-item:active { transform: translateX(3px) scale(.98); }
-#app-sidebar .sb-item.active { background: #eef2ff; }
+#app-sidebar .sb-item:hover { background: rgba(255, 255, 255, .07); }
+#app-sidebar .sb-item:active { transform: scale(.985); }
+
+/* Activo: píldora azul con barra dorada a la izquierda */
+#app-sidebar .sb-item.active {
+  background: linear-gradient(90deg, var(--sb-active), #0d47ad);
+  border-bottom-color: transparent;
+  box-shadow: 0 4px 14px rgba(4, 16, 47, .45);
+  position: relative;
+}
+#app-sidebar .sb-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 8px; bottom: 8px;
+  width: 4px;
+  border-radius: 0 3px 3px 0;
+  background: var(--sb-gold);
+}
 
 #app-sidebar .sb-ic {
-  width: 30px; height: 30px; border-radius: 8px;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: var(--sb-chip);
+  box-shadow: inset 0 0 0 1.5px var(--sb-chip-ring);
+  color: #fff !important;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18), 0 1px 3px rgba(15, 23, 42, .16);
-  transition: transform .18s ease;
+  transition: transform .15s ease;
 }
-#app-sidebar .sb-item:hover .sb-ic { transform: scale(1.12); }
+#app-sidebar .sb-item:hover .sb-ic { transform: scale(1.08); }
+#app-sidebar .sb-item.active .sb-ic { background: #fff; color: var(--sb-active) !important; }
 
 #app-sidebar .sb-lbl {
-  font-size: 13.5px;
-  color: #374151 !important;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, .92) !important;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-#app-sidebar .sb-item.active .sb-lbl { color: #111827 !important; font-weight: 700; }
-#app-sidebar .sb-item.mov .sb-lbl { color: #374151 !important; }
+#app-sidebar .sb-item.active .sb-lbl { color: #fff !important; font-weight: 700; }
 
-#app-sidebar .sb-sec {
-  font-size: 10.5px;
-  letter-spacing: 1.5px;
-  color: #9ca3af !important;
-  font-weight: 700;
-  padding: 16px 10px 6px 10px;
-  text-transform: uppercase;
+#app-sidebar .sb-chev {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, .45);
+  transition: transform .15s ease, color .15s ease;
 }
+#app-sidebar .sb-item:hover .sb-chev { color: rgba(255, 255, 255, .8); transform: translateX(2px); }
+#app-sidebar .sb-item.active .sb-chev { color: #fff; }
+
+/* Títulos de sección: dorados, centrados, con filete a ambos lados */
+#app-sidebar .sb-sec,
 #app-sidebar .sb-mov-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 2px 8px;
   font-size: 10.5px;
-  letter-spacing: 1.5px;
-  color: #0d9488 !important;
   font-weight: 700;
-  padding: 16px 10px 8px 10px;
+  letter-spacing: 2px;
   text-transform: uppercase;
+  color: var(--sb-gold) !important;
+  white-space: nowrap;
+}
+#app-sidebar .sb-sec::before,
+#app-sidebar .sb-sec::after,
+#app-sidebar .sb-mov-head::before,
+#app-sidebar .sb-mov-head::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(232, 176, 75, .45);
 }
 
-/* Solo visible para admins (activado por sidebar-ui.js) */
+/* ── Solo admins (activado por sidebar-ui.js) ───────────────────── */
 #app-sidebar [data-admin-only] { display: none; }
 body.sb-is-admin #app-sidebar [data-admin-only] { display: flex; }
-#app-sidebar .sb-sec[data-admin-only],
-#app-sidebar .sb-mov-head[data-admin-only] { display: none; }
-body.sb-is-admin #app-sidebar .sb-sec[data-admin-only],
-body.sb-is-admin #app-sidebar .sb-mov-head[data-admin-only] { display: block; }
 
-/* La regla de arriba (más específica, para mostrar solo a admins) le gana a la
-   de "ocultar en colapsado" del media query de escritorio — se refuerza acá con
-   la misma especificidad para que el colapso siga funcionando también en admins. */
-@media (min-width: 769px) and (hover: hover) {
-  body.sb-is-admin #app-sidebar .sb-sec[data-admin-only],
-  body.sb-is-admin #app-sidebar .sb-mov-head[data-admin-only] { display: none; }
-  body.sb-is-admin #app-sidebar:hover .sb-sec[data-admin-only],
-  body.sb-is-admin #app-sidebar:focus-within .sb-sec[data-admin-only],
-  body.sb-is-admin #app-sidebar:hover .sb-mov-head[data-admin-only],
-  body.sb-is-admin #app-sidebar:focus-within .sb-mov-head[data-admin-only] { display: block; }
-}
-
-/* Footer */
+/* ── Pie ────────────────────────────────────────────────────────── */
 #app-sidebar .sb-footer {
-  padding: 16px 18px;
-  border-top: 1px solid #eceae4;
+  padding: 12px 14px 16px;
+  border-top: 1px solid var(--sb-rule);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   flex-shrink: 0;
 }
 #app-sidebar .sb-quote {
   margin: 0;
-  font-size: 11px;
+  font-size: 11.5px;
   font-style: italic;
-  color: #9ca3af !important;
+  line-height: 1.45;
   text-align: center;
-  line-height: 1.4;
+  color: rgba(255, 255, 255, .62) !important;
 }
+#app-sidebar .sb-banner {
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  display: block;
+}
+
 #app-sidebar .sb-logout {
   display: flex;
   align-items: center;
   gap: 12px;
-  cursor: pointer;
-  background: none;
-  border: none;
-  padding: 0;
   width: 100%;
+  padding: 9px 10px;
+  border-radius: 11px;
+  border: 1.5px solid rgba(255, 106, 90, .55);
+  background: transparent;
+  cursor: pointer;
   font-family: inherit;
-  transition: opacity .12s;
+  transition: background .15s ease, border-color .15s ease;
 }
-#app-sidebar .sb-logout:hover { opacity: .8; }
-#app-sidebar .sb-logout .sb-ic { background: #dc2626; }
-#app-sidebar .sb-logout .sb-lbl { color: #374151 !important; }
-
-/* Escritorio con ratón: rail de solo iconos que se expande al pasar el mouse.
-   En colapsado se ocultan foto/nombre/rol, etiquetas, encabezados de sección
-   y la frase del footer — solo quedan los iconos de cada botón.
-
-   `(hover: hover)`: sin esto, el bloque también aplicaba en tablets, donde
-   :hover no ocurre nunca — el menú quedaba colapsado para siempre. Los
-   dispositivos sin ratón caen ahora en el bloque deslizante de más arriba.
-
-   `:focus-within` va junto a `:hover` en TODAS las reglas: al navegar con el
-   teclado, Tab mueve el foco por los botones pero no dispara :hover, así que
-   las etiquetas no aparecían y se recorrían 25 iconos a ciegas. Con esto, en
-   cuanto el foco entra en el sidebar, se despliega igual que con el ratón.
-
-   Este bloque va al FINAL del archivo a propósito: comparte especificidad
-   (1,1,0) con las reglas base de .sb-user/.sb-lbl/.sb-sec/.sb-mov-head/.sb-quote
-   de más arriba, y en un empate de especificidad gana la regla que aparece
-   después en la hoja de estilos — si este bloque quedara antes, esas reglas
-   base lo pisarían y el contenido nunca se ocultaría. */
-@media (min-width: 769px) and (hover: hover) {
-  #app-sidebar:hover,
-  #app-sidebar:focus-within { width: var(--sidebar-width); }
-
-  #app-sidebar .sb-user,
-  #app-sidebar .sb-lbl,
-  #app-sidebar .sb-sec,
-  #app-sidebar .sb-mov-head,
-  #app-sidebar .sb-quote {
-    display: none;
-  }
-  #app-sidebar:hover .sb-user,
-  #app-sidebar:focus-within .sb-user     { display: flex; }
-  #app-sidebar:hover .sb-lbl,
-  #app-sidebar:focus-within .sb-lbl      { display: block; }
-  #app-sidebar:hover .sb-sec,
-  #app-sidebar:focus-within .sb-sec      { display: block; }
-  #app-sidebar:hover .sb-mov-head,
-  #app-sidebar:focus-within .sb-mov-head { display: block; }
-  #app-sidebar:hover .sb-quote,
-  #app-sidebar:focus-within .sb-quote    { display: block; }
-
-  #app-sidebar .sb-item, #app-sidebar .sb-logout, #app-sidebar .sb-user {
-    justify-content: center;
-  }
-  #app-sidebar:hover .sb-item,
-  #app-sidebar:hover .sb-logout,
-  #app-sidebar:hover .sb-user,
-  #app-sidebar:focus-within .sb-item,
-  #app-sidebar:focus-within .sb-logout,
-  #app-sidebar:focus-within .sb-user {
-    justify-content: flex-start;
-  }
+#app-sidebar .sb-logout:hover {
+  background: rgba(255, 106, 90, .12);
+  border-color: var(--sb-danger);
 }
+#app-sidebar .sb-logout .sb-ic {
+  background: transparent;
+  box-shadow: none;
+  width: 26px; height: 26px;
+  color: var(--sb-danger) !important;
+}
+#app-sidebar .sb-logout .sb-lbl { color: var(--sb-danger) !important; font-weight: 600; }
+#app-sidebar .sb-logout .sb-chev { color: rgba(255, 106, 90, .7); }
 
+/* ── Foco visible ───────────────────────────────────────────────── */
 /* El foco de teclado tiene que verse. Sin esto, con el sidebar desplegado por
    :focus-within no había forma de saber en qué botón estabas. */
 #app-sidebar .sb-item:focus-visible,
 #app-sidebar .sb-logout:focus-visible,
 #app-sidebar .sb-user-edit-btn:focus-visible,
 .sb-mobile-toggle:focus-visible {
-  outline: 2px solid #2f6fed;
+  outline: 2px solid var(--sb-gold);
   outline-offset: 2px;
+}
+
+/* ── Escritorio con ratón: rail de iconos que se expande ────────── */
+/* En colapsado se ocultan la bandera, los datos del usuario, las etiquetas, los
+   chevrones, los títulos de sección y el pie ilustrado — solo quedan los chips.
+
+   `(hover: hover)`: sin esto el bloque también aplicaba en tablets, donde :hover
+   no ocurre nunca y el menú quedaba colapsado para siempre.
+
+   `:focus-within` va junto a `:hover` en TODAS las reglas: al navegar con el
+   teclado, Tab mueve el foco por los botones pero no dispara :hover, así que las
+   etiquetas no aparecían y se recorrían 25 iconos a ciegas.
+
+   Este bloque va al FINAL del archivo a propósito: comparte especificidad con
+   las reglas base de más arriba, y en un empate gana la que aparece después. */
+@media (min-width: 769px) and (hover: hover) {
+  #app-sidebar:hover,
+  #app-sidebar:focus-within { width: var(--sidebar-width); }
+
+  #app-sidebar .sb-flag,
+  #app-sidebar .sb-user-meta,
+  #app-sidebar .sb-user-rule,
+  #app-sidebar .sb-user-badge,
+  #app-sidebar .sb-user-edit-btn,
+  #app-sidebar .sb-lbl,
+  #app-sidebar .sb-chev,
+  #app-sidebar .sb-sec,
+  #app-sidebar .sb-mov-head,
+  #app-sidebar .sb-quote,
+  #app-sidebar .sb-banner {
+    display: none;
+  }
+  #app-sidebar:hover .sb-flag,
+  #app-sidebar:focus-within .sb-flag           { display: block; }
+  #app-sidebar:hover .sb-user-meta,
+  #app-sidebar:focus-within .sb-user-meta      { display: flex; }
+  #app-sidebar:hover .sb-user-rule,
+  #app-sidebar:focus-within .sb-user-rule      { display: flex; }
+  #app-sidebar:hover .sb-user-badge,
+  #app-sidebar:focus-within .sb-user-badge     { display: flex; }
+  #app-sidebar:hover .sb-user-edit-btn,
+  #app-sidebar:focus-within .sb-user-edit-btn  { display: flex; }
+  #app-sidebar:hover .sb-lbl,
+  #app-sidebar:focus-within .sb-lbl            { display: block; }
+  #app-sidebar:hover .sb-chev,
+  #app-sidebar:focus-within .sb-chev           { display: block; }
+  #app-sidebar:hover .sb-sec,
+  #app-sidebar:focus-within .sb-sec            { display: flex; }
+  #app-sidebar:hover .sb-mov-head,
+  #app-sidebar:focus-within .sb-mov-head       { display: flex; }
+  #app-sidebar:hover .sb-quote,
+  #app-sidebar:focus-within .sb-quote          { display: block; }
+  #app-sidebar:hover .sb-banner,
+  #app-sidebar:focus-within .sb-banner         { display: block; }
+
+  /* Colapsado: el avatar encoge y todo se centra */
+  #app-sidebar .sb-user { margin-top: 14px; padding-bottom: 6px; }
+  #app-sidebar .sb-user-avatar-wrap { width: 40px; height: 40px; margin-bottom: 0; }
+  #app-sidebar .sb-user-avatar { border-width: 2px; }
+  #app-sidebar .sb-user-avatar span { font-size: 14px; }
+  #app-sidebar:hover .sb-user,
+  #app-sidebar:focus-within .sb-user { margin-top: -46px; padding-bottom: 12px; }
+  #app-sidebar:hover .sb-user-avatar-wrap,
+  #app-sidebar:focus-within .sb-user-avatar-wrap { width: 92px; height: 92px; margin-bottom: 8px; }
+  #app-sidebar:hover .sb-user-avatar,
+  #app-sidebar:focus-within .sb-user-avatar { border-width: 4px; }
+  #app-sidebar:hover .sb-user-avatar span,
+  #app-sidebar:focus-within .sb-user-avatar span { font-size: 30px; }
+
+  #app-sidebar .sb-item, #app-sidebar .sb-logout {
+    justify-content: center;
+    border-bottom-color: transparent;
+  }
+  #app-sidebar:hover .sb-item,
+  #app-sidebar:focus-within .sb-item { justify-content: flex-start; border-bottom-color: var(--sb-rule); }
+  #app-sidebar:hover .sb-item.active,
+  #app-sidebar:focus-within .sb-item.active { border-bottom-color: transparent; }
+  #app-sidebar:hover .sb-logout,
+  #app-sidebar:focus-within .sb-logout { justify-content: flex-start; }
+
+  /* Las secciones de admin sólo se ven desplegado, igual que las demás */
+  body.sb-is-admin #app-sidebar .sb-sec[data-admin-only],
+  body.sb-is-admin #app-sidebar .sb-mov-head[data-admin-only] { display: none; }
+  body.sb-is-admin #app-sidebar:hover .sb-sec[data-admin-only],
+  body.sb-is-admin #app-sidebar:focus-within .sb-sec[data-admin-only],
+  body.sb-is-admin #app-sidebar:hover .sb-mov-head[data-admin-only],
+  body.sb-is-admin #app-sidebar:focus-within .sb-mov-head[data-admin-only] { display: flex; }
 }
