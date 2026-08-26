@@ -376,14 +376,14 @@
           if (/^\/media\/proxy/i.test(url)) return url;
           if (/^https?:\/\//i.test(url)) {
             if (/^https?:\/\/res\.cloudinary\.com\//i.test(url)) {
-              return `/media/proxy?url=${encodeURIComponent(url)}`;
+              return `/api/media/proxy?url=${encodeURIComponent(url)}`;
             }
             return url;
           }
           if (url.startsWith('//')) {
             const absolute = `${window.location.protocol}${url}`;
             if (/^https?:\/\/res\.cloudinary\.com\//i.test(absolute)) {
-              return `/media/proxy?url=${encodeURIComponent(absolute)}`;
+              return `/api/media/proxy?url=${encodeURIComponent(absolute)}`;
             }
             return absolute;
           }

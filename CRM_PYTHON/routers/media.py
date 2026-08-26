@@ -5,13 +5,37 @@ from sqlalchemy import text
 from deps import current_user
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 import httpx, os, re, datetime as _dt
 import cloudinary
 import cloudinary.uploader
 
 router = APIRouter(prefix="/api/media", tags=["Media"])
 
-ALLOWED_HOSTS = ("res.cloudinary.com", ".cloudinary.com")
+# Hosts EXACTOS permitidos por el proxy. Antes se validaba con "host in url"
+# (subcadena en cualquier parte de la URL), que se saltaba con
+# ?url=http://interno/x#res.cloudinary.com — el fragmento colaba y el proxy
+# devolvía recursos internos (SSRF). Ahora se parsea el hostname real.
+ALLOWED_HOSTS = ("res.cloudinary.com",)
+ALLOWED_SUFFIX = ".cloudinary.com"
+
+
+def _host_permitido(url: str) -> bool:
+    """True solo si la URL es http(s) y su HOSTNAME es (o termina en) cloudinary.
+
+    Se compara el hostname parseado, no una subcadena de la URL entera: así
+    ni el path, ni el query, ni el fragmento pueden falsear el host.
+    """
+    try:
+        p = urlparse(url)
+    except Exception:
+        return False
+    if p.scheme not in ("http", "https"):
+        return False
+    host = (p.hostname or "").lower()
+    if not host:
+        return False
+    return host in ALLOWED_HOSTS or host.endswith(ALLOWED_SUFFIX)
 
 _UPLOADS_DIR = Path(__file__).parent.parent.parent / "uploads" / "media"
 _UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
@@ -45,11 +69,11 @@ def _ext(filename: str) -> str:
 
 # ── GET /api/media/proxy ──────────────────────────────────────
 @router.api_route("/proxy", methods=["GET", "HEAD"])
-async def media_proxy(request: Request, url: str = ""):
+async def media_proxy(request: Request, url: str = "", user: dict = Depends(current_user)):
     if not url:
         return Response(content="Missing url param", status_code=400)
     try:
-        if not any(h in url for h in ALLOWED_HOSTS):
+        if not _host_permitido(url):
             return Response(content="Forbidden", status_code=403)
         method = request.method.upper()
         async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
