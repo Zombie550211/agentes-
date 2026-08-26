@@ -19,7 +19,10 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+# Ruta explícita, no búsqueda por cwd: en la raíz del repo hay otro .env (legado de
+# la época Node/Mongo) con un JWT_SECRET DISTINTO y sin MYSQL_URL. Arrancando desde
+# ahí, load_dotenv() lo encontraba primero e invalidaba todas las sesiones vivas.
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 from limiter import limiter
 from deps import decode_token
@@ -298,9 +301,36 @@ async def _fix_api_file_urls():
         print("[fix-images] URLs de imágenes resueltas")
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    await init_mysql()
+def _debe_inicializar_bd() -> bool:
+    """¿Esta instancia debe crear/migrar el esquema y sembrar datos al arrancar?
+
+    El arranque escribe en la BD: migraciones DDL (ALTER/CREATE), un UPDATE masivo
+    (_fix_api_file_urls) y varios seeds. Eso es correcto para la instancia DUEÑA del
+    esquema (el backend en producción), pero era un peligro real en desarrollo:
+    el .env local apunta a la RDS de producción vía túnel, así que arrancar el
+    servidor en el portátil —o probar un ALTER nuevo— impactaba la base real.
+
+    Regla:
+      - RUN_DB_INIT=1/true/yes  → inicializa siempre (para migrar a propósito, p.ej.
+        contra una BD local de pruebas).
+      - RUN_DB_INIT=0/false/no  → NO inicializa nunca (arranque de un worker extra
+        que no debe re-migrar).
+      - sin definir              → inicializa solo si NODE_ENV=production.
+    Así el despliegue del EC2 (NODE_ENV=production) sigue migrando solo, y ninguna
+    máquina de desarrollo toca el esquema aunque apunte a la RDS de producción.
+    """
+    flag = os.getenv("RUN_DB_INIT", "").strip().lower()
+    if flag in ("1", "true", "yes"):
+        return True
+    if flag in ("0", "false", "no"):
+        return False
+    return os.getenv("NODE_ENV") == "production"
+
+
+async def _inicializar_esquema_y_datos():
+    """Migraciones DDL + seeds. Solo la corre la instancia dueña del esquema
+    (ver _debe_inicializar_bd). Cada paso va aislado: que uno falle no impide
+    los siguientes ni tumba el arranque."""
     # Migraciones DDL: solo las pendientes, registradas en schema_migrations
     # (ya no se ejecutan ni fallan en cada arranque).
     try:
@@ -347,6 +377,18 @@ async def lifespan(app: FastAPI):
             await ensure_permission_defs(s)
     except Exception as e:
         print(f"[permission-defs] ensure: {e}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_mysql()
+    if _debe_inicializar_bd():
+        await _inicializar_esquema_y_datos()
+    else:
+        print("[init] Migraciones y seeds OMITIDOS: esta instancia no es dueña del "
+              "esquema (NODE_ENV != production y RUN_DB_INIT no activo). La app "
+              "arranca y sirve, pero NO altera el esquema ni siembra datos. Para "
+              "forzarlo (p.ej. contra una BD local), exporta RUN_DB_INIT=1.")
     yield
     await close_mysql()
 
