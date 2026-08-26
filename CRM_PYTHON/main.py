@@ -615,14 +615,38 @@ class _RevalidateStaticFiles(StaticFiles):
         resp.headers["X-Content-Type-Options"] = "nosniff"
         return resp
 
+
+class _CacheableStaticFiles(StaticFiles):
+    """Assets que NO cambian salvo que se suba un archivo nuevo: imágenes y las
+    librerías de frontend/vendor.
+
+    Starlette pone ETag y Last-Modified pero NO Cache-Control. Sin esa cabecera el
+    navegador revalida en CADA navegación: devuelve 304 y no baja los bytes, pero
+    paga un viaje de ida y vuelta por imagen y por librería. Con ~20 recursos por
+    página y 240 ms de ida y vuelta hasta el EC2, eso era la mayor parte del tiempo
+    que tardaba en aparecer la página.
+
+    Una semana con `must-revalidate`: si se reemplaza un archivo, el peor caso es
+    que alguien vea el anterior hasta 7 días. Se acepta porque estas imágenes
+    cambian con el rediseño de una página, no a diario; si alguna vez hay que
+    forzar el cambio antes, se le añade ?v= a la referencia (como ya hace el CSS)
+    o se le cambia el nombre.
+    """
+    async def get_response(self, path, scope):
+        resp = await super().get_response(path, scope)
+        resp.headers["Cache-Control"] = "public, max-age=604800, must-revalidate"
+        resp.headers["X-Content-Type-Options"] = "nosniff"
+        return resp
+
+
 # Condicionales: no crashea si el directorio no existe (ej. un deploy solo-API sin frontend)
-# css/js se revalidan siempre (evita la pelea de la caché); images/vendor cachean normal.
+# css/js se revalidan siempre (evita la pelea de la caché); images/vendor se cachean.
 _static_dirs = {"images": "images", "css": "css", "js": "js", "vendor": "vendor"}
 _revalidate_dirs = {"css", "js"}
 for _name, _rel in _static_dirs.items():
     _d = FRONTEND_DIR / _rel
     if _d.exists():
-        _cls = _RevalidateStaticFiles if _name in _revalidate_dirs else StaticFiles
+        _cls = _RevalidateStaticFiles if _name in _revalidate_dirs else _CacheableStaticFiles
         app.mount(f"/{_name}", _cls(directory=str(_d)), name=_name)
 
 class _UploadsStaticFiles(StaticFiles):
