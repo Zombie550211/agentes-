@@ -300,6 +300,10 @@ body { background: #f2ead9 !important; }
     <!-- PAGE -->
     <div class="page">
 
+      <!-- Banner de temporada; lo rellena el script del final, y sólo dentro
+           de su ventana de fechas. Fuera de ella este div queda vacío. -->
+      <div id="banner-temporada"></div>
+
       <!-- ROW 2 -->
       <div class="row2">
 
@@ -827,6 +831,22 @@ document.addEventListener('DOMContentLoaded',function(){
   // Tiempo real: cuando entra/cambia una venta de líneas, recarga sin refrescar.
   if(window.CRMRealtime) CRMRealtime.connect('lineas', loadDashboard);
 });
+</script>
+
+<script>
+  /* Banner de temporada (Mes de la Independencia).
+     La ventana de fechas la publica sidebar.js en window.Temporada, que ya se
+     carga en esta página: así el CRM entero entra y sale de la temporada a la
+     vez. Se espera a DOMContentLoaded porque sidebar.js es `defer`. */
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!(window.Temporada && window.Temporada.independencia())) return;
+    var cont = document.getElementById('banner-temporada');
+    if (!cont) return;
+    cont.innerHTML =
+      '<img class="banner-temporada" src="/images/independencia-hero.webp" ' +
+      'alt="Mes de la Independencia de El Salvador — 15 de septiembre de 1821" ' +
+      'width="1400" height="685">';
+  });
 </script>
 </body>
 </html>

@@ -196,6 +196,33 @@
   window.Temporada = window.Temporada || {};
   window.Temporada.independencia = enTemporadaIndependencia;
 
+  // ── Decoración de temporada, para TODO el CRM ────────────────────
+  // Vive aquí y no en sidebar-ui.js porque este módulo lo cargan las 37 páginas
+  // Y ADEMÁS el login, que no tiene sidebar: así la decoración y las fechas
+  // siguen definidas en un solo sitio. Las capas van fuera del flujo (fixed),
+  // de modo que no desplazan ni un píxel en ninguna página.
+  function decorarTemporada() {
+    if (!enTemporadaIndependencia()) return;
+
+    document.body.classList.add('temporada-independencia');
+
+    if (!document.querySelector('link[href^="/css/base/temporada.css"]')) {
+      const hoja = document.createElement('link');
+      hoja.rel = 'stylesheet';
+      hoja.href = '/css/base/temporada.css?v=20260826a';
+      document.head.appendChild(hoja);
+    }
+
+    ['temporada-fondo', 'temporada-franja'].forEach(function (clase) {
+      if (document.querySelector('.' + clase)) return;
+      const capa = document.createElement('div');
+      capa.className = clase;
+      capa.setAttribute('aria-hidden', 'true');   // decorativas: fuera del lector
+      document.body.appendChild(capa);
+    });
+  }
+  decorarTemporada();
+
   const nav = document.getElementById('app-sidebar');
   if (nav) {
     render(nav);

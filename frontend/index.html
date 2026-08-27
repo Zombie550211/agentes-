@@ -1764,6 +1764,10 @@
     <!-- SIDEBAR (cargado dinámicamente) -->
     <nav class="sidebar" id="app-sidebar"></nav>
     <main class="main-content">
+
+      <!-- Banner de temporada; lo rellena el script del final, y sólo dentro
+           de su ventana de fechas. Fuera de ella este div queda vacío. -->
+      <div id="banner-temporada"></div>
       
       <!-- Panel de Bienvenida del Usuario -->
       <div class="user-welcome-panel">
@@ -1935,3 +1939,18 @@
         </div>
       </div>
 
+<script>
+  /* Banner de temporada (Mes de la Independencia).
+     La ventana de fechas la publica sidebar.js en window.Temporada, que ya se
+     carga en esta página: así el CRM entero entra y sale de la temporada a la
+     vez. Se espera a DOMContentLoaded porque sidebar.js es `defer`. */
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!(window.Temporada && window.Temporada.independencia())) return;
+    var cont = document.getElementById('banner-temporada');
+    if (!cont) return;
+    cont.innerHTML =
+      '<img class="banner-temporada" src="/images/independencia-hero.webp" ' +
+      'alt="Mes de la Independencia de El Salvador — 15 de septiembre de 1821" ' +
+      'width="1400" height="685">';
+  });
+</script>
