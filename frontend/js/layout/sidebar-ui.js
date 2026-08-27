@@ -109,6 +109,37 @@
   }
   setupMobileToggle();
 
+  // ── Temporada: Mes de la Independencia ───────────────────────────
+  // Se aplica al CRM entero desde aquí porque este módulo y sidebar-static.css
+  // son lo ÚNICO que cargan las 37 páginas: una sola línea tematiza todo sin
+  // tocar 37 archivos ni añadirles un <link>.
+  //
+  // La hoja se inyecta sólo dentro de la ventana de fechas, así que fuera de
+  // temporada ni se descarga. Las dos capas son decorativas y van fuera del
+  // flujo (fixed), de modo que no desplazan ni un píxel en ninguna página —
+  // que es lo que permite ponerlas en las 37 sin revisarlas una por una.
+  function temporadaIndependencia() {
+    if (!(window.Temporada && window.Temporada.independencia())) return;
+
+    document.body.classList.add('temporada-independencia');
+
+    if (!document.querySelector('link[href^="/css/base/temporada.css"]')) {
+      var hoja = document.createElement('link');
+      hoja.rel = 'stylesheet';
+      hoja.href = '/css/base/temporada.css?v=20260826a';
+      document.head.appendChild(hoja);
+    }
+
+    ['temporada-fondo', 'temporada-franja'].forEach(function (clase) {
+      if (document.querySelector('.' + clase)) return;
+      var capa = document.createElement('div');
+      capa.className = clase;
+      capa.setAttribute('aria-hidden', 'true');   // decorativas: fuera del lector
+      document.body.appendChild(capa);
+    });
+  }
+  temporadaIndependencia();
+
   // ── Widgets que cuelgan del sidebar ──────────────────────────────
   // Se inyectan aquí para no tener que declararlos en el HTML de cada página.
   function cargarUnaVez(src) {
