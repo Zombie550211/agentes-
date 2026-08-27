@@ -55,17 +55,25 @@ body::before {
 ::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 4px; }
 
 /* ══ SHELL ══ */
+/* `height`, no `min-height`. Con min-height el elemento crece con su contenido,
+   asi que el overflow-y:auto nunca llegaba a activarse y lo que sobraba lo
+   recortaba el overflow:hidden del body: la parte inferior del panel quedaba
+   inalcanzable, sin barra de desplazamiento y sin ninguna pista de que hubiera
+   mas. Con una altura acotada, este es el contenedor que hace scroll. */
 .main-content {
   flex: 1;
   overflow-y: auto;
   background: transparent !important;
   position: relative; z-index: 1;
-  min-height: 100vh;
+  height: 100vh;
 }
 .page {
   display: flex; flex-direction: column;
   gap: 8px; padding: 8px 13px 10px;
-  min-height: 100vh;
+  /* 100% del contenedor, no 100vh: el contenedor ya mide 100vh, y con vh el
+     relleno vertical se sumaba por fuera y dejaba una franja de scroll de una
+     docena de pixeles aun sin nada que desplazar. */
+  min-height: 100%;
 }
 
 /* ══ Temporada (Mes de la Independencia) ══ */
@@ -80,15 +88,18 @@ body::before {
   border-radius: 16px;
   box-shadow: var(--sh);
 }
-/* Franja pequeña, bajo el banner y pegada a la derecha */
-.hero-viva {
-  display: block;
-  height: 44px;
-  width: auto;
-  margin: 2px 0 0 auto;
-  border-radius: 8px;
-}
-.hero-viva[hidden] { display: none; }
+
+/* Con el banner de temporada, el panel deja de intentar caber en una pantalla.
+   Las filas se reparten la altura con flex 8:7:5, un reparto pensado para que
+   todo entre sin scroll; manteniendolo, el banner las aplastaria a unos pocos
+   pixeles de alto. Se les fija la altura que hoy tienen (40/35/25 de la ventana
+   son esas mismas proporciones) y la pagina crece hacia abajo. La clase la pone
+   el mismo script que inyecta el banner, asi que fuera de temporada el panel
+   sigue comportandose exactamente como estaba. */
+.page.con-banner { min-height: 0; }
+.page.con-banner .row-top { flex: none; height: 40vh; }
+.page.con-banner .row-mid { flex: none; height: 35vh; }
+.page.con-banner .row-bot { flex: none; height: 25vh; }
 
 /* ══ ROWS ══ */
 .row-top {

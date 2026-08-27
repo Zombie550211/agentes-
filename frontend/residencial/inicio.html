@@ -89,9 +89,6 @@
        ventana de fechas; fuera de ella este div queda vacío y no ocupa nada. -->
   <div id="banner-temporada"></div>
 
-  <img id="hero-viva" class="hero-viva" src="/images/viva-el-salvador.webp"
-       alt="¡Que viva El Salvador!" width="229" height="70" hidden>
-
   <!-- ROW TOP: Ventas Mensuales + Mapa de Clientes -->
   <div class="row-top">
 
@@ -906,6 +903,11 @@ function renderSemaforoFromTeams(teams) {
   document.addEventListener('DOMContentLoaded', function () {
     if (!(window.Temporada && window.Temporada.independencia())) return;
 
+    // Marca la página: con el banner deja de intentar caber en una pantalla y
+    // pasa a hacer scroll (ver .page.con-banner en inicio.css).
+    var pag = document.querySelector('.page');
+    if (pag) pag.classList.add('con-banner');
+
     var cont = document.getElementById('banner-temporada');
     if (cont) {
       cont.innerHTML =
@@ -913,8 +915,6 @@ function renderSemaforoFromTeams(teams) {
         'alt="Mes de la Independencia de El Salvador — 15 de septiembre de 1821" ' +
         'width="1400" height="685">';
     }
-    var viva = document.getElementById('hero-viva');
-    if (viva) viva.hidden = false;
   });
 </script>
 </body>
