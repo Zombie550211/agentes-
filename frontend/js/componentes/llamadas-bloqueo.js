@@ -6,11 +6,13 @@
  * el CRM: puede seguir trabajando y creando leads con normalidad.
  *
  * El aviso se muestra en cada carga de página (siempre les llega), con acceso
- * directo a costumer.html?llamadas=1, donde se ven solo los leads por llamar y
- * se registra la llamada (captura de Xencall + nota) desde editar cliente.
+ * directo a la lista de clientes, donde se registra la llamada (captura de
+ * Xencall + nota) desde editar cliente. El botón NO filtra la tabla: los leads
+ * nuevos tienen que seguir viendose.
  *
- * Para reactivar el bloqueo duro: poner BLOQUEO_ACTIVO = true aquí y volver a
- * habilitar el 423 en CRM_PYTHON/routers/leads.py (create_lead).
+ * Para reactivar el bloqueo duro habria que volver a habilitar el 423 en
+ * CRM_PYTHON/routers/leads.py (create_lead). Este archivo ya no bloquea nada:
+ * solo avisa, asi que no hay ningun interruptor que tocar de este lado.
  */
 (function () {
   'use strict';
@@ -19,17 +21,14 @@
   var path = (window.location.pathname || '').toLowerCase();
   if (path.indexOf('login') !== -1 || path.indexOf('register') !== -1 || path.indexOf('crear-cuenta') !== -1) return;
 
-  // En el modo lista de llamadas ya se está resolviendo: solo banner
-  var inLlamadasMode = /[?&]llamadas=1/.test(window.location.search || '');
-
   function fmtPhone(p) {
     var d = String(p || '').replace(/\D/g, '');
     if (d.length === 10) return '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6);
     return p || '—';
   }
 
-  function goLeads()  { window.location.href = '/residencial/costumer.html?llamadas=1'; }
-  function goLineas() { window.location.href = '/lineas/costumer.html?llamadas=1'; }
+  function goLeads()  { window.location.href = '/residencial/costumer.html'; }
+  function goLineas() { window.location.href = '/lineas/costumer.html'; }
 
   /** Card de notificación (usa el sistema global; espera a que cargue). */
   function notifCard(data, intentos) {
@@ -89,7 +88,7 @@
 
   function avisar(data) {
     buildBanner(data);
-    if (!inLlamadasMode) notifCard(data, 0);
+    notifCard(data, 0);
   }
 
   async function check() {
