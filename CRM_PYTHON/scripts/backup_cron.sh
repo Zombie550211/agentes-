@@ -9,14 +9,30 @@
 #   2. Levanta el túnel SSH a la RDS privada si hace falta. backup_db.py se conecta a
 #      127.0.0.1:3308, que sólo existe mientras el túnel está abierto; en cron nunca lo
 #      estaba, de ahí los 14 "Can't connect to MySQL server on '127.0.0.1'".
+#   3. Recupera el backup si el PC estaba apagado a las 03:00. cron no repite lo que se
+#      perdió, y entre el 21-ago y el 16-sep faltaron 18 de 27 noches sin dejar rastro.
+#      Ahora cron lo llama cada hora de 03 a 23 y el script sale en silencio si ya hay
+#      un backup correcto hoy (marca .ultimo-ok) o si otro sigue en curso (flock).
 #
-# Uso manual:  bash CRM_PYTHON/scripts/backup_cron.sh
-# En cron:     0 3 * * * bash ".../CRM_PYTHON/scripts/backup_cron.sh" >> ".../logs/backup-cron.log" 2>&1
+# Uso manual:  bash CRM_PYTHON/scripts/backup_cron.sh          (FORZAR=1 ignora la marca de hoy)
+# En cron:     0 3-23 * * * bash ".../CRM_PYTHON/scripts/backup_cron.sh" >> ".../logs/backup-cron.log" 2>&1
 
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"   # CRM_CONNECTING/
+BACKUP_DIR="${BASE_DIR}/db-backups"
+MARCA_OK="${BACKUP_DIR}/.ultimo-ok"   # fecha (YYYY-MM-DD) del último backup terminado bien
+
+# Estas dos salidas no escriben nada: con el cron cada hora llenarían el log de ruido.
+# Se comprueba la marca y no la fecha del .sql.gz porque backup_db.py crea el archivo
+# al empezar: uno a medias o fallido parecería el backup de hoy.
+mkdir -p "${BACKUP_DIR}"
+exec 9>"${BACKUP_DIR}/.backup.lock"
+flock -n 9 || exit 0
+if [[ -z "${FORZAR:-}" && "$(cat "${MARCA_OK}" 2>/dev/null)" == "$(date +%F)" ]]; then
+  exit 0
+fi
 
 # Entorno único del proyecto. Antes esto apuntaba a .venvlinux, que había quedado
 # atrás (starlette 1.0.0 frente a 1.3.1): se probaba contra una versión y el cron
@@ -64,7 +80,7 @@ else
       -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 \
       -i "${SSH_KEY}" \
       -L "${LOCAL_PORT}:${RDS_ENDPOINT}:3306" \
-      "${EC2_USER}@${EC2_IP}" &
+      "${EC2_USER}@${EC2_IP}" 9>&- &   # 9>&-: el túnel no hereda el candado
   TUNNEL_PID=$!
 
   # El túnel tarda en negociar; esperamos hasta 30s a que el puerto acepte conexiones.
@@ -86,6 +102,7 @@ cd "${BASE_DIR}" || { log "ERROR: no se pudo entrar a ${BASE_DIR}"; exit 1; }
 STATUS=$?
 
 if [[ ${STATUS} -eq 0 ]]; then
+  date +%F > "${MARCA_OK}"
   log "backup OK"
 else
   log "ERROR: backup_db.py terminó con código ${STATUS}"
