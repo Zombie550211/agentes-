@@ -10,7 +10,9 @@ import ssl, os
 # Ruta explícita, no búsqueda por cwd — ver el porqué en main.py (hay un .env
 # legado en la raíz del repo, sin MYSQL_URL, que se colaba según desde dónde
 # se arrancara).
-load_dotenv(Path(__file__).resolve().parent / ".env")
+# CRM_ENV_FILE permite apuntar a otro archivo (p.ej. .env.local, que va contra el
+# MySQL en Docker) sin tocar el .env de produccion. Sin definir, se usa .env.
+load_dotenv(Path(__file__).resolve().parent / os.getenv("CRM_ENV_FILE", ".env"))
 
 MYSQL_URL = os.getenv(
     "MYSQL_URL",

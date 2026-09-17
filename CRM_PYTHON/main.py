@@ -22,7 +22,9 @@ from dotenv import load_dotenv
 # Ruta explícita, no búsqueda por cwd: en la raíz del repo hay otro .env (legado de
 # la época Node/Mongo) con un JWT_SECRET DISTINTO y sin MYSQL_URL. Arrancando desde
 # ahí, load_dotenv() lo encontraba primero e invalidaba todas las sesiones vivas.
-load_dotenv(Path(__file__).resolve().parent / ".env")
+# CRM_ENV_FILE permite apuntar a otro archivo (p.ej. .env.local, que va contra el
+# MySQL en Docker) sin tocar el .env de produccion. Sin definir, se usa .env.
+load_dotenv(Path(__file__).resolve().parent / os.getenv("CRM_ENV_FILE", ".env"))
 
 from limiter import limiter
 from deps import decode_token
