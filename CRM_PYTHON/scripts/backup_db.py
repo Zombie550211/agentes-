@@ -25,8 +25,9 @@ BASE_DIR   = CRM_PYTHON.parent                        # CRM_CONNECTING
 BACKUP_DIR = BASE_DIR / "db-backups"
 KEEP       = int(os.getenv("BACKUP_KEEP", "14"))
 
+# Solo el .env del backend. El de la raíz era de la época Node/Mongo: no tiene
+# ninguna variable que use este script y sí credenciales viejas y otro JWT_SECRET.
 load_dotenv(CRM_PYTHON / ".env")
-load_dotenv(BASE_DIR / ".env")
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
