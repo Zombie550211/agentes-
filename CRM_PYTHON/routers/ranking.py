@@ -412,12 +412,11 @@ async def ranking_init(
     last_day = (datetime(now.year, now.month % 12 + 1, 1) - __import__('datetime').timedelta(days=1)).day if now.month < 12 else 31
     ff = fechaFin or f"{now.year}-{now.month:02d}-{last_day:02d}"
 
-    # Reutilizar el endpoint de ranking existente
-    ranking_resp = await get_ranking(
-        fechaInicio=fi, fechaFin=ff,
-        statuses=None, agente=None,
-        limit=limit, debug=None,
-        user=user
+    # _get_ranking_core y no get_ranking: llamado en proceso, los parámetros que no
+    # se pasan a un endpoint valen el objeto Query() de FastAPI, no None, y
+    # `mercado.strip()` reventaba con 500 (la página se quedaba sin la media promo).
+    ranking_resp = await _get_ranking_core(
+        fechaInicio=fi, fechaFin=ff, limit=limit, user=user,
     )
 
     # Obtener última media de marketing
