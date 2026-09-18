@@ -5,6 +5,7 @@ from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
 from limiter import limiter
+from validators import ImagenUrl
 from datetime import datetime, timezone
 from typing import Optional, List, Any
 import re, random, unicodedata, time, json, os, secrets, asyncio
@@ -480,7 +481,7 @@ class LineasBody(BaseModel):
     agenteAsignado:    Optional[str] = None
     lineas_status:     Optional[Any] = None
     lines:             Optional[List[Any]] = []
-    imagen_url:        Optional[str] = None
+    imagen_url:        Optional[ImagenUrl] = None
 
 
 @router.post("/api/lineas")
@@ -641,7 +642,7 @@ class LineasTeamUpdateBody(BaseModel):
     status:             Optional[str] = None
     dia_venta:          Optional[str] = None
     dia_instalacion:    Optional[str] = None
-    imagen_url:         Optional[str] = None
+    imagen_url:         Optional[ImagenUrl] = None
     supervisor:         Optional[str] = None
     line_index:         Optional[int] = None
     line_telefono:      Optional[str] = None
@@ -1050,7 +1051,7 @@ async def lineas_get_llamadas(client_id: str, user: dict = Depends(current_user)
 
 
 class LlamadaLineasBody(BaseModel):
-    imagen_url: str = ""
+    imagen_url: ImagenUrl = ""
     nota:       str = ""
 
 

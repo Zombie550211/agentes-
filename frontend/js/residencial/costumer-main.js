@@ -52,6 +52,20 @@
 
   /* ── HELPERS ── */
   function escHTML(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  // imagen_url se interpola en src="…" y en onclick="…('…')". Escapar no basta: el
+  // navegador decodifica las entidades del atributo antes de ejecutar el onclick, así
+  // que una comilla simple escapada vuelve a ser comilla y cierra el literal JS (XSS
+  // almacenado). Se descartan las URLs con caracteres capaces de salir de cualquiera
+  // de los dos contextos. El backend valida lo mismo al guardar
+  // (validators.validar_imagen_url); esto cubre los valores guardados antes.
+  function _safeImgUrl(u){
+    if(!u)return '';
+    u=String(u).trim();
+    if(/["'<>`\\\x00-\x1f\x7f]/.test(u)||u.indexOf('..')!==-1||u.indexOf('//')===0)return '';
+    if(/^https?:\/\//i.test(u))return u;
+    if(/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(u))return '';  // javascript:, data:, …
+    return u.charAt(0)==='/'?u:'/'+u;
+  }
   function showToast(msg,type){
     const t=document.createElement('div');
     t.textContent=msg;
@@ -693,7 +707,12 @@
     window._openCostumerImgLightbox=function(src){
       var ov=document.createElement('div');
       ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px;';
-      ov.innerHTML='<img src="'+src+'" style="max-width:100%;max-height:95vh;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,0.6);">';
+      // createElement en vez de innerHTML: .src toma el valor como dato y nunca lo
+      // interpreta como HTML, así una URL con comillas no puede inyectar onerror=.
+      var im=document.createElement('img');
+      im.src=String(src||'');
+      im.style.cssText='max-width:100%;max-height:95vh;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,0.6);';
+      ov.appendChild(im);
       ov.onclick=function(){document.body.removeChild(ov);};
       document.body.appendChild(ov);
     };
@@ -1002,7 +1021,7 @@
     var dis=canEdit?'':'disabled';
     var opacity=canEdit?'':'opacity:.6;pointer-events:none;';
 
-    var imgSrc=lead.imagen_url||'';
+    var imgSrc=_safeImgUrl(lead.imagen_url);
     var imgZoneHtml=
       '<div id="ile-img-zone-'+lid+'" style="border:1.5px dashed var(--line-2);border-radius:10px;background:var(--sheet-2);height:180px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer;" onclick="document.getElementById(\'ile-file-'+lid+'\').click()">'+
         (imgSrc
@@ -1470,9 +1489,10 @@
     if(row){
       row.innerHTML=llamadas.map(function(c){
         var tipo=c.tipo==='seguimiento'?'Seguimiento':'Verificación';
+        var capUrl=_safeImgUrl(c.imagen_url);
         return '<div style="flex-shrink:0;width:84px;">'+
-          '<div style="width:84px;height:64px;border:1px solid var(--line-1);border-radius:8px;overflow:hidden;cursor:zoom-in;background:var(--sheet-2);" onclick="_openCostumerImgLightbox(\''+escHTML(c.imagen_url)+'\')" title="Llamada '+c.numero_llamada+'/2 — click para ampliar">'+
-            '<img src="'+escHTML(c.imagen_url)+'" style="width:100%;height:100%;object-fit:cover;">'+
+          '<div style="width:84px;height:64px;border:1px solid var(--line-1);border-radius:8px;overflow:hidden;cursor:zoom-in;background:var(--sheet-2);" onclick="_openCostumerImgLightbox(\''+capUrl+'\')" title="Llamada '+Number(c.numero_llamada||0)+'/2 — click para ampliar">'+
+            '<img src="'+capUrl+'" style="width:100%;height:100%;object-fit:cover;">'+
           '</div>'+
           '<div style="font-size:.58rem;font-weight:700;color:var(--ink-3);text-align:center;margin-top:3px;white-space:nowrap;">📞 '+c.numero_llamada+'/2 · '+tipo+'</div>'+
         '</div>';

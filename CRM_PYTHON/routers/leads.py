@@ -8,6 +8,7 @@ from typing import Optional, List, Any
 import re, unicodedata, time, json, calendar, traceback, asyncio, os
 from geocoder import geocode_and_save
 from scoring import score_for
+from validators import ImagenUrl
 import realtime
 
 
@@ -503,7 +504,7 @@ class LeadCreateBody(BaseModel):
     sistema:            str = ""
     riesgo:             str = ""
     comentario:         str = ""
-    imagen_url:         str = ""
+    imagen_url:         ImagenUrl = ""
     puntaje:            str = ""
     dia_venta:          str = ""
     dia_instalacion:    str = ""
@@ -1212,7 +1213,7 @@ async def get_llamadas_lead(lead_id: str, user: dict = Depends(current_user)):
 
 
 class LlamadaBody(BaseModel):
-    imagen_url: str = ""
+    imagen_url: ImagenUrl = ""
     nota:       str = ""
 
 
@@ -1486,7 +1487,7 @@ class UpdateLeadBody(BaseModel):
     motivo_llamada:     Optional[str] = None
     nota:               Optional[str] = None
     notas:              Optional[Any] = None
-    imagen_url:         Optional[str] = None
+    imagen_url:         Optional[ImagenUrl] = None
     was_reserva:        Optional[bool] = None
 
 
