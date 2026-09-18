@@ -32,7 +32,6 @@
 
     /* ── Topbar ── */
     .topbar{display:flex;align-items:center;justify-content:space-between;padding:18px 28px;background:var(--surface);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--border);gap:16px;flex-wrap:wrap;position:sticky;top:0;z-index:100}
-    .topbar-left{}
     .topbar-title{font-size:1.4rem;font-weight:800;color:var(--ink);line-height:1.1}
     .topbar-sub{font-size:.72rem;color:var(--ink3);margin-top:2px}
     .topbar-right{display:flex;align-items:center;gap:8px}
@@ -1066,11 +1065,11 @@
     </div>
     <div class="modal-body">
       <div class="form-row">
-        <div class="form-group"><label class="form-label">Nombre completo</label><input class="form-input" id="c-name" type="text" placeholder="Ej. María López"/></div>
-        <div class="form-group"><label class="form-label">Usuario <span style="color:var(--red)">*</span></label><input class="form-input" id="c-username" type="text" placeholder="Ej. maria.lopez"/></div>
+        <div class="form-group"><label class="form-label">Nombre completo</label><input class="form-input" id="c-name" name="name" type="text" autocomplete="name" placeholder="Ej. María López"/></div>
+        <div class="form-group"><label class="form-label">Usuario <span style="color:var(--red)">*</span></label><input class="form-input" id="c-username" name="username" type="text" autocomplete="username" placeholder="Ej. maria.lopez" required/></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label class="form-label">Contraseña <span style="color:var(--red)">*</span></label><input class="form-input" id="c-password" type="password" placeholder="Mínimo 8 caracteres"/></div>
+        <div class="form-group"><label class="form-label">Contraseña <span style="color:var(--red)">*</span></label><input class="form-input" id="c-password" name="password" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres" minlength="8" required/></div>
         <div class="form-group"><label class="form-label">Rol <span style="color:var(--red)">*</span></label>
           <select class="form-select" id="c-role" onchange="onRoleChange('c')">
             <option value="">— Selecciona —</option>
@@ -1083,6 +1082,10 @@
             <option value="Lineas-Agentes">Líneas Agentes</option>
           </select>
         </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Confirmar contraseña <span style="color:var(--red)">*</span></label><input class="form-input" id="c-password-confirm" type="password" autocomplete="new-password" placeholder="Repite la contraseña" minlength="8" required/></div>
+        <div class="form-group" style="margin-bottom:0"></div>
       </div>
       <div class="form-group">
         <label class="form-label">Fecha de ingreso</label>
@@ -2644,6 +2647,7 @@ function onRoleChange(prefix){
 async function createUser(){
   const username=document.getElementById('c-username').value.trim();
   const password=document.getElementById('c-password').value;
+  const passwordConfirm = (document.getElementById('c-password-confirm') && document.getElementById('c-password-confirm').value) || '';
   const role=document.getElementById('c-role').value;
   const name=document.getElementById('c-name').value.trim();
   const isSup=role==='Supervisor'||role==='Supervisor Team Lineas';
@@ -2655,6 +2659,9 @@ async function createUser(){
   const fechaIngreso=document.getElementById('c-fecha-ingreso').value;
   if(!username||!password||!role){ toast('Usuario, contraseña y rol son requeridos','err'); return; }
   if(password.length<8){ toast('La contraseña debe tener al menos 8 caracteres','err'); return; }
+  if(password!==passwordConfirm){ toast('Las contraseñas no coinciden','err'); return; }
+  // Chequeo rápido de unicidad en cliente (el servidor valida definitivamente)
+  try{ if(window._users && _users.some(u=>String(u.username||'').toLowerCase()===String(username).toLowerCase())){ toast('El usuario ya existe','err'); return; } }catch(e){}
   if(isSup&&!team){ toast('Selecciona el team que supervisará','err'); return; }
   const permissions=Array.from(document.querySelectorAll('#c-perms-grid input[type=checkbox]:checked')).map(cb=>cb.value);
   const res=await AUTH.sf('/api/auth/register',{ method:'POST', body:JSON.stringify({ username, password, role, name, team, supervisor:supervisorKey&&supervisorKey!=='__none__'?supervisorKey:'', permissions, fecha_ingreso:fechaIngreso }) });

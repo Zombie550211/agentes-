@@ -1,0 +1,254 @@
+/* Estilos de inicio.html
+   Extraidos del HTML. Este archivo debe cargarse en la misma posicion
+   que ocupaba el <style> original: hay reglas que dependen de aplicarse
+   antes de glass-cards-cream.css y sidebar-static.css. */
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif}
+
+/* ── FONDO CREMA ── */
+body{
+  background:#f2ead9;
+  background-image:
+    radial-gradient(1200px 600px at 80% -10%, rgba(8,145,178,0.06), transparent 60%);
+  color:#1e1608;
+}
+
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(13,20,32,.18);border-radius:4px}
+
+/* ── VARIABLES ── */
+:root{
+  --neon:#0891b2;
+  --neon2:#2563eb;
+  --purple:#7c3aed;
+  --amber:#d97706;
+  --green:#059669;
+  --red:#ef4444;
+  --glass:#ffffff;
+  --glass-b:rgba(13,20,32,.10);
+  --glass-b2:rgba(13,20,32,.16);
+  --ink:#1e1608;
+  --ink2:#64748b;
+  --ink3:#94a3b8;
+}
+
+/* ── LAYOUT ── */
+html,body{height:100%;overflow:hidden}
+
+/* El sidebar usa position:fixed — main-content ocupa toda la pantalla
+   y el sistema de auto-hide (sidebar-shared.css) le aplica margin-left */
+.main-content{
+  position:fixed;top:0;left:0;right:0;bottom:0;
+  display:flex;flex-direction:column;
+  overflow:hidden;
+  transition:margin-left .18s ease;
+  z-index:10;
+}
+
+/* sidebar-shared.css ya aplica margin-left a .main-content en auto-hide */
+
+/* glass-cards.css fuerza position:relative !important sobre .main-content y
+   rompe el anclaje a pantalla (la página crece con el contenido en vez de
+   hacer scroll interno). Mayor especificidad para restaurar el fixed. */
+body .main-content{position:fixed!important;top:0;left:0;right:0;bottom:0}
+
+/* ── TOPBAR ── */
+.topbar{
+  flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
+  padding:0 22px;height:52px;
+  background:rgba(255,253,247,.85);border-bottom:1px solid rgba(13,20,32,.08);
+  backdrop-filter:blur(20px);
+}
+.topbar-brand{display:flex;align-items:center;gap:10px}
+.tb-logo{width:30px;height:30px;border-radius:8px;
+  background:linear-gradient(135deg,var(--neon2),var(--neon));
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:800;color:#fff;
+  box-shadow:0 0 16px rgba(8,145,178,.35)}
+.tb-title{font-family:'Space Grotesk',sans-serif;font-size:.88rem;font-weight:700;color:var(--ink)}
+.tb-sub{font-size:.60rem;color:var(--ink3);margin-top:1px}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.tb-date{font-size:.70rem;color:var(--ink3)}
+.tb-user{display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;
+  background:rgba(8,145,178,.06);border:1px solid rgba(8,145,178,.14);
+  border-radius:50px;cursor:pointer}
+.tb-av{width:26px;height:26px;border-radius:50%;
+  background:linear-gradient(135deg,var(--neon2),var(--neon));
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:800;color:#fff;
+  box-shadow:0 0 10px rgba(8,145,178,.40)}
+.tb-uname{font-size:.72rem;font-weight:600;color:var(--ink)}
+.tb-urole{font-size:.58rem;color:var(--ink3)}
+
+/* ── PAGE ── */
+.page{
+  flex:1;min-height:0;overflow:hidden;
+  display:grid;
+  /* minmax(0,1fr): el contenido no puede estirar las filas (1fr = minmax(auto,1fr)) */
+  grid-template-rows:minmax(0,1fr) minmax(0,1fr);
+  grid-template-columns:1fr;
+  gap:10px;padding:10px 14px 10px;
+}
+
+
+/* ── ROW 2: Welcome + Chart + Mini stats ── */
+.row2{display:grid;grid-template-columns:260px 1fr 220px;grid-template-rows:minmax(0,1fr);gap:10px;min-height:0}
+
+/* Welcome card */
+.welcome-card{
+  background:var(--glass);border:1px solid var(--glass-b);border-radius:16px;
+  backdrop-filter:blur(24px);overflow:hidden;display:flex;flex-direction:column;
+  position:relative;
+}
+.wc-bg{
+  position:absolute;inset:0;
+  background:linear-gradient(160deg,rgba(8,145,178,.10) 0%,rgba(124,58,237,.06) 50%,transparent 100%);
+  pointer-events:none;
+}
+.wc-body{position:relative;z-index:1;padding:18px;flex:1;min-height:0;display:flex;flex-direction:column;gap:12px}
+.wc-tag{font-size:.58rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--neon);opacity:.8}
+.wc-name{font-family:'Space Grotesk',sans-serif;font-size:1.2rem;font-weight:700;
+  color:var(--ink);line-height:1.2}
+.wc-role{font-size:.68rem;color:var(--ink2);margin-top:2px}
+.wc-divider{height:1px;background:rgba(13,20,32,.10);margin:4px 0}
+.wc-stat-row{display:flex;flex-direction:column;gap:6px}
+.wc-stat{display:flex;justify-content:space-between;align-items:center}
+.wc-stat-lbl{font-size:.65rem;color:var(--ink3)}
+.wc-stat-val{font-size:.75rem;font-weight:700;color:var(--ink)}
+.wc-pill{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;
+  background:rgba(8,145,178,.08);border:1px solid rgba(8,145,178,.18);
+  border-radius:50px;font-size:.65rem;color:var(--neon);font-weight:600;
+  margin-top:auto;cursor:pointer;text-decoration:none;transition:background .15s}
+.wc-pill:hover{background:rgba(8,145,178,.14)}
+.wc-pill i{font-size:.60rem}
+
+/* Chart panel */
+.chart-panel{
+  background:var(--glass);border:1px solid var(--glass-b);border-radius:16px;
+  backdrop-filter:blur(24px);display:flex;flex-direction:column;overflow:visible;
+  position:relative;
+}
+.cp-header{
+  flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px 8px;
+}
+
+.cp-title{font-size:.72rem;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em}
+.cp-val{font-family:'Space Grotesk',sans-serif;font-size:1.6rem;font-weight:700;
+  color:var(--neon);text-shadow:none;line-height:1;margin-top:2px}
+.cp-delta{font-size:.68rem;color:#059669;font-weight:600;margin-top:2px}
+.cp-legend{display:flex;gap:14px}
+.cp-leg-item{display:flex;align-items:center;gap:5px;font-size:.62rem;color:var(--ink3)}
+.cp-leg-dot{width:8px;height:8px;border-radius:50%}
+.cp-chart{flex:1;min-height:0}
+
+/* Mini stats panel */
+.mini-panel{
+  background:var(--glass);border:1px solid var(--glass-b);border-radius:16px;
+  backdrop-filter:blur(24px);display:flex;flex-direction:column;gap:8px;
+  padding:14px;overflow:hidden;
+}
+.mp-title{font-size:.62rem;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;
+  margin-bottom:2px}
+.mp-big{font-family:'Space Grotesk',sans-serif;font-size:1.8rem;font-weight:700;
+  color:var(--ink);line-height:1}
+.mp-sub{font-size:.62rem;color:var(--ink3);margin-top:1px;margin-bottom:4px}
+.mp-divider{height:1px;background:rgba(13,20,32,.08)}
+.mp-agent{display:flex;align-items:center;gap:7px;padding:5px 0}
+.mp-ag-av{width:26px;height:26px;border-radius:8px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:.58rem;font-weight:800;color:#fff}
+.mp-ag-info{flex:1;min-width:0}
+.mp-ag-name{font-size:.68rem;font-weight:600;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mp-ag-role{font-size:.56rem;color:var(--ink3)}
+.mp-ag-val{font-size:.70rem;font-weight:700;color:var(--neon);flex-shrink:0}
+.mp-bar-row{margin-top:2px}
+.mp-bar{height:3px;border-radius:4px;background:rgba(13,20,32,.08);overflow:hidden}
+.mp-bar-fill{height:100%;border-radius:4px;transition:width .8s cubic-bezier(.34,1.56,.64,1)}
+
+/* ── ROW 3: Ranking + Recientes ── */
+.row3{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr);gap:10px;min-height:0}
+
+.table-panel{
+  background:var(--glass);border:1px solid var(--glass-b);border-radius:16px;
+  backdrop-filter:blur(24px);display:flex;flex-direction:column;overflow:hidden;
+}
+.tp-header{
+  flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;border-bottom:1px solid rgba(13,20,32,.08);
+}
+.tp-title{font-size:.72rem;font-weight:700;color:var(--ink);
+  text-transform:uppercase;letter-spacing:.05em}
+.tp-link{font-size:.62rem;color:var(--neon);text-decoration:none;opacity:.8}
+.tp-link:hover{opacity:1}
+.tp-body{flex:1;overflow-y:auto;padding:0 6px 6px}
+.tp-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:10px;
+  transition:background .12s;cursor:default}
+.tp-row:hover{background:rgba(13,20,32,.035)}
+.tp-num{font-size:.60rem;font-weight:800;color:var(--ink3);width:14px;flex-shrink:0;text-align:center}
+.tp-av{width:28px;height:28px;border-radius:8px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:.60rem;font-weight:800;color:#fff}
+.tp-info{flex:1;min-width:0}
+.tp-name{font-size:.70rem;font-weight:600;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tp-team{font-size:.58rem;color:var(--ink3)}
+.tp-bar-wrap{width:80px;flex-shrink:0}
+.tp-bar{height:3px;border-radius:4px;background:rgba(13,20,32,.08);overflow:hidden}
+.tp-bar-fill{height:100%;border-radius:4px}
+.tp-pts{font-size:.68rem;font-weight:700;color:var(--neon);width:36px;text-align:right;flex-shrink:0}
+
+/* Recent activity */
+.act-list{flex:1;overflow-y:auto;padding:0 6px 6px}
+.act-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:10px;
+  transition:background .12s}
+.act-row:hover{background:rgba(13,20,32,.035)}
+.act-icon{width:30px;height:30px;border-radius:8px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:.72rem}
+.act-info{flex:1;min-width:0}
+.act-name{font-size:.70rem;font-weight:600;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.act-meta{font-size:.58rem;color:var(--ink3);margin-top:1px}
+.act-tag{font-size:.58rem;font-weight:700;padding:2px 7px;border-radius:20px;flex-shrink:0}
+.tag-ok {background:rgba(16,185,129,.14);color:#047857}
+.tag-pen{background:rgba(245,158,11,.14);color:#b45309}
+.tag-can{background:rgba(239,68,68,.12);color:#b91c1c}
+
+/* ── Top Líneas (welcome card) ── */
+.tl-row{display:flex;align-items:center;gap:7px;padding:4px 6px;border-radius:8px;transition:background .12s}
+.tl-row:hover{background:rgba(13,20,32,.035)}
+.tl-pos{font-size:.58rem;font-weight:800;color:var(--ink3);width:14px;text-align:center;flex-shrink:0}
+.tl-av{width:24px;height:24px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.52rem;font-weight:800;color:#fff}
+.tl-name{flex:1;font-size:.66rem;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.tl-val{font-size:.70rem;font-weight:700;flex-shrink:0}
+.tl-sub{font-size:.54rem;color:var(--ink3);margin-top:1px}
+
+/* ── NEON BADGE podio ── */
+.neon-badge{
+  width:20px;height:20px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.52rem;font-weight:900;color:#fff;flex-shrink:0;
+}
+
+/* ── Skeleton loader ── */
+.skel{background:rgba(13,20,32,.08);border-radius:8px;animation:skel-pulse 1.4s ease-in-out infinite}
+@keyframes skel-pulse{0%,100%{opacity:.3}50%{opacity:.7}}
+
+/* ── Responsive ── */
+@media(max-width:1200px){
+  .row2{grid-template-columns:220px 1fr 200px}
+  .kcard-val{font-size:1.2rem}
+}
+@media(max-width:1000px){
+  html,body{overflow:auto;height:auto}
+  body .main-content{position:static!important;height:auto!important;overflow-y:auto!important;top:auto!important;left:auto!important;right:auto!important;bottom:auto!important}
+  .page{grid-template-rows:auto auto auto;overflow:visible;height:auto}
+  .row2{grid-template-columns:1fr;grid-template-rows:auto 260px auto;grid-auto-rows:auto}
+  /* En layout apilado las filas son auto — tope para que la lista haga scroll */
+  .welcome-card{max-height:420px}
+  .row3{grid-template-columns:1fr}
+  .kpi-row{grid-template-columns:repeat(2,1fr)}
+}
+body { background: #f2ead9 !important; }
