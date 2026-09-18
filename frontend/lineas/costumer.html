@@ -873,9 +873,17 @@
   <script src="/js/core/realtime.js"></script>
   <script>
     // Resuelve imagen_url sin importar si viene de Cloudinary (https://...) o local (/uploads/...)
+    // Devuelve '' ante cualquier URL con caracteres que puedan escaparse de un
+    // atributo HTML o de un literal JS. El resultado se interpola en src="…" y en
+    // onclick="…('…')", así que sin este filtro una imagen_url guardada por un agente
+    // ejecuta código en el navegador de quien abra la ficha (XSS almacenado).
+    // El backend valida lo mismo en validators.validar_imagen_url — esto es la 2ª capa.
     function _resolveImgUrl(u) {
       if (!u) return '';
+      u = String(u);
+      if (/["'<>`\\\r\n\t]/.test(u) || u.indexOf('..') !== -1) return '';
       if (u.startsWith('http://') || u.startsWith('https://')) return u;
+      if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(u)) return '';  // javascript:, data:, …
       return u.startsWith('/') ? u : '/' + u;
     }
 
@@ -3486,8 +3494,6 @@
         } catch(_) {}
       }
 
-      const __llamadasModeLineas = /[?&]llamadas=1/.test(window.location.search || '');
-
       // Preselecciona el team del toggle a partir de ?team=... en la URL
       // (lo usa el botón "Ver Detalle Completo" de Estadísticas).
       function _applyTeamFromURL(){
@@ -3513,25 +3519,11 @@
         sortNewToOld(allItems);
         _restrictTeamToggle(allItems);
         _applyTeamFromURL();
-        // Modo llamadas pendientes: mostrar solo los clientes por llamar (sin filtro de fechas)
-        if (__llamadasModeLineas) {
-          try {
-            const pr = await fetch('/api/leads/llamadas-pendientes', { credentials: 'include' });
-            const pd = pr.ok ? await pr.json() : null;
-            if (pd) window.__llamadasPendientes = pd;
-            const ids = ((pd && pd.leads) || []).filter(l => l.source === 'lineas').map(l => String(l.id));
-            allItems = allItems.filter(it => ids.includes(String(it.id || it._id)));
-          } catch (_) {}
-          populateAgentFilterFromItems(allItems);
-          // Modo bloqueo: mostrar TODOS los pendientes por llamar SIN filtro de team/agente.
-          // Si se filtrara por team, al cambiar de team/rol los leads pendientes de otro
-          // team desaparecen y la lista sale vacía aunque la cuenta esté bloqueada.
-          renderTable(allItems);
-          updateLeadCounter(allItems.length);
-          if (!statusChart || !agentChart) initCharts();
-          updateKPIs(allItems, allItems);
-          return;
-        }
+        // El aviso de llamadas pendientes NO filtra la tabla: solo notifica (lo publica
+        // /js/componentes/llamadas-bloqueo.js en window.__llamadasPendientes). Antes,
+        // ?llamadas=1 recortaba la lista a los clientes por llamar, así que los leads
+        // nuevos no se veían y el selector de agentes quedaba recortado.
+
         // Establecer mes actual como filtro por defecto si no hay fechas seleccionadas
         const dfEl = $('#dateFrom');
         const dtEl = $('#dateTo');
@@ -3905,23 +3897,8 @@
         try {
           allItems = await fetchData();
           sortNewToOld(allItems);
-          if (__llamadasModeLineas) {
-            try {
-              const pr = await fetch('/api/leads/llamadas-pendientes', { credentials:'include' });
-              const pd = pr.ok ? await pr.json() : null;
-              if (pd) window.__llamadasPendientes = pd;
-              const ids = ((pd && pd.leads)||[]).filter(l=>l.source==='lineas').map(l=>String(l.id));
-              allItems = allItems.filter(it=>ids.includes(String(it.id||it._id)));
-            } catch(_){}
-          }
           populateAgentFilterFromItems(allItems);
-          if (__llamadasModeLineas) {
-            // Bloqueo: pendientes sin filtro de team/agente (ver load()).
-            renderTable(allItems);
-            updateLeadCounter(allItems.length);
-          } else {
-            applyAndRender();
-          }
+          applyAndRender();
           try { await refreshMonthlyKPIs(); } catch(_){}
         } catch(_){}
       }
@@ -3938,7 +3915,12 @@
       // src viene de this.src del <img>, que ya es una URL absoluta resuelta por el browser
       var o = document.createElement('div');
       o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px;';
-      o.innerHTML = '<img src="'+src+'" style="max-width:92vw;max-height:90vh;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,.6);">';
+      // createElement en vez de innerHTML: .src asigna el valor como dato y nunca lo
+      // interpreta como HTML, así una URL con comillas no puede inyectar onerror=.
+      var im = document.createElement('img');
+      im.src = String(src || '');
+      im.style.cssText = 'max-width:92vw;max-height:90vh;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,.6);';
+      o.appendChild(im);
       o.onclick = function(){ document.body.removeChild(o); };
       document.body.appendChild(o);
     }
@@ -4042,9 +4024,13 @@
       if (row) {
         row.innerHTML = llamadas.length ? llamadas.map(function(c) {
           var tipo = c.tipo === 'seguimiento' ? 'Seguim.' : 'Verif.';
+          // _resolveImgUrl descarta las URLs con caracteres capaces de romper el
+          // atributo o el literal JS del onclick — antes solo se escapaba ' en uno
+          // y " en el otro, así que cada uno era inyectable por el carácter contrario.
+          var capUrl = _resolveImgUrl(c.imagen_url);
           return '<div style="flex-shrink:0;width:72px;">' +
-            '<div style="width:72px;height:54px;border:1px solid rgba(255,255,255,0.15);border-radius:8px;overflow:hidden;cursor:zoom-in;background:rgba(255,255,255,0.05);" onclick="_clImgLightbox(\'' + String(c.imagen_url || '').replace(/'/g, "\\'") + '\')" title="Llamada ' + c.numero_llamada + '/2">' +
-              '<img src="' + String(c.imagen_url || '').replace(/"/g, '&quot;') + '" style="width:100%;height:100%;object-fit:cover;">' +
+            '<div style="width:72px;height:54px;border:1px solid rgba(255,255,255,0.15);border-radius:8px;overflow:hidden;cursor:zoom-in;background:rgba(255,255,255,0.05);" onclick="_clImgLightbox(\'' + capUrl + '\')" title="Llamada ' + Number(c.numero_llamada || 0) + '/2">' +
+              '<img src="' + capUrl + '" style="width:100%;height:100%;object-fit:cover;">' +
             '</div>' +
             '<div style="font-size:9px;font-weight:700;color:#64748b;text-align:center;margin-top:2px;white-space:nowrap;">📞 ' + c.numero_llamada + '/2 ' + tipo + '</div>' +
           '</div>';
