@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Aplica en el EC2 una release preparada por GitHub Actions
-# (.github/workflows/desplegar.yml). La lanza el workflow vía SSM Run Command,
-# como root; no está pensada para ejecutarse a mano.
+# Aplica en el EC2 una release: la lanza auto_desplegar.sh (timer de systemd, con
+# el paquete en un directorio local) o un workflow vía SSM (con el paquete en S3).
+# Corre como root; no está pensada para ejecutarse a mano.
 #
-# Uso: aplicar_release.sh <s3://bucket/releases/SHA> <SHA> \
+# Uso: aplicar_release.sh <s3://bucket/releases/SHA | /directorio> <SHA> \
 #        <sha256 release.tgz> <sha256 borrados.txt> <sha256 cambiados.txt>
 #
 # Pasos: descarga y comprueba los hashes → punto de retorno → copia los archivos
@@ -45,7 +45,11 @@ log "=== release ${SHA:0:7}"
 
 # ── 1. Descarga y comprobación ───────────────────────────────────
 for f in release.tgz borrados.txt cambiados.txt; do
-  "${AWS}" s3 cp "${ORIGEN}/${f}" "${T}/${f}" --only-show-errors
+  if [[ "${ORIGEN}" == s3://* ]]; then
+    "${AWS}" s3 cp "${ORIGEN}/${f}" "${T}/${f}" --only-show-errors
+  else
+    cp -- "${ORIGEN}/${f}" "${T}/${f}"   # paquete local (auto_desplegar.sh)
+  fi
 done
 chmod 644 "${T}"/*
 if ! printf '%s  %s\n%s  %s\n%s  %s\n' \

@@ -1,0 +1,36 @@
+# Comprobación del código en cada push y pull request. NO despliega: el despliegue
+# lo hace el propio EC2 (CRM_PYTHON/scripts/deploy/auto_desplegar.sh), que busca
+# commits nuevos en main cada minuto. Esto solo avisa en GitHub si algo no compila.
+name: Comprobar el código
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  comprobar:
+    runs-on: ubuntu-24.04   # Python 3.12, el mismo que el EC2
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Python (sintaxis 3.12)
+        run: git ls-files -z 'CRM_PYTHON/*.py' | xargs -0 python3 -m py_compile
+
+      - name: JavaScript (sintaxis, sin /vendor/)
+        run: |
+          fallos=0
+          while IFS= read -r -d '' f; do
+            node --check "$f" || { echo "::error file=$f::error de sintaxis"; fallos=1; }
+          done < <(git ls-files -z 'frontend/*.js' ':(exclude)frontend/vendor/**')
+          exit $fallos
+
+      - name: Scripts de despliegue (sintaxis bash)
+        run: |
+          bash -n CRM_PYTHON/scripts/deploy/aplicar_release.sh
+          bash -n CRM_PYTHON/scripts/deploy/auto_desplegar.sh

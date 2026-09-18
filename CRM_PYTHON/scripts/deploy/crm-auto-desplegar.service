@@ -1,0 +1,12 @@
+# Despliegue automático del CRM desde la rama main (ver auto_desplegar.sh).
+# Instalar en /etc/systemd/system/ junto con crm-auto-desplegar.timer.
+[Unit]
+Description=CRM: desplegar el ultimo commit de main si hay uno nuevo
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/crm/auto_desplegar.sh
+TimeoutStartSec=900
+Nice=5
