@@ -294,7 +294,7 @@ CREATE TABLE IF NOT EXISTS facturacion (
     mes        TINYINT UNSIGNED,
     dia        TINYINT UNSIGNED,
     fecha_str  VARCHAR(20),       -- DD/MM/YYYY original
-    campos     JSON,              -- array de 17 strings
+    campos     JSON,              -- array de 20 strings (ver routers/facturacion.py)
     created_by VARCHAR(150),
     updated_by VARCHAR(150),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

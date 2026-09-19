@@ -6,12 +6,12 @@
   <title>Facturación</title>
   <link rel="icon" type="image/png" href="/images/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <script src="/vendor/chartjs/chart.umd.min.js"></script>
   <script src="/vendor/chartjs-plugin/chartjs-plugin-datalabels.min.js"></script>
 
-  <link rel="stylesheet" href="/css/residencial/facturacion.css">
+  <link rel="stylesheet" href="/css/residencial/facturacion.css?v=20260919e">
   <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
   <link rel="stylesheet" href="/css/base/dark-mode.css?v=20260601">
 </head>
@@ -21,6 +21,17 @@
   <script src="/js/layout/sidebar-ui.js" defer></script>
   <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
   <script src="/js/layout/sidebar-user.js" defer></script>
+  <!-- Iconos de línea (trazos estilo Lucide, licencia ISC) para KPI y resumen -->
+  <svg class="svg-sprite" aria-hidden="true">
+    <symbol id="ic-factura" viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/></symbol>
+    <symbol id="ic-bolsa" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></symbol>
+    <symbol id="ic-tendencia" viewBox="0 0 24 24"><path d="M22 7 13.5 15.5 8.5 10.5 2 17"/><path d="M16 7h6v6"/></symbol>
+    <symbol id="ic-trofeo" viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></symbol>
+    <symbol id="ic-usuarios" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="ic-movil" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></symbol>
+    <symbol id="ic-monedas" viewBox="0 0 24 24"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></symbol>
+    <symbol id="ic-diana" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+  </svg>
 <div class="layout">
   <!-- Sidebar compartido -->
   <nav class="sidebar" id="app-sidebar"></nav>
@@ -51,7 +62,7 @@
       <h2 class="kpi-section-title">KPI Residencial</h2>
       <div class="kpi-row">
         <div class="kpi-card">
-          <div class="kpi-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)"><i class="fas fa-dollar-sign"></i></div>
+          <div class="kpi-icon tono-violeta"><svg><use href="#ic-factura"/></svg></div>
           <div class="kpi-body">
             <div class="kpi-label">Total Facturado</div>
             <div class="kpi-value" id="kpi-facturado">$0.00</div>
@@ -59,7 +70,7 @@
           </div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-icon" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)"><i class="fas fa-shopping-bag"></i></div>
+          <div class="kpi-icon tono-azul"><svg><use href="#ic-bolsa"/></svg></div>
           <div class="kpi-body">
             <div class="kpi-label">Total Ventas</div>
             <div class="kpi-value" id="kpi-ventas">0</div>
@@ -67,7 +78,7 @@
           </div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-icon" style="background:linear-gradient(135deg,#10b981,#047857)"><i class="fas fa-chart-line"></i></div>
+          <div class="kpi-icon tono-verde"><svg><use href="#ic-tendencia"/></svg></div>
           <div class="kpi-body">
             <div class="kpi-label">Valor Prom. Venta</div>
             <div class="kpi-value" id="kpi-valor">$0.00</div>
@@ -75,7 +86,7 @@
           </div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-icon" style="background:linear-gradient(135deg,#d4a72c,#a16207)"><i class="fas fa-trophy"></i></div>
+          <div class="kpi-icon tono-ambar"><svg><use href="#ic-trofeo"/></svg></div>
           <div class="kpi-body">
             <div class="kpi-label">Mejor Asesor</div>
             <div class="kpi-value" id="kpi-mejor">—</div>
@@ -83,7 +94,7 @@
           </div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-icon" style="background:linear-gradient(135deg,#14b8a6,#0f766e)"><i class="fas fa-users"></i></div>
+          <div class="kpi-icon tono-teal"><svg><use href="#ic-usuarios"/></svg></div>
           <div class="kpi-body">
             <div class="kpi-label">Asesores Activos</div>
             <div class="kpi-value" id="kpi-activos">0</div>
@@ -96,7 +107,7 @@
       <h2 class="kpi-section-title">KPI Líneas Móviles (Líneas)</h2>
       <div class="kpi-row">
         <div class="kpi-card">
-          <div class="kpi-icon" style="background:linear-gradient(135deg,#f59e0b,#b45309)"><i class="fas fa-dollar-sign"></i></div>
+          <div class="kpi-icon tono-naranja"><svg><use href="#ic-factura"/></svg></div>
           <div class="kpi-body">
             <div class="kpi-label">Total Facturado</div>
             <div class="kpi-value" id="lkpi-facturado">$0.00</div>
@@ -104,7 +115,7 @@
           </div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-icon" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)"><i class="fas fa-shopping-bag"></i></div>
+          <div class="kpi-icon tono-azul"><svg><use href="#ic-bolsa"/></svg></div>
           <div class="kpi-body">
             <div class="kpi-label">Total Ventas</div>
             <div class="kpi-value" id="lkpi-ventas">0</div>
@@ -112,7 +123,7 @@
           </div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-icon" style="background:linear-gradient(135deg,#14b8a6,#0f766e)"><i class="fas fa-sim-card"></i></div>
+          <div class="kpi-icon tono-teal"><svg><use href="#ic-movil"/></svg></div>
           <div class="kpi-body">
             <div class="kpi-label">Total Líneas</div>
             <div class="kpi-value" id="lkpi-lineas">0</div>
@@ -120,7 +131,7 @@
           </div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-icon" style="background:linear-gradient(135deg,#10b981,#047857)"><i class="fas fa-chart-line"></i></div>
+          <div class="kpi-icon tono-verde"><svg><use href="#ic-tendencia"/></svg></div>
           <div class="kpi-body">
             <div class="kpi-label">Valor por Venta</div>
             <div class="kpi-value" id="lkpi-vventa">$0.00</div>
@@ -128,7 +139,7 @@
           </div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)"><i class="fas fa-coins"></i></div>
+          <div class="kpi-icon tono-violeta"><svg><use href="#ic-monedas"/></svg></div>
           <div class="kpi-body">
             <div class="kpi-label">Valor por Línea</div>
             <div class="kpi-value" id="lkpi-vlinea">$0.00</div>
@@ -171,6 +182,7 @@
               <tr class="group-header-row">
                 <th></th>
                 <th colspan="3" class="gh-alexis">Alexis</th>
+                <th colspan="3" class="gh-alexis2">Alexis 2</th>
                 <th colspan="3" class="gh-alejandro">Garay Líneas</th>
                 <th colspan="3" class="gh-tito">Tito</th>
                 <th colspan="3" class="gh-tito-lineas">Tito Líneas</th>
@@ -178,6 +190,7 @@
               </tr>
               <tr>
                 <th>Fecha</th>
+                <th>Ventas</th><th>Valor venta</th><th>Monto</th>
                 <th>Ventas</th><th>Valor venta</th><th>Monto</th>
                 <th>Ventas</th><th>Valor venta</th><th>Monto</th>
                 <th>Ventas</th><th>Valor venta</th><th>Monto</th>
@@ -194,7 +207,8 @@
                 <td id="total-col-7"></td><td id="total-col-8"></td><td id="total-col-9"></td>
                 <td id="total-col-10"></td><td id="total-col-11"></td><td id="total-col-12"></td>
                 <td id="total-col-13"></td><td id="total-col-14"></td><td id="total-col-15"></td>
-                <td id="total-col-16"></td><td id="total-col-17"></td>
+                <td id="total-col-16"></td><td id="total-col-17"></td><td id="total-col-18"></td>
+                <td id="total-col-19"></td><td id="total-col-20"></td>
               </tr>
             </tfoot>
           </table>
@@ -212,22 +226,22 @@
           <div class="card-title">Resumen del mes</div>
           <div class="resumen-list">
             <div class="resumen-item">
-              <div class="resumen-ic" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)"><i class="fas fa-dollar-sign"></i></div>
+              <div class="resumen-ic tono-violeta"><svg><use href="#ic-factura"/></svg></div>
               <div class="resumen-label">Total facturado</div>
               <div class="resumen-val" id="res-facturado">$0.00</div>
             </div>
             <div class="resumen-item">
-              <div class="resumen-ic" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)"><i class="fas fa-shopping-bag"></i></div>
+              <div class="resumen-ic tono-azul"><svg><use href="#ic-bolsa"/></svg></div>
               <div class="resumen-label">Total ventas</div>
               <div class="resumen-val" id="res-ventas">0</div>
             </div>
             <div class="resumen-item">
-              <div class="resumen-ic" style="background:linear-gradient(135deg,#10b981,#047857)"><i class="fas fa-chart-line"></i></div>
+              <div class="resumen-ic tono-verde"><svg><use href="#ic-tendencia"/></svg></div>
               <div class="resumen-label">Valor promedio venta</div>
               <div class="resumen-val" id="res-valor">$0.00</div>
             </div>
             <div class="resumen-item">
-              <div class="resumen-ic" style="background:linear-gradient(135deg,#d4a72c,#a16207)"><i class="fas fa-bullseye"></i></div>
+              <div class="resumen-ic tono-ambar"><svg><use href="#ic-diana"/></svg></div>
               <div class="resumen-label">CPA promedio</div>
               <div class="resumen-val" id="res-cpa">$0.00</div>
             </div>
@@ -286,22 +300,22 @@
             <div class="card-title">Resumen del mes</div>
             <div class="resumen-list">
               <div class="resumen-item">
-                <div class="resumen-ic" style="background:linear-gradient(135deg,#f59e0b,#b45309)"><i class="fas fa-dollar-sign"></i></div>
+                <div class="resumen-ic tono-naranja"><svg><use href="#ic-factura"/></svg></div>
                 <div class="resumen-label">Total facturado</div>
                 <div class="resumen-val" id="lres-facturado">$0.00</div>
               </div>
               <div class="resumen-item">
-                <div class="resumen-ic" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)"><i class="fas fa-shopping-bag"></i></div>
+                <div class="resumen-ic tono-azul"><svg><use href="#ic-bolsa"/></svg></div>
                 <div class="resumen-label">Total ventas</div>
                 <div class="resumen-val" id="lres-ventas">0</div>
               </div>
               <div class="resumen-item">
-                <div class="resumen-ic" style="background:linear-gradient(135deg,#14b8a6,#0f766e)"><i class="fas fa-sim-card"></i></div>
+                <div class="resumen-ic tono-teal"><svg><use href="#ic-movil"/></svg></div>
                 <div class="resumen-label">Total líneas</div>
                 <div class="resumen-val" id="lres-lineas">0</div>
               </div>
               <div class="resumen-item">
-                <div class="resumen-ic" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)"><i class="fas fa-coins"></i></div>
+                <div class="resumen-ic tono-violeta"><svg><use href="#ic-monedas"/></svg></div>
                 <div class="resumen-label">Valor por línea</div>
                 <div class="resumen-val" id="lres-vlinea">$0.00</div>
               </div>
@@ -368,8 +382,8 @@ const btnGuardar = document.getElementById('btnGuardarFacturacion');
 
 let currentMonth, currentYear;
 let currentMode = 'residencial';  // 'residencial' | 'lineas'
-let datosFacturacionIndex = {};   // fechaKey -> array de campos (17) guardados
-let prevAgg = { fact: 0, ventas: 0, valor: 0 };  // agregados del mes anterior (para deltas)
+let datosFacturacionIndex = {};   // fechaKey -> array de campos (NUM_CAMPOS) guardados
+let prevAgg = { fact: 0, ventas: 0, valor: 0, lineasFact: 0, lineasVentas: 0 };  // mes anterior (para deltas)
 let datosLineasIndex = {};        // fechaKey -> array de campos (9) líneas-publicidad
 let prevAggL = { fact: 0, ventas: 0 };
 let lineasInit = false;           // la vista líneas se carga la primera vez que se abre
@@ -423,17 +437,22 @@ function showToast(msg) {
 }
 
 /* Columnas (td index): 1 Alexis Ventas, 2 Alexis ValorVenta(calc), 3 Alexis Monto,
-   4 Garay Líneas Ventas, 5 Garay Líneas ValorVenta(calc), 6 Garay Líneas Monto,
-   7 Tito Ventas, 8 Tito ValorVenta(calc), 9 Tito Monto,
-   10 Tito Líneas Ventas, 11 Tito Líneas ValorVenta(calc), 12 Tito Líneas Monto,
-   13 Total día(calc), 14 Total ventas(calc), 15 Valor venta(calc), 16 Puntos, 17 CPA puntos(calc) */
-const COL = { aVentas:1, aValor:2, aMonto:3, jVentas:4, jValor:5, jMonto:6, tVentas:7, tValor:8, tMonto:9,
-              tlVentas:10, tlValor:11, tlMonto:12,
-              totalDia:13, totalVentas:14, valorVenta:15, puntos:16, cpa:17 };
-const EDIT_COLS = [1,3,4,6,7,9,10,12,16];           // editables
-const CALC_COLS = [2,5,8,11,13,14,15,17];           // calculadas
-const MONEY_COLS = [2,3,5,6,8,9,11,12,13,15,17];    // se muestran con $
-const NUM_COLS = 18;                                // 0..17
+   4 Alexis 2 Ventas, 5 Alexis 2 ValorVenta(calc), 6 Alexis 2 Monto,
+   7 Garay Líneas Ventas, 8 Garay Líneas ValorVenta(calc), 9 Garay Líneas Monto,
+   10 Tito Ventas, 11 Tito ValorVenta(calc), 12 Tito Monto,
+   13 Tito Líneas Ventas, 14 Tito Líneas ValorVenta(calc), 15 Tito Líneas Monto,
+   16 Total día(calc), 17 Total ventas(calc), 18 Valor venta(calc), 19 Puntos, 20 CPA puntos(calc)
+   El orden de las celdas NO es el de `campos` en el servidor: ver renderTablaDias y
+   guardarTodoFacturacion (Alexis 2 va en campos[17..19], añadidos al final). */
+const COL = { aVentas:1, aValor:2, aMonto:3, a2Ventas:4, a2Valor:5, a2Monto:6,
+              jVentas:7, jValor:8, jMonto:9, tVentas:10, tValor:11, tMonto:12,
+              tlVentas:13, tlValor:14, tlMonto:15,
+              totalDia:16, totalVentas:17, valorVenta:18, puntos:19, cpa:20 };
+const EDIT_COLS = [1,3,4,6,7,9,10,12,13,15,19];              // editables
+const CALC_COLS = [2,5,8,11,14,16,17,18,20];                 // calculadas
+const MONEY_COLS = [2,3,5,6,8,9,11,12,14,15,16,18,20];       // se muestran con $
+const NUM_COLS = 21;                                         // 0..20
+const NUM_CAMPOS = 20;                                       // largo de `campos` en el servidor
 
 /* =====================================================================
    VISIBILIDAD ALEJANDRO (solo desde Febrero)
@@ -443,14 +462,20 @@ function setColumnVisibility(tableEl, colIndex, show) {
   // Excluir la fila de encabezados de grupo (usa colspans, no columnas 1:1)
   tableEl.querySelectorAll(`tr:not(.group-header-row) > *:nth-child(${colIndex})`).forEach(el => { el.style.display = show ? '' : 'none'; });
 }
+function garayVisible() { return parseInt(filtroMes.value, 10) >= 2; }
 function applyAlejandroVisibility() {
-  const show = parseInt(filtroMes.value, 10) >= 2;
+  const show = garayVisible();
   const mainTable = document.getElementById('tablaExcel');
-  [5,6,7].forEach(c => setColumnVisibility(mainTable, c, show));   // nth-child de cols 4,5,6
-  ['total-col-4','total-col-5','total-col-6'].forEach(id => {
-    const el = document.getElementById(id);
+  const cols = [COL.jVentas, COL.jValor, COL.jMonto];
+  cols.forEach(c => setColumnVisibility(mainTable, c + 1, show));   // nth-child empieza en 1
+  cols.forEach(c => {
+    const el = document.getElementById('total-col-' + c);
     if (el) el.style.display = show ? '' : 'none';
   });
+  // Y su título de grupo: si se queda, su colspan=3 empuja los títulos siguientes
+  // y "Tito" acaba encima de las columnas de Tito Líneas.
+  const titulo = mainTable.querySelector('.group-header-row .gh-alejandro');
+  if (titulo) titulo.style.display = show ? '' : 'none';
 }
 
 /* =====================================================================
@@ -475,28 +500,33 @@ async function fetchFacturacionMes(mes, ano) {
   }
 }
 
-/* Array de 17 campos guardados para una fecha (o vacío). */
+/* Array de NUM_CAMPOS campos guardados para una fecha (o vacío). */
 function camposGuardados(fecha) {
   const c = datosFacturacionIndex[toFechaKey(fecha)];
   const a = Array.isArray(c) ? c.slice() : [];
-  while (a.length < 17) a.push('');
+  while (a.length < NUM_CAMPOS) a.push('');
   return a;
 }
 
-/* Agregados de un mes (para deltas y comparativas), SIN Garay. */
+/* Agregados de un mes para los deltas "vs mes anterior". Se reparten igual que
+   los KPI del mes actual: fact/ventas = Residencial (Alexis + Alexis 2 + Tito, como
+   leerTotales) y lineas* = Garay Líneas + Tito Líneas, que van al KPI de Líneas
+   Móviles (como manualLineasMonto). */
 async function aggregateMes(mes, ano) {
   try {
     const r = await fetch(`/api/facturacion/${ano}/${String(mes).padStart(2,'0')}`, { credentials: 'include' });
     const d = await r.json().catch(() => null);
     const arr = (d?.ok && Array.isArray(d.data)) ? d.data : [];
-    let fact = 0, ventas = 0;
+    let fact = 0, ventas = 0, lineasFact = 0, lineasVentas = 0;
     arr.forEach(row => {
       const c = Array.isArray(row.campos) ? row.campos : [];
-      fact   += num(c[0]) + num(c[3]) + num(c[9]) + num(c[6]);   // montos Alexis + Garay Líneas + Tito + Tito Líneas
-      ventas += num(c[1]) + num(c[4]) + num(c[10]) + num(c[7]);  // ventas Alexis + Garay Líneas + Tito + Tito Líneas
+      fact         += num(c[0]) + num(c[17]) + num(c[9]);    // montos Alexis + Alexis 2 + Tito
+      ventas       += num(c[1]) + num(c[18]) + num(c[10]);   // ventas Alexis + Alexis 2 + Tito
+      lineasFact   += num(c[3]) + num(c[6]);                 // montos Garay Líneas + Tito Líneas
+      lineasVentas += num(c[4]) + num(c[7]);                 // ventas Garay Líneas + Tito Líneas
     });
-    return { fact, ventas, valor: ventas > 0 ? fact / ventas : 0 };
-  } catch (_) { return { fact: 0, ventas: 0, valor: 0 }; }
+    return { fact, ventas, valor: ventas > 0 ? fact / ventas : 0, lineasFact, lineasVentas };
+  } catch (_) { return { fact: 0, ventas: 0, valor: 0, lineasFact: 0, lineasVentas: 0 }; }
 }
 
 function mesAnterior(mes, ano) {
@@ -514,9 +544,10 @@ async function renderTablaDias(mes, ano) {
   for (let i = 0; i < numDias; i++) {
     const fecha = `${String(i+1).padStart(2,'0')}/${String(mes).padStart(2,'0')}/${ano}`;
     const g = camposGuardados(fecha);
-    // Mapeo backend(17) -> celdas editables
+    // Mapeo backend(NUM_CAMPOS) -> celdas editables
     const editVal = {};
     editVal[COL.aVentas] = g[1];  editVal[COL.aMonto] = g[0];
+    editVal[COL.a2Ventas] = g[18]; editVal[COL.a2Monto] = g[17];
     editVal[COL.jVentas] = g[4];  editVal[COL.jMonto] = g[3];
     editVal[COL.tVentas] = g[10]; editVal[COL.tMonto] = g[9];
     editVal[COL.tlVentas] = g[7]; editVal[COL.tlMonto] = g[6];
@@ -526,7 +557,15 @@ async function renderTablaDias(mes, ano) {
     for (let c = 0; c < NUM_COLS; c++) {
       const td = document.createElement("td");
       if (c === 0) {
-        td.textContent = fecha;
+        // "01" + "/09/2026" en dos trozos: en pantallas estrechas el CSS oculta el
+        // segundo (mes y año ya están en el selector). textContent sigue siendo la
+        // fecha completa, que es lo que lee guardarTodoFacturacion.
+        const dia = document.createElement('span');
+        const resto = document.createElement('span');
+        dia.textContent = fecha.slice(0, 2);
+        resto.textContent = fecha.slice(2);
+        resto.className = 'f-resto';
+        td.append(dia, resto);
         td.contentEditable = false;
       } else if (EDIT_COLS.includes(c)) {
         let val = String(editVal[c] ?? '').trim();
@@ -557,6 +596,9 @@ function recalcularFila(tr) {
   const aVentas = raw(COL.aVentas), aMonto = raw(COL.aMonto);
   tds[COL.aValor].textContent = aVentas > 0 ? money(aMonto / aVentas) : "";
 
+  const a2Ventas = raw(COL.a2Ventas), a2Monto = raw(COL.a2Monto);
+  tds[COL.a2Valor].textContent = a2Ventas > 0 ? money(a2Monto / a2Ventas) : "";
+
   const jVentas = raw(COL.jVentas), jMonto = raw(COL.jMonto);
   tds[COL.jValor].textContent = jVentas > 0 ? money(jMonto / jVentas) : "";
 
@@ -566,11 +608,11 @@ function recalcularFila(tr) {
   const tlVentas = raw(COL.tlVentas), tlMonto = raw(COL.tlMonto);
   tds[COL.tlValor].textContent = tlVentas > 0 ? money(tlMonto / tlVentas) : "";
 
-  // La columna Totales suma las 4 columnas (Alexis + Garay Líneas + Tito + Tito
-  // Líneas); Garay Líneas y Tito Líneas además alimentan el KPI de Líneas
+  // La columna Totales suma las 5 columnas (Alexis + Alexis 2 + Garay Líneas + Tito
+  // + Tito Líneas); Garay Líneas y Tito Líneas además alimentan el KPI de Líneas
   // Móviles por separado (ver actualizarKpiLineasMoviles).
-  const totalDia    = aMonto + jMonto + tMonto + tlMonto;
-  const totalVentas = aVentas + jVentas + tVentas + tlVentas;
+  const totalDia    = aMonto + a2Monto + jMonto + tMonto + tlMonto;
+  const totalVentas = aVentas + a2Ventas + jVentas + tVentas + tlVentas;
   tds[COL.totalDia].textContent    = totalDia > 0 ? money(totalDia) : "";
   tds[COL.totalVentas].textContent = totalVentas > 0 ? intFmt(totalVentas) : "";
 
@@ -601,11 +643,12 @@ function renderFilaTotalesFacturacion() {
   });
 
   t[COL.aValor] = t[COL.aVentas] > 0 ? t[COL.aMonto] / t[COL.aVentas] : 0;
+  t[COL.a2Valor] = t[COL.a2Ventas] > 0 ? t[COL.a2Monto] / t[COL.a2Ventas] : 0;
   t[COL.jValor] = t[COL.jVentas] > 0 ? t[COL.jMonto] / t[COL.jVentas] : 0;
   t[COL.tValor] = t[COL.tVentas] > 0 ? t[COL.tMonto] / t[COL.tVentas] : 0;
   t[COL.tlValor] = t[COL.tlVentas] > 0 ? t[COL.tlMonto] / t[COL.tlVentas] : 0;
-  t[COL.totalDia]    = t[COL.aMonto]  + t[COL.jMonto]  + t[COL.tMonto]  + t[COL.tlMonto];
-  t[COL.totalVentas] = t[COL.aVentas] + t[COL.jVentas] + t[COL.tVentas] + t[COL.tlVentas];
+  t[COL.totalDia]    = t[COL.aMonto]  + t[COL.a2Monto]  + t[COL.jMonto]  + t[COL.tMonto]  + t[COL.tlMonto];
+  t[COL.totalVentas] = t[COL.aVentas] + t[COL.a2Ventas] + t[COL.jVentas] + t[COL.tVentas] + t[COL.tlVentas];
   t[COL.valorVenta]  = t[COL.totalVentas] > 0 ? t[COL.totalDia] / t[COL.totalVentas] : 0;
   t[COL.cpa]         = t[COL.puntos] > 0 ? t[COL.valorVenta] / t[COL.puntos] : 0;
 
@@ -622,31 +665,34 @@ function renderFilaTotalesFacturacion() {
   manualLineasMonto  = t[COL.jMonto]  + t[COL.tlMonto];
   manualLineasVentas = t[COL.jVentas] + t[COL.tlVentas];
   actualizarKpiLineasMoviles();
+  ajustarAnchoTablas();   // los totales del mes son las cifras más anchas
 }
 
 /* Lee los totales actuales desde la fila de totales.
-   El KPI Residencial solo debe reflejar Alexis + Tito: Garay Líneas y Tito
+   El KPI Residencial solo debe reflejar Alexis + Alexis 2 + Tito: Garay Líneas y Tito
    Líneas son columnas de Líneas Móviles y no deben sumarse aquí (se agregan
    por separado en actualizarKpiLineasMoviles / manualLineasMonto). */
 function leerTotales() {
   const g = id => num(document.getElementById(id)?.textContent);
   const alexis     = g('total-col-' + COL.aMonto);
+  const alexis2    = g('total-col-' + COL.a2Monto);
   const alejandro  = g('total-col-' + COL.jMonto);
   const tito       = g('total-col-' + COL.tMonto);
   const titoLineas = g('total-col-' + COL.tlMonto);
-  const alexisVentas = g('total-col-' + COL.aVentas);
+  const alexisVentas  = g('total-col-' + COL.aVentas);
+  const alexis2Ventas = g('total-col-' + COL.a2Ventas);
   const titoVentas   = g('total-col-' + COL.tVentas);
   const puntos       = g('total-col-' + COL.puntos);
 
-  const facturado = alexis + tito;
-  const ventas    = alexisVentas + titoVentas;
+  const facturado = alexis + alexis2 + tito;
+  const ventas    = alexisVentas + alexis2Ventas + titoVentas;
   const valor     = ventas > 0 ? facturado / ventas : 0;
   return {
     facturado,
     ventas,
     valor,
     cpa: puntos > 0 ? valor / puntos : 0,
-    alexis, alejandro, tito, titoLineas,
+    alexis, alexis2, alejandro, tito, titoLineas,
   };
 }
 
@@ -670,10 +716,11 @@ function refreshDashboard() {
   document.getElementById('kpi-ventas-sub').innerHTML    = deltaHTML(T.ventas, prevAgg.ventas);
   document.getElementById('kpi-valor-sub').innerHTML     = deltaHTML(T.valor, prevAgg.valor);
 
-  // Mejor asesor / activos — solo Residencial (Alexis y Tito); Garay Líneas y
-  // Tito Líneas se muestran en el KPI de Líneas Móviles, no aquí.
+  // Mejor asesor / activos — solo Residencial (Alexis, Alexis 2 y Tito); Garay Líneas
+  // y Tito Líneas se muestran en el KPI de Líneas Móviles, no aquí.
   const asesores = [
     { nombre: 'Alexis', monto: T.alexis, color: 'var(--c-alexis)' },
+    { nombre: 'Alexis 2', monto: T.alexis2, color: 'var(--c-alexis2)' },
     { nombre: 'Tito', monto: T.tito, color: 'var(--c-tito)' },
   ];
   const ordenados = asesores.slice().sort((a, b) => b.monto - a.monto);
@@ -690,9 +737,15 @@ function refreshDashboard() {
   document.getElementById('res-valor').textContent     = money(T.valor);
   document.getElementById('res-cpa').textContent       = money(T.cpa);
 
-  // Top asesores por monto
-  const max = Math.max(...asesores.map(a => a.monto), 1);
-  document.getElementById('topAsesores').innerHTML = ordenados.map((a, i) => `
+  // Gasto por publicista: todas las cuentas de la tabla, también las de Líneas
+  // (Garay Líneas solo desde febrero, igual que su columna).
+  const cuentas = [
+    ...asesores,
+    ...(garayVisible() ? [{ nombre: 'Garay Líneas', monto: T.alejandro, color: 'var(--c-alejandro)' }] : []),
+    { nombre: 'Tito Líneas', monto: T.titoLineas, color: 'var(--c-tito-lineas)' },
+  ].sort((a, b) => b.monto - a.monto);
+  const max = Math.max(...cuentas.map(a => a.monto), 1);
+  document.getElementById('topAsesores').innerHTML = cuentas.map((a, i) => `
     <div class="top-item">
       <div class="top-rank">${i + 1}</div>
       <div class="top-main">
@@ -722,7 +775,7 @@ async function guardarTodoFacturacion() {
 
     // Preservar campos previos (pad 16) y sobrescribir el resto
     const orig = camposGuardados(fecha);
-    const g = Array.from({ length: 17 }, (_, i) => String(orig[i] ?? ''));
+    const g = Array.from({ length: NUM_CAMPOS }, (_, i) => String(orig[i] ?? ''));
     g[0]  = cell(COL.aMonto);   g[1]  = cell(COL.aVentas);  g[2]  = cell(COL.aValor);
     g[3]  = cell(COL.jMonto);   g[4]  = cell(COL.jVentas);  g[5]  = cell(COL.jValor);
     g[6]  = cell(COL.tlMonto);  g[7]  = cell(COL.tlVentas); g[8]  = cell(COL.tlValor);
@@ -730,13 +783,13 @@ async function guardarTodoFacturacion() {
     g[12] = cell(COL.totalDia); g[13] = cell(COL.totalVentas); g[14] = cell(COL.valorVenta);
     g[15] = cell(COL.puntos);
     // g[16] = pad -> preservado
+    g[17] = cell(COL.a2Monto);  g[18] = cell(COL.a2Ventas); g[19] = cell(COL.a2Valor);
 
     // Se guarda la fila si tiene datos… o si los TENÍA guardados: al borrar todas las
     // cifras de un día la fila queda vacía, y si no se envía, el servidor conserva los
     // valores viejos y reaparecen al recargar la tabla.
-    const tieneDato = [COL.aVentas,COL.aMonto,COL.jVentas,COL.jMonto,COL.tVentas,COL.tMonto,COL.tlVentas,COL.tlMonto,COL.puntos]
-      .some(c => cell(c) !== "");
-    const teniaDato = [0, 1, 3, 4, 6, 7, 9, 10, 15].some(i => String(orig[i] ?? '').replace(/[$,]/g, '').trim() !== "");
+    const tieneDato = EDIT_COLS.some(c => cell(c) !== "");
+    const teniaDato = [0, 1, 3, 4, 6, 7, 9, 10, 15, 17, 18].some(i => String(orig[i] ?? '').replace(/[$,]/g, '').trim() !== "");
     if (!tieneDato && !teniaDato) continue;
 
     const res = await fetch('/api/facturacion', {
@@ -937,6 +990,7 @@ function renderFilaTotalesL() {
     else                             el.textContent = t[i] ? t[i].toLocaleString('en-US', { maximumFractionDigits: 2 }) : '';
   }
   refreshDashboardL(t);
+  ajustarAnchoTablas();
 }
 
 /* KPI Líneas Móviles = total real de lineas_clientes + lo cargado a mano en
@@ -957,8 +1011,9 @@ function actualizarKpiLineasMoviles() {
   document.getElementById('lkpi-lineas').textContent    = intFmt(totLineas);
   document.getElementById('lkpi-vventa').textContent    = money(valorVenta);
   document.getElementById('lkpi-vlinea').textContent    = money(valorLinea);
-  document.getElementById('lkpi-facturado-sub').innerHTML = deltaHTML(totMonto, prevAggL.fact);
-  document.getElementById('lkpi-ventas-sub').innerHTML    = deltaHTML(totVentas, prevAggL.ventas);
+  // El mes anterior se suma igual que el actual: tabla de Líneas + lo cargado a mano.
+  document.getElementById('lkpi-facturado-sub').innerHTML = deltaHTML(totMonto, prevAggL.fact + prevAgg.lineasFact);
+  document.getElementById('lkpi-ventas-sub').innerHTML    = deltaHTML(totVentas, prevAggL.ventas + prevAgg.lineasVentas);
 
   document.getElementById('lres-facturado').textContent = money(totMonto);
   document.getElementById('lres-ventas').textContent    = intFmt(totVentas);
@@ -1103,15 +1158,14 @@ async function updateTableByFilters() {
   currentMonth = parseInt(filtroMes.value, 10);
   currentYear  = parseInt(filtroAno.value, 10);
   const { mes, ano } = mesAnterior(currentMonth, currentYear);
-  if (currentMode === 'lineas') {
-    prevAggL = await aggregateMesL(mes, ano);
-    await renderTablaDiasL(currentMonth, currentYear);
-    actualizarGraficaL();
-  } else {
-    prevAgg = await aggregateMes(mes, ano);
-    await renderTablaDias(currentMonth, currentYear);
-    actualizarGrafica();
-  }
+  // Se recargan las dos tablas, como al abrir la página: los KPI de Líneas Móviles
+  // (siempre a la vista) salen de la tabla de Líneas + Garay Líneas/Tito Líneas de la
+  // residencial. Recargando solo una, mezclaban datos de dos meses distintos.
+  prevAgg  = await aggregateMes(mes, ano);
+  prevAggL = await aggregateMesL(mes, ano);
+  await renderTablaDias(currentMonth, currentYear);
+  await renderTablaDiasL(currentMonth, currentYear);
+  if (currentMode === 'lineas') actualizarGraficaL(); else actualizarGrafica();
 }
 filtroMes.addEventListener('change', updateTableByFilters);
 filtroAno.addEventListener('change', updateTableByFilters);
@@ -1137,6 +1191,73 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   setUltimaActualizacion();
 });
+
+/* =====================================================================
+   QUE LA TABLA QUEPA A LO ANCHO
+   El ancho de las 21 columnas depende de las cifras del mes: un total de
+   $77,663.91 ocupa más que uno de $5,862.54. Si la tabla no cabe en su tarjeta
+   se baja la letra de medio en medio punto hasta LETRA_MIN; si ni así cabe, la
+   tabla se desplaza a lo ancho (clase con-scroll) en vez de cortar columnas.
+   En móvil la tabla ya se desplaza por CSS y aquí no se toca.
+   ===================================================================== */
+const LETRA_MIN = 9.5;
+function ajustarAnchoTablas() {
+  document.querySelectorAll('.fact-table').forEach(t => {
+    const caja = t.parentElement;
+    t.style.fontSize = '';
+    caja.classList.remove('con-scroll');
+    if (!caja.clientWidth || getComputedStyle(caja).overflowX !== 'visible') return;
+    const cabe = () => t.getBoundingClientRect().width <= caja.clientWidth + 0.5;
+    let letra = parseFloat(getComputedStyle(t).fontSize);
+    while (!cabe() && letra > LETRA_MIN) {
+      letra -= 0.5;
+      t.style.fontSize = letra + 'px';
+    }
+    if (!cabe()) caja.classList.add('con-scroll');
+  });
+}
+(function reajustarAlCambiarAncho() {
+  if (!window.ResizeObserver) { addEventListener('resize', ajustarAnchoTablas); return; }
+  // Solo cuenta el ancho: al cambiar la letra cambia el alto de la caja, y
+  // reaccionar a eso volvería a disparar el observador.
+  const anchos = new WeakMap();
+  const ro = new ResizeObserver(entradas => {
+    if (entradas.some(e => anchos.get(e.target) !== e.contentRect.width)) {
+      entradas.forEach(e => anchos.set(e.target, e.contentRect.width));
+      ajustarAnchoTablas();
+    }
+  });
+  document.querySelectorAll('.table-scroll').forEach(c => ro.observe(c));
+})();
+
+/* =====================================================================
+   FILA TOTALES FIJA ABAJO, SOLO CUANDO LA TABLA YA ESTÁ A LA VISTA
+   Se fija (clase totales-fijos) cuando entre la cabecera de la tabla y el borde
+   inferior de la pantalla cabe la fila y un par de días; si la tabla apenas
+   asoma, TOTALES se queda en su sitio, al final, sin tapar la cabecera.
+   ===================================================================== */
+(function totalesFijos() {
+  const tablas = [...document.querySelectorAll('.fact-table')];
+  let pendiente = false;
+  function revisar() {
+    pendiente = false;
+    tablas.forEach(t => {
+      if (!t.tHead || !t.tFoot) return;
+      const libre = innerHeight - t.tHead.getBoundingClientRect().bottom;
+      t.classList.toggle('totales-fijos', libre > t.tFoot.offsetHeight + 60);
+    });
+  }
+  function programar() {
+    if (pendiente) return;
+    pendiente = true;
+    requestAnimationFrame(revisar);
+  }
+  addEventListener('scroll', programar, { passive: true });
+  addEventListener('resize', programar);
+  // Al pintar los días la tabla cambia de alto sin que haya scroll.
+  if (window.ResizeObserver) tablas.forEach(t => new ResizeObserver(programar).observe(t));
+  programar();
+})();
 </script>
 </body>
 </html>
