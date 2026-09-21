@@ -87,18 +87,6 @@
   .main-content { margin-left: 0 !important; }
 }
 
-/* ── Franja de bandera ──────────────────────────────────────────── */
-/* La imagen es una bandera ondeando: se deja asomar arriba y se funde con el
-   fondo por abajo, para que la tarjeta de usuario quede montada encima sin un
-   corte recto. El degradado de máscara hace ese desvanecido. */
-#app-sidebar .sb-flag {
-  height: 104px;
-  flex-shrink: 0;
-  background: url('/images/banderasidebar.webp') center / cover no-repeat;
-  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 52%, transparent 100%);
-          mask-image: linear-gradient(180deg, #000 0%, #000 52%, transparent 100%);
-}
-
 /* ── Tarjeta de usuario ─────────────────────────────────────────── */
 #app-sidebar .sb-user {
   display: flex;
@@ -106,7 +94,7 @@
   align-items: center;
   gap: 3px;
   padding: 0 16px 12px;
-  margin-top: -46px;          /* monta el avatar sobre la bandera */
+  margin-top: 18px;           /* antes -46px, montaba el avatar sobre la bandera */
   flex-shrink: 0;
   position: relative;
   z-index: 1;
@@ -342,13 +330,6 @@ body.sb-is-admin #app-sidebar [data-admin-only] { display: flex; }
   text-align: center;
   color: rgba(255, 255, 255, .62) !important;
 }
-#app-sidebar .sb-banner {
-  width: 100%;
-  height: auto;
-  border-radius: 10px;
-  display: block;
-}
-
 #app-sidebar .sb-logout {
   display: flex;
   align-items: center;
@@ -403,7 +384,6 @@ body.sb-is-admin #app-sidebar [data-admin-only] { display: flex; }
   #app-sidebar:hover,
   #app-sidebar:focus-within { width: var(--sidebar-width); }
 
-  #app-sidebar .sb-flag,
   #app-sidebar .sb-user-meta,
   #app-sidebar .sb-user-rule,
   #app-sidebar .sb-user-badge,
@@ -412,12 +392,9 @@ body.sb-is-admin #app-sidebar [data-admin-only] { display: flex; }
   #app-sidebar .sb-chev,
   #app-sidebar .sb-sec,
   #app-sidebar .sb-mov-head,
-  #app-sidebar .sb-quote,
-  #app-sidebar .sb-banner {
+  #app-sidebar .sb-quote {
     display: none;
   }
-  #app-sidebar:hover .sb-flag,
-  #app-sidebar:focus-within .sb-flag           { display: block; }
   #app-sidebar:hover .sb-user-meta,
   #app-sidebar:focus-within .sb-user-meta      { display: flex; }
   #app-sidebar:hover .sb-user-rule,
@@ -436,8 +413,6 @@ body.sb-is-admin #app-sidebar [data-admin-only] { display: flex; }
   #app-sidebar:focus-within .sb-mov-head       { display: flex; }
   #app-sidebar:hover .sb-quote,
   #app-sidebar:focus-within .sb-quote          { display: block; }
-  #app-sidebar:hover .sb-banner,
-  #app-sidebar:focus-within .sb-banner         { display: block; }
 
   /* Colapsado: el avatar encoge y todo se centra */
   #app-sidebar .sb-user { margin-top: 14px; padding-bottom: 6px; }
@@ -445,7 +420,7 @@ body.sb-is-admin #app-sidebar [data-admin-only] { display: flex; }
   #app-sidebar .sb-user-avatar { border-width: 2px; }
   #app-sidebar .sb-user-avatar span { font-size: 14px; }
   #app-sidebar:hover .sb-user,
-  #app-sidebar:focus-within .sb-user { margin-top: -46px; padding-bottom: 12px; }
+  #app-sidebar:focus-within .sb-user { margin-top: 18px; padding-bottom: 12px; }
   #app-sidebar:hover .sb-user-avatar-wrap,
   #app-sidebar:focus-within .sb-user-avatar-wrap { width: 92px; height: 92px; margin-bottom: 8px; }
   #app-sidebar:hover .sb-user-avatar,

@@ -104,23 +104,6 @@
     }).join('\n');
   }
 
-  /** Ventana del banner de independencia: del 15 de agosto al 30 de septiembre.
-   *  Fuera de ella vuelve la frase del pie. Se hace por fecha y no a mano porque
-   *  este módulo alimenta las 37 páginas: si dependiera de acordarse de quitarlo,
-   *  el 15 de septiembre seguiría ahí en diciembre. Para moverlo, tocar sólo
-   *  estas dos constantes. */
-  const BANNER_DESDE = { mes: 7, dia: 15 };   // 7 = agosto (los meses van de 0 a 11)
-  const BANNER_HASTA = { mes: 8, dia: 30 };   // 8 = septiembre
-
-  function enTemporadaIndependencia(hoy) {
-    const d = hoy || new Date();
-    const m = d.getMonth(), dia = d.getDate();
-    if (m < BANNER_DESDE.mes || m > BANNER_HASTA.mes) return false;
-    if (m === BANNER_DESDE.mes) return dia >= BANNER_DESDE.dia;
-    if (m === BANNER_HASTA.mes) return dia <= BANNER_HASTA.dia;
-    return true;
-  }
-
   function render(nav) {
     const ruta = normPath(location.pathname);
     const enLineas = ruta.indexOf('/lineas/') === 0;
@@ -129,9 +112,6 @@
 
     nav.setAttribute('aria-label', 'Menú principal');
     nav.innerHTML =
-      // Franja de bandera. Es decorativa, así que va con aria-hidden y sin alt:
-      // no aporta nada a quien navega con lector de pantalla y sería ruido.
-      '<div class="sb-flag" aria-hidden="true"></div>' +
       '<div class="sb-user">' +
         '<div class="sb-user-avatar-wrap">' +
           '<div class="sb-user-avatar">' +
@@ -169,13 +149,7 @@
         grupoHtml(ajeno,  true,  !enLineas, ruta) +
       '</div>' +
       '<div class="sb-footer">' +
-        // Banner de temporada. Se pinta sólo dentro de su ventana de fechas: si no,
-        // el 16 de septiembre seguiría ahí y habría que acordarse de quitarlo a mano
-        // en un módulo que alimenta 37 páginas.
-        (enTemporadaIndependencia()
-          ? '<img class="sb-banner" src="/images/mesindependencia.webp" width="323" height="136" ' +
-            'alt="Mes de la Independencia de El Salvador, 15 de septiembre" loading="lazy">'
-          : '<p class="sb-quote">"El éxito es la suma de pequeños esfuerzos repetidos día tras día"</p>') +
+        '<p class="sb-quote">"El éxito es la suma de pequeños esfuerzos repetidos día tras día"</p>' +
         '<button type="button" class="sb-logout" data-logout-button title="Cerrar Sesión" aria-label="Cerrar Sesión">' +
           '<span class="sb-ic">' +
             '<svg ' + SVG_ATTRS + ' aria-hidden="true" focusable="false">' +
@@ -189,39 +163,16 @@
       '</div>';
   }
 
-  // Se publica para que otras páginas usen la MISMA ventana de fechas en vez de
-  // copiarla. Este módulo se carga en las 37 páginas, así que está disponible en
-  // todas sin añadir otro <script>. Ojo: es defer, así que quien lo consulte debe
-  // esperar a DOMContentLoaded.
-  window.Temporada = window.Temporada || {};
-  window.Temporada.independencia = enTemporadaIndependencia;
-
-  // ── Decoración de temporada, para TODO el CRM ────────────────────
-  // Vive aquí y no en sidebar-ui.js porque este módulo lo cargan las 37 páginas
-  // Y ADEMÁS el login, que no tiene sidebar: así la decoración y las fechas
-  // siguen definidas en un solo sitio. Las capas van fuera del flujo (fixed),
-  // de modo que no desplazan ni un píxel en ninguna página.
-  function decorarTemporada() {
-    if (!enTemporadaIndependencia()) return;
-
-    document.body.classList.add('temporada-independencia');
-
-    if (!document.querySelector('link[href^="/css/base/temporada.css"]')) {
-      const hoja = document.createElement('link');
-      hoja.rel = 'stylesheet';
-      hoja.href = '/css/base/temporada.css?v=20260826a';
-      document.head.appendChild(hoja);
-    }
-
-    ['temporada-fondo', 'temporada-franja'].forEach(function (clase) {
-      if (document.querySelector('.' + clase)) return;
-      const capa = document.createElement('div');
-      capa.className = clase;
-      capa.setAttribute('aria-hidden', 'true');   // decorativas: fuera del lector
-      document.body.appendChild(capa);
-    });
-  }
-  decorarTemporada();
+  // ── Limpieza de la temporada retirada ────────────────────────────
+  // Aquí vivía toda la decoración del Mes de la Independencia: la ventana de
+  // fechas, el confeti de fondo, la franja tricolor y la carga de temporada.css.
+  // Se retiró entera. Este barrido queda porque el módulo lo cargan las 37
+  // páginas Y el login: una pestaña abierta desde antes, o una caché vieja,
+  // puede traer los elementos ya pintados en el DOM.
+  ['.temporada-fondo', '.temporada-franja'].forEach(function (sel) {
+    document.querySelectorAll(sel).forEach(function (capa) { capa.remove(); });
+  });
+  document.body.classList.remove('temporada-independencia');
 
   const nav = document.getElementById('app-sidebar');
   if (nav) {
@@ -229,5 +180,13 @@
     // Aviso a quien venga después (sidebar-user.js, el toggle móvil): el marcado
     // ya está en el DOM y se le puede consultar.
     document.dispatchEvent(new CustomEvent('sidebar:ready', { detail: { nav: nav } }));
+
+    // Avisos de chat (globo en «Chat» y tarjeta de mensaje nuevo) en todas las
+    // páginas con menú. chat.html los gestiona por su cuenta en chat-page.js.
+    if (!/\/chat\.html$/i.test(location.pathname)) {
+      const avisos = document.createElement('script');
+      avisos.src = '/js/componentes/chat-avisos.js?v=20260919';
+      document.head.appendChild(avisos);
+    }
   }
 })();
