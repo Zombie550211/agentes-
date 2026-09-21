@@ -495,12 +495,8 @@
           }
         };
 
-        // NO guardar defaultSrc de astronautas - mantener las imágenes del semáforo sin círculo
-        // document.querySelectorAll('.astronaut-image').forEach((img) => {
-        //   if (!img.dataset.defaultSrc) {
-        //     img.dataset.defaultSrc = img.getAttribute('src') || '';
-        //   }
-        // });
+        // Las imágenes del podio no guardan defaultSrc a propósito: se dejan
+        // como vienen, sin círculo de foto de perfil.
 
         async function getUser(){
           try {

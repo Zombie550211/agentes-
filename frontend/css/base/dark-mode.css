@@ -1,32 +1,29 @@
 /*
- * dark-mode.css — Overrides globales para body.dark-theme
- * Inyectado automáticamente por sidebar-loader.js en todas las páginas.
- * Cubre componentes reutilizables entre páginas del CRM.
+ * dark-mode.css — MODO OSCURO APARCADO. Esta hoja NO se carga en ninguna página.
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Qué pasó (21-09-2026): las 23 páginas que enlazaban esta hoja descargaban
+ * 484 líneas para usar 3 reglas. De sus 163 reglas, 160 cuelgan de
+ * `.dark-theme`, y js/core/theme-init.js quita esa clase del <body> en cada
+ * carga: no había forma de que se aplicaran. Las 3 reglas que sí valían eran
+ * el estilo del <select> — no tenían nada de modo oscuro — y se movieron a
+ * css/base/form-controls.css, que ocupa ahora su sitio en esas 23 páginas.
+ *
+ * El modo oscuro NO está descartado: está aparcado para arreglarlo. Esta hoja
+ * se conserva entera como punto de partida. Para reactivarla hace falta
+ * volver a enlazarla Y que theme-init.js deje de forzar el tema claro.
+ *
+ * Por qué no se sostuvo, medido: el 53% del color del CRM (1913 valores de
+ * 3612) está escrito a mano y no pasa por ninguna variable CSS. Hay hojas sin
+ * una sola variable — lineas/costumer.css son 235 colores a mano, premios.css
+ * 166, tabla-puntaje.css 85. Un tema no puede repintar lo que está fijado en
+ * el CSS, y el intento anterior lo peleó con 468 `!important` repartidos en
+ * reglas .dark-theme. Perdió.
+ *
+ * El arreglo de verdad no es añadir overrides: es pasar esos 1913 colores a
+ * variables y redefinirlas bajo .dark-theme. Con tokens, el modo oscuro son
+ * unas pocas decenas de líneas y cero `!important`.
  */
-
-/* ══════════════════════════════════════════
-   SELECTS GLOBALES — todas las páginas del CRM
-   Chevron SVG personalizado + estados hover/focus
-══════════════════════════════════════════ */
-select {
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  background-size: 14px 14px;
-  padding-right: 32px !important;
-  cursor: pointer;
-  transition: border-color .15s, box-shadow .15s;
-}
-select:hover {
-  border-color: #4f46e5 !important;
-}
-select:focus {
-  border-color: #4f46e5 !important;
-  box-shadow: 0 0 0 3px rgba(79,70,229,.12) !important;
-  outline: none !important;
-}
 
 /* Dark mode: chevron claro + colores de superficie */
 body.dark-theme select {

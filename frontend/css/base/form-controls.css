@@ -1,0 +1,36 @@
+/* Controles de formulario — estilo propio del <select>.
+   ─────────────────────────────────────────────────────────────────────
+   Estas tres reglas vivían dentro de css/base/dark-mode.css, y no pintan
+   nada ahí: no cuelgan de `.dark-theme`, se aplican siempre. Estaban
+   sosteniendo ellas solas la carga de esa hoja en 23 páginas — 484 líneas
+   descargadas para usar 3 reglas.
+
+   Se extraen aquí tal cual, sin tocar un valor, y esta hoja ocupa en cada
+   página la MISMA posición que ocupaba dark-mode.css: hay hojas de página
+   (empleado-mes.css entre ellas) con reglas que dependen de aplicarse
+   después, y cambiar el orden las rompería.
+
+   El resto de dark-mode.css es el modo oscuro, que está aparcado a la
+   espera de arreglo. Ver la cabecera de esa hoja. */
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px 14px;
+  padding-right: 32px !important;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+}
+
+select:hover {
+  border-color: #4f46e5 !important;
+}
+
+select:focus {
+  border-color: #4f46e5 !important;
+  box-shadow: 0 0 0 3px rgba(79,70,229,.12) !important;
+  outline: none !important;
+}

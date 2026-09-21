@@ -36,8 +36,8 @@ fi
 
 # Entorno único del proyecto. Antes esto apuntaba a .venvlinux, que había quedado
 # atrás (starlette 1.0.0 frente a 1.3.1): se probaba contra una versión y el cron
-# corría sobre otra. .venvlinux queda en desuso — se puede borrar una vez confirmado
-# que backup y servidor funcionan desde aquí.
+# corría sobre otra. .venvlinux se borró el 21-09-2026, junto con .venv-viejo:
+# este .venv es ya el único entorno del proyecto.
 PYTHON="${BASE_DIR}/CRM_PYTHON/.venv/bin/python"
 LOCAL_PORT="3308"
 EC2_IP="3.150.243.188"
