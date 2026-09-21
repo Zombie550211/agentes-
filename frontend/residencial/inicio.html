@@ -7,6 +7,7 @@
 <link rel="icon" type="image/png" href="/images/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
 <link rel="stylesheet" href="/css/base/responsive-components.css">
@@ -45,10 +46,10 @@
 })();
 </script>
   <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
-  <link rel="stylesheet" href="/css/base/dark-mode.css?v=20260601">
+  <link rel="stylesheet" href="/css/base/form-controls.css?v=20260921">
 </head>
 <body>
-  <script src="/js/core/theme-init.js" defer></script>
+  <script src="/js/core/theme-init.js"></script>
   <script src="/js/layout/sidebar.js" defer></script>
   <script src="/js/layout/sidebar-ui.js" defer></script>
   <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
@@ -85,9 +86,6 @@
 <div class="main-content">
 <div class="page">
 
-  <!-- Banner de temporada. Se rellena al final del archivo y sólo dentro de su
-       ventana de fechas; fuera de ella este div queda vacío y no ocupa nada. -->
-  <div id="banner-temporada"></div>
 
   <!-- ROW TOP: Ventas Mensuales + Mapa de Clientes -->
   <div class="row-top">
@@ -891,31 +889,6 @@ function renderSemaforoFromTeams(teams) {
     if (window.CRMRealtime) window.__rt = CRMRealtime.connect('residencial', reloadHome);
   });
 })();
-</script>
-
-<script>
-  /* Contenido de temporada (Mes de la Independencia).
-     La ventana de fechas NO se define aquí: la publica sidebar.js en
-     window.Temporada, que ya se carga en esta página. Así el CRM entero entra y
-     sale de la temporada a la vez y las fechas viven en un solo sitio.
-     Va en DOMContentLoaded porque sidebar.js es `defer` y aún no ha corrido
-     cuando el navegador llega a esta línea. */
-  document.addEventListener('DOMContentLoaded', function () {
-    if (!(window.Temporada && window.Temporada.independencia())) return;
-
-    // Marca la página: con el banner deja de intentar caber en una pantalla y
-    // pasa a hacer scroll (ver .page.con-banner en inicio.css).
-    var pag = document.querySelector('.page');
-    if (pag) pag.classList.add('con-banner');
-
-    var cont = document.getElementById('banner-temporada');
-    if (cont) {
-      cont.innerHTML =
-        '<img class="banner-temporada" src="/images/independencia-hero.webp" ' +
-        'alt="Mes de la Independencia de El Salvador — 15 de septiembre de 1821" ' +
-        'width="1400" height="685">';
-    }
-  });
 </script>
 </body>
 </html>

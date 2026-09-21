@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard — Team Líneas</title>
+<link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
 <script src="/vendor/apexcharts/apexcharts.min.js"></script>
@@ -15,7 +16,7 @@
   <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
 </head>
 <body>
-  <script src="/js/core/theme-init.js" defer></script>
+  <script src="/js/core/theme-init.js"></script>
   <script src="/js/layout/sidebar.js" defer></script>
   <script src="/js/layout/sidebar-ui.js" defer></script>
   <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
@@ -50,9 +51,6 @@
     <!-- PAGE -->
     <div class="page">
 
-      <!-- Banner de temporada; lo rellena el script del final, y sólo dentro
-           de su ventana de fechas. Fuera de ella este div queda vacío. -->
-      <div id="banner-temporada"></div>
 
       <!-- ROW 2 -->
       <div class="row2">
@@ -250,8 +248,8 @@ let _apexChart = null;
 /* Mismo estilo que la gráfica de Ventas Mensuales de inicio residencial
    (paleta de su modo oscuro — esta página es oscura fija) */
 function _apexOpts(cats,data){
-  const textColor='#3f3a2e', gridColor='rgba(13,20,32,.10)';
-  const tooltipBg='#ffffff', tooltipTxt='#1e1608';
+  const textColor='#334155', gridColor='rgba(13,20,32,.10)';
+  const tooltipBg='#ffffff', tooltipTxt='#0f172a';
   const lineColor='#4f46e5', dotColor='#4f46e5', gradHex='#4f46e5';
   return{
     series:[{name:'Ventas',data}],
@@ -581,22 +579,6 @@ document.addEventListener('DOMContentLoaded',function(){
   // Tiempo real: cuando entra/cambia una venta de líneas, recarga sin refrescar.
   if(window.CRMRealtime) CRMRealtime.connect('lineas', loadDashboard);
 });
-</script>
-
-<script>
-  /* Banner de temporada (Mes de la Independencia).
-     La ventana de fechas la publica sidebar.js en window.Temporada, que ya se
-     carga en esta página: así el CRM entero entra y sale de la temporada a la
-     vez. Se espera a DOMContentLoaded porque sidebar.js es `defer`. */
-  document.addEventListener('DOMContentLoaded', function () {
-    if (!(window.Temporada && window.Temporada.independencia())) return;
-    var cont = document.getElementById('banner-temporada');
-    if (!cont) return;
-    cont.innerHTML =
-      '<img class="banner-temporada" src="/images/independencia-hero.webp" ' +
-      'alt="Mes de la Independencia de El Salvador — 15 de septiembre de 1821" ' +
-      'width="1400" height="685">';
-  });
 </script>
 </body>
 </html>

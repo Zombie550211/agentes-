@@ -1,33 +1,37 @@
-/* ══ GLASS CARDS CREMA — versión clara para la sección de Líneas ══
-   Mismo set de selectores que glass-cards.css (tema oscuro), pero con la
-   paleta crema usada en residencial/facturacion.html (--bg:#f2ead9). Sirve
-   para que las páginas de /lineas/ dejen de forzar fondo oscuro + texto
-   blanco sin tener que tocar el CSS de cada componente uno por uno. */
+/* ══ GLASS CARDS CLARO — para la sección de Líneas ══
+   Mismo set de selectores que glass-cards.css (tema oscuro), pero en claro.
+   Sirve para que las páginas de /lineas/ dejen de forzar fondo oscuro + texto
+   blanco sin tener que tocar el CSS de cada componente uno por uno.
+
+   El nombre del archivo dice "cream" por su origen: nació con la paleta crema
+   (#f2ead9) que usaba residencial/facturacion.html. Esa paleta ya no existe —
+   fondo blanco y tinta gris neutra. El archivo conserva el nombre porque lo
+   enlazan a mano una docena de páginas; renombrarlo es un cambio aparte. */
 
 :root {
   --card:      #ffffff;
   --bg:        transparent;
   --bdr:       rgba(13,20,32,0.10);
   --bdr-soft:  rgba(13,20,32,0.06);
-  --t1: #1e1608;
-  --t2: #3f3a2e;
+  --t1: #0f172a;
+  --t2: #334155;
   --t3: #64748b;
   --t4: #64748b;
   --sh: 0 4px 16px rgba(13,20,32,0.08);
 }
 
 /* Fondo del body y layout */
-html, body { background: transparent !important; color: #1e1608 !important; }
+html, body { background: transparent !important; color: var(--texto-1) !important; }
 .main-content, .layout, .content-wrap,
 .page-wrapper, .page-content, .app-content { background: transparent !important; z-index: 10 !important; position: relative !important; }
 
-/* Fondo crema plano (sin gradiente oscuro) para toda la sección de Líneas */
+/* Fondo blanco plano (sin gradiente oscuro) para toda la sección de Líneas */
 body::before {
   content: '' !important;
   position: fixed !important;
   inset: 0 !important;
   z-index: -1 !important;
-  background: #f2ead9 !important;
+  background: var(--sup-1) !important;   /* antes crema #f2ead9 */
   pointer-events: none !important;
   opacity: 1 !important;
 }
@@ -52,40 +56,40 @@ body::before {
 .alert,
 .jumbotron,
 .well {
-  background: #ffffff !important;
+  background: var(--sup-1) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   border-color: rgba(13,20,32,0.10) !important;
-  color: #1e1608 !important;
+  color: var(--texto-1) !important;
   box-shadow: 0 4px 16px rgba(13,20,32,0.06) !important;
 }
 
 /* Hover en cards */
 .rk-kpi:hover, .card:hover, .stat-card:hover, .kpi-card:hover {
-  background: #fdf6e3 !important;
+  background: var(--sup-2) !important;
 }
 
 /* Tablas */
-table, .table { background: transparent !important; color: #1e1608 !important; }
+table, .table { background: transparent !important; color: var(--texto-1) !important; }
 thead, thead tr, thead th {
-  background: #f5f0e2 !important;
+  background: var(--sup-2) !important;
   border-color: rgba(13,20,32,0.10) !important;
-  color: #3f3a2e !important;
+  color: var(--texto-2) !important;
 }
 tbody tr {
   background: transparent !important;
   border-color: rgba(13,20,32,0.06) !important;
 }
 tbody tr:hover { background: rgba(13,20,32,0.035) !important; }
-td, th { border-color: rgba(13,20,32,0.08) !important; color: #1e1608 !important; }
-tfoot td, tfoot th { background: #f5f0e2 !important; }
+td, th { border-color: rgba(13,20,32,0.08) !important; color: var(--texto-1) !important; }
+tfoot td, tfoot th { background: var(--sup-2) !important; }
 
 /* Tabs de navegación */
 .rk-tab, .tab-item, .nav-link,
 .btn-tab, [class*="-tab"]:not(.badge):not([class*="data"]) {
-  background: #ffffff !important;
+  background: var(--sup-1) !important;
   border-color: rgba(13,20,32,0.10) !important;
-  color: #3f3a2e !important;
+  color: var(--texto-2) !important;
 }
 .rk-tab.active, .tab-item.active, .nav-link.active,
 .btn-tab.active {
@@ -94,9 +98,9 @@ tfoot td, tfoot th { background: #f5f0e2 !important; }
   color: #fff !important;
 }
 .rk-nav-btn {
-  background: #ffffff !important;
+  background: var(--sup-1) !important;
   border-color: rgba(13,20,32,0.10) !important;
-  color: #1e1608 !important;
+  color: var(--texto-1) !important;
 }
 
 /* Inputs y selects */
@@ -104,12 +108,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
 select, textarea,
 .form-control, .form-input, .search-input, .filter-select,
 .input-group-text {
-  background: #fffdf7 !important;
+  background: var(--sup-1) !important;
   border-color: rgba(13,20,32,0.14) !important;
-  color: #1e1608 !important;
+  color: var(--texto-1) !important;
 }
-input::placeholder, textarea::placeholder { color: rgba(30,22,8,0.35) !important; }
-select option { background: #fffdf7; color: #1e1608; }
+input::placeholder, textarea::placeholder { color: rgba(15, 23, 42,0.35) !important; }
+select option { background: var(--sup-1); color: var(--texto-1); }
 
 /* NOTA: a diferencia de glass-cards.css (oscuro), aquí NO se fuerza el color
    de texto de forma global (`body *`). Cada página de /lineas/ ya tiene sus
