@@ -1,0 +1,382 @@
+/* Ficha de cliente — fila desplegada de costumer de Líneas.
+   Estructura y acabado del prototipo aprobado: tarjetas translúcidas, filas
+   tipo lista de ajustes y tipografía del sistema.
+
+   Todo va con prefijo .fc- a propósito: el prototipo usaba nombres genéricos
+   (.row, .btn, .grid, .list, .note, .col) que ya existen en el CRM y se
+   habrían pisado entre sí.
+
+   La ficha no tiene tema propio: toma el de la página que la contiene (ver la
+   nota sobre la paleta oscura, más abajo). */
+
+.fc {
+  --fc-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", "Helvetica Neue", Arial, sans-serif;
+  --fc-bg: #eef0f3;
+  --fc-blob1: #9ec5ff;
+  --fc-blob2: #ffd3b0;
+  --fc-blob3: #b9ecd9;
+  --fc-glass: rgba(255, 255, 255, .55);
+  --fc-glass-strong: rgba(255, 255, 255, .72);
+  --fc-stroke: rgba(255, 255, 255, .7);
+  --fc-hair: rgba(60, 60, 67, .12);
+  --fc-text: #1d1d1f;
+  --fc-text-2: #6e6e73;
+  --fc-text-3: #a1a1a6;
+  --fc-blue: #0071e3;
+  --fc-fill: rgba(118, 118, 128, .10);
+  --fc-shadow: 0 1px 1px rgba(0,0,0,.03), 0 8px 30px rgba(20,30,60,.08);
+  --fc-orange: #ff9f0a;
+  --fc-green: #30d158;
+  --fc-red: #ff453a;
+  --fc-gray: #8e8e93;
+
+  position: relative;
+  font-family: var(--fc-font);
+  color: var(--fc-text);
+  background: var(--fc-bg);
+  letter-spacing: -.01em;
+  -webkit-font-smoothing: antialiased;
+  padding: 30px 26px 36px;
+  overflow: hidden;
+}
+
+/* Sin paleta oscura propia, a propósito.
+   La ficha vive dentro de la lista de clientes, que es clara siempre. Cuando
+   traía su propio @media (prefers-color-scheme: dark), a quien tuviera el
+   sistema en oscuro le salía texto claro sobre el fondo claro de la lista:
+   ilegible. El día que la lista tenga modo oscuro, ambos se activan juntos
+   con la misma señal y este bloque vuelve. */
+
+/* El papel pintado que el cristal necesita para refractar algo. */
+.fc::before {
+  content: ""; position: absolute; inset: -20%; pointer-events: none;
+  background:
+    radial-gradient(38% 42% at 18% 20%, var(--fc-blob1) 0%, transparent 70%),
+    radial-gradient(34% 40% at 85% 12%, var(--fc-blob2) 0%, transparent 70%),
+    radial-gradient(40% 45% at 70% 90%, var(--fc-blob3) 0%, transparent 70%);
+  filter: blur(40px); opacity: .85;
+}
+.fc > * { position: relative; }
+
+.fc-glass {
+  background: var(--fc-glass);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid var(--fc-stroke);
+  border-radius: 22px;
+  box-shadow: var(--fc-shadow);
+}
+
+/* ── Cabecera ───────────────────────────────────────────────── */
+.fc-head { display: flex; align-items: center; gap: 18px; margin-bottom: 26px; flex-wrap: wrap; }
+/* Mismo tratamiento que el círculo de la fila: el gris plano no decía nada y
+   rompía la continuidad al desplegar. */
+.fc-avatar {
+  width: 64px; height: 64px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; font-size: 24px; font-weight: 600;
+  color: color-mix(in srgb, var(--c, #8e8e93) 72%, #000);
+  background: color-mix(in srgb, var(--c, #8e8e93) 17%, #fff);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c, #8e8e93) 22%, transparent);
+}
+.fc-who { flex: 1; min-width: 220px; }
+.fc-who h3 {
+  font-size: 30px; font-weight: 700; letter-spacing: -.025em; line-height: 1.1;
+  margin: 0; color: var(--fc-text);
+}
+.fc-meta {
+  display: flex; align-items: center; gap: 10px; margin-top: 6px;
+  color: var(--fc-text-2); font-size: 14px; flex-wrap: wrap;
+}
+.fc-dot-sep { width: 3px; height: 3px; border-radius: 50%; background: var(--fc-text-3); }
+
+.fc-status {
+  position: relative; display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 12px 5px 10px; border-radius: 999px;
+  font-size: 13px; font-weight: 600;
+  background: color-mix(in srgb, var(--c) 16%, transparent);
+  color: var(--c); cursor: pointer; transition: background .2s;
+}
+.fc-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.fc-status select { position: absolute; inset: 0; opacity: 0; cursor: pointer; font: inherit; }
+.fc-status svg { width: 10px; height: 10px; opacity: .7; }
+
+.fc-actions { display: flex; gap: 10px; align-items: center; }
+.fc-btn {
+  font: inherit; font-size: 15px; font-weight: 500; border: 0; cursor: pointer;
+  padding: 10px 20px; border-radius: 999px;
+  transition: transform .15s, opacity .2s, background .2s;
+}
+.fc-btn:active { transform: scale(.97); }
+.fc-btn-primary { background: var(--fc-blue); color: #fff; }
+.fc-btn-primary:disabled { opacity: .35; cursor: default; transform: none; }
+.fc-btn-ghost { background: var(--fc-fill); color: var(--fc-text); }
+.fc-saved { font-size: 13px; color: var(--fc-text-2); display: none; }
+/* Lo escribe el guardado existente; en la ficha va junto a los botones. */
+.fc .ile-save-msg { font-size: 13px; color: var(--fc-text-2); }
+.fc-saved.fc-show { display: inline; }
+
+/* ── Rejilla ────────────────────────────────────────────────── */
+.fc-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px 20px; align-items: stretch;
+}
+@media (max-width: 1100px) { .fc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 820px)  { .fc-grid { grid-template-columns: 1fr; } }
+/* Cada celda estira su tarjeta para que las tres de una fila midan igual. */
+.fc-cell { display: flex; flex-direction: column; min-width: 0; }
+.fc-cell > .fc-card { flex: 1; }
+.fc-notes-card { display: flex; flex-direction: column; }
+.fc-notes-card .fc-notes { flex: 1; }
+.fc-calls { display: grid; place-items: center; }
+.fc-timeline { display: flex; flex-direction: column; justify-content: center; }
+/* Con la tarjeta estirada, la zona de imagen ya no necesita proporción fija. */
+.fc-cell > .fc-drop { aspect-ratio: auto; min-height: 190px; }
+.fc-status.fc-static { cursor: default; }
+.fc-col { display: flex; flex-direction: column; gap: 24px; }
+.fc-section-title {
+  font-size: 13px; font-weight: 500; color: var(--fc-text-2);
+  padding: 0 18px 8px; margin: 0;
+}
+
+/* ── Lista tipo ajustes ─────────────────────────────────────── */
+.fc-list { overflow: hidden; }
+.fc-row { display: flex; align-items: center; gap: 16px; min-height: 52px; padding: 0 18px; position: relative; }
+.fc-row + .fc-row::before {
+  content: ""; position: absolute; top: 0; left: 18px; right: 0; height: 1px; background: var(--fc-hair);
+}
+.fc-row > label { font-size: 15px; color: var(--fc-text); flex: none; width: 150px; margin: 0; }
+.fc-val { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 8px; min-width: 0; }
+/* !important porque las hojas del CRM dan a todo <input> un fondo blanco y
+   un borde propios, y aquí el campo tiene que desaparecer dentro de la fila. */
+.fc-row input,
+.fc-row select.fc-plain {
+  font: inherit !important; font-size: 15px !important; color: var(--fc-text-2) !important;
+  background: transparent !important; border: 0 !important; outline: 0 !important;
+  box-shadow: none !important; border-radius: 0 !important;
+  text-align: right; width: 100%; min-width: 0; padding: 14px 0 !important;
+  height: auto !important;
+}
+.fc-row input:focus { color: var(--fc-text) !important; }
+.fc-row:focus-within { background: rgba(255,255,255,.18); }
+.fc-row select.fc-plain {
+  appearance: none !important; -webkit-appearance: none !important; cursor: pointer;
+  width: auto !important; text-align-last: right; padding-right: 2px !important;
+}
+.fc-row input:disabled,
+.fc-row select:disabled { cursor: default; opacity: .75; }
+.fc-chev { width: 8px; height: 13px; flex: none; color: var(--fc-text-3); }
+.fc-row input[type=date]::-webkit-calendar-picker-indicator { opacity: .35; cursor: pointer; margin-left: 6px; }
+.fc-icon-btn {
+  border: 0; background: transparent; color: var(--fc-blue); cursor: pointer;
+  font: inherit; font-size: 14px; padding: 4px 2px; flex: none;
+}
+
+/* Supervisor impuesto por permisos: se lee, no se elige. */
+.fc-fijo { font-size: 15px; color: var(--fc-text-2); }
+
+/* ── Contador de líneas ─────────────────────────────────────── */
+.fc-stepper { display: inline-flex; background: var(--fc-fill); border-radius: 9px; overflow: hidden; }
+.fc-stepper button {
+  width: 40px; height: 30px; border: 0; background: transparent;
+  color: var(--fc-text); font-size: 18px; cursor: pointer;
+}
+.fc-stepper button:active { background: var(--fc-hair); }
+.fc-stepper span { width: 1px; background: var(--fc-hair); margin: 6px 0; }
+.fc-count { font-variant-numeric: tabular-nums; color: var(--fc-text-2); font-size: 15px; min-width: 18px; text-align: right; }
+
+/* ── Fechas ─────────────────────────────────────────────────── */
+.fc-timeline { padding: 18px; }
+.fc-tl-track { display: flex; align-items: center; gap: 0; }
+.fc-tl-point { display: flex; flex-direction: column; gap: 2px; flex: none; }
+.fc-tl-point small { font-size: 12px; color: var(--fc-text-2); }
+.fc-tl-point strong { font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
+.fc-tl-point input {
+  font: inherit; font-size: 13px; border: 0; background: transparent;
+  color: var(--fc-blue); padding: 0; margin-top: 2px; cursor: pointer; width: 118px;
+}
+.fc-tl-point.fc-end { text-align: right; }
+.fc-tl-point.fc-end input { align-self: flex-end; }
+.fc-tl-line {
+  flex: 1; height: 2px; margin: 0 16px; border-radius: 2px; position: relative;
+  background: linear-gradient(90deg, var(--fc-blue), color-mix(in srgb, var(--fc-blue) 30%, transparent));
+}
+.fc-tl-line em {
+  position: absolute; left: 50%; top: -24px; transform: translateX(-50%);
+  font-style: normal; font-size: 12px; color: var(--fc-text-2); white-space: nowrap;
+  background: var(--fc-glass-strong); padding: 2px 9px; border-radius: 999px;
+}
+
+/* ── Imagen ─────────────────────────────────────────────────── */
+.fc-drop {
+  aspect-ratio: 4/3; display: grid; place-items: center; text-align: center;
+  cursor: pointer; position: relative; overflow: hidden; transition: transform .2s;
+}
+.fc-drop:hover { transform: translateY(-1px); }
+.fc-drop.fc-over { outline: 2px solid var(--fc-blue); outline-offset: -2px; }
+.fc-drop .fc-ph svg { width: 34px; height: 34px; color: var(--fc-text-3); margin-bottom: 10px; }
+.fc-drop .fc-ph p { font-size: 15px; font-weight: 500; margin: 0; }
+.fc-drop .fc-ph small { font-size: 13px; color: var(--fc-text-2); }
+.fc-drop img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.fc-img-remove {
+  position: absolute; top: 8px; right: 8px; z-index: 3;
+  border: 0; border-radius: 999px; padding: 4px 10px; cursor: pointer;
+  background: rgba(0,0,0,.45); color: #fff; font-size: 12px; font-weight: 600;
+}
+
+/* ── Notas ──────────────────────────────────────────────────── */
+.fc-notes { padding: 6px 0; display: block; max-height: 260px; overflow-y: auto; }
+.fc-compose {
+  display: flex; gap: 8px; align-items: center;
+  padding: 8px 8px 8px 18px; border-top: 1px solid var(--fc-hair);
+}
+.fc-compose input {
+  flex: 1; font: inherit !important; font-size: 15px !important;
+  border: 0 !important; background: transparent !important; box-shadow: none !important;
+  outline: 0 !important; color: var(--fc-text) !important; padding: 8px 0 !important;
+  border-radius: 0 !important; height: auto !important;
+}
+.fc-compose input::placeholder { color: var(--fc-text-3); }
+.fc-send {
+  width: 30px; height: 30px; border-radius: 50%; border: 0;
+  background: var(--fc-blue); color: #fff; cursor: pointer;
+  display: grid; place-items: center; transition: opacity .2s, transform .15s; flex: none;
+}
+.fc-send:disabled { opacity: .25; cursor: default; }
+.fc-send svg { width: 14px; height: 14px; }
+.fc-empty { padding: 22px 18px; text-align: center; color: var(--fc-text-3); font-size: 14px; }
+.fc-empty svg { width: 26px; height: 26px; display: block; margin: 0 auto 8px; color: var(--fc-text-3); }
+
+/* Las notas las pinta renderNoteCards, que es común a toda la pantalla: aquí
+   dejan de ser tarjetas sueltas y pasan a ser filas de la lista. */
+.fc .ile-notes-container { display: block; }
+.fc .ile-note-card {
+  width: auto; height: auto; flex-shrink: 1;
+  background: transparent; border: 0; border-radius: 0; box-shadow: none;
+  padding: 12px 40px 12px 18px; position: relative; cursor: pointer;
+}
+.fc .ile-note-card + .ile-note-card::before {
+  content: ""; position: absolute; top: 0; left: 18px; right: 0; height: 1px; background: var(--fc-hair);
+}
+.fc .ile-note-card::after { content: none; }
+.fc .ile-note-card:hover { background: rgba(255,255,255,.18); }
+.fc .ile-note-autor { font-size: 12px; color: var(--fc-text-3); font-weight: 600; letter-spacing: 0; text-transform: none; }
+.fc .ile-note-fecha { font-size: 12px; color: var(--fc-text-3); margin: 0 0 3px; }
+.fc .ile-note-texto {
+  font-size: 15px; line-height: 1.4; color: var(--fc-text);
+  display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.fc .ile-note-del { top: 12px; right: 12px; color: var(--fc-text-3); font-size: 12px; }
+
+/* ── Llamadas de verificación ───────────────────────────────── */
+.fc-calls { padding: 4px 0; }
+.fc-calls .ile-caps-row-lineas {
+  display: flex; gap: 8px; padding: 10px 18px; overflow-x: auto;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.fc-calls .ile-caps-row-lineas:empty { display: none; }
+.fc-calls .ile-llamada-reg-lineas:not(:empty) { padding: 10px 18px 14px; }
+
+/* ── Líneas asociadas ───────────────────────────────────────── */
+.fc-lineas { margin-top: 32px; }
+.fc-lineas-head { display: flex; align-items: baseline; gap: 8px; padding: 0 18px 10px; }
+.fc-lineas-head h4 { font-size: 22px; font-weight: 700; letter-spacing: -.02em; margin: 0; color: var(--fc-text); }
+.fc-badge { font-size: 13px; color: var(--fc-text-2); font-variant-numeric: tabular-nums; }
+.fc-lineas-grid {
+  display: grid; align-items: start; gap: 20px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@media (max-width: 1100px) { .fc-lineas-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px)  { .fc-lineas-grid { grid-template-columns: 1fr; } }
+
+.fc-line { overflow: hidden; animation: fcPop .35s cubic-bezier(.2,.8,.2,1); }
+@keyframes fcPop { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: none; } }
+.fc-line-top { display: flex; align-items: center; gap: 14px; padding: 18px 18px 14px; }
+.fc-line-ico {
+  width: 44px; height: 44px; border-radius: 12px; flex: none;
+  display: grid; place-items: center; color: #fff;
+  background: linear-gradient(180deg, #5ee27c, #28c050);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 4px 10px rgba(40,192,80,.25);
+}
+.fc-line-ico svg { width: 22px; height: 22px; }
+.fc-line-id { flex: 1; min-width: 0; }
+.fc-line-id h5 { font-size: 17px; font-weight: 600; letter-spacing: -.015em; margin: 0; color: var(--fc-text); }
+.fc-line-num { font-size: 14px; color: var(--fc-text-2); font-variant-numeric: tabular-nums; }
+.fc-line .fc-row { min-height: 48px; }
+.fc-line .fc-row + .fc-row::before { left: 18px; }
+
+/* Edición de la línea: el formulario que ya existía, con el aspecto de la ficha. */
+.fc-line-edit { border-top: 1px solid var(--fc-hair); }
+.fc-line-edit-acciones { display: flex; gap: 8px; align-items: center; padding: 12px 18px; }
+.fc-line-edit-acciones .fc-btn { font-size: 13px; padding: 7px 16px; }
+.fc-line-edit .line-edit-msg { font-size: 12px; color: var(--fc-text-2); }
+
+/* Notas de la línea: plegadas por defecto, con su caja de escritura dentro. */
+.fc-line-notes { border-top: 1px solid var(--fc-hair); }
+.fc-line-notes summary {
+  list-style: none; display: flex; align-items: center; gap: 8px;
+  padding: 14px 18px; cursor: pointer; font-size: 15px; color: var(--fc-text);
+}
+.fc-line-notes summary::-webkit-details-marker { display: none; }
+.fc-line-notes summary .fc-n { color: var(--fc-text-2); margin-left: auto; font-size: 14px; }
+.fc-line-notes summary .fc-chev { transition: transform .25s; }
+.fc-line-notes[open] summary .fc-chev { transform: rotate(90deg); }
+.fc-line-notes .fc-notes { padding: 0; max-height: 220px; }
+.fc-line-notes .fc-empty { padding: 6px 18px 14px; text-align: left; }
+.fc-note { padding: 12px 18px; position: relative; }
+.fc-note + .fc-note::before {
+  content: ""; position: absolute; top: 0; left: 18px; right: 0; height: 1px; background: var(--fc-hair);
+}
+.fc-note .note-text { font-size: 15px; line-height: 1.4; color: var(--fc-text); }
+.fc-note time { font-size: 12px; color: var(--fc-text-3); }
+.fc-note-acciones { display: flex; gap: 10px; margin-top: 4px; }
+.fc-note-acciones .fc-icon-btn { font-size: 13px; padding: 0; }
+.fc-icon-btn.fc-borrar { color: var(--fc-red); }
+.fc-line-notes .fc-compose { border-top: 1px solid var(--fc-hair); align-items: flex-end; }
+.fc-line-notes .note-textarea {
+  flex: 1; font: inherit; font-size: 15px; border: 0; background: transparent;
+  outline: 0; color: var(--fc-text); padding: 8px 0; resize: none;
+  min-height: 34px; max-height: 90px; font-family: var(--fc-font);
+}
+.fc-line-notes .note-textarea::placeholder { color: var(--fc-text-3); }
+
+@media (max-width: 620px) {
+  .fc { padding: 22px 14px 26px; }
+  .fc-row > label { width: auto; flex: 1; }
+  .fc-who h3 { font-size: 24px; }
+  .fc-actions { width: 100%; }
+  .fc-actions .fc-btn { flex: 1; }
+}
+
+/* ═══ Prioridad sobre glass-cards-cream.css ═══
+   Esa hoja se carga después que esta y pinta TODO input/select/textarea con
+   `background: var(--sup-1) !important` y su propio borde. Dentro de la ficha
+   los campos tienen que fundirse con la fila, así que hace falta ganarle en
+   especificidad: de ahí las tres clases y el :not(), que la superan sin
+   recurrir a trucos. Si algún día desaparece esa regla global, este bloque
+   entero se puede borrar. */
+.fc .fc-row .fc-val input:not([type="checkbox"]),
+.fc .fc-row .fc-val select.fc-plain,
+.fc .fc-glass .fc-compose input:not([type="checkbox"]) {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: var(--fc-text-2) !important;
+}
+.fc .fc-row .fc-val input:not([type="checkbox"]):focus,
+.fc .fc-glass .fc-compose input:not([type="checkbox"]):focus {
+  color: var(--fc-text) !important;
+}
+
+
+/* Los campos de la línea también pierden el fondo que impone la hoja global. */
+.fc .fc-line .fc-row .fc-val input:not([type="checkbox"]),
+.fc .fc-line-notes .fc-compose .note-textarea {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: var(--fc-text) !important;
+}
+.fc .fc-line-status select {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  background: transparent !important; border: 0 !important;
+}

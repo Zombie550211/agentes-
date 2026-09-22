@@ -2,6 +2,10 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
+  <!-- La página es clara por diseño. Sin esto, el modo oscuro forzado
+     del navegador (Chrome/Brave/Edge) le pasa un filtro por encima y
+     el cristal se convierte en gris sucio. -->
+  <meta name="color-scheme" content="light">
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Customer - Team Líneas</title>
   <script>
@@ -35,17 +39,16 @@
   <script src="/vendor/tailwind/tailwind-cdn.js"></script>
   <link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
   <link rel="stylesheet" href="/css/base/theme.css?v=20251124f"/>
-  <link rel="stylesheet" href="/css/componentes/costumer-table-clean.css" />
-  <link rel="stylesheet" href="/css/componentes/costumer-table-actions.css" />
-  <link rel="stylesheet" href="/css/componentes/costumer-table-comments.css" />
   <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css" />
-  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <!-- Highcharts se carga una sola vez después del body -->
-  <link rel="stylesheet" href="/css/lineas/costumer.css?v=20260828">
-  <link rel="stylesheet" href="/css/componentes/glass-cards-cream.css?v=20260716a">
+  <!-- Hoja única de esta página: el diseño vive aquí, acotado a .lc y .fc.
+       Ya no se cargan glass-cards-cream ni las de la tabla antigua: eran las
+       que imponían fondos y bordes a todo input/select de la página. -->
+  <link rel="stylesheet" href="/css/lineas/costumer-lista.css?v=20260922">
+  <link rel="stylesheet" href="/css/lineas/ficha-cliente.css?v=20260922">
+  <link rel="stylesheet" href="/css/componentes/costumer-table-comments.css" />
   <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
-</head>
+  </head>
 <body style="background: #ffffff;">
   <script src="/js/core/theme-init.js"></script>
   <script src="/js/layout/sidebar.js" defer></script>
@@ -55,150 +58,100 @@
   <div class="layout">
     <nav class="sidebar" id="app-sidebar"></nav>
     <main class="main-content">
-      <!-- Header gris/blanco -->
-      <header class="crm-header">
-        <div style="padding: 14px 24px;">
-          <div style="display:flex; align-items:center; justify-content:space-between;">
-            <div style="display:flex; align-items:center; gap:14px;">
-              <div class="crm-header-icon">
-                <i class="fas fa-users"></i>
-              </div>
-              <div>
-                <h1 class="crm-header-title">Gestión de Clientes</h1>
-                <p class="crm-header-sub">Panel de control y análisis — Team Líneas</p>
-              </div>
-            </div>
-            <div style="display:flex; align-items:center; gap:14px;">
-              <div style="text-align:right;">
-                <p class="crm-header-user" id="header-username">Usuario</p>
-                <p class="crm-header-date">Último acceso: Hoy</p>
-              </div>
-              <div class="crm-avatar">
-                <i class="fas fa-user"></i>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+      <div class="lc">
+      <div class="lc-wrap">
 
-      <div class="max-w-full px-6 py-4">
-        <!-- KPI Strip -->
-        <div class="kpix-bar">
-          <div class="kpix-pills">
-            <span class="kpix-item"><span class="kpix-dot" style="background:#3b82f6"></span><b id="kpi-cantidad-ventas">0</b> ventas</span>
-            <span class="kpix-item"><span class="kpix-dot" style="background:#0ea5e9"></span><b id="kpi-cantidad-lineas">0</b> líneas</span>
-            <span class="kpix-item"><span class="kpix-dot" style="background:#10b981"></span><b id="kpi-activas-clientes">0</b> activas</span>
-            <span class="kpix-item"><span class="kpix-dot" style="background:#34d399"></span><b id="kpi-lineas-activas">0</b> act. líneas</span>
-            <span class="kpix-item"><span class="kpix-dot" style="background:#ef4444"></span><b id="kpi-canceladas-clientes">0</b> cancel.</span>
-            <span class="kpix-item"><span class="kpix-dot" style="background:#f43f5e"></span><b id="kpi-canceladas-lineas">0</b> cancel. líneas</span>
-            <span class="kpix-item"><span class="kpix-dot" style="background:#8b5cf6"></span><b id="kpi-colchon">0</b> colchón</span>
+        <header class="lc-head">
+          <div>
+            <h1>Clientes</h1>
+            <p id="lcSubtitulo">—</p>
           </div>
-          <button id="btnRefrescar" class="kpix-refresh" type="button"><i class="fas fa-sync-alt"></i> Refrescar</button>
-        </div>
+          <div class="lc-spacer"></div>
+          <button class="lc-round" id="btnRefrescar" type="button" title="Actualizar" aria-label="Actualizar">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M13.5 8a5.5 5.5 0 11-1.6-3.9M13.5 2.5v3h-3"/></svg>
+          </button>
+        </header>
 
-        <!-- Filtros (barra compacta de píldoras) -->
-        <div class="fbar">
-          <!-- Buscar -->
-          <div class="search-input-wrap fbar-search">
-            <i class="fas fa-search search-input-icon"></i>
-            <input type="text" id="q" placeholder="Buscar cliente, tel., cuenta..." class="search-input-field">
-          </div>
-          <!-- Agente -->
-          <div class="fbar-dd" id="agent-filter-container">
-            <span class="fbar-dd-lbl">Agente</span>
-            <select id="agentFilter" class="filter-select">
-              <option value="">Todos</option>
-            </select>
-          </div>
-          <!-- Status Línea -->
-          <div class="fbar-dd" id="line-status-filter-container">
-            <span class="fbar-dd-lbl">Línea</span>
-            <select id="lineStatusFilter" class="filter-select">
-              <option value="">Todos</option>
+        <!-- Filtros. Los <select> son los de siempre: el JS de la pantalla los
+             sigue leyendo por su id, solo cambia cómo se ven. -->
+        <div class="lc-glass lc-toolbar">
+          <label class="lc-search">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg>
+            <input type="text" id="q" placeholder="Buscar cliente, teléfono, cuenta…">
+          </label>
+          <label class="lc-popup"><small>Agente</small><b id="lcAgenteTxt">Todos</b>
+            <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 3.5l3 3 3-3"/></svg>
+            <select id="agentFilter"><option value="">Todos</option></select>
+          </label>
+          <label class="lc-popup"><small>Línea</small><b id="lcLineaTxt">Todas</b>
+            <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 3.5l3 3 3-3"/></svg>
+            <select id="lineStatusFilter">
+              <option value="">Todas</option>
               <option value="ACTIVA">ACTIVA</option>
               <option value="PENDING">PENDING</option>
               <option value="CANCELADA">CANCELADA</option>
               <option value="SUSPENDIDA">SUSPENDIDA</option>
             </select>
-          </div>
-          <!-- Mes (reemplaza el rango de fechas) -->
-          <div class="fbar-dd" id="mes-filter-container">
-            <span class="fbar-dd-lbl">Mes</span>
-            <select id="mesFilter" class="filter-select"></select>
-          </div>
-          <!-- Team Toggle -->
-          <!-- Botones de team generados desde /api/lineas/teams (permisos) -->
-          <div class="team-toggle" id="teamToggle">
-            <button class="tt-btn tt-active" data-team="">Todos</button>
-          </div>
-          <!-- Contador de registros -->
-          <span id="leadCounter" class="lead-counter-badge">0 Registros Totales</span>
-          <!-- Elementos ocultos para compatibilidad con JS existente -->
-          <div id="status-filter-container" style="display:none;">
-            <select id="qs">
-              <option value="">Todos</option>
-              <option value="pending">PENDING</option>
-              <option value="repro">REPRO</option>
-            </select>
-          </div>
-          <input type="date" id="dateFrom" style="display:none;">
-          <input type="date" id="dateTo" style="display:none;">
-          <select id="teamFilter" style="display:none;">
-            <option value="">Todos los Teams</option>
-          </select>
-          <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" style="display:none;">
-          <div id="analyzeExcelContainer" style="display:none;"><button id="btnAnalyzeExcel" style="display:none;"></button></div>
-          <button id="btnClearDates" style="display:none;"></button>
-          <div id="admin-actions" style="display:none;"></div>
+          </label>
+          <label class="lc-popup"><small>Mes</small><b id="lcMesTxt">—</b>
+            <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 3.5l3 3 3-3"/></svg>
+            <select id="mesFilter"></select>
+          </label>
+          <button class="lc-clear" id="lcLimpiar" type="button" hidden>Limpiar filtros</button>
         </div>
 
-        <!-- Tabla principal con diseño moderno -->
-        <div class="bg-white" style="border-radius: 16px; border: 1px solid #F1F5F9; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);">
-          <div class="p-6" style="border-bottom: 1px solid #F1F5F9;">
-            <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;">
-              <h2 style="font-size: 18px; font-weight: 600; color: #1E293B; margin: 0;">
-                <i class="fas fa-table mr-2" style="color: #4F46E5;"></i>
-                Lista de Clientes
-              </h2>
-              <!-- Status Tabs -->
-              <div class="status-tabs-bar" id="statusTabsBar" role="group" aria-label="Filtro por estado" style="margin:0;">
-                <button type="button" class="stab all is-active" data-status="all">Todos</button>
-                <button type="button" class="stab pending"       data-status="pending">Pending</button>
-                <button type="button" class="stab active"        data-status="active">Active</button>
-                <button type="button" class="stab completed"     data-status="completed">Completed</button>
-                <button type="button" class="stab colchon"       data-status="colchon">🛏 Colchón</button>
-                <button type="button" class="stab cancelled"     data-status="cancelled">Cancelled</button>
-                <button type="button" class="stab hold"          data-status="hold">Hold</button>
-              </div>
-            </div>
-          </div>
-          
-          <div class="table-wrapper">
-            <div class="table-container">
-              <table class="w-full costumer-table">
-              <thead>
-                <tr id="costumer-thead">
-                  <th class="text-left">Cliente</th>
-                  <th class="text-left">Teléfono</th>
-                  <th class="text-left">Cuenta</th>
-                  <th class="text-left">Cant. líneas</th>
-                  <th class="text-left">Líneas</th>
-                  <th class="text-left">Estado</th>
-                  <th class="text-left">Día venta</th>
-                  <th class="text-left">Día instalación</th>
-                  <th class="text-left">ID</th>
-                  <th class="text-left">Mercado</th>
-                  <th class="text-left">Supervisor</th>
-                  <th class="text-left">Acciones</th>
-                </tr>
-              </thead>
-              <tbody id="costumer-tbody" class="divide-y divide-gray-200"></tbody>
-            </table>
-            </div>
-          </div>
-          <div id="scrollbarMirror" class="scrollbar-mirror"><div id="scrollbarMirrorInner" style="height:1px;"></div></div>
+        <!-- Cifras del periodo: mismos ids que alimenta updateKPIs -->
+        <div class="lc-glass lc-stats">
+          <div class="lc-stat"><strong id="kpi-cantidad-ventas">0</strong><span>ventas</span></div>
+          <div class="lc-stat"><strong id="kpi-cantidad-lineas">0</strong><span>líneas</span></div>
+          <div class="lc-stat"><strong id="kpi-activas-clientes">0</strong><span>activas</span></div>
+          <div class="lc-stat"><strong id="kpi-lineas-activas">0</strong><span>líneas activas</span></div>
+          <div class="lc-stat"><strong id="kpi-canceladas-clientes">0</strong><span>canceladas</span></div>
+          <div class="lc-stat"><strong id="kpi-canceladas-lineas">0</strong><span>líneas cancel.</span></div>
+          <div class="lc-stat"><strong id="kpi-colchon">0</strong><span>colchón</span></div>
         </div>
-      </div>
+
+        <div class="lc-list-head">
+          <h2>Lista de clientes</h2>
+          <span id="leadCounter" class="lc-tag">0 registros</span>
+          <!-- Chips de estado: conservan .stab y data-status, que es lo que
+               escucha el filtrado por pestaña. -->
+          <div class="lc-chips status-tabs-bar" id="statusTabsBar" role="group" aria-label="Filtro por estado">
+            <button type="button" class="lc-chip stab all is-active" data-status="all">Todos <em id="lcCntAll">0</em></button>
+            <button type="button" class="lc-chip stab pending"    data-status="pending"   style="--c:#ff9f0a"><i></i>Pending <em id="lcCntPending">0</em></button>
+            <button type="button" class="lc-chip stab active"     data-status="active"    style="--c:#34c759"><i></i>Active Líneas <em id="lcCntActive">0</em></button>
+            <button type="button" class="lc-chip stab completed"  data-status="completed" style="--c:#30b0c7"><i></i>Completed Costumers <em id="lcCntCompleted">0</em></button>
+            <button type="button" class="lc-chip stab colchon"    data-status="colchon"   style="--c:#af52de"><i></i>Colchón <em id="lcCntColchon">0</em></button>
+            <button type="button" class="lc-chip stab cancelled"  data-status="cancelled" style="--c:#ff3b30"><i></i>Cancelled <em id="lcCntCancelled">0</em></button>
+            <button type="button" class="lc-chip stab hold"       data-status="hold"      style="--c:#8e8e93"><i></i>Hold <em id="lcCntHold">0</em></button>
+          </div>
+        </div>
+
+        <!-- Controles que el JS sigue consultando aunque ya no se muestren -->
+        <div style="display:none;">
+          <select id="qs"><option value="">Todos</option><option value="pending">PENDING</option><option value="repro">REPRO</option></select>
+          <input type="date" id="dateFrom"><input type="date" id="dateTo">
+          <select id="teamFilter"><option value="">Todos los Teams</option></select>
+          <div id="teamToggle"><button class="tt-btn tt-active" data-team="">Todos</button></div>
+          <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv">
+          <div id="analyzeExcelContainer"><button id="btnAnalyzeExcel"></button></div>
+          <button id="btnClearDates"></button>
+          <div id="admin-actions"></div>
+          <div id="status-filter-container"></div>
+          <div id="line-status-filter-container"></div>
+          <div id="agent-filter-container"></div>
+          <div id="mes-filter-container"></div>
+        </div>
+
+        <div class="lc-list">
+          <table class="w-full costumer-table">
+            <thead><tr id="costumer-thead"></tr></thead>
+            <tbody id="costumer-tbody"></tbody>
+          </table>
+        </div>
+
+      </div><!-- /.lc-wrap -->
+      </div><!-- /.lc -->
     </main>
   </div>
   <script src="/js/core/fetch-interceptor.js"></script>
@@ -557,12 +510,22 @@
 
       // Teams de Líneas desde la página de permisos (/api/lineas/teams). Sin hardcode.
       let LINEAS_TEAMS = [];
+      // Supervisor que el backend le fija a quien mira: con locked=true la pantalla
+      // no ofrece otros teams. Vacío para admin y backoffice, que los ven todos.
+      let LINEAS_ASIGNADO = null;
       async function loadLineasTeams() {
         try {
           const r = await fetch('/api/lineas/teams', { credentials: 'include' });
           const d = r.ok ? await r.json() : null;
           LINEAS_TEAMS = (d && d.teams) || [];
-        } catch (_) { LINEAS_TEAMS = []; }
+          LINEAS_ASIGNADO = (d && d.assigned) || null;
+        } catch (_) { LINEAS_TEAMS = []; LINEAS_ASIGNADO = null; }
+      }
+
+      // Token del team propio ('LUIS', 'JONATHAN'…) o '' si no hay uno fijado.
+      function miTeamToken() {
+        if (!LINEAS_ASIGNADO || !LINEAS_ASIGNADO.locked || !LINEAS_ASIGNADO.supervisor) return '';
+        return normalizeTeamKey(LINEAS_ASIGNADO.supervisor);
       }
 
       // Clave canónica de team = token del team (JONATHAN/LUIS/VICTOR/…), derivado de permisos.
@@ -604,6 +567,21 @@
           }).join('');
       }
 
+      // Estados de las líneas de un cliente, en MAYÚSCULAS. Se miran las dos
+      // fuentes que conviven en los datos: lines_data (lines[].status) y el
+      // JSON lineas_status, que es lo que usan las tarjetas para pintarlas.
+      function estadosDeLineas(it) {
+        const salida = [];
+        const lineas = Array.isArray(it?.lines) ? it.lines : [];
+        lineas.forEach(l => { if (l && l.status) salida.push(String(l.status).toUpperCase()); });
+        const n = parseInt(it?.cantidad_lineas || 0, 10) || lineas.length;
+        for (let i = 0; i < n; i++) {
+          const s = extractLineStatus(it, i);
+          if (s) salida.push(String(s).toUpperCase());
+        }
+        return salida;
+      }
+
       function extractLineStatus(item, i) {
         if (!item) return '';
         const ls = item.lineas_status;
@@ -626,26 +604,94 @@
         return String(v || '').trim().toUpperCase().replace(/\s+/g, ' ');
       }
 
+      // Desplegable de agentes. Un supervisor solo ve a los suyos; admin y
+      // backoffice ven a todos, agrupados bajo el nombre de su supervisor.
       function populateAgentFilterFromItems(items) {
         const agentFilter = document.getElementById('agentFilter');
         if (!agentFilter) return;
         const teamFilter = document.getElementById('teamFilter');
         const selectedTeam = teamFilter ? String(teamFilter.value || '').trim().toUpperCase() : '';
 
-        const set = new Set();
-        (Array.isArray(items) ? items : []).forEach(it => {
-          if (selectedTeam) {
-            const sup = String(it?.supervisor || it?.team || it?.Team || it?.SUPERVISOR || '').trim().toUpperCase();
-            if (!sup.includes(selectedTeam)) return;
-          }
-          const key = normalizeAgentKey(getAgentRaw(it));
-          if (key) set.add(key);
+        // agente -> token de su team, según permisos (no según el registro: un
+        // lead viejo puede arrastrar el supervisor que tenía entonces).
+        // Se indexan nombre Y usuario, y ambos sin puntos: los registros guardan
+        // tanto "ANDREA ARDON" como "ANDREA.ARDON" según por dónde entraran.
+        const teamDeAgente = new Map();   // clave normalizada -> token
+        const plantilla    = new Map();   // token -> Set(nombres para mostrar)
+        const nombreSup    = new Map();   // token -> nombre del supervisor
+        const clavesDe = v => {
+          const k = normalizeAgentKey(v);
+          if (!k) return [];
+          const sinPuntos = k.replace(/\./g, ' ').replace(/\s+/g, ' ').trim();
+          return sinPuntos === k ? [k] : [k, sinPuntos];
+        };
+        LINEAS_TEAMS.forEach(t => {
+          const token = t.token || '';
+          nombreSup.set(token, (t.supervisor && t.supervisor.name) || t.label || token);
+          (t.agents || []).forEach(a => {
+            clavesDe(a.name).concat(clavesDe(a.username)).forEach(k => teamDeAgente.set(k, token));
+            const visible = normalizeAgentKey(a.name || a.username);
+            if (visible) {
+              if (!plantilla.has(token)) plantilla.set(token, new Set());
+              plantilla.get(token).add(visible);
+            }
+          });
         });
 
-        const prev = String(agentFilter.value || '');
-        agentFilter.innerHTML = '<option value="">Todos</option>' +
-          Array.from(set).sort((a, b) => a.localeCompare(b)).map(a => `<option value="${a}">${a}</option>`).join('');
+        const grupos = new Map();         // token -> Set(agentes)
+        const agregar = (token, agente) => {
+          if (!agente) return;
+          const k = token || 'SIN TEAM';
+          if (!grupos.has(k)) grupos.set(k, new Set());
+          grupos.get(k).add(agente);
+        };
 
+        (Array.isArray(items) ? items : []).forEach(it => {
+          const sup = String(it?.supervisor || it?.team || it?.Team || it?.SUPERVISOR || '').trim().toUpperCase();
+          if (selectedTeam && !sup.includes(selectedTeam)) return;
+          const agente = normalizeAgentKey(getAgentRaw(it));
+          if (!agente) return;
+          const porPermisos = clavesDe(agente).map(k => teamDeAgente.get(k)).find(Boolean);
+          agregar(porPermisos || normalizeTeamKey(sup), agente);
+        });
+
+        const miToken = miTeamToken();
+        const esSupervisor = String(getUserRole() || '').includes('supervisor');
+        const ordenar = s => Array.from(s).sort((a, b) => a.localeCompare(b));
+        const opcion  = a => `<option value="${escH(a)}">${escH(a)}</option>`;
+
+        let html = '<option value="">Todos</option>';
+
+        if (miToken) {
+          const propios = new Set(grupos.get(miToken) || []);
+          // El supervisor ve su plantilla completa aunque algún agente no tenga
+          // ventas en el periodo; un agente solo se ve a sí mismo (es lo único
+          // que le devuelve el backend).
+          if (esSupervisor) {
+            const yaEstan = new Set();
+            propios.forEach(a => clavesDe(a).forEach(k => yaEstan.add(k)));
+            (plantilla.get(miToken) || new Set()).forEach(a => {
+              // Mismo agente escrito de otra forma ("ANDREA.ARDON" / "ANDREA ARDON"):
+              // se queda el que traen los datos, que es con el que filtra la tabla.
+              if (!clavesDe(a).some(k => yaEstan.has(k))) propios.add(a);
+            });
+          }
+          html += ordenar(propios).map(opcion).join('');
+        } else {
+          // Admin y backoffice: mismo listado, separado por supervisor.
+          const tokens = Array.from(grupos.keys()).sort((a, b) => {
+            if (a === 'SIN TEAM') return 1;
+            if (b === 'SIN TEAM') return -1;
+            return String(nombreSup.get(a) || a).localeCompare(String(nombreSup.get(b) || b));
+          });
+          html += tokens.map(token => {
+            const etiqueta = token === 'SIN TEAM' ? 'Sin supervisor' : (nombreSup.get(token) || token);
+            return `<optgroup label="${escH(etiqueta)}">` + ordenar(grupos.get(token)).map(opcion).join('') + '</optgroup>';
+          }).join('');
+        }
+
+        const prev = String(agentFilter.value || '');
+        agentFilter.innerHTML = html;
         if (prev && Array.from(agentFilter.options).some(o => o.value === prev)) {
           agentFilter.value = prev;
         }
@@ -883,7 +929,17 @@
           } else if (_activeStatusTab !== 'all') {
             const st = String(it.status || '').toLowerCase();
             if (_activeStatusTab === 'active') {
-              if (st !== 'active' && st !== 'completed') return false;
+              // "Active Líneas": cuenta el estado de las LÍNEAS, no el del cliente.
+              // Antes este tab mezclaba clientes active y completed, que es justo
+              // lo que ahora hace el tab de al lado.
+              const estados = estadosDeLineas(it);
+              if (estados.length) {
+                if (!estados.some(e => e === 'ACTIVE' || e === 'ACTIVA' || e.includes('ACTIV'))) return false;
+              } else if (st !== 'active') {
+                // Registro sin detalle de líneas (datos antiguos): se cae al
+                // status del cliente para no esconderlo de la vista.
+                return false;
+              }
             } else {
               if (st !== _activeStatusTab) return false;
             }
@@ -950,27 +1006,39 @@
                </div>
              </div>`;
 
-          let mainRow = `<tr class="table-row expandable-row${_isColchon ? ' row-colchon' : ''}" data-row-index="${idx}" data-id="${docId}">
+          const _dato = (rotulo, valor) =>
+            `<div><dt>${rotulo}</dt><dd>${valor}</dd></div>`;
+
+          let mainRow = `<tr class="table-row expandable-row lc-client lc-glass${_isColchon ? ' row-colchon' : ''}" data-row-index="${idx}" data-id="${docId}">
             <td colspan="12">
-              <div class="client-card ${_ccClass}">
-                <div class="client-card-header">
-                  <div class="client-card-avatar ${_avClass}">${_initials}</div>
-                  <span class="client-card-name">${escH(it.nombre_cliente||'')}</span>
-                  ${_statusDisplay}
-                  ${_colchonBadge}
-                  <span class="row-arrow">▼</span>
-                  ${canDelete() ? `<button class="btn-delete-client card-delete-btn" data-id="${docId}" title="Eliminar cliente"><i class="fas fa-trash"></i></button>` : ''}
+              <div class="lc-client-row">
+                <div class="lc-av" style="--c:${fcColorEstadoPlano(statusLower)}">${_initials}</div>
+                <div class="lc-main">
+                  <h3>${escH(it.nombre_cliente||'')}</h3>
+                  <dl class="lc-meta">
+                    ${it.telefono_principal ? _dato('Teléfono', escH(lcTelefono(it.telefono_principal))) : ''}
+                    ${it.numero_cuenta ? _dato('Cuenta', escH(it.numero_cuenta)) : ''}
+                    ${_dato('Líneas', cant ? `<span class="lc-tag">${cant} línea${cant>1?'s':''}</span>` : '—')}
+                    ${it.dia_venta ? _dato('Venta', escH(lcFechaCorta(it.dia_venta))) : ''}
+                    ${it.dia_instalacion ? _dato('Instalación', escH(lcFechaCorta(it.dia_instalacion))) : ''}
+                    ${it.mercado ? _dato('Mercado', escH(it.mercado)) : ''}
+                    ${it.supervisor ? _dato('Supervisor', escH(it.supervisor)) : ''}
+                    ${(it.ID||it.id||it._id) ? _dato('ID', escH(it.ID||it.id||it._id)) : ''}
+                  </dl>
                 </div>
-                <div class="client-card-divider"></div>
-                <div class="client-card-body">
-                  ${it.telefono_principal ? _field('fa-phone','Teléfono', escH(it.telefono_principal)) : ''}
-                  ${it.numero_cuenta ? _field('fa-id-card','Cuenta', escH(it.numero_cuenta)) : ''}
-                  ${_field('fa-layer-group','Líneas', cant ? `<span class="card-lines-badge">${cant} línea${cant>1?'s':''}</span>` : '—')}
-                  ${it.dia_venta ? _field('fa-calendar-check','Venta', escH(it.dia_venta)) : ''}
-                  ${it.dia_instalacion ? _field('fa-tools','Instalación', escH(it.dia_instalacion)) : ''}
-                  ${it.mercado ? _field('fa-map-marker-alt','Mercado', escH(it.mercado)) : ''}
-                  ${it.supervisor ? _field('fa-user-tie','Supervisor', escH(it.supervisor)) : ''}
-                  ${(it.ID||it.id||it._id) ? `<div class="client-card-field"><div class="ccf-icon-wrap"><i class="fas fa-hashtag"></i></div><div class="ccf-wrap"><span class="ccf-label">ID</span><span class="ccf-value" style="color:#94A3B8;font-size:11px;">${escH(it.ID||it.id||it._id)}</span></div></div>` : ''}
+                <div class="lc-actions">
+                  ${_isColchon ? '<span class="lc-tag">🛏 Colchón</span>' : ''}
+                  <label class="lc-pill" style="--c:${fcColorEstadoPlano(statusLower)}">
+                    <span>${escH(fcEtiquetaEstado(statusLower))}</span>
+                    ${editable ? '<svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 3.5l3 3 3-3"/></svg>' : ''}
+                    ${editable ? statusCell : ''}
+                  </label>
+                  ${canDelete() ? `<button class="lc-round lc-del btn-delete-client" data-id="${docId}" type="button" title="Eliminar cliente" aria-label="Eliminar cliente">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4"/></svg>
+                  </button>` : ''}
+                  <button class="lc-round lc-tog row-arrow" type="button" aria-label="Desplegar">
+                    <svg viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2"><path d="M1.5 1.5l5 5-5 5"/></svg>
+                  </button>
                 </div>
               </div>
             </td>
@@ -980,144 +1048,162 @@
           {
             let detailsHTML = `<tr class="details-row" data-row-index="${idx}" style="display:none;">
               <td colspan="12" style="padding:0;">
-                <div style="padding:14px 20px; background:#F8FAFC; border-bottom:1px solid #E2E8F0;">
-                  <h4 style="color:#0F172A; font-size:16px; font-weight:700; margin:0; display:flex; align-items:center; gap:10px;">
-                    <i class="fas fa-user-edit" style="color:#4F46E5;"></i>
-                    ${escH(it.nombre_cliente||'')}
-                  </h4>
-                </div>
-                <!-- Formulario de edición inline -->
-                <div style="padding:16px 20px; background:#f0f4ff; border-bottom:2px solid #e0e7ff;">
-                  <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
-                    <span style="font-weight:700; color:#1e293b; font-size:13px; text-transform:uppercase; letter-spacing:.05em;">Datos del cliente</span>
-                    ${editable ? '' : '<span style="font-size:11px;color:#94a3b8;font-weight:700;background:#f1f5f9;padding:2px 10px;border-radius:999px;">Solo lectura</span>'}
-                  </div>
-                  <!-- Layout: campos a la izquierda, imagen a la derecha -->
-                  <div style="display:flex; gap:18px; align-items:flex-start;">
-                    <!-- Campos -->
-                    <div style="flex:1; min-width:0; max-width:640px;">
-                      <div style="display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px;">
-                        <div>
-                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Nombre Cliente</label>
-                          <input type="text" class="ile-nombre" data-row="${idx}" value="${(it.nombre_cliente||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;text-transform:uppercase;transition:border .15s;">
-                        </div>
-                        <div>
-                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Teléfono Principal</label>
-                          <input type="tel" class="ile-tel" data-row="${idx}" value="${(it.telefono_principal||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;transition:border .15s;">
-                        </div>
-                        <div>
-                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Número de Cuenta</label>
-                          <input type="text" class="ile-cuenta" data-row="${idx}" value="${(it.numero_cuenta||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;transition:border .15s;">
-                        </div>
-                        <div>
-                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Pin de Seguridad</label>
-                          <input type="text" class="ile-pin" data-row="${idx}" value="${(it.pin_seguridad||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;transition:border .15s;">
-                        </div>
-                        <div>
-                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Dirección</label>
-                          <input type="text" class="ile-dir" data-row="${idx}" value="${(it.direccion||'').replace(/"/g,'&quot;')}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;transition:border .15s;">
-                        </div>
-                        <div>
-                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Status</label>
-                          <select class="ile-status" data-row="${idx}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
-                            ${STATUS_OPTIONS.map(o=>`<option value="${o.val}" ${o.val===statusLower?'selected':''}>${o.label}</option>`).join('')}
-                          </select>
-                        </div>
-                        <div>
-                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Día de Venta</label>
-                          <input type="date" class="ile-dventa" data-row="${idx}" value="${it.dia_venta||''}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;transition:border .15s;">
-                        </div>
-                        <div>
-                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Día de Instalación</label>
-                          <input type="date" class="ile-dinst" data-row="${idx}" value="${it.dia_instalacion||''}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;transition:border .15s;">
-                        </div>
-                        <div>
-                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Cant. Líneas</label>
-                          <select class="ile-cant" data-row="${idx}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
-                            ${[1,2,3,4,5].map(n=>`<option value="${n}" ${parseInt(it.cantidad_lineas||1)===n?'selected':''}>${n}</option>`).join('')}
-                          </select>
-                        </div>
-                        <div>
-                          <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Supervisor</label>
-                          <select class="ile-supervisor" data-row="${idx}" ${editable?'':'disabled'} style="width:100%;padding:8px 10px;border:1.5px solid #dde3f0;border-radius:9px;font-size:13px;color:#1e293b;background:${editable?'#fff':'#f8fafc'};outline:none;">
-                            ${supervisorOptionsHTML(it.supervisor)}
-                          </select>
-                        </div>
+                <div class="fc" onclick="event.stopPropagation();">
+
+                  <!-- Cabecera: quién es y qué se puede hacer. El estado se ve
+                       aquí pero se cambia en la lista de Cuenta. -->
+                  <header class="fc-head">
+                    <div class="fc-avatar" style="--c:${fcColorEstadoPlano(statusLower)}">${escH(fcIniciales(it.nombre_cliente))}</div>
+                    <div class="fc-who">
+                      <h3>${escH(it.nombre_cliente || 'Sin nombre')}</h3>
+                      <div class="fc-meta">
+                        <span class="fc-status fc-static" data-row="${idx}" style="--c:${fcColorEstado(statusLower)}">
+                          <span class="fc-status-txt">${escH(fcEtiquetaEstado(statusLower))}</span>
+                        </span>
+                        ${it.numero_cuenta ? `<span>Cuenta ${escH(it.numero_cuenta)}</span>` : ''}
+                        ${it.supervisor ? `<span class="fc-dot-sep"></span><span>${escH(it.supervisor)}</span>` : ''}
                       </div>
                     </div>
-                    <!-- Imagen + notas (horizontal flex, columna derecha) -->
-                    <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;flex-shrink:0;">
-                      <!-- Imagen del Lead -->
-                      <div style="width:155px;flex-shrink:0;display:flex;flex-direction:column;gap:8px;">
-                        <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Imagen del Lead</label>
-                        <div class="ile-img-zone" data-row="${idx}" style="position:relative;width:155px;height:155px;border:2px dashed #c7d2fe;border-radius:12px;background:#f8fafc;display:flex;align-items:center;justify-content:center;overflow:hidden;${editable?'cursor:pointer;':''}" ${editable?'onclick="event.stopPropagation();var inp=this.nextElementSibling;if(inp&&inp.tagName===\'INPUT\')inp.click();" ondragover="event.preventDefault();event.stopPropagation();this.style.borderColor=\'#667eea\';" ondragleave="this.style.borderColor=\'#c7d2fe\';" ondrop="_clImgDrop(event,this)"':'onclick="event.stopPropagation();"'}>
-                          <div class="ile-img-ph" style="${it.imagen_url?'display:none;':''}display:flex;flex-direction:column;align-items:center;gap:5px;pointer-events:none;">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-                            <span style="font-size:11px;font-weight:700;color:#94a3b8;">${editable?'Click o arrastra':'Sin imagen'}</span>
-                          </div>
-                          <img class="ile-img-preview" src="${_resolveImgUrl(it.imagen_url)}" style="${it.imagen_url?'display:block;':'display:none;'}width:100%;height:100%;object-fit:cover;position:absolute;inset:0;cursor:zoom-in;" onclick="event.stopPropagation();_clImgLightbox(this.src)" onerror="this.style.display='none';var ph=this.parentElement.querySelector('.ile-img-ph');if(ph)ph.style.display='flex';var hint=this.parentElement.querySelector('.ile-img-hint');if(hint)hint.style.display='none';">
-                          <div class="ile-img-hint" style="${it.imagen_url?'':'display:none;'}position:absolute;bottom:4px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.45);color:#fff;font-size:10px;padding:2px 7px;border-radius:3px;white-space:nowrap;pointer-events:none;">🔍 Click para ver</div>
-                          ${editable?`<button class="ile-img-remove" type="button" style="${it.imagen_url?'':'display:none;'}position:absolute;top:4px;right:5px;background:rgba(239,68,68,.85);border:none;border-radius:4px;color:#fff;font-size:11px;padding:2px 7px;cursor:pointer;font-weight:700;" onclick="event.stopPropagation();_clImgRemove(this)">✕</button>`:''}
+                    <div class="fc-actions">
+                      <span class="ile-save-msg" data-row="${idx}"></span>
+                      ${editable ? `<button type="button" class="fc-btn fc-btn-ghost" onclick="fcDescartar(${idx})">Descartar</button>
+                      <button type="button" class="fc-btn fc-btn-primary btn-save-ile" data-row="${idx}" data-id="${docId}">Guardar</button>`
+                      : '<span class="fc-fijo">Solo lectura</span>'}
+                    </div>
+                  </header>
+
+                  <div class="fc-grid">
+                    <section class="fc-cell">
+                      <div class="fc-section-title">Cliente</div>
+                      <div class="fc-list fc-glass fc-card">
+                        <div class="fc-row">
+                          <label for="fc-nom-${idx}">Nombre</label>
+                          <div class="fc-val"><input id="fc-nom-${idx}" class="ile-nombre" data-row="${idx}" value="${escH(it.nombre_cliente||'')}" data-inicial="${escH(it.nombre_cliente||'')}" ${editable?'':'disabled'}></div>
                         </div>
-                        ${editable?`<input type="file" class="ile-img-input" accept="image/*" style="display:none" onchange="_clImgSelect(event,this)">`:''}
-                        ${editable ? `<button class="btn-save-ile" data-row="${idx}" data-id="${docId}" style="width:100%;background:linear-gradient(135deg,#1E3A8A,#2563EB);color:#fff;border:none;padding:8px 0;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(30,58,138,.22);">
-                          <i class="fas fa-save" style="margin-right:5px;"></i>Guardar
-                        </button>
-                        <span class="ile-save-msg" data-row="${idx}" style="font-size:11px;color:#64748b;text-align:center;display:block;"></span>` : ''}
+                        <div class="fc-row">
+                          <label for="fc-tel-${idx}">Teléfono</label>
+                          <div class="fc-val"><input id="fc-tel-${idx}" type="tel" class="ile-tel" data-row="${idx}" value="${escH(it.telefono_principal||'')}" data-inicial="${escH(it.telefono_principal||'')}" ${editable?'':'disabled'}></div>
+                        </div>
+                        <div class="fc-row">
+                          <label for="fc-dir-${idx}">Dirección</label>
+                          <div class="fc-val"><input id="fc-dir-${idx}" class="ile-dir" data-row="${idx}" value="${escH(it.direccion||'')}" data-inicial="${escH(it.direccion||'')}" ${editable?'':'disabled'}></div>
+                        </div>
+                        <div class="fc-row">
+                          <label for="fc-pin-${idx}">PIN de seguridad</label>
+                          <div class="fc-val">
+                            <input id="fc-pin-${idx}" type="password" class="ile-pin" data-row="${idx}" value="${escH(it.pin_seguridad||'')}" data-inicial="${escH(it.pin_seguridad||'')}" ${editable?'':'disabled'} style="letter-spacing:.2em">
+                            <button class="fc-icon-btn" type="button" onclick="fcVerPin(this)">Mostrar</button>
+                          </div>
+                        </div>
                       </div>
-                      <!-- Llamadas de verificación / seguimiento -->
-                      <div class="ile-llamadas-wrap" data-lead="${docId}" onclick="event.stopPropagation();" style="width:250px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;">
-                        <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;">📞 Llamadas verificación</label>
-                        <div class="ile-caps-row-lineas" data-lead="${docId}" style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;"></div>
+                    </section>
+
+                    <section class="fc-cell">
+                      <div class="fc-section-title">Cuenta</div>
+                      <div class="fc-list fc-glass fc-card">
+                        <div class="fc-row">
+                          <label for="fc-cta-${idx}">Número de cuenta</label>
+                          <div class="fc-val"><input id="fc-cta-${idx}" class="ile-cuenta" data-row="${idx}" value="${escH(it.numero_cuenta||'')}" data-inicial="${escH(it.numero_cuenta||'')}" ${editable?'':'disabled'}></div>
+                        </div>
+                        <div class="fc-row">
+                          <label for="fc-st-${idx}">Status</label>
+                          <div class="fc-val">
+                            <select id="fc-st-${idx}" class="ile-status fc-plain" data-row="${idx}" ${editable?'':'disabled'} onchange="fcCambioEstado(this)">
+                              ${STATUS_OPTIONS.map(o=>`<option value="${o.val}" ${o.val===statusLower?'selected':''}>${o.label}</option>`).join('')}
+                            </select>
+                            <svg class="fc-chev" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2"><path d="M1.5 1.5l5 5-5 5"/></svg>
+                          </div>
+                        </div>
+                        <div class="fc-row">
+                          <label>Líneas</label>
+                          <div class="fc-val">
+                            <span class="fc-count" data-row="${idx}">${escH(String(cant||1))}</span>
+                            <input type="hidden" class="ile-cant" data-row="${idx}" value="${escH(String(cant||1))}" data-inicial="${escH(String(cant||1))}">
+                            ${editable?`<div class="fc-stepper">
+                              <button type="button" onclick="fcLineas(${idx},-1)" aria-label="Menos">−</button><span></span><button type="button" onclick="fcLineas(${idx},1)" aria-label="Más">+</button>
+                            </div>`:''}
+                          </div>
+                        </div>
+                        <div class="fc-row">
+                          <label for="fc-sup-${idx}">Supervisor</label>
+                          <div class="fc-val">
+                            ${(LINEAS_ASIGNADO && LINEAS_ASIGNADO.locked)
+                              ? `<span class="fc-fijo">${escH(it.supervisor || LINEAS_ASIGNADO.label || '')}</span>
+                            <input type="hidden" class="ile-supervisor" data-row="${idx}" value="${escH(it.supervisor||'')}" data-inicial="${escH(it.supervisor||'')}">`
+                              : `<select id="fc-sup-${idx}" class="ile-supervisor fc-plain" data-row="${idx}" ${editable?'':'disabled'}>
+                              ${supervisorOptionsHTML(it.supervisor)}
+                            </select>
+                            <svg class="fc-chev" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2"><path d="M1.5 1.5l5 5-5 5"/></svg>`}
+                          </div>
+                        </div>
+                      </div>
+                    </section>
+
+                    <section class="fc-cell">
+                      <div class="fc-section-title">Imagen del lead</div>
+                      <label class="fc-glass fc-drop fc-card ile-img-zone" data-row="${idx}"
+                        ${editable?`ondragover="event.preventDefault();event.stopPropagation();this.classList.add('fc-over');" ondragleave="this.classList.remove('fc-over');" ondrop="this.classList.remove('fc-over');_clImgDrop(event,this)"`:''}>
+                        <div class="fc-ph ile-img-ph" style="${it.imagen_url?'display:none;':''}">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 9"/></svg>
+                          <p>${editable?'Añadir imagen':'Sin imagen'}</p>
+                          <small>${editable?'Arrastra aquí o haz clic':''}</small>
+                        </div>
+                        <img class="ile-img-preview" src="${_resolveImgUrl(it.imagen_url)}" style="${it.imagen_url?'':'display:none;'}" onclick="event.stopPropagation();event.preventDefault();_clImgLightbox(this.src)" onerror="this.style.display='none';var ph=this.parentElement.querySelector('.ile-img-ph');if(ph)ph.style.display='';">
+                        <span class="ile-img-hint" style="display:none"></span>
+                        ${editable?`<button type="button" class="fc-img-remove ile-img-remove" style="${it.imagen_url?'':'display:none;'}" onclick="event.stopPropagation();event.preventDefault();_clImgRemove(this)">Quitar</button>
+                        <input type="file" class="ile-img-input" accept="image/*" style="display:none" onchange="_clImgSelect(event,this)">`:''}
+                      </label>
+                    </section>
+
+                    <section class="fc-cell">
+                      <div class="fc-section-title">Fechas</div>
+                      <div class="fc-glass fc-timeline fc-card">
+                        <div class="fc-tl-track">
+                          <div class="fc-tl-point">
+                            <small>Venta</small>
+                            <strong class="fc-d1-lbl" data-row="${idx}">—</strong>
+                            <input type="date" class="ile-dventa" data-row="${idx}" value="${it.dia_venta||''}" data-inicial="${it.dia_venta||''}" ${editable?'':'disabled'} onchange="fcFechas(${idx})">
+                          </div>
+                          <div class="fc-tl-line"><em class="fc-gap" data-row="${idx}"></em></div>
+                          <div class="fc-tl-point fc-end">
+                            <small>Instalación</small>
+                            <strong class="fc-d2-lbl" data-row="${idx}">—</strong>
+                            <input type="date" class="ile-dinst" data-row="${idx}" value="${it.dia_instalacion||''}" data-inicial="${it.dia_instalacion||''}" ${editable?'':'disabled'} onchange="fcFechas(${idx})">
+                          </div>
+                        </div>
+                      </div>
+                    </section>
+
+                    <section class="fc-cell">
+                      <div class="fc-section-title">Notas</div>
+                      <div class="fc-glass fc-card fc-notes-card">
+                        <div class="fc-notes ile-notes-container" data-lead="${docId}">
+                          <div class="fc-empty">Sin notas todavía</div>
+                        </div>
+                        ${editable?`<div class="fc-compose ile-add-note-area" data-lead="${docId}">
+                          <input class="ile-note-ta" placeholder="Escribe una nota…" autocomplete="off" oninput="fcNotaEscrita(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();saveLeadNote('${docId}');}">
+                          <button type="button" class="fc-send" disabled aria-label="Añadir nota" onclick="saveLeadNote('${docId}')">
+                            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 12V2M2.5 6.5L7 2l4.5 4.5"/></svg>
+                          </button>
+                        </div>`:''}
+                      </div>
+                    </section>
+
+                    <section class="fc-cell">
+                      <div class="fc-section-title">Llamadas de verificación</div>
+                      <div class="fc-glass fc-calls fc-card ile-llamadas-wrap" data-lead="${docId}">
+                        <div class="ile-caps-row-lineas" data-lead="${docId}"></div>
                         <div class="ile-llamada-reg-lineas" data-lead="${docId}"></div>
                       </div>
-                      <!-- Notas existentes (se cargan dinámicamente) -->
-                      <div class="ile-notes-container" data-lead="${docId}" style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
-                        <span style="font-size:11px;color:#CBD5E1;padding:10px 0;"><i class="fas fa-spinner" style="animation:spin 1s linear infinite;"></i></span>
-                      </div>
-                      <!-- Botón / form agregar nota -->
-                      <div class="ile-add-note-area" data-lead="${docId}" onclick="event.stopPropagation();">
-                        <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Notas</label>
-                        <button class="ile-add-note-btn-main" onclick="showAddNoteForm('${docId}')">
-                          <i class="fas fa-plus-circle" style="font-size:22px;opacity:.35;"></i>
-                          <span>Agregar nota</span>
-                        </button>
-                      </div>
-                    </div>
+                    </section>
                   </div>
-                </div>
-                <div style="padding:20px; background:#f8f9fa;">
-                  <!-- Información General del Cliente con diseño moderno -->
-                  <div class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 mb-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p class="text-sm text-gray-600 mb-1">Cliente</p>
-                        <p class="font-semibold text-gray-800 m-0">${escH(it.nombre_cliente||'N/A')}</p>
-                      </div>
-                      <div>
-                        <p class="text-sm text-gray-600 mb-1">Teléfono Principal</p>
-                        <p class="font-semibold text-gray-800 m-0">${escH(it.telefono_principal||'N/A')}</p>
-                      </div>
-                      <div>
-                        <p class="text-sm text-gray-600 mb-1">Fecha de Venta</p>
-                        <p class="font-semibold text-gray-800 m-0">${it.dia_venta||'N/A'}</p>
-                      </div>
-                      <div>
-                        <p class="text-sm text-gray-600 mb-1">Estado General</p>
-                        <span class="${statusBadgeClass}">
-                          <i class="fas ${statusLower === 'completed' ? 'fa-check-circle' : 'fa-clock'} mr-1"></i>
-                          ${String(it.status||'').toUpperCase()}
-                        </span>
-                      </div>
+
+                  <section class="fc-lineas">
+                    <div class="fc-lineas-head">
+                      <h4>Líneas asociadas</h4>
+                      <span class="fc-badge">${escH(String(maxLen || cant || 1))}</span>
                     </div>
-                  </div>
-                  
-                  <!-- Líneas Asociadas -->
-                  <h4 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                    <i class="fas fa-list-ul text-purple-600 mr-2"></i>
-                    Líneas Asociadas
-                  </h4>
-                  <div style="display:grid; gap:16px;">`;
+                    <div class="fc-lineas-grid">`;
             
             // Mostrar cada línea con su información completa
             for (let i = 0; i < maxLen; i++) {
@@ -1135,135 +1221,93 @@
               if (!lineStatus && Number(cant || 0) === 1 && it.status) lineStatus = it.status;
               lineStatus = String(lineStatus || 'PENDING').toUpperCase();
               
-              // Determinar badge de status de línea
-              let lineStatusBadge = '';
-              if (lineStatus === 'ACTIVE') lineStatusBadge = '<span class="status-badge status-active">ACTIVE</span>';
-              else if (lineStatus === 'PENDING') lineStatusBadge = '<span class="status-badge status-pending">PENDING</span>';
-              else if (lineStatus === 'COMPLETED') lineStatusBadge = '<span class="status-badge status-completed">COMPLETED</span>';
-              else lineStatusBadge = `<span class="status-badge bg-gray-200 text-gray-700">${lineStatus}</span>`;
-
               detailsHTML += `
-                <div class="line-card bg-white border-2 border-gray-200 rounded-lg p-5 hover:border-purple-300 transition">
-                  <div class="flex items-start justify-between mb-4">
-                    <div class="flex items-center">
-                      <div class="bg-blue-100 p-3 rounded-lg mr-3">
-                        <i class="fas fa-phone-alt text-blue-600 text-lg"></i>
-                      </div>
-                      <div>
-                        <h5 class="font-semibold text-gray-800 text-lg m-0">Línea ${i+1}</h5>
-                        <p class="text-sm text-gray-500 m-0 line-tel-display">${escH(telefono || 'Sin teléfono')}</p>
-                      </div>
+                <article class="fc-line line-card fc-glass">
+                  <div class="fc-line-top">
+                    <div class="fc-line-ico">
+                      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 006.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 013 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2z"/></svg>
                     </div>
-                    <div style="display:flex;align-items:center;gap:8px;">
-                      ${editable ? `<button class="btn-edit-line" data-client-id="${docId}" data-line-index="${i}" style="background:#3b82f6;color:#fff;border:none;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;white-space:nowrap;">✏ Editar</button>` : ''}
-                      ${lineStatusBadge}
+                    <div class="fc-line-id">
+                      <h5>Línea ${i+1}</h5>
+                      <div class="fc-line-num line-tel-display">${escH(telefono || 'Sin teléfono')}</div>
                     </div>
-                  </div>
-                  
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <p class="text-xs text-gray-500 mb-1">Servicio</p>
-                      <p class="font-medium text-gray-700 m-0">${escH(servicio || 'N/A')}</p>
-                    </div>
-                    <div>
-                      <p class="text-xs text-gray-500 mb-1">Estado</p>
-                      <select class="line-status-select w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-semibold focus:outline-none focus:border-purple-500" data-client-id="${docId}" data-line-index="${i}" ${getUserRole() === 'supervisor' ? 'disabled' : ''}>
-                        <option value="PENDING" ${lineStatus === 'PENDING' ? 'selected' : ''}>PENDING</option>
-                        <option value="ACTIVE" ${lineStatus === 'ACTIVE' ? 'selected' : ''}>ACTIVE</option>
-                        <option value="COMPLETED" ${lineStatus === 'COMPLETED' ? 'selected' : ''}>COMPLETED</option>
-                        <option value="REPRO" ${lineStatus === 'REPRO' ? 'selected' : ''}>REPRO</option>
-                        <option value="CANCELLED" ${lineStatus === 'CANCELLED' ? 'selected' : ''}>CANCELLED</option>
+                    <label class="fc-status fc-line-status" style="--c:${fcColorEstadoLinea(lineStatus)}">
+                      <span class="fc-status-txt">${escH(lineStatus)}</span>
+                      ${getUserRole() === 'supervisor' ? '' : '<svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 3.5l3 3 3-3"/></svg>'}
+                      <select class="line-status-select" data-client-id="${docId}" data-line-index="${i}" ${getUserRole() === 'supervisor' ? 'disabled' : ''} onchange="fcEstadoLinea(this)" aria-label="Estado de la línea">
+                        ${['PENDING','ACTIVE','COMPLETED','REPRO','CANCELLED'].map(function(e){
+                          return `<option value="${e}" ${lineStatus === e ? 'selected' : ''}>${e}</option>`;
+                        }).join('')}
                       </select>
+                    </label>
+                  </div>
+
+                  <div class="fc-row">
+                    <label>Servicio</label>
+                    <div class="fc-val"><span class="fc-fijo line-serv-display">${escH(servicio || 'N/A')}</span></div>
+                  </div>
+                  ${editable ? `<div class="fc-row">
+                    <label>Edición</label>
+                    <div class="fc-val">
+                      <button type="button" class="fc-icon-btn btn-edit-line" data-client-id="${docId}" data-line-index="${i}">Editar</button>
                     </div>
                   </div>
-                  
-                  <!-- Sección de Notas -->
-                  <div class="bg-gray-50 rounded-lg p-3 mt-4">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                      <span style="color:#64748b; font-size:12px; font-weight:600;">Notas:</span>
-                      <button class="btn-add-note" data-client-id="${docId}" data-line-index="${i}" style="background:#10b981; color:#fff; border:none; padding:6px 12px; border-radius:6px; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:4px;">
-                        <span style="font-size:14px;">+</span> Agregar Nota
-                      </button>
+                  <div class="line-edit-form fc-line-edit" data-client-id="${docId}" data-line-index="${i}" style="display:none;">
+                    <div class="fc-row">
+                      <label>Teléfono</label>
+                      <div class="fc-val"><input type="tel" class="line-edit-tel" value="${escH(telefono)}"></div>
                     </div>
-                    
-                    <!-- Formulario para agregar nota (inicialmente oculto) -->
-                    <div class="note-form" data-line-index="${i}" style="display:none; background:#fff; border:1px solid #e5e7eb; border-radius:6px; padding:12px; margin-bottom:12px;">
-                      <textarea class="note-textarea" placeholder="Agregar nueva nota..." style="width:100%; min-height:80px; padding:8px; border:1px solid #e5e7eb; border-radius:4px; font-size:13px; resize:vertical; font-family:inherit;"></textarea>
-                      <div style="display:flex; gap:8px; margin-top:8px;">
-                        <button class="btn-save-note" style="background:#10b981; color:#fff; border:none; padding:6px 16px; border-radius:6px; font-size:12px; cursor:pointer; font-weight:600;">
-                          + Agregar Nota
-                        </button>
-                        <button class="btn-cancel-note" style="background:#64748b; color:#fff; border:none; padding:6px 16px; border-radius:6px; font-size:12px; cursor:pointer;">
-                          Cancelar
-                        </button>
-                      </div>
+                    <div class="fc-row">
+                      <label>Servicio</label>
+                      <div class="fc-val"><input type="text" class="line-edit-serv" value="${escH(servicio)}"></div>
                     </div>
-                    
-                  <!-- Mini-form edición de línea -->
-                  ${editable ? `<div class="line-edit-form" data-client-id="${docId}" data-line-index="${i}" style="display:none;margin-top:12px;background:#f0f4ff;border:1px solid #c7d2fe;border-radius:10px;padding:14px;">
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-                      <div>
-                        <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Teléfono</label>
-                        <input type="tel" class="line-edit-tel" value="${escH(telefono)}" style="width:100%;padding:8px 11px;border:1px solid #dde3f0;border-radius:8px;font-size:13px;color:#1e293b;outline:none;">
-                      </div>
-                      <div>
-                        <label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Servicio</label>
-                        <input type="text" class="line-edit-serv" value="${escH(servicio)}" style="width:100%;padding:8px 11px;border:1px solid #dde3f0;border-radius:8px;font-size:13px;color:#1e293b;outline:none;">
-                      </div>
-                    </div>
-                    <div style="display:flex;gap:8px;align-items:center;">
-                      <button class="btn-save-line" style="background:#10b981;color:#fff;border:none;padding:7px 18px;border-radius:7px;font-size:12px;cursor:pointer;font-weight:700;">Guardar</button>
-                      <button class="btn-cancel-line" style="background:#64748b;color:#fff;border:none;padding:7px 14px;border-radius:7px;font-size:12px;cursor:pointer;">Cancelar</button>
-                      <span class="line-edit-msg" style="font-size:11px;color:#64748b;"></span>
+                    <div class="fc-line-edit-acciones">
+                      <button type="button" class="fc-btn fc-btn-primary btn-save-line">Guardar</button>
+                      <button type="button" class="fc-btn fc-btn-ghost btn-cancel-line">Cancelar</button>
+                      <span class="line-edit-msg"></span>
                     </div>
                   </div>` : ''}
-                    <!-- Lista de notas existentes -->
-                    <div class="notes-list" data-line-index="${i}" style="display:flex; flex-direction:column; gap:8px;">
+
+                  <details class="fc-line-notes">
+                    <summary>
+                      Notas <span class="fc-n">${notas.length}</span>
+                      <svg class="fc-chev" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2"><path d="M1.5 1.5l5 5-5 5"/></svg>
+                    </summary>
+                    <div class="notes-list fc-notes" data-line-index="${i}">
                       ${notas.length > 0 ? notas.map((nota, nIdx) => {
                         const textoNota = nota.texto || nota;
                         let fechaNota = '';
                         if (nota.fecha) {
-                          const fecha = new Date(nota.fecha);
-                          fechaNota = fecha.toLocaleString('es-ES', { 
-                            year: 'numeric', 
-                            month: '2-digit', 
-                            day: '2-digit', 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
+                          fechaNota = new Date(nota.fecha).toLocaleString('es-ES', {
+                            year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
                           });
                         }
                         const autor = nota.autor || '';
                         return `
-                        <div class="note-item" data-note-index="${nIdx}" style="background:#fff; border:1px solid #e5e7eb; border-radius:4px; padding:8px; position:relative;">
-                          <div style="display:flex; justify-content:space-between; align-items:start; gap:8px;">
-                            <div style="flex:1;">
-                              <div class="note-text" style="color:#0f172a; font-size:13px;">${escH(textoNota)}</div>
-                              ${fechaNota ? `<div style="color:#94a3b8; font-size:11px; margin-top:4px;">${escH(fechaNota)}${autor ? ' - ' + escH(autor) : ''}</div>` : ''}
-                            </div>
-                            <div style="display:flex; gap:4px;">
-                              <button class="btn-edit-note" data-client-id="${docId}" data-line-index="${i}" data-note-index="${nIdx}" style="background:#3b82f6; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:2px;" title="Editar nota">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                                </svg>
-                              </button>
-                              <button class="btn-delete-note" data-client-id="${docId}" data-line-index="${i}" data-note-index="${nIdx}" style="background:#ef4444; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:2px; ${canDelete() ? '' : 'display:none;'}" title="Eliminar nota">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                  <polyline points="3 6 5 6 21 6"></polyline>
-                                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                </svg>
-                              </button>
-                            </div>
+                        <div class="note-item fc-note" data-note-index="${nIdx}">
+                          <div class="note-text">${escH(textoNota)}</div>
+                          ${fechaNota ? `<time>${escH(fechaNota)}${autor ? ' · ' + escH(autor) : ''}</time>` : ''}
+                          <div class="fc-note-acciones">
+                            <button type="button" class="fc-icon-btn btn-edit-note" data-client-id="${docId}" data-line-index="${i}" data-note-index="${nIdx}" title="Editar nota">Editar</button>
+                            ${canDelete() ? `<button type="button" class="fc-icon-btn fc-borrar btn-delete-note" data-client-id="${docId}" data-line-index="${i}" data-note-index="${nIdx}" title="Eliminar nota">Eliminar</button>` : ''}
                           </div>
                         </div>`;
-                      }).join('') : '<div style="color:#94a3b8; font-size:12px; padding:8px 0;">No hay notas agregadas</div>'}
+                      }).join('') : '<div class="fc-empty">Sin notas en esta línea</div>'}
                     </div>
-                  </div>
-                </div>`;
+                    ${editable ? `<div class="note-form fc-compose" data-line-index="${i}">
+                      <textarea class="note-textarea" rows="1" placeholder="Nota para esta línea…"></textarea>
+                      <button type="button" class="fc-send btn-save-note" aria-label="Añadir nota">
+                        <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 12V2M2.5 6.5L7 2l4.5 4.5"/></svg>
+                      </button>
+                      <button type="button" class="btn-cancel-note" hidden></button>
+                    </div>` : ''}
+                  </details>
+                </article>`;
             }
             
             detailsHTML += `
-                  </div>
+                    </div>
+                  </section>
                 </div>
               </td>
             </tr>`;
@@ -1286,14 +1330,19 @@
 
             if (detailsRow) {
               const isVisible = detailsRow.style.display !== 'none';
-              detailsRow.style.display = isVisible ? 'none' : 'table-row';
-              if (arrow) arrow.textContent = isVisible ? '▼' : '▲';
+              // Las filas se pintan como bloques (ver .lc-list en el CSS), así
+              // que 'block', no 'table-row'.
+              detailsRow.style.display = isVisible ? 'none' : 'block';
+              this.classList.toggle('is-open', !isVisible);
               // Cargar notas al expandir
               if (!isVisible) {
                 const leadId = this.getAttribute('data-id');
                 const notesContainer = detailsRow.querySelector(`.ile-notes-container[data-lead="${leadId}"]`);
                 if (notesContainer) loadLeadNotes(leadId, notesContainer);
                 if (typeof _loadLlamadasLineas === 'function') _loadLlamadasLineas(leadId, detailsRow);
+                // Fechas de la ficha: las etiquetas y los días de diferencia
+                // se calculan aquí, no vienen en el HTML.
+                if (typeof fcFechas === 'function') fcFechas(rowIndex);
               }
             }
           });
@@ -1375,22 +1424,29 @@
               });
               const autor = result.data.autor || '';
               
-              // Remover mensaje "No hay notas"
-              const noNotesMsg = notesList.querySelector('div[style*="No hay notas"]');
+              // Remover el aviso de lista vacía
+              const noNotesMsg = notesList.querySelector('.fc-empty');
               if (noNotesMsg) noNotesMsg.remove();
-              
-              // Agregar nueva nota
+
+              // Agregar nueva nota, con el mismo formato que las ya pintadas
               const newNote = document.createElement('div');
-              newNote.style.cssText = 'background:#fff; border:1px solid #e5e7eb; border-radius:4px; padding:8px; font-size:13px;';
+              newNote.className = 'note-item fc-note';
               newNote.innerHTML = `
-                <div style="color:#0f172a;">${result.data.texto}</div>
-                <div style="color:#94a3b8; font-size:11px; margin-top:4px;">${fecha}${autor ? ' - ' + autor : ''}</div>
+                <div class="note-text">${escH(result.data.texto)}</div>
+                <time>${escH(fecha)}${autor ? ' · ' + escH(autor) : ''}</time>
               `;
               notesList.appendChild(newNote);
-              
-              // Limpiar y ocultar formulario
+
+              // El contador del desplegable
+              const cuenta = noteForm.closest('.fc-line-notes');
+              if (cuenta) {
+                const n = cuenta.querySelector('.fc-n');
+                if (n) n.textContent = notesList.querySelectorAll('.note-item').length;
+              }
+
+              // La caja de escritura de la ficha es fija: se limpia, no se oculta.
               textarea.value = '';
-              noteForm.style.display = 'none';
+              if (!noteForm.classList.contains('fc-compose')) noteForm.style.display = 'none';
               
               // Mostrar notificación de éxito
               showNotification('Nota guardada correctamente', 'success');
@@ -1408,7 +1464,7 @@
             const noteForm = this.closest('.note-form');
             const textarea = noteForm.querySelector('.note-textarea');
             textarea.value = '';
-            noteForm.style.display = 'none';
+            if (!noteForm.classList.contains('fc-compose')) noteForm.style.display = 'none';
           });
         });
         
@@ -1817,6 +1873,44 @@
         renderTable(filtered);
         updateLeadCounter(filtered.length);
         updateKPIs(filtered, applyFilters(allItems, {ventaStricta:true}));
+        lcCabecera(filtered);
+      }
+
+      // Lo que rodea a la lista: subtítulo, rótulos de los filtros y el número
+      // que lleva cada chip. Se recalcula con los mismos datos ya filtrados.
+      function lcCabecera(filtrados) {
+        const txt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        const mes = document.getElementById('mesFilter');
+        const mesTxt = mes && mes.selectedIndex >= 0 ? mes.options[mes.selectedIndex].text : '';
+        txt('lcSubtitulo', `${mesTxt || 'Todos los meses'} · ${filtrados.length} registro${filtrados.length === 1 ? '' : 's'}`);
+        txt('lcMesTxt', mesTxt || '—');
+
+        const agente = document.getElementById('agentFilter');
+        txt('lcAgenteTxt', (agente && agente.value) ? agente.value : 'Todos');
+        const linea = document.getElementById('lineStatusFilter');
+        txt('lcLineaTxt', (linea && linea.value) ? linea.value : 'Todas');
+
+        // Cada chip cuenta sobre el conjunto filtrado, con el mismo criterio
+        // que usa el tab correspondiente.
+        const porTab = (tab) => allItemsPorTab(filtrados, tab).length;
+        txt('lcCntAll', filtrados.length);
+        ['pending','active','completed','colchon','cancelled','hold'].forEach(k => {
+          txt('lcCnt' + k.charAt(0).toUpperCase() + k.slice(1), porTab(k));
+        });
+
+        const limpiar = document.getElementById('lcLimpiar');
+        if (limpiar) {
+          const q = (document.getElementById('q') || {}).value || '';
+          const tabActivo = _activeStatusTab && _activeStatusTab !== 'all';
+          limpiar.hidden = !(q || (agente && agente.value) || (linea && linea.value) || tabActivo);
+        }
+      }
+
+      // Aplica el criterio de un tab a una lista ya filtrada, sin tocar el tab activo.
+      function allItemsPorTab(items, tab) {
+        const previo = _activeStatusTab;
+        _activeStatusTab = tab;
+        try { return applyFilters(items); } finally { _activeStatusTab = previo; }
       }
       
       // Función para actualizar el contador de leads
@@ -2849,6 +2943,9 @@
       }
 
       async function load(){
+        // Teams y supervisor propio (permisos): de aquí sale el agrupado del
+        // desplegable de agentes y el token con el que se cruzan los teams.
+        await loadLineasTeams();
         allItems = await fetchData();
         sortNewToOld(allItems);
         _restrictTeamToggle(allItems);
@@ -2872,6 +2969,7 @@
         const filteredItems = applyFilters(allItems);
         renderTable(filteredItems);
         updateLeadCounter(filteredItems.length);
+        lcCabecera(filteredItems);   // subtítulo, rótulos y cuentas de los chips
         if (!statusChart || !agentChart) initCharts();
         updateKPIs(filteredItems, applyFilters(allItems, {ventaStricta:true}));
         setInterval(refreshMonthlyKPIs, 30000);
@@ -2949,6 +3047,22 @@
       if (q)              q.addEventListener('input',  ()=> applyAndRender());
       if (qs)             qs.addEventListener('change', ()=> applyAndRender());
       if (agentFilter)    agentFilter.addEventListener('change', ()=> applyAndRender());
+
+      // Limpiar filtros: deja la pantalla como recién abierta (el mes sigue
+      // siendo el que toca, que es el criterio por defecto de la vista).
+      const lcLimpiar = document.getElementById('lcLimpiar');
+      if (lcLimpiar) lcLimpiar.addEventListener('click', () => {
+        const q = document.getElementById('q'); if (q) q.value = '';
+        [agentFilter, document.getElementById('lineStatusFilter')].forEach(sel => { if (sel) sel.value = ''; });
+        const chipTodos = document.querySelector('#statusTabsBar .stab[data-status="all"]');
+        if (chipTodos) chipTodos.click(); else applyAndRender();
+      });
+
+      // El botón de refrescar gira mientras se recargan los datos.
+      const lcRefrescar = document.getElementById('btnRefrescar');
+      if (lcRefrescar) lcRefrescar.addEventListener('click', function() {
+        this.classList.remove('lc-spin'); void this.offsetWidth; this.classList.add('lc-spin');
+      });
       if (teamFilter)     teamFilter.addEventListener('change', ()=>{ populateAgentFilterFromItems(allItems); applyAndRender(); });
       if (dateFrom)       dateFrom.addEventListener('change', ()=> applyAndRender());
       if (dateTo)         dateTo.addEventListener('change',   ()=> applyAndRender());
@@ -3042,36 +3156,19 @@
 
       // Detect supervisor por usuario y marcar por defecto (solo para supervisores)
       let defaultSupervisor = '';
-      let agentsList = [];
       try {
         const user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}');
         const name = String(user.supervisor||user.username||'').toUpperCase();
         const role = String(user.role||'').toLowerCase();
-        
+
         // Solo aplicar filtro de supervisor para roles de supervisor, NO para vendedores/agentes
-        const isSupervisor = role.includes('supervisor');
-        
-        if (isSupervisor) {
-          // Team y agentes del supervisor desde permisos (por token). Sin hardcode.
+        if (role.includes('supervisor')) {
+          // Team del supervisor desde permisos (por token). Sin hardcode.
           const myToken = normalizeTeamKey(user.team || user.supervisor || name);
           const myTeam = LINEAS_TEAMS.find(t => t.token === myToken);
-          if (myTeam) {
-            defaultSupervisor = myTeam.token;
-            agentsList = (myTeam.agents || []).map(a => a.name);
-          }
-
-          // Poblar filtro de agentes si es supervisor
-          if (agentFilter && agentsList.length > 0) {
-            const allowed = new Set(agentsList.map(a => normalizeAgentKey(a)));
-            const current = new Set();
-            (Array.isArray(allItems) ? allItems : []).forEach(it => {
-              const key = normalizeAgentKey(getAgentRaw(it));
-              if (key) current.add(key);
-            });
-            const merged = Array.from(new Set([...allowed, ...current])).sort((a, b) => a.localeCompare(b));
-            agentFilter.innerHTML = '<option value="">Todos</option>' +
-              merged.map(a => `<option value="${a}">${a}</option>`).join('');
-          }
+          if (myTeam) defaultSupervisor = myTeam.token;
+          // El desplegable de agentes lo arma populateAgentFilterFromItems, que
+          // ya distingue supervisor (los suyos) de admin/BO (todos, agrupados).
         }
       } catch (_) {}
 
@@ -3147,7 +3244,8 @@
         var dropdown = wrap.querySelector('.cs-dropdown');
         if (!select || !dropdown) return;
         dropdown.innerHTML = '';
-        Array.from(select.options).forEach(function(opt) {
+
+        function pintarOpcion(opt) {
           var item = document.createElement('div');
           item.className = 'cs-option' + (opt.selected ? ' cs-selected' : '');
           item.textContent = opt.text || opt.value || 'Todos';
@@ -3160,6 +3258,20 @@
             _csSync(wrap);
           });
           dropdown.appendChild(item);
+        }
+
+        // Los <optgroup> (agentes separados por supervisor) se pintan como
+        // encabezado; select.options los aplanaría y se perdería la separación.
+        Array.from(select.children).forEach(function(nodo) {
+          if (nodo.tagName === 'OPTGROUP') {
+            var cab = document.createElement('div');
+            cab.className = 'cs-group';
+            cab.textContent = nodo.label || '';
+            dropdown.appendChild(cab);
+            Array.from(nodo.children).forEach(pintarOpcion);
+          } else {
+            pintarOpcion(nodo);
+          }
         });
       }
 
@@ -3259,11 +3371,154 @@
       document.body.appendChild(o);
     }
 
+    /* ── Ficha de cliente (fila desplegada) ──────────────────────────────
+       Funciones sueltas porque se llaman desde atributos onclick del HTML
+       que genera renderTable, fuera del closure de la pantalla. */
+
+    // "5551230001" -> "555 123 0001". Solo para mostrar: el dato no se toca.
+    function lcTelefono(v) {
+      var d = String(v || '').replace(/\D/g, '');
+      return d.length === 10 ? d.slice(0,3) + ' ' + d.slice(3,6) + ' ' + d.slice(6) : (v || '');
+    }
+
+    // "2026-09-22" -> "22 sept"
+    function lcFechaCorta(v) {
+      if (!v) return '—';
+      try {
+        return new Date(String(v).slice(0,10) + 'T00:00')
+          .toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }).replace('.', '');
+      } catch (_) { return v; }
+    }
+
+    function fcIniciales(nombre) {
+      var limpio = String(nombre || '').replace(/[^A-Za-zÀ-ÿ ]/g, '').trim();
+      if (!limpio) return '?';
+      return limpio.split(/\s+/).map(function(p){ return p[0]; }).join('').slice(0, 2).toUpperCase();
+    }
+
+    // Mismo código de color que las píldoras de estado del listado.
+    var FC_COLORES = {
+      pending:     'var(--fc-orange)',
+      active:      'var(--fc-blue)',
+      completed:   'var(--fc-green)',
+      cancelled:   'var(--fc-red)',
+      hold:        'var(--fc-gray)',
+      rescheduled: 'var(--fc-gray)'
+    };
+    function fcColorEstado(st) { return FC_COLORES[String(st || '').toLowerCase()] || 'var(--fc-gray)'; }
+    function fcEtiquetaEstado(st) {
+      var s = String(st || 'pending').toLowerCase();
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    }
+
+    // Estados de LÍNEA (en mayúsculas, distintos de los del cliente).
+    var FC_COLORES_LINEA = {
+      PENDING:   'var(--fc-orange)',
+      ACTIVE:    'var(--fc-blue)',
+      COMPLETED: 'var(--fc-green)',
+      CANCELLED: 'var(--fc-red)',
+      REPRO:     'var(--fc-gray)'
+    };
+    // Igual que fcColorEstado pero en color literal: el avatar lo necesita
+    // dentro de un color-mix(), donde una var() anidada no resuelve.
+    var FC_PLANOS = {
+      pending: '#ff9f0a', active: '#34c759', completed: '#30b0c7',
+      cancelled: '#ff3b30', hold: '#8e8e93', repro: '#8e8e93', rescheduled: '#8e8e93'
+    };
+    function fcColorEstadoPlano(st) { return FC_PLANOS[String(st || '').toLowerCase()] || '#8e8e93'; }
+
+    function fcColorEstadoLinea(st) { return FC_COLORES_LINEA[String(st || '').toUpperCase()] || 'var(--fc-gray)'; }
+
+    // Repinta la píldora de la línea. El guardado del estado lo sigue haciendo
+    // el handler de .line-status-select, que no se toca.
+    function fcEstadoLinea(sel) {
+      var pill = sel.closest('.fc-line-status');
+      if (!pill) return;
+      pill.style.setProperty('--c', fcColorEstadoLinea(sel.value));
+      var txt = pill.querySelector('.fc-status-txt');
+      if (txt) txt.textContent = sel.value;
+    }
+
+    function fcCambioEstado(sel) {
+      // La píldora ya no envuelve al selector: vive en la cabecera y el estado
+      // se cambia desde la lista de Cuenta, así que se busca por la fila.
+      var fila = sel.closest('.details-row');
+      var pill = fila ? fila.querySelector('.fc-status') : sel.closest('.fc-status');
+      if (!pill) return;
+      pill.style.setProperty('--c', fcColorEstado(sel.value));
+      var txt = pill.querySelector('.fc-status-txt');
+      if (txt) txt.textContent = fcEtiquetaEstado(sel.value);
+    }
+
+    function fcVerPin(btn) {
+      var campo = btn.parentElement.querySelector('.ile-pin');
+      if (!campo) return;
+      var oculto = campo.type === 'password';
+      campo.type = oculto ? 'text' : 'password';
+      btn.textContent = oculto ? 'Ocultar' : 'Mostrar';
+    }
+
+    function fcLineas(idx, paso) {
+      var fila = document.querySelector('.details-row[data-row-index="' + idx + '"]');
+      if (!fila) return;
+      var campo = fila.querySelector('.ile-cant[data-row="' + idx + '"]');
+      var vista = fila.querySelector('.fc-count[data-row="' + idx + '"]');
+      if (!campo) return;
+      var n = Math.max(1, Math.min(10, (parseInt(campo.value, 10) || 1) + paso));
+      campo.value = String(n);
+      if (vista) vista.textContent = String(n);
+    }
+
+    function fcFechas(idx) {
+      var fila = document.querySelector('.details-row[data-row-index="' + idx + '"]');
+      if (!fila) return;
+      var d1 = fila.querySelector('.ile-dventa[data-row="' + idx + '"]');
+      var d2 = fila.querySelector('.ile-dinst[data-row="' + idx + '"]');
+      var l1 = fila.querySelector('.fc-d1-lbl[data-row="' + idx + '"]');
+      var l2 = fila.querySelector('.fc-d2-lbl[data-row="' + idx + '"]');
+      var hueco = fila.querySelector('.fc-gap[data-row="' + idx + '"]');
+      var fmt = function(v) {
+        if (!v) return '—';
+        try {
+          return new Date(v + 'T00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }).replace('.', '');
+        } catch (_) { return v; }
+      };
+      if (l1 && d1) l1.textContent = fmt(d1.value);
+      if (l2 && d2) l2.textContent = fmt(d2.value);
+      if (hueco && d1 && d2) {
+        if (!d1.value || !d2.value) { hueco.textContent = ''; return; }
+        var dias = Math.round((new Date(d2.value) - new Date(d1.value)) / 864e5);
+        hueco.textContent = dias === 0 ? 'Mismo día'
+                          : dias < 0   ? 'Revisar fechas'
+                          : dias + (dias === 1 ? ' día' : ' días');
+      }
+    }
+
+    // Deshace lo tecleado: cada campo guarda su valor de partida en data-inicial.
+    function fcDescartar(idx) {
+      var fila = document.querySelector('.details-row[data-row-index="' + idx + '"]');
+      if (!fila) return;
+      fila.querySelectorAll('[data-inicial]').forEach(function(el) { el.value = el.dataset.inicial; });
+      var vista = fila.querySelector('.fc-count[data-row="' + idx + '"]');
+      var cant  = fila.querySelector('.ile-cant[data-row="' + idx + '"]');
+      if (vista && cant) vista.textContent = cant.value;
+      var sel = fila.querySelector('.ile-status[data-row="' + idx + '"]');
+      if (sel) fcCambioEstado(sel);
+      fcFechas(idx);
+      var msg = fila.querySelector('.ile-save-msg[data-row="' + idx + '"]');
+      if (msg) msg.textContent = '';
+    }
+
+    function fcNotaEscrita(input) {
+      var btn = input.parentElement.querySelector('.fc-send');
+      if (btn) btn.disabled = !input.value.trim();
+    }
+
     function _clImgRemove(btn) {
       var zone = btn.closest('.ile-img-zone');
       if (!zone) return;
       zone._imgFile = null;
-      var inp = zone.nextElementSibling;
+      var inp = zone.querySelector('.ile-img-input') || zone.nextElementSibling;
       if (inp && inp.tagName === 'INPUT') inp.value = '';
       var preview = zone.querySelector('.ile-img-preview');
       if (preview) { preview.src = ''; preview.style.display = 'none'; }
@@ -3277,7 +3532,9 @@
     function _clImgSelect(e, inp) {
       var file = e.target.files[0];
       if (!file) return;
-      var zone = inp.previousElementSibling;
+      // En la ficha el <input file> va DENTRO de la zona (es un <label>), no
+      // como hermano: se aceptan las dos colocaciones.
+      var zone = inp.closest('.ile-img-zone') || inp.previousElementSibling;
       if (!zone || !zone.classList.contains('ile-img-zone')) return;
       zone._imgFile = file;
       var reader = new FileReader();
@@ -3465,7 +3722,7 @@
 
     function renderNoteCards(leadId, container, notes) {
       if (!notes || notes.length === 0) {
-        container.innerHTML = '<span style="font-size:11px;color:#CBD5E1;padding:4px 0;">Sin notas</span>';
+        container.innerHTML = '<div class="fc-empty">Sin notas todavía</div>';
         return;
       }
       container.innerHTML = notes.map(function(n) {
@@ -3511,31 +3768,15 @@
       document.body.appendChild(overlay);
     }
 
-    function showAddNoteForm(leadId) {
-      var area = document.querySelector('.ile-add-note-area[data-lead="' + leadId + '"]');
-      if (!area) return;
-      area.innerHTML =
-        '<label style="display:block;font-size:10px;font-weight:800;color:#2563EB;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Nueva nota</label>' +
-        '<div class="ile-note-form-box">' +
-          '<textarea class="ile-note-ta" placeholder="Escribe aquí..." style="width:100%;min-height:90px;border:1px solid #CBD5E1;border-radius:8px;padding:7px 8px;font-size:12px;color:#334155;resize:none;outline:none;font-family:inherit;line-height:1.5;box-sizing:border-box;"></textarea>' +
-          '<div style="display:flex;gap:6px;margin-top:8px;">' +
-            '<button onclick="saveLeadNote(\''+leadId+'\')" style="flex:1;background:linear-gradient(135deg,#1E3A8A,#2563EB);color:#fff;border:none;padding:7px 0;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;"><i class="fas fa-check" style="margin-right:4px;"></i>Guardar</button>' +
-            '<button onclick="cancelAddNote(\''+leadId+'\')" style="background:#F1F5F9;border:1px solid #E2E8F0;color:#64748B;padding:7px 10px;border-radius:8px;font-size:12px;cursor:pointer;">✕</button>' +
-          '</div>' +
-        '</div>';
-      var ta = area.querySelector('.ile-note-ta');
-      if (ta) ta.focus();
-    }
-
+    // Tras guardar una nota se vuelve aquí: en la ficha el alta está siempre a
+    // la vista (caja de escritura), así que basta con vaciarla.
     function cancelAddNote(leadId) {
       var area = document.querySelector('.ile-add-note-area[data-lead="' + leadId + '"]');
       if (!area) return;
-      area.innerHTML =
-        '<label style="display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Notas</label>' +
-        '<button class="ile-add-note-btn-main" onclick="showAddNoteForm(\''+leadId+'\')">' +
-          '<i class="fas fa-plus-circle" style="font-size:22px;opacity:.35;"></i>' +
-          '<span>Agregar nota</span>' +
-        '</button>';
+      var campo = area.querySelector('.ile-note-ta');
+      if (campo) campo.value = '';
+      var btn = area.querySelector('.fc-send');
+      if (btn) btn.disabled = true;
     }
 
     async function saveLeadNote(leadId) {

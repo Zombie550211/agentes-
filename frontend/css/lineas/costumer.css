@@ -257,6 +257,14 @@
       transition: background .12s, color .12s;
     }
     .cs-option:hover { background: #EFF6FF; color: #1D4ED8; }
+    /* Encabezado de grupo: los agentes van bajo el nombre de su supervisor. */
+    .cs-group {
+      padding: 8px 12px 4px; font-size: 10px; font-weight: 800;
+      letter-spacing: .08em; text-transform: uppercase; color: #94A3B8;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .cs-group + .cs-option { margin-top: 0; }
+    .cs-option + .cs-group { border-top: 1px solid #EEF2F7; margin-top: 4px; }
     .cs-option.cs-selected {
       background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%);
       color: #fff; font-weight: 700;
@@ -309,8 +317,10 @@
     }
 
     /* ═══ NOTAS DE CLIENTE ═══ */
+    /* 82px: con 72 las dos líneas de texto no entraban y la segunda se partía
+       por la mitad justo donde empieza el degradado. */
     .ile-note-card {
-      width: 155px; height: 72px; flex-shrink: 0;
+      width: 155px; height: 82px; flex-shrink: 0;
       background: var(--sup-1); border: 1.5px solid #E0E8F5; border-radius: 11px;
       padding: 8px 28px 8px 10px;
       box-shadow: 0 1px 4px rgba(30,58,138,.07);
@@ -345,7 +355,7 @@
     }
     .ile-note-del:hover { color: #EF4444; }
     .ile-add-note-btn-main {
-      width: 155px; height: 72px;
+      width: 155px; height: 82px;
       border: 2px dashed var(--linea-fuerte); border-radius: 11px; background: var(--sup-2);
       display: flex; flex-direction: row; align-items: center; justify-content: center;
       gap: 7px; cursor: pointer; font-size: 12px; font-weight: 700; color: var(--texto-3);
@@ -353,7 +363,7 @@
     }
     .ile-add-note-btn-main:hover { border-color: #3B82F6; color: #2563EB; background: #EFF6FF; }
     .ile-note-form-box {
-      width: 155px; background: var(--sup-1); border: 1.5px solid #2563EB;
+      width: 210px; background: var(--sup-1); border: 1.5px solid #2563EB;
       border-radius: 11px; padding: 9px; box-shadow: 0 0 0 3px rgba(37,99,235,.1);
     }
     /* Modal de nota completa */
@@ -479,6 +489,44 @@
     /* ═══ BARRA KPI COMPACTA (estilo pills) ═══
        .kpix-bar es la barra realmente usada en el HTML (la vieja .kpi-strip
        de arriba quedó sin markup que la use) — no tenía CSS en modo claro. */
+    /* ═══ CABECERA UNIFICADA (.hdr-bar) ═══
+       Antes .fbar y .kpix-bar eran dos tarjetas apiladas, cada una con su
+       fondo, su borde y su sombra: el doble de alto para la misma información.
+       Y los KPI iban centrados, así que en pantallas anchas quedaba un hueco
+       enorme a ambos lados. Ahora comparten tarjeta: filtros arriba y KPI en
+       una tira fina abajo, ambos alineados a la izquierda. */
+    .hdr-bar {
+      background: var(--sup-1); border: 1px solid #D1DCF0;
+      border-radius: 14px; margin-bottom: 14px; overflow: hidden;
+      box-shadow: 0 2px 8px rgba(30,58,138,.07);
+    }
+    .hdr-bar > .fbar,
+    .hdr-bar > .kpix-bar {
+      background: transparent; border: none; box-shadow: none;
+      border-radius: 0; margin-bottom: 0;
+    }
+    .hdr-bar > .fbar { padding: 11px 14px; }
+    .hdr-bar > .kpix-bar {
+      justify-content: flex-start; gap: 10px; padding: 7px 14px;
+      border-top: 1px solid var(--linea); background: var(--sup-2);
+    }
+    .hdr-bar .kpix-pills { flex: 1 1 auto; justify-content: flex-start; gap: 0; }
+    /* En la tira, los KPI no necesitan caja propia: basta el punto de color y
+       un separador entre uno y otro. */
+    .hdr-bar .kpix-item {
+      background: transparent; border: none; border-radius: 0;
+      padding: 0 13px 0 0; margin-right: 13px; position: relative;
+    }
+    .hdr-bar .kpix-item:not(:last-child)::after {
+      content: ""; position: absolute; right: 0; top: 50%;
+      width: 3px; height: 3px; margin-top: -1.5px;
+      border-radius: 50%; background: var(--linea-fuerte);
+    }
+    .hdr-bar .kpix-refresh { padding: 6px 13px; font-size: 11.5px; flex-shrink: 0; }
+    /* El contador ancla a la derecha: así los filtros quedan agrupados y no
+       queda un hueco suelto en medio de la fila. */
+    .hdr-bar > .fbar > .lead-counter-badge { margin-left: auto !important; }
+
     .kpix-bar {
       display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap;
       background: var(--sup-1); border: 1px solid #D1DCF0;
@@ -510,7 +558,8 @@
       border-radius: 14px; padding: 10px 16px; margin-bottom: 14px;
       box-shadow: 0 2px 8px rgba(30,58,138,.07);
     }
-    .fbar-search { flex: 1.5; min-width: 200px; }
+    /* No crece: con flex:1.5 se comía todo el ancho sobrante de la fila. */
+    .fbar-search { flex: 0 1 290px; min-width: 190px; }
     .fbar .search-input-field { border-radius: 50px !important; }
     .fbar-dd {
       display: flex; align-items: center; gap: 6px;
@@ -531,6 +580,37 @@
       padding: 7px 22px 7px 4px !important; width: auto !important; min-width: 70px;
     }
     .team-toggle { border-radius: 50px !important; }
+
+    /* ═══ FILA EXPANDIDA — COLUMNAS DE LA DERECHA ═══
+       Imagen, llamadas y notas colgaban sueltas del mismo flex, y el listado de
+       notas iba sin rótulo propio: "Sin notas" acababa flotando a la izquierda
+       del título NOTAS, que pertenecía al botón de al lado. Ahora son tres
+       columnas con el mismo encabezado, y las notas (alta + listado) viven en
+       una sola.
+       Las tres no caben en una línea con el ancho que deja el formulario, así
+       que imagen y llamadas comparten la primera y las notas se llevan una
+       franja entera: es lo que necesitaban para no quedar apretadas. */
+    .ile-side {
+      display: grid; grid-template-columns: 155px minmax(0, 1fr);
+      gap: 14px 18px; align-items: start; flex-shrink: 0;
+    }
+    .ile-side .ile-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+    .ile-col-img       { grid-column: 1; }
+    .ile-llamadas-wrap { grid-column: 2; min-width: 190px; }
+    .ile-notas-col     { grid-column: 1 / -1; }
+    /* Alta y notas comparten fila y tamaño: "Agregar nota" es una tarjeta más. */
+    .ile-notas-fila {
+      display: flex; flex-flow: row wrap; gap: 8px; align-items: flex-start;
+    }
+    .ile-lbl {
+      display: block; margin: 0 0 2px;
+      font-size: 10px; font-weight: 800; letter-spacing: 1px;
+      color: var(--texto-3); text-transform: uppercase;
+    }
+    .ile-lbl i { margin-right: 6px; opacity: .55; font-size: 10px; }
+    .ile-notas-col .ile-notes-container {
+      display: flex; flex-flow: row wrap; gap: 8px; align-items: flex-start;
+    }
 
     /* ═══ CLIENT CARDS ═══ */
     .costumer-table thead { display: none !important; }

@@ -1,0 +1,255 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   COSTUMER DE LÍNEAS — hoja única de la página
+   ═══════════════════════════════════════════════════════════════════════
+   Es el CSS del prototipo aprobado, extraído del HTML y acotado a .lc.
+
+   Por qué todo cuelga de .lc: los nombres del prototipo (.row, .card, .chip,
+   .list, .note, .btn, .search) son tan genéricos que sueltos habrían chocado
+   con media docena de hojas del CRM. Con el ámbito, esta página manda dentro
+   de su marco y no toca nada fuera de él — que era justo el desorden del que
+   veníamos.
+
+   El reset también va acotado: el prototipo da por hecho margin/padding a cero
+   y border-box, pero imponerlo a toda la aplicación sería repetir el error. */
+
+/* A nivel de documento, no solo del contenedor: es lo que mira el modo
+   oscuro automático del navegador para dejar la página en paz. */
+html:has(.lc), html:has(.lc) body { color-scheme: light; background: #eef0f3; }
+
+.lc {
+  color-scheme: light;
+  --lc-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", "Helvetica Neue", Arial, sans-serif;
+  --lc-bg: #eef0f3;
+  --lc-glass: rgba(255,255,255,.58);
+  --lc-glass-in: rgba(255,255,255,.78);
+  --lc-stroke: rgba(255,255,255,.75);
+  --lc-hair: rgba(60,60,67,.12);
+  --lc-text: #1d1d1f;
+  --lc-text-2: #6e6e73;
+  --lc-text-3: #a1a1a6;
+  --lc-blue: #0071e3;
+  --lc-red: #ff3b30;
+  --lc-fill: rgba(118,118,128,.10);
+  --lc-fill-2: rgba(118,118,128,.16);
+  --lc-shadow: 0 1px 1px rgba(0,0,0,.03), 0 8px 30px rgba(20,30,60,.07);
+
+  position: relative;
+  font-family: var(--lc-font);
+  color: var(--lc-text);
+  background: var(--lc-bg);
+  letter-spacing: -.01em;
+  -webkit-font-smoothing: antialiased;
+  padding: 32px 16px 80px;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+.lc *, .lc *::before, .lc *::after { box-sizing: border-box; }
+.lc h1, .lc h2, .lc h3, .lc h4, .lc h5, .lc p, .lc dl, .lc dd, .lc dt, .lc figure { margin: 0; padding: 0; }
+.lc button { font: inherit; color: inherit; }
+
+/* El papel pintado que da sentido al cristal.
+   FIXED, como en el prototipo: anclado a la ventana, no al contenedor. Con
+   absolute los degradados se estiraban a lo largo de una lista de miles de
+   píxeles y a media página no quedaba color detrás del cristal — se veía todo
+   blanco sobre blanco. Queda por debajo de todo y no intercepta el ratón, así
+   que el sidebar (opaco y con su propio apilamiento) no se entera. */
+.lc::before {
+  content: ""; position: fixed; inset: -20%; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(36% 40% at 15% 15%, #a9ccff 0%, transparent 70%),
+    radial-gradient(30% 36% at 88% 8%, #ffd9bb 0%, transparent 70%),
+    radial-gradient(40% 45% at 75% 95%, #bff0de 0%, transparent 70%);
+  filter: blur(40px); opacity: .8;
+}
+.lc > * { position: relative; z-index: 1; }
+
+.lc-wrap { max-width: 1240px; margin: 0 auto; }
+.lc-glass {
+  background: var(--lc-glass);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid var(--lc-stroke);
+  border-radius: 22px;
+  box-shadow: var(--lc-shadow);
+}
+.lc .chev { width: 8px; height: 13px; flex: none; color: var(--lc-text-3); }
+
+/* ── Cabecera de página ─────────────────────────────────────── */
+.lc-head { display: flex; align-items: flex-end; gap: 16px; margin: 0 4px 20px; flex-wrap: wrap; }
+.lc-head h1 { font-size: 34px; font-weight: 700; letter-spacing: -.03em; line-height: 1; }
+.lc-head p { color: var(--lc-text-2); font-size: 15px; margin-top: 6px; }
+.lc-head .lc-spacer { flex: 1; }
+.lc-round {
+  width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--lc-fill);
+  cursor: pointer; display: grid; place-items: center; flex: none;
+  transition: background .2s, transform .15s; color: var(--lc-text);
+}
+.lc-round:hover { background: var(--lc-fill-2); }
+.lc-round:active { transform: scale(.94); }
+.lc-round svg { width: 16px; height: 16px; }
+.lc-round.lc-spin svg { animation: lcSpin .6s ease; }
+@keyframes lcSpin { to { transform: rotate(360deg); } }
+
+/* ── Barra de filtros ───────────────────────────────────────── */
+.lc-toolbar { padding: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.lc-search {
+  flex: 1 1 260px; display: flex; align-items: center; gap: 8px;
+  background: var(--lc-fill); border-radius: 12px; padding: 0 12px; height: 40px;
+}
+.lc-search svg { width: 16px; height: 16px; color: var(--lc-text-2); flex: none; }
+.lc-search input {
+  flex: 1; border: 0; background: transparent; outline: 0;
+  font: inherit; font-size: 15px; color: var(--lc-text); min-width: 0;
+}
+.lc-search input::placeholder { color: var(--lc-text-3); }
+
+/* Selector nativo superpuesto: el propio navegador pinta la lista, con sus
+   grupos por supervisor incluidos. Sustituye al desplegable a medida que
+   aplanaba los <optgroup>. */
+.lc-popup {
+  position: relative; display: inline-flex; align-items: center; gap: 6px;
+  height: 40px; padding: 0 12px 0 14px; border-radius: 12px;
+  background: var(--lc-fill); font-size: 15px; cursor: pointer; white-space: nowrap;
+}
+.lc-popup:hover { background: var(--lc-fill-2); }
+.lc-popup small { color: var(--lc-text-2); font-size: 13px; }
+.lc-popup b { font-weight: 500; }
+.lc-popup > svg { width: 10px; height: 10px; color: var(--lc-text-2); }
+.lc-popup select { position: absolute; inset: 0; opacity: 0; cursor: pointer; font: inherit; }
+.lc-clear {
+  border: 0; background: transparent; color: var(--lc-blue);
+  font-size: 15px; cursor: pointer; padding: 0 6px; height: 40px;
+}
+.lc-clear[hidden] { display: none; }
+
+/* ── Cifras ─────────────────────────────────────────────────── */
+.lc-stats { display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 14px; padding: 6px 0; }
+.lc-stat { padding: 12px 18px; position: relative; }
+.lc-stat + .lc-stat::before {
+  content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 1px; background: var(--lc-hair);
+}
+.lc-stat strong {
+  display: block; font-size: 24px; font-weight: 600;
+  letter-spacing: -.02em; font-variant-numeric: tabular-nums;
+}
+.lc-stat span { font-size: 13px; color: var(--lc-text-2); }
+@media (max-width: 900px) {
+  .lc-stats { grid-template-columns: repeat(4, 1fr); }
+  .lc-stat:nth-child(5)::before { display: none; }
+}
+@media (max-width: 520px) {
+  .lc-stats { grid-template-columns: repeat(2, 1fr); }
+  .lc-stat:nth-child(odd)::before { display: none; }
+}
+
+/* ── Chips de estado ────────────────────────────────────────── */
+.lc-list-head { display: flex; align-items: center; gap: 16px; margin: 30px 4px 14px; flex-wrap: wrap; }
+.lc-list-head h2 { font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+.lc-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+.lc-chip {
+  display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 13px;
+  border-radius: 999px; border: 0; background: var(--lc-glass-in);
+  box-shadow: inset 0 0 0 1px var(--lc-hair); cursor: pointer; font-size: 14px;
+  transition: background .2s, color .2s;
+}
+.lc-chip i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.lc-chip em { font-style: normal; color: var(--lc-text-3); font-size: 13px; font-variant-numeric: tabular-nums; }
+.lc-chip:hover { background: #fff; }
+.lc-chip.is-active { background: var(--lc-text); color: #fff; box-shadow: none; }
+.lc-chip.is-active em { color: rgba(255,255,255,.6); }
+
+/* ── Fila de cliente ────────────────────────────────────────── */
+.lc-list { display: flex; flex-direction: column; gap: 14px; }
+.lc-none { padding: 48px 16px; text-align: center; color: var(--lc-text-2); }
+.lc-client { overflow: hidden; transition: box-shadow .3s; }
+.lc-client.is-open { box-shadow: 0 1px 1px rgba(0,0,0,.03), 0 18px 50px rgba(20,30,60,.12); }
+.lc-client-row { display: flex; align-items: center; gap: 16px; padding: 16px 18px; cursor: pointer; }
+/* El color del estado, pero en sordina: el círculo a plena saturación pesaba
+   demasiado al lado de la píldora, que usa ese mismo color al 15%. */
+.lc-av {
+  width: 48px; height: 48px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; font-weight: 600; font-size: 17px;
+  color: color-mix(in srgb, var(--c) 72%, #000);
+  background: color-mix(in srgb, var(--c) 17%, #fff);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 22%, transparent);
+}
+.lc-main { flex: 1; min-width: 0; }
+.lc-main h3 {
+  font-size: 17px; font-weight: 600; letter-spacing: -.015em; margin-bottom: 8px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lc-meta { display: flex; flex-wrap: wrap; gap: 6px 26px; }
+.lc-meta > div { display: flex; flex-direction: column; gap: 1px; }
+.lc-meta dt { font-size: 12px; color: var(--lc-text-3); }
+.lc-meta dd { font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.lc-tag {
+  display: inline-block; border-radius: 6px; padding: 0 7px; font-size: 13px;
+  background: color-mix(in srgb, var(--lc-blue) 12%, transparent); color: var(--lc-blue);
+}
+.lc-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+.lc-actions .lc-del:hover { background: color-mix(in srgb, var(--lc-red) 14%, transparent); color: var(--lc-red); }
+.lc-actions .lc-tog svg { transition: transform .3s cubic-bezier(.2,.8,.2,1); }
+.lc-client.is-open .lc-tog svg { transform: rotate(90deg); }
+
+.lc-pill {
+  position: relative; display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 12px 6px 10px; border-radius: 999px;
+  font-size: 13px; font-weight: 600; white-space: nowrap;
+  background: color-mix(in srgb, var(--c) 15%, transparent);
+  color: color-mix(in srgb, var(--c) 80%, #000); cursor: pointer;
+}
+.lc-pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.lc-pill > svg { width: 10px; height: 10px; opacity: .7; }
+.lc-pill select { position: absolute; inset: 0; opacity: 0; cursor: pointer; font: inherit; }
+
+/* Acordeón: de 0fr a 1fr, sin alturas fijas ni saltos. */
+.lc-body {
+  display: grid; grid-template-rows: 0fr;
+  transition: grid-template-rows .4s cubic-bezier(.2,.8,.2,1);
+}
+.lc-client.is-open .lc-body { grid-template-rows: 1fr; }
+.lc-body-in { overflow: hidden; min-height: 0; }
+
+@media (max-width: 720px) {
+  .lc-client-row { flex-wrap: wrap; }
+  .lc-main { flex-basis: calc(100% - 64px); }
+  .lc-actions { width: 100%; justify-content: flex-end; }
+  .lc-head h1 { font-size: 28px; }
+}
+
+/* ── La tabla, por dentro, es la lista ─────────────────────────
+   El JS de la pantalla construye <tr>/<td> y engancha por ahí (data-row-index,
+   .details-row, .table-row). En vez de reescribirlo todo, las filas pasan a
+   comportarse como bloques: así cada <tr> es una tarjeta y el <td> el panel. */
+.lc-list table,
+.lc-list tbody,
+.lc-list tr,
+.lc-list td { display: block; width: 100%; }
+.lc-list thead { display: none; }
+.lc-list table { border-collapse: separate; }
+.lc-list tbody { display: flex; flex-direction: column; gap: 14px; }
+.lc-list td { padding: 0; border: 0; }
+
+.lc-list tr.table-row { cursor: pointer; }
+.lc-list tr.details-row {
+  overflow: hidden; border-radius: 22px;
+  border: 1px solid var(--lc-stroke); box-shadow: var(--lc-shadow);
+  margin-top: -6px;
+}
+.lc-list tr.row-colchon { box-shadow: var(--lc-shadow), inset 3px 0 0 #af52de; }
+
+/* La flecha del desplegable gira cuando la fila está abierta. */
+.lc-tog svg { transition: transform .3s cubic-bezier(.2,.8,.2,1); width: 8px; height: 13px; }
+.lc-client.is-open .lc-tog svg { transform: rotate(90deg); }
+
+/* El <select> de estado va dentro de la píldora, invisible: se ve el color y
+   el texto, y al pulsar sale la lista nativa del sistema. */
+.lc-pill select {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  appearance: none; -webkit-appearance: none; border: 0; background: transparent;
+}
+
+/* La ficha vive dentro de la lista: comparte su fondo en vez de traer otro. */
+.lc .fc { background: transparent; padding: 22px 18px 24px; }
+.lc .fc::before { content: none; }
+.lc tr.details-row { background: rgba(255,255,255,.28); }
