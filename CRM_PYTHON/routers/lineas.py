@@ -69,6 +69,50 @@ def _team_token(team_name: str) -> str:
     return parts[0] if parts else ""
 
 
+# Claves con las que se guarda el supervisor en la BD de Líneas. Es la forma
+# canónica: todo lo demás (nombre completo, usuario, nombre del team) se reduce
+# a una de estas tres con _canon_supervisor.
+_SUP_CANON = ("jonathan f", "luis g", "victor h")
+
+# Variantes conocidas que no se resuelven por nombre de pila.
+_SUP_ALIAS = {
+    "jonathan figueroa": "jonathan f",
+    "victor hurtado":    "victor h",
+}
+
+
+def _canon_supervisor(valor: str) -> str:
+    """'Jonathan Figueroa' / 'jonathan.figueroa' / 'TEAM LINEAS JONATHAN' -> 'jonathan f'.
+
+    Devuelve '' si el valor no corresponde a ningún supervisor de Líneas.
+    """
+    v = str(valor or "").replace(".", " ").replace("_", " ").lower()
+    v = re.sub(r"\s+", " ", v).strip()
+    if not v:
+        return ""
+    if v in _SUP_CANON:
+        return v
+    if v in _SUP_ALIAS:
+        return _SUP_ALIAS[v]
+    # Nombre de pila: cubre nombres completos y nombres de team ('team lineas luis').
+    nombre = v.replace("team lineas", "").replace("team", "").strip()
+    for canon in _SUP_CANON:
+        if nombre.startswith(canon.split()[0]):
+            return canon
+    return ""
+
+
+def _supervisor_asignado(user: dict) -> str:
+    """Supervisor que le toca al usuario según permisos (users.supervisor / users.team).
+
+    Es la fuente de verdad del campo: el formulario ya no lo elige, solo lo muestra.
+    Devuelve '' cuando no se puede determinar — admin y backoffice no cuelgan de
+    ningún team, y ésos sí siguen eligiendo.
+    """
+    return (_canon_supervisor(user.get("supervisor") or "")
+            or _canon_supervisor(user.get("team") or ""))
+
+
 async def get_lineas_teams() -> list:
     """Teams de Líneas derivados de la tabla `users` (página de permisos).
 
@@ -107,8 +151,33 @@ async def get_lineas_teams() -> list:
 @router.get("/api/lineas/teams")
 async def lineas_teams(user: dict = Depends(current_user)):
     """Teams/agentes de Líneas según la página de permisos (tabla users).
-    Fuente única para todas las pantallas de Líneas — nada hardcodeado."""
-    return {"success": True, "teams": await get_lineas_teams()}
+    Fuente única para todas las pantallas de Líneas — nada hardcodeado.
+
+    `assigned` dice qué supervisor le corresponde a QUIEN pregunta. Con
+    locked=true el formulario de alta no ofrece opciones: pinta ese y punto
+    (el POST lo impone igualmente, esto es solo para que la UI no mienta).
+    Los demás consumidores (ranking, estadísticas…) siguen leyendo `teams`.
+    """
+    teams    = await get_lineas_teams()
+    asignado = "" if _is_admin_bo_lineas(user) else _supervisor_asignado(user)
+
+    label = ""
+    if asignado:
+        for t in teams:
+            sup_name = (t.get("supervisor") or {}).get("name") or ""
+            if _canon_supervisor(sup_name) == asignado or _canon_supervisor(t.get("team", "")) == asignado:
+                label = t.get("label") or ""
+                break
+
+    return {
+        "success": True,
+        "teams": teams,
+        "assigned": {
+            "supervisor": asignado.upper(),
+            "label":      label or asignado.upper(),
+            "locked":     bool(asignado),
+        },
+    }
 
 
 # ── Autorización por alcance (visibilidad = permiso de edición) ──────
@@ -475,7 +544,9 @@ class LineasBody(BaseModel):
     cantidad_lineas:   int
     id:                str
     mercado:           str
-    supervisor:        str
+    # Opcional a propósito: lo resuelve el servidor desde los permisos del usuario.
+    # Solo se tiene en cuenta para admin/backoffice (ver post_lineas).
+    supervisor:        Optional[str] = ""
     telefonos:         Optional[List[str]] = []
     servicios:         Optional[List[str]] = []
     agenteAsignado:    Optional[str] = None
@@ -491,7 +562,6 @@ async def post_lineas(body: LineasBody, user: dict = Depends(current_user)):
     status_norm  = _normalize_status(body.status)
     mercado      = str(body.mercado or "").lower()
     role         = str(user.get("role", "")).lower()
-    supervisor_val = str(body.supervisor or "").lower()
 
     if autopay_val not in ("si", "no"):
         errors.append("autopay debe ser si | no")
@@ -500,28 +570,22 @@ async def post_lineas(body: LineasBody, user: dict = Depends(current_user)):
     if mercado not in ("bamo", "icon"):
         errors.append("mercado debe ser bamo | icon")
 
-    if not supervisor_val and user.get("supervisor"):
-        supervisor_val = str(user["supervisor"]).lower()
-    elif not supervisor_val and user.get("team"):
-        t = str(user["team"]).lower()
-        if "jonathan" in t:
-            supervisor_val = "jonathan f"
-        elif "luis" in t:
-            supervisor_val = "luis g"
-
-    # Normalizar supervisor a clave corta si viene nombre completo
-    _sup_map = {
-        "jonathan figueroa": "jonathan f", "jonathan.figueroa": "jonathan f",
-        "jonathan f": "jonathan f",
-        "luis g": "luis g", "luis.g": "luis g",
-        "victor hurtado": "victor h", "victor.hurtado": "victor h",
-        "victor h": "victor h",
-    }
-    supervisor_val = _sup_map.get(supervisor_val, supervisor_val)
+    # El supervisor NO lo decide el cliente. Sale de los permisos del usuario
+    # (users.supervisor / users.team): antes viajaba en el body, así que un agente
+    # podía registrar el lead en otro equipo simplemente cambiando la petición.
+    # Admin y backoffice sí eligen — son los únicos que dan de alta por cualquier
+    # team — y a ellos el formulario les sigue mostrando las opciones.
+    asignado = _supervisor_asignado(user)
+    if _is_admin_bo_lineas(user):
+        supervisor_val = _canon_supervisor(body.supervisor) or asignado
+    else:
+        # Sin supervisor asignado (agente suelto, sin team en permisos) se acepta
+        # el del body: dejarlo sin salida sería peor que el riesgo que cubre.
+        supervisor_val = asignado or _canon_supervisor(body.supervisor)
 
     if not supervisor_val:
         errors.append("No se pudo determinar el supervisor")
-    elif supervisor_val not in ("jonathan f", "luis g", "victor h"):
+    elif supervisor_val not in _SUP_CANON:
         errors.append("supervisor inválido (permitidos: JONATHAN F, LUIS G, VICTOR H)")
 
     cantidad_lineas = int(body.cantidad_lineas or 0)
@@ -682,13 +746,17 @@ async def lineas_team_update(body: LineasTeamUpdateBody, user: dict = Depends(cu
     if body.imagen_url is not None:
         sets.append("imagen_url = :img"); params["img"] = body.imagen_url or None
     if body.supervisor is not None and body.supervisor.strip():
-        # Normalizar a clave corta: "JONATHAN F" o "LUIS G"
-        sup_clean = body.supervisor.strip().upper()
-        if "JONATHAN" in sup_clean:
-            sup_clean = "JONATHAN F"
-        elif "LUIS" in sup_clean:
-            sup_clean = "LUIS G"
-        sets.append("supervisor = :sup"); params["sup"] = sup_clean
+        # Mismo criterio que el alta: el supervisor sale de los permisos, no del
+        # cliente. Sin esta comprobación bastaba con crear el registro y editarlo
+        # después para moverlo al team de otro. Admin y backoffice sí lo cambian.
+        sup_pedido = _canon_supervisor(body.supervisor)
+        asignado   = _supervisor_asignado(user)
+        if not _is_admin_bo_lineas(user) and asignado and sup_pedido != asignado:
+            raise HTTPException(403, "No puedes mover un registro al team de otro supervisor")
+        # _canon_supervisor deja la clave corta con la que se guarda ("VICTOR H");
+        # antes VICTOR se escapaba de la normalización y entraba tal cual.
+        sets.append("supervisor = :sup")
+        params["sup"] = (sup_pedido or body.supervisor.strip()).upper()
 
     if body.line_index is not None:
         li = int(body.line_index)

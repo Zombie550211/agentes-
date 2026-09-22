@@ -34,7 +34,7 @@
   <link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
   <link rel="stylesheet" href="/css/base/theme.css?v=20251124f"/>
   <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css" />
-  <link rel="stylesheet" href="/css/lineas/lead.css?v=20260828">
+  <link rel="stylesheet" href="/css/lineas/lead.css?v=20260922">
   <link rel="stylesheet" href="/css/componentes/glass-cards-cream.css?v=20260716a">
   <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
 </head>
@@ -159,6 +159,7 @@
                 <div class="ll-toggle-group" id="supervisorPills">
                   <!-- Pills de supervisor generadas desde /api/lineas/teams (permisos) -->
                 </div>
+                <div id="supervisorNote" style="display:none;font-size:10px;color:#94a3b8;margin-top:5px;font-style:italic;">Asignado automáticamente según tu equipo</div>
               </div>
             </div>
             <div class="ll-field" id="assignWrap" style="display:none;">
@@ -313,7 +314,7 @@
     /* ── Toggle pills (delegación: cubre pills generadas dinámicamente) ── */
     document.addEventListener('click', function(e) {
       var pill = e.target && e.target.closest ? e.target.closest('.ll-pill') : null;
-      if (!pill) return;
+      if (!pill || pill.classList.contains('ll-pill-fija')) return;
       var group = pill.dataset.group;
       document.querySelectorAll('.ll-pill[data-group="' + group + '"]').forEach(function(p){ p.classList.remove('active'); });
       pill.classList.add('active');
@@ -325,8 +326,21 @@
         var res = await fetch('/api/lineas/teams', { credentials: 'include' });
         var data = res.ok ? await res.json() : null;
         var teams = (data && data.teams) || [];
+        var asignado = (data && data.assigned) || null;
         var cont = document.getElementById('supervisorPills');
         if (!cont) return;
+
+        // Quien cuelga de un team no elige supervisor: se pinta el suyo, activo y
+        // sin alternativas. El POST lo impone igualmente — esto es la UI, no el
+        // control. Admin y backoffice siguen viendo todos los teams.
+        if (asignado && asignado.locked && asignado.supervisor) {
+          cont.innerHTML = '<div class="ll-pill active ll-pill-fija" data-group="supervisor" data-value="'
+            + escH(asignado.supervisor) + '">' + escH(asignado.label || asignado.supervisor) + '</div>';
+          var nota = document.getElementById('supervisorNote');
+          if (nota) nota.style.display = 'block';
+          return;
+        }
+
         cont.innerHTML = teams.map(function(t, i) {
           var sup = (t.supervisor && t.supervisor.name) || t.label || t.token;
           var lbl = t.label || ('Team ' + (t.token || ''));
