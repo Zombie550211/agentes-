@@ -226,6 +226,20 @@ _MIGRATIONS: list[tuple[str, str]] = [
     ("0044_seed_producto_att_2g", """INSERT IGNORE INTO productos
         (servicio, categoria, tipo, sistema, score_base)
         VALUES ('ATT 2G+', 'ATT', 'INTERNET', 'SARA', 1.50)"""),
+    # ATT 2G+ se sustituye por las velocidades concretas 2G, 3G, 4G y 5G (1.5 fijo,
+    # igual que ATT 1G). INSERT IGNORE: no pisa filas que el admin ya haya creado.
+    ("0045_seed_productos_att_2g_5g", """INSERT IGNORE INTO productos
+        (servicio, categoria, tipo, sistema, score_base) VALUES
+        ('ATT 2G', 'ATT', 'INTERNET', 'SARA', 1.50),
+        ('ATT 3G', 'ATT', 'INTERNET', 'SARA', 1.50),
+        ('ATT 4G', 'ATT', 'INTERNET', 'SARA', 1.50),
+        ('ATT 5G', 'ATT', 'INTERNET', 'SARA', 1.50)"""),
+    # Retira ATT 2G+ del catálogo, salvo que ya haya ventas guardadas con él: en ese
+    # caso se conserva para que esas ventas sigan teniendo su servicio en el select.
+    ("0046_retirar_producto_att_2g_plus", """DELETE FROM productos
+        WHERE servicio = 'ATT 2G+'
+          AND NOT EXISTS (SELECT 1 FROM leads
+                          WHERE JSON_CONTAINS(servicios, '"ATT 2G+"'))"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración
