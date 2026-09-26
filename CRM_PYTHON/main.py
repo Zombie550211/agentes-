@@ -220,6 +220,12 @@ _MIGRATIONS: list[tuple[str, str]] = [
     )"""),
     # Fecha de ingreso del empleado, para calcular antigüedad en "Tiempo laboral".
     ("0043_users_fecha_ingreso", "ALTER TABLE users ADD COLUMN fecha_ingreso DATE NULL"),
+    # Velocidad ATT 2G+ en el catálogo de servicios (puntaje fijo 1.5). ensure_productos
+    # solo siembra una tabla vacía; esto la añade a la BD ya poblada. INSERT IGNORE:
+    # si el admin ya la creó desde Permisos, no se toca.
+    ("0044_seed_producto_att_2g", """INSERT IGNORE INTO productos
+        (servicio, categoria, tipo, sistema, score_base)
+        VALUES ('ATT 2G+', 'ATT', 'INTERNET', 'SARA', 1.50)"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración

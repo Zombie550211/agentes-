@@ -22,6 +22,7 @@ SCORING_SEED = {
     'ATT 300': {'categoria': 'ATT', 'base': 1.25},
     'ATT 500': {'categoria': 'ATT', 'base': 1.25},
     'ATT 1G': {'categoria': 'ATT', 'base': 1.5},
+    'ATT 2G+': {'categoria': 'ATT', 'base': 1.5},
     'SPECTRUM 500': {'categoria': 'SPECTRUM', 'base': 1.0},
     'SPECTRUM 1G': {'categoria': 'SPECTRUM', 'base': 1.0},
     'SPECTRUM 2G': {'categoria': 'SPECTRUM', 'base': 1.25},

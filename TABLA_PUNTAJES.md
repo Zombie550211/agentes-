@@ -33,6 +33,7 @@ El puntaje se calcula automáticamente en el frontend y se valida en el backend.
 | **ATT 50-100 MB** | 0.70 |
 | **ATT 300-500 MB** | 1.25 |
 | **ATT 1G+** | 1.5 |
+| **ATT 2G+** | 1.5 |
 
 > ✅ Todos los servicios AT&T tienen puntaje fijo (no dependen del riesgo)
 
