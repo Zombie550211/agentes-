@@ -3,28 +3,35 @@ Semáforo de clientes — reglas de los "casos a solventar".
 
 Cada venta residencial registra en el formulario un CASO A SOLVENTAR (desconectar
 el servicio en la dirección anterior, cancelar el servicio anterior, bajar el
-precio…) o marca "sin caso pendiente". Cuando el cliente pasa a COMPLETED empieza
-a correr el reloj, en días naturales:
+precio…) o marca "sin caso pendiente".
 
-    0 – 72 h     verde      (3 días)
-    72 – 120 h   amarillo   (+2 días)
-    120 – 144 h  rojo       (+1 día)
-    ≥ 144 h      negro      → el lead pasa solo a status y status comisión "oficina"
+RIESGO CX (columna de la lista de clientes; la editan administración y
+backoffice) pone el COLOR DE SALIDA del semáforo, y el reloj arranca cuando
+cambia (`riesgo_cx_at`). En días naturales:
+
+    bajo  → verde    3 días → amarillo 2 días → rojo 1 día → negro
+    medio → amarillo 2 días → rojo 1 día → negro
+    alto  → rojo     1 día  → negro
+
+Internamente se cuenta con "horas equivalentes" = horas desde riesgo_cx_at +
+desfase del riesgo (bajo 0, medio 72, alto 120) sobre la escala de siempre:
+
+    0 – 72 h verde · 72 – 120 h amarillo · 120 – 144 h rojo · ≥ 144 h negro
+
+En negro el lead pasa solo a status y status comisión "oficina".
+
+Mientras backoffice no lo fija a mano (`riesgo_cx_manual`), el Riesgo CX sigue al
+status: completed → bajo, pending → medio, cancelled → alto (RIESGO_POR_STATUS).
 
 El caso queda SOLVENTADO en cuanto el agente sube un comprobante (captura o audio
 de la llamada). Un caso solventado se muestra en verde y ya no corre el reloj.
 
-El reloj arranca en el momento más tardío entre `fecha_completed` y la hora en que
-se escribió el caso (`caso_creado_at`): si a un cliente completado hace un mes se
-le añade un caso desde Editar cliente, no cae en negro de golpe.
-
 Solo entran los casos cuyo reloj arranca DESPUÉS de la activación del semáforo
-(app_config.semaforo_casos_inicio, que la migración 0050 fija con la hora del
-primer arranque tras el despliegue). Así las ventas antiguas no pasan a oficina.
+(app_config.semaforo_casos_inicio). Así las ventas antiguas no pasan a oficina.
 
 Estados de `leads.caso_estado`:
-    NULL          el lead no tiene caso (registrado antes de esta función)
-    'sin_caso'    el agente marcó que no hay nada pendiente
+    NULL          el lead no tiene caso
+    'sin_caso'    el agente marcó que no hay nada pendiente (no entra)
     'pendiente'   hay caso y aún no hay comprobante
     'solventado'  hay comprobante
     'vencido'     llegó a negro; el lead ya está en oficina
@@ -42,12 +49,35 @@ HORAS_ROJO = 144
 
 COLORES = ("verde", "amarillo", "rojo", "negro")
 
-# Inicio del reloj de un caso (SQL). COALESCE: si falta alguna de las dos fechas
-# se usa la otra.
-SQL_INICIO_RELOJ = (
-    "GREATEST(COALESCE(fecha_completed, caso_creado_at), "
-    "COALESCE(caso_creado_at, fecha_completed))"
-)
+# Riesgo CX → desfase (horas equivalentes con que arranca) y color de salida.
+RIESGOS = ("bajo", "medio", "alto")
+DESFASE_RIESGO = {"bajo": 0, "medio": HORAS_VERDE, "alto": HORAS_AMARILLO}
+
+
+def riesgo_por_status(status) -> Optional[str]:
+    """Riesgo CX automático según el status normal (None = no lo cambia)."""
+    s = str(status or "").strip().lower()
+    if s.startswith("complet") or s in ("active", "activo", "activa"):
+        return "bajo"
+    if s.startswith("pend"):
+        return "medio"
+    if s.startswith("cancel"):
+        return "alto"
+    return None
+
+
+# Lo mismo en SQL, sobre una expresión de status (p. ej. ':status' o 'status').
+def sql_riesgo_por_status(expr: str) -> str:
+    return (f"(CASE WHEN LOWER({expr}) LIKE 'complet%' OR LOWER({expr}) IN ('active','activo','activa') THEN 'bajo' "
+            f"WHEN LOWER({expr}) LIKE 'pend%' THEN 'medio' "
+            f"WHEN LOWER({expr}) LIKE 'cancel%' THEN 'alto' ELSE NULL END)")
+
+
+# Inicio del reloj de un caso (SQL).
+SQL_INICIO_RELOJ = "riesgo_cx_at"
+SQL_DESFASE = "(CASE riesgo_cx WHEN 'medio' THEN 72 WHEN 'alto' THEN 120 ELSE 0 END)"
+# Momento en que el caso llega a negro.
+SQL_VENCE = f"DATE_ADD(riesgo_cx_at, INTERVAL ({HORAS_ROJO} - {SQL_DESFASE}) HOUR)"
 
 # El lead sigue en completed (o active, sinónimo en datos antiguos).
 SQL_STATUS_COMPLETED = (
@@ -59,9 +89,9 @@ SQL_STATUS_COMPLETED = (
 SQL_EN_SEMAFORO = f"""(
     caso_estado = 'vencido'
     OR (caso_estado IN ('pendiente','solventado')
-        AND {SQL_STATUS_COMPLETED}
-        AND fecha_completed IS NOT NULL
-        AND {SQL_INICIO_RELOJ} >= :inicio)
+        AND riesgo_cx IS NOT NULL
+        AND riesgo_cx_at IS NOT NULL
+        AND riesgo_cx_at >= :inicio)
 )"""
 
 
@@ -80,14 +110,11 @@ def _to_dt(v) -> Optional[datetime]:
         return None
 
 
-def inicio_reloj(fecha_completed, caso_creado_at) -> Optional[datetime]:
-    a, b = _to_dt(fecha_completed), _to_dt(caso_creado_at)
-    if a and b:
-        return max(a, b)
-    return a or b
+def inicio_reloj(riesgo_cx_at) -> Optional[datetime]:
+    return _to_dt(riesgo_cx_at)
 
 
-def clasificar(caso_estado: str, fecha_completed, caso_creado_at, ahora: Optional[datetime] = None) -> dict:
+def clasificar(caso_estado: str, riesgo_cx, riesgo_cx_at, ahora: Optional[datetime] = None) -> dict:
     """Color del semáforo y plazos de un caso.
 
     Devuelve {color, solventado, horas_transcurridas, horas_restantes_color,
@@ -98,14 +125,15 @@ def clasificar(caso_estado: str, fecha_completed, caso_creado_at, ahora: Optiona
     if estado == "vencido":
         return {"color": "negro", "solventado": False, "horas_transcurridas": None,
                 "horas_restantes_color": None, "vence_at": None}
-    ini = inicio_reloj(fecha_completed, caso_creado_at)
     if estado == "solventado":
         return {"color": "verde", "solventado": True, "horas_transcurridas": None,
                 "horas_restantes_color": None, "vence_at": None}
+    ini = inicio_reloj(riesgo_cx_at)
+    desfase = DESFASE_RIESGO.get(str(riesgo_cx or "").lower(), 0)
     if not ini:
-        return {"color": "verde", "solventado": False, "horas_transcurridas": 0,
-                "horas_restantes_color": HORAS_VERDE, "vence_at": None}
-    h = max(0.0, (ahora - ini).total_seconds() / 3600.0)
+        h = float(desfase)
+    else:
+        h = max(0.0, (ahora - ini).total_seconds() / 3600.0) + desfase
     if h < HORAS_VERDE:
         color, limite = "verde", HORAS_VERDE
     elif h < HORAS_AMARILLO:
@@ -119,7 +147,7 @@ def clasificar(caso_estado: str, fecha_completed, caso_creado_at, ahora: Optiona
         "solventado": False,
         "horas_transcurridas": round(h, 1),
         "horas_restantes_color": round(limite - h, 1) if limite else None,
-        "vence_at": (ini + timedelta(hours=HORAS_ROJO)).isoformat(),
+        "vence_at": (ini + timedelta(hours=HORAS_ROJO - desfase)).isoformat() if ini else None,
     }
 
 
@@ -235,22 +263,23 @@ async def llamadas_pendientes(session, user: dict, ahora: Optional[datetime] = N
     info = {motivo, numero, vence_at, bloquea, bloquea_at}."""
     ahora = ahora or _utcnow()
     inicio = await get_inicio(session)
+    a_oficina = await oficina_activa(session)
     p = {**params_dueno(user), "inicio": inicio, "ahora": ahora}
     out = []
     r = await session.execute(text(f"""
         SELECT * FROM leads
         WHERE caso_estado = 'pendiente'
-          AND {SQL_STATUS_COMPLETED}
-          AND fecha_completed IS NOT NULL
-          AND {SQL_INICIO_RELOJ} >= :inicio
+          AND riesgo_cx IS NOT NULL
+          AND riesgo_cx_at IS NOT NULL
+          AND riesgo_cx_at >= :inicio
           AND {SQL_DUENO}
-        ORDER BY {SQL_INICIO_RELOJ} ASC
+        ORDER BY {SQL_VENCE} ASC
         LIMIT 300
     """), p)
     for row in r.mappings().all():
         row = dict(row)
-        c = clasificar(row.get("caso_estado"), row.get("fecha_completed"), row.get("caso_creado_at"), ahora)
-        if c["color"] == "negro":
+        c = clasificar(row.get("caso_estado"), row.get("riesgo_cx"), row.get("riesgo_cx_at"), ahora)
+        if c["color"] == "negro" and a_oficina:
             continue  # ya es de oficina: el vencimiento lo pasará en su próxima ronda
         out.append((row, {"motivo": "caso", "numero": 1, "vence_at": c["vence_at"],
                           "bloquea": True, "bloquea_at": None}))
@@ -299,6 +328,28 @@ async def bloqueo_activo(session) -> bool:
     return valor
 
 
+# Interruptor del paso automático a oficina: app_config.semaforo_oficina = '1' lo
+# activa. Apagado, el semáforo cuenta y llega a negro, pero ningún lead cambia de
+# status: el caso sigue pendiente y el agente sigue con la llamada por subir.
+_oficina_cache: dict = {"valor": None, "ts": 0.0}
+
+
+async def oficina_activa(session) -> bool:
+    import time
+    if _oficina_cache["valor"] is not None and time.time() - _oficina_cache["ts"] < 60:
+        return _oficina_cache["valor"]
+    valor = False
+    try:
+        r = await session.execute(text(
+            "SELECT valor FROM app_config WHERE clave = 'semaforo_oficina' LIMIT 1"))
+        row = r.first()
+        valor = bool(row and str(row[0]).strip() == "1")
+    except Exception:
+        valor = False
+    _oficina_cache.update(valor=valor, ts=time.time())
+    return valor
+
+
 async def tiene_bloqueo(user: dict) -> bool:
     from database_mysql import AsyncSessionLocal
     try:
@@ -344,17 +395,18 @@ async def vencer_casos() -> int:
     from database_mysql import AsyncSessionLocal
     ahora = _utcnow()
     async with AsyncSessionLocal() as s:
+        if not await oficina_activa(s):
+            return 0  # paso a oficina apagado (app_config.semaforo_oficina)
         inicio = await get_inicio(s)
-        limite = ahora - timedelta(hours=HORAS_ROJO)
         r = await s.execute(text(f"""
             SELECT id, nombre_cliente, status, agente, agente_nombre, created_by, supervisor
             FROM leads
             WHERE caso_estado = 'pendiente'
-              AND {SQL_STATUS_COMPLETED}
-              AND fecha_completed IS NOT NULL
-              AND {SQL_INICIO_RELOJ} >= :inicio
-              AND {SQL_INICIO_RELOJ} <= :limite
-        """), {"inicio": inicio, "limite": limite})
+              AND riesgo_cx IS NOT NULL
+              AND riesgo_cx_at IS NOT NULL
+              AND riesgo_cx_at >= :inicio
+              AND {SQL_VENCE} <= :ahora
+        """), {"inicio": inicio, "ahora": ahora})
         filas = [dict(x) for x in r.mappings().all()]
         if not filas:
             return 0

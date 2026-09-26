@@ -599,6 +599,8 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
         _client_puntaje = 0.0
     _svc_key = body.servicios[0] if isinstance(body.servicios, list) and body.servicios else body.servicios
     caso_txt, caso_estado = _caso_de_alta(body)
+    from casos import riesgo_por_status
+    _rcx = riesgo_por_status(body.status)
 
     async with AsyncSessionLocal() as s:
         # Puntaje calculado en el BACKEND (tabla productos). Si el servicio no está
@@ -611,15 +613,18 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
                autopago, sistema, riesgo,
                puntaje, dia_venta, dia_instalacion, supervisor, agente, agente_nombre,
                imagen_url, source_collection, created_by, created_at, updated_at,
-               caso_solventar, caso_estado, caso_creado_at)
+               caso_solventar, caso_estado, caso_creado_at, riesgo_cx, riesgo_cx_at)
             VALUES
               (:nc, :tp, :t2, :talt, :dir, :zip, :srv,
                :ts, :nc2, :mer, :ml, :st, :st,
                :ap, :sis, :rie,
                :pts, :dv, :di, :sup, :ag, :agn,
                :img, 'leads', :by, :now, :now,
-               :caso, :caso_est, :caso_at)
+               :caso, :caso_est, :caso_at, :rcx, :rcx_at)
         """), {
+            # Riesgo CX automático según el status con que entra la venta.
+            "rcx":      _rcx,
+            "rcx_at":   now if _rcx else None,
             "caso":     caso_txt,
             "caso_est": caso_estado,
             "caso_at":  now if caso_estado == "pendiente" else None,
@@ -1377,28 +1382,37 @@ class UpdateStatusBody(BaseModel):
 
 
 def _llamada_sets_on_status_change(old_status: str, new_status: str) -> str:
-    """SQL extra cuando el status cambia: dispara el ciclo de llamadas de verificación.
+    """SQL extra cuando el status cambia.
 
-    - → completed: fecha_completed=now, llamada pendiente (1ª llamada a los 7 días)
-    - → cancelled: llamada pendiente inmediata
+    - → completed: fecha_completed=now, llamada pendiente.
+    - → cancelled: llamada pendiente inmediata.
+    - Semáforo de clientes (casos.py): el Riesgo CX sigue al status mientras
+      backoffice no lo haya fijado a mano (completed → bajo, pending → medio,
+      cancelled → alto) y, si cambia, el reloj vuelve a arrancar. El cliente
+      entra al semáforo aunque no tenga caso escrito; los marcados "sin caso
+      pendiente" quedan fuera. Si el caso venció (estaba en oficina) y lo vuelven
+      a completar, se reactiva.
+    Orden: MySQL evalúa las asignaciones de izquierda a derecha con los valores
+    ya actualizados, así que lo que compara con el valor viejo va primero.
     """
+    from casos import riesgo_por_status
     old_n = str(old_status or "").lower()
     new_n = str(new_status or "").lower()
     if old_n == new_n:
         return ""
+    sql = ""
     if "complet" in new_n:
-        # Semáforo de clientes (casos.py): al pasar a completed el cliente entra
-        # al semáforo aunque no tenga caso escrito (leads anteriores al campo);
-        # solo quedan fuera los marcados "sin caso pendiente". Si el caso venció
-        # (estaba en oficina) y lo vuelven a completar, se reactiva y su reloj
-        # arranca con la nueva fecha_completed. caso_vencido_at va antes: MySQL
-        # evalúa las asignaciones de izquierda a derecha con los valores nuevos.
-        return (", fecha_completed = UTC_TIMESTAMP(), llamada_cliente = 'Pendiente'"
+        sql += (", fecha_completed = UTC_TIMESTAMP(), llamada_cliente = 'Pendiente'"
                 ", caso_vencido_at = IF(caso_estado = 'vencido', NULL, caso_vencido_at)"
                 ", caso_estado = IF(caso_estado IS NULL OR caso_estado = 'vencido', 'pendiente', caso_estado)")
-    if "cancel" in new_n:
-        return ", llamada_cliente = 'Pendiente'"
-    return ""
+    elif "cancel" in new_n:
+        sql += ", llamada_cliente = 'Pendiente'"
+    r = riesgo_por_status(new_n)
+    if r:  # valor fijo de una lista cerrada: seguro en el SQL
+        sql += (f", riesgo_cx_at = IF(COALESCE(riesgo_cx_manual,0) = 0 AND COALESCE(riesgo_cx,'') <> '{r}', UTC_TIMESTAMP(), riesgo_cx_at)"
+                f", caso_estado = IF(COALESCE(riesgo_cx_manual,0) = 0 AND caso_estado IS NULL, 'pendiente', caso_estado)"
+                f", riesgo_cx = IF(COALESCE(riesgo_cx_manual,0) = 0, '{r}', riesgo_cx)")
+    return sql
 
 
 @router.put("/api/leads/{lead_id}/status")

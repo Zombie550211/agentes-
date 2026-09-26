@@ -215,6 +215,8 @@
         imagen_url:      (function(){var v=pick(['imagen_url','imagen','foto','image_url']);if(!v)return '';var s=String(v);if(/^\/api\/files\/\d+$/.test(s))return '';return(s.startsWith('/uploads/')||s.startsWith('http')||/^\/api\/files\/\d+\/image$/.test(s))?s:'';}()),
         notas:           it&&(it.notas||it.notas_cliente||it.notes)||[],
         was_reserva:     !!(it&&(it.was_reserva===true||it.was_reserva==='true'||it.was_reserva===1)),
+        riesgo_cx:       String((it&&it.riesgo_cx)||'').toLowerCase(),
+        riesgo_cx_manual:!!(it&&(it.riesgo_cx_manual===1||it.riesgo_cx_manual===true||it.riesgo_cx_manual==='1')),
       };
       if(!lead._es_colchon){const st=normalizeStatus(lead.status);lead._es_colchon=isColchonLead(lead)&&(st==='completed'||st==='active');}
       return lead;
@@ -641,11 +643,49 @@
     return'<select class="status-inline-select '+cfg.cls+(isColchon?' colchon-select':'')+'" data-lead-id="'+escHTML(lidStr)+'" onchange="inlineStatusComisionChange(this)" aria-label="Cambiar status de comisión">'+opts+'</select>'+colchonChip;
   }
 
+  /* ── RIESGO CX ──
+     Pone el color de salida del semáforo de clientes (CRM_PYTHON/casos.py):
+     bajo = verde, medio = amarillo, alto = rojo. Mientras nadie lo fija a mano
+     sigue al status (completed → bajo, pending → medio, cancelled → alto). */
+  const RIESGO_CX={bajo:'Bajo',medio:'Medio',alto:'Alto'};
+  function riesgoCxCellHTML(leadId,riesgo,manual){
+    const r=RIESGO_CX[riesgo]?riesgo:'';
+    const ud=getUserData(),role=String(ud.role||ud.rol||'').toLowerCase();
+    const auto=r&&!manual?'<span class="rcx-auto" title="Sigue al status hasta que backoffice lo fije">auto</span>':'';
+    if(!isAdminOrBackoffice(role)){
+      return '<span class="rcx-badge rcx-'+(r||'nada')+'">'+(r?RIESGO_CX[r]:'—')+'</span>';
+    }
+    let opts=(r?'':'<option value="" selected>—</option>')+
+      ['bajo','medio','alto'].map(function(v){return'<option value="'+v+'"'+(v===r?' selected':'')+'>'+RIESGO_CX[v]+'</option>';}).join('');
+    if(r&&manual)opts+='<option value="auto">Automático</option>';
+    return'<select class="status-inline-select rcx-'+(r||'nada')+'" data-lead-id="'+escHTML(String(leadId))+'" onchange="inlineRiesgoCxChange(this)" aria-label="Cambiar Riesgo CX">'+opts+'</select>'+auto;
+  }
+  window.inlineRiesgoCxChange=async function(selectEl){
+    const leadId=selectEl.dataset.leadId,v=selectEl.value;
+    const lead=__allLeadsData.find(function(l){return String(l._id)===leadId;});
+    if(!lead||!v)return;
+    if(String(leadId).startsWith('tmp-')){showToast('Este lead no tiene ID válido — recarga la página','error');return;}
+    const previo=lead.riesgo_cx,previoManual=lead.riesgo_cx_manual;
+    selectEl.disabled=true;
+    const res=await AUTH.secureFetch('/api/leads/'+encodeURIComponent(leadId)+'/riesgo-cx',{method:'PUT',body:JSON.stringify({riesgo_cx:v})});
+    selectEl.disabled=false;
+    if(res&&res.ok){
+      const d=await res.json().catch(function(){return{};});
+      lead.riesgo_cx=d.riesgo_cx||v;lead.riesgo_cx_manual=!!d.riesgo_cx_manual;
+      const td=selectEl.closest('td');if(td)td.innerHTML=riesgoCxCellHTML(leadId,lead.riesgo_cx,lead.riesgo_cx_manual);
+      showToast('Riesgo CX: '+(RIESGO_CX[lead.riesgo_cx]||lead.riesgo_cx)+(lead.riesgo_cx_manual?'':' (automático)')+' · el semáforo empieza a contar ✓','ok');
+    }else if(res){
+      const e=await res.json().catch(function(){return{};});
+      selectEl.value=previo||'';lead.riesgo_cx=previo;lead.riesgo_cx_manual=previoManual;
+      showToast(e.detail||'No se pudo cambiar el Riesgo CX','error');
+    }
+  };
+
   /* ── TABLE ROWS ── */
   function renderTableRows(){
     const tbody=document.getElementById('costumer-tbody');if(!tbody)return;
     const total=__filteredLeads.length,ps=pageSize===99999?total:pageSize,start=(currentPage-1)*ps,paged=__filteredLeads.slice(start,start+ps);
-    if(!paged.length){tbody.innerHTML='<tr class="cv-empty"><td colspan="8"><div class="cv-empty-box"><div class="cv-empty-ico">🔍</div><div class="cv-empty-title">Sin resultados</div><div class="cv-empty-sub">Prueba con otros filtros o limpia la búsqueda.</div></div></td></tr>';}
+    if(!paged.length){tbody.innerHTML='<tr class="cv-empty"><td colspan="9"><div class="cv-empty-box"><div class="cv-empty-ico">🔍</div><div class="cv-empty-title">Sin resultados</div><div class="cv-empty-sub">Prueba con otros filtros o limpia la búsqueda.</div></div></td></tr>';}
     else{tbody.innerHTML=paged.map(function(lead,_ri){
       const lid=String(lead._id);
       const _dv7=String(lead.dia_venta||'').slice(0,7),_di7=String(lead.dia_instalacion||'').slice(0,7);
@@ -697,12 +737,14 @@
         '<td class="status-td">'+statusCellHTML(lid,lead.status,isCol)+'</td>'+
         // Col 6: Status Comisión (independiente — solo afecta la página de Comisiones)
         '<td class="status-td">'+statusComisionCellHTML(lid,lead.status_comision,isCol)+'</td>'+
-        // Col 7: Métricas / Sup
+        // Col 7: Riesgo CX (solo administración y backoffice lo cambian)
+        '<td class="status-td rcx-td">'+riesgoCxCellHTML(lid,lead.riesgo_cx,lead.riesgo_cx_manual)+'</td>'+
+        // Col 8: Métricas / Sup
         '<td class="cv-metrics">'+
           '<span class="cv-pts '+ptsCls+'">'+(pts!==null?escHTML(String(lead.puntaje)):'—')+'<small>pts</small></span>'+
           '<div class="cv-sup">'+escHTML(fmtSupervisor(lead.supervisor)||'—')+'</div>'+
         '</td>'+
-        // Col 8: Acción
+        // Col 9: Acción
         '<td class="cv-actions">'+
           '<div class="cv-actions-wrap">'+
             '<button class="cv-act cv-act-edit" onclick="toggleRowExpand(\''+lid+'\')" title="Editar" aria-label="Editar">'+
@@ -1506,7 +1548,7 @@
     var t=_CASO_TXT[color]||{t:color,d:''};
     var txt=t.t;
     if(!c.en_semaforo&&c.caso_estado==='pendiente') txt='Pendiente · el reloj empieza al completarse';
-    else if(c.color==='negro') txt='Negro · pasó a oficina';
+    else if(c.color==='negro') txt=c.caso_estado==='vencido'?'Negro · pasó a oficina':'Negro · plazo vencido, falta la llamada';
     else if(c.horas_restantes_color!=null) txt=t.t+' · quedan '+_fmtHoras(c.horas_restantes_color)+(color==='rojo'?' para negro':' para el siguiente color');
     chip.appendChild(document.createTextNode(txt));
     return chip;
@@ -1980,7 +2022,7 @@
   function initScrollMirror(){const scroll=document.querySelector('.tscroll'),mirror=document.getElementById('scrollbarMirror'),inner=document.getElementById('scrollbarMirrorInner');if(!scroll||!mirror||!inner)return;function syncWidth(){inner.style.width=scroll.scrollWidth+'px';}scroll.addEventListener('scroll',function(){mirror.scrollLeft=scroll.scrollLeft;});mirror.addEventListener('scroll',function(){scroll.scrollLeft=mirror.scrollLeft;});if(window.ResizeObserver)new ResizeObserver(syncWidth).observe(scroll);syncWidth();}
 
   function getLoaderTR(){
-    return '<tr><td colspan="7" style="padding:48px 0;text-align:center;">'
+    return '<tr><td colspan="9" style="padding:48px 0;text-align:center;">'
       + '<div style="display:inline-flex;gap:7px;align-items:center;">'
       + '<span style="width:7px;height:7px;border-radius:50%;background:var(--a);opacity:.9;animation:dotBounce .9s ease-in-out infinite;animation-delay:0s;"></span>'
       + '<span style="width:7px;height:7px;border-radius:50%;background:var(--a);opacity:.9;animation:dotBounce .9s ease-in-out infinite;animation-delay:.18s;"></span>'

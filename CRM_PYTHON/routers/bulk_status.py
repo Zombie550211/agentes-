@@ -110,6 +110,8 @@ async def bulk_status_by_phone(body: BulkByPhoneBody, user: dict = Depends(curre
         params: dict = {"status": body.newStatus, "now": now, "by": user.get("username", "Sistema")}
         for i, lid in enumerate(lead_ids):
             params[f"id{i}"] = lid
+        from casos import sql_riesgo_por_status
+        R = sql_riesgo_por_status(":status")
         r2 = await s.execute(text(f"""
             UPDATE leads SET
                 fecha_completed = CASE WHEN LOWER(:status) LIKE 'complet%'
@@ -128,6 +130,16 @@ async def bulk_status_by_phone(body: BulkByPhoneBody, user: dict = Depends(curre
                         AND LOWER(COALESCE(status,'')) NOT LIKE 'complet%'
                         AND (caso_estado IS NULL OR caso_estado = 'vencido')
                     THEN 'pendiente' ELSE caso_estado END,
+                -- Riesgo CX automático (si backoffice no lo fijó a mano): nuevo
+                -- riesgo según el status; si cambia, el reloj arranca de nuevo.
+                riesgo_cx_at = CASE WHEN COALESCE(riesgo_cx_manual,0) = 0
+                        AND {R} IS NOT NULL AND COALESCE(riesgo_cx,'') <> {R}
+                    THEN UTC_TIMESTAMP() ELSE riesgo_cx_at END,
+                caso_estado = CASE WHEN COALESCE(riesgo_cx_manual,0) = 0
+                        AND {R} IS NOT NULL AND caso_estado IS NULL
+                    THEN 'pendiente' ELSE caso_estado END,
+                riesgo_cx = CASE WHEN COALESCE(riesgo_cx_manual,0) = 0 AND {R} IS NOT NULL
+                    THEN {R} ELSE riesgo_cx END,
                 status = :status, updated_at = :now, updated_by = :by
             WHERE id IN ({placeholders})
         """), params)
@@ -208,6 +220,8 @@ async def bulk_status_by_name(body: BulkByNameBody, user: dict = Depends(current
         params: dict = {"status": body.newStatus, "now": now, "by": user.get("username", "Sistema")}
         for i, lid in enumerate(lead_ids):
             params[f"id{i}"] = lid
+        from casos import sql_riesgo_por_status
+        R = sql_riesgo_por_status(":status")
         r2 = await s.execute(text(f"""
             UPDATE leads SET
                 fecha_completed = CASE WHEN LOWER(:status) LIKE 'complet%'
@@ -226,6 +240,16 @@ async def bulk_status_by_name(body: BulkByNameBody, user: dict = Depends(current
                         AND LOWER(COALESCE(status,'')) NOT LIKE 'complet%'
                         AND (caso_estado IS NULL OR caso_estado = 'vencido')
                     THEN 'pendiente' ELSE caso_estado END,
+                -- Riesgo CX automático (si backoffice no lo fijó a mano): nuevo
+                -- riesgo según el status; si cambia, el reloj arranca de nuevo.
+                riesgo_cx_at = CASE WHEN COALESCE(riesgo_cx_manual,0) = 0
+                        AND {R} IS NOT NULL AND COALESCE(riesgo_cx,'') <> {R}
+                    THEN UTC_TIMESTAMP() ELSE riesgo_cx_at END,
+                caso_estado = CASE WHEN COALESCE(riesgo_cx_manual,0) = 0
+                        AND {R} IS NOT NULL AND caso_estado IS NULL
+                    THEN 'pendiente' ELSE caso_estado END,
+                riesgo_cx = CASE WHEN COALESCE(riesgo_cx_manual,0) = 0 AND {R} IS NOT NULL
+                    THEN {R} ELSE riesgo_cx END,
                 status = :status, updated_at = :now, updated_by = :by
             WHERE id IN ({placeholders})
         """), params)

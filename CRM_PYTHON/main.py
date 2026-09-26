@@ -296,6 +296,36 @@ _MIGRATIONS: list[tuple[str, str]] = [
     # Se activa con valor = '1' (ver casos.bloqueo_activo).
     ("0055_semaforo_bloqueo_apagado", """INSERT IGNORE INTO app_config (clave, valor)
         VALUES ('semaforo_bloqueo', '0')"""),
+    # Riesgo CX (lo fijan administración y backoffice): color de salida del semáforo.
+    ("0056_leads_riesgo_cx", """ALTER TABLE leads
+        ADD COLUMN riesgo_cx        VARCHAR(10)  NULL,
+        ADD COLUMN riesgo_cx_at     DATETIME     NULL,
+        ADD COLUMN riesgo_cx_manual TINYINT(1)   NOT NULL DEFAULT 0,
+        ADD COLUMN riesgo_cx_por    VARCHAR(150) NULL,
+        ADD INDEX idx_leads_riesgo_cx (riesgo_cx)"""),
+    # Riesgo CX inicial según el status para los clientes que cambiaron desde el
+    # viernes 25-09-2026 (creados, completados o con cambio de status registrado):
+    # completed → bajo, pending → medio, cancelled → alto. Su reloj arranca ahora.
+    ("0057_riesgo_cx_desde_25sep", """UPDATE leads SET
+            riesgo_cx_at = UTC_TIMESTAMP(),
+            caso_estado  = IF(caso_estado IS NULL, 'pendiente', caso_estado),
+            riesgo_cx    = CASE WHEN LOWER(COALESCE(status,'')) LIKE 'complet%' OR LOWER(COALESCE(status,'')) IN ('active','activo','activa') THEN 'bajo'
+                    WHEN LOWER(COALESCE(status,'')) LIKE 'pend%' THEN 'medio'
+                    WHEN LOWER(COALESCE(status,'')) LIKE 'cancel%' THEN 'alto' ELSE NULL END
+        WHERE riesgo_cx IS NULL
+          AND (CASE WHEN LOWER(COALESCE(status,'')) LIKE 'complet%' OR LOWER(COALESCE(status,'')) IN ('active','activo','activa') THEN 'bajo'
+                    WHEN LOWER(COALESCE(status,'')) LIKE 'pend%' THEN 'medio'
+                    WHEN LOWER(COALESCE(status,'')) LIKE 'cancel%' THEN 'alto' ELSE NULL END) IS NOT NULL
+          AND (created_at >= '2026-09-25 05:00:00'
+               OR fecha_completed >= '2026-09-25 05:00:00'
+               OR (updated_at >= '2026-09-25 05:00:00'
+                   AND nombre_cliente IN (SELECT cliente FROM status_change_log
+                                          WHERE seccion = 'residencial'
+                                            AND created_at >= '2026-09-25 05:00:00')))"""),
+    # Paso automático a oficina al llegar a negro: APAGADO al arrancar. Se activa
+    # con valor = '1' (ver casos.oficina_activa).
+    ("0058_semaforo_oficina_apagado", """INSERT IGNORE INTO app_config (clave, valor)
+        VALUES ('semaforo_oficina', '0')"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración

@@ -28,9 +28,10 @@
   var COLOR = {
     verde:    { t: 'Verde',    bg: '#0f766e', dot: '#34d399' },
     amarillo: { t: 'Amarillo', bg: '#a16207', dot: '#facc15' },
-    rojo:     { t: 'Rojo',     bg: '#991b1b', dot: '#f87171' }
+    rojo:     { t: 'Rojo',     bg: '#991b1b', dot: '#f87171' },
+    negro:    { t: 'Negro · plazo vencido', bg: '#111827', dot: '#6b7280' }
   };
-  var ORDEN = { rojo: 0, amarillo: 1, verde: 2 };
+  var ORDEN = { negro: -1, rojo: 0, amarillo: 1, verde: 2 };
   var BLOQUEO_ACTIVO = false;   // lo dice el servidor (app_config.semaforo_bloqueo)
 
   function el(tag, css, txt) {

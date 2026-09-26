@@ -98,8 +98,8 @@ def _servicio(row: dict) -> str:
 
 
 def _item(row: dict, ahora, n_comp: int = 0) -> dict:
-    c = casos.clasificar(row.get("caso_estado"), row.get("fecha_completed"), row.get("caso_creado_at"), ahora)
-    ini = casos.inicio_reloj(row.get("fecha_completed"), row.get("caso_creado_at"))
+    c = casos.clasificar(row.get("caso_estado"), row.get("riesgo_cx"), row.get("riesgo_cx_at"), ahora)
+    ini = casos.inicio_reloj(row.get("riesgo_cx_at"))
     return {
         "id": str(row.get("id")),
         "nombre_cliente": row.get("nombre_cliente") or "",
@@ -111,6 +111,8 @@ def _item(row: dict, ahora, n_comp: int = 0) -> dict:
         "dia_venta": str(row["dia_venta"]) if row.get("dia_venta") else "",
         "dia_instalacion": str(row["dia_instalacion"]) if row.get("dia_instalacion") else "",
         "inicio_reloj": ini.isoformat() if ini else None,
+        "riesgo_cx": row.get("riesgo_cx") or "",
+        "riesgo_cx_manual": bool(row.get("riesgo_cx_manual")),
         "caso_solventar": row.get("caso_solventar") or "",
         "caso_estado": row.get("caso_estado") or "",
         "caso_solventado_at": str(row["caso_solventado_at"]) if row.get("caso_solventado_at") else None,
@@ -172,7 +174,7 @@ async def semaforo_listado(
                 SELECT id, nombre_cliente, telefono_principal, telefono, agente, agente_nombre, created_by,
                        supervisor, servicios, tipo_servicio, status, dia_venta, dia_instalacion,
                        fecha_completed, caso_solventar, caso_estado, caso_creado_at,
-                       caso_solventado_at, caso_vencido_at,
+                       caso_solventado_at, caso_vencido_at, riesgo_cx, riesgo_cx_at, riesgo_cx_manual,
                        {casos.SQL_EQUIPO} AS equipo, {casos.SQL_INICIO_RELOJ} AS _ini
                 FROM leads WHERE {' AND '.join(where)}
             ) t
@@ -263,12 +265,12 @@ async def caso_de_lead(lead_id: str, user: dict = Depends(current_user)):
         comps = await _comprobantes(s, row["id"])
         inicio = await casos.get_inicio(s)
     item = _item(row, _utcnow(), len(comps))
-    ini = casos.inicio_reloj(row.get("fecha_completed"), row.get("caso_creado_at"))
+    ini = casos.inicio_reloj(row.get("riesgo_cx_at"))
     completado = bool(re.match(r"^(complet|activ)", str(row.get("status") or "").lower()))
-    # ¿Corre el reloj? Solo si el caso está pendiente, el lead completado y el
-    # reloj arrancó después de activar el semáforo.
+    # ¿Corre el reloj? Si el caso está pendiente, tiene Riesgo CX y el reloj
+    # arrancó después de activar el semáforo.
     item["en_semaforo"] = (row.get("caso_estado") == "vencido") or bool(
-        row.get("caso_estado") in ("pendiente", "solventado") and completado and ini and ini >= inicio)
+        row.get("caso_estado") in ("pendiente", "solventado") and row.get("riesgo_cx") and ini and ini >= inicio)
     item["puede_editar"] = _is_admin_or_bo(user) or _is_supervisor(user) or (
         _es_dueno(row, user) and row.get("caso_estado") in (None, "", "pendiente"))
     item["puede_subir"] = (_is_admin_or_bo(user) or _is_supervisor(user) or _es_dueno(row, user)) and \
@@ -455,3 +457,47 @@ async def subir_seguimiento(lead_id: str, body: ComprobanteBody, user: dict = De
         f"Seguimiento {numero} registrado ({tipo})", user))
     await realtime.publish("residencial", {"type": "residencial", "action": "caso"})
     return await caso_de_lead(lead_id, user)
+
+
+# ── Riesgo CX (solo administración y backoffice) ────────────────────
+class RiesgoCxBody(BaseModel):
+    riesgo_cx: str   # 'bajo' | 'medio' | 'alto' | 'auto' (volver a seguir al status)
+
+
+@router.put("/api/leads/{lead_id}/riesgo-cx")
+async def cambiar_riesgo_cx(lead_id: str, body: RiesgoCxBody, user: dict = Depends(current_user)):
+    """Fija el Riesgo CX a mano: pone el color de salida del semáforo y arranca
+    el reloj de nuevo. Un caso ya solventado o vencido vuelve a pendiente (nuevo
+    ciclo). Con 'auto' vuelve a seguir al status del cliente."""
+    if not _is_admin_or_bo(user):
+        raise HTTPException(403, "Solo administración o backoffice pueden cambiar el Riesgo CX")
+    v = str(body.riesgo_cx or "").strip().lower()
+    if v not in casos.RIESGOS and v != "auto":
+        raise HTTPException(400, "Riesgo CX no válido (bajo, medio, alto o auto)")
+    ahora = _utcnow()
+    async with AsyncSessionLocal() as s:
+        row = await _lead_visible(s, lead_id, user)
+        manual = v != "auto"
+        nuevo = v if manual else casos.riesgo_por_status(row.get("status"))
+        if nuevo is None:
+            raise HTTPException(400, "Con este status no hay Riesgo CX automático; elige bajo, medio o alto")
+        await s.execute(text("""
+            UPDATE leads SET
+                riesgo_cx = :r, riesgo_cx_at = :now, riesgo_cx_manual = :m, riesgo_cx_por = :por,
+                caso_vencido_at = NULL,
+                caso_solventado_at = IF(caso_estado IN ('solventado','vencido'), NULL, caso_solventado_at),
+                seg_ultima_llamada_at = IF(caso_estado IN ('solventado','vencido'), NULL, seg_ultima_llamada_at),
+                seg_llamadas = IF(caso_estado IN ('solventado','vencido'), 0, seg_llamadas),
+                caso_estado = 'pendiente',
+                updated_at = :now, updated_by = :by
+            WHERE id = :id
+        """), {"r": nuevo, "now": ahora, "m": 1 if manual else 0,
+               "por": user.get("name") or user.get("username") or "", "by": user.get("username", ""),
+               "id": row["id"]})
+        await s.commit()
+    asyncio.create_task(_log_activity(
+        "Riesgo CX", row.get("nombre_cliente") or "",
+        f"Riesgo CX → {nuevo}" + ("" if manual else " (automático por status)"), user))
+    await realtime.publish("residencial", {"type": "residencial", "action": "riesgo_cx"})
+    return {"success": True, "riesgo_cx": nuevo, "riesgo_cx_manual": manual,
+            "riesgo_cx_at": ahora.isoformat()}

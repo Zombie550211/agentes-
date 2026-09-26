@@ -29,11 +29,13 @@
     return nombre.charAt(0).toUpperCase() + nombre.slice(1) + ' ' + m[1];
   }
 
+  var RIESGO_CX = { bajo: 'Bajo', medio: 'Medio', alto: 'Alto' };
+
   var ESTADOS = {
-    verde:    { titulo: 'Verde',    nota: 'En plazo (3 días) o solventado' },
-    amarillo: { titulo: 'Amarillo', nota: 'Días 4 y 5 sin solventar' },
-    rojo:     { titulo: 'Rojo',     nota: 'Último día para solventar' },
-    negro:    { titulo: 'Negro',    nota: 'Pasó a oficina' }
+    verde:    { titulo: 'Verde',    nota: 'Riesgo bajo · 3 días, o solventado' },
+    amarillo: { titulo: 'Amarillo', nota: 'Riesgo medio · 2 días' },
+    rojo:     { titulo: 'Rojo',     nota: 'Riesgo alto · último día' },
+    negro:    { titulo: 'Negro',    nota: 'Plazo vencido / oficina' }
   };
   // Orden de la cartera y del poste: verde → amarillo → rojo → negro.
   var ORDEN = ['verde', 'amarillo', 'rojo', 'negro'];
@@ -108,7 +110,7 @@
   // Texto del plazo de un caso.
   function plazo(c) {
     if (c.solventado) return 'Solventado';
-    if (c.color === 'negro') return 'Pasó a oficina';
+    if (c.color === 'negro') return c.caso_estado === 'vencido' ? 'Pasó a oficina' : 'Plazo vencido · falta la llamada';
     if (c.horas_restantes_color == null) return '—';
     return 'Quedan ' + horas(c.horas_restantes_color) + (c.color === 'rojo' ? ' para oficina' : ' en ' + ESTADOS[c.color].titulo.toLowerCase());
   }
@@ -396,7 +398,10 @@
         el('td', null, [el('button', { type: 'button', class: 'sc-cliente-btn', text: c.nombre_cliente || 'SIN NOMBRE', on: { click: function () { abrirFicha(c.id); } } })]),
         el('td', { class: 'sc-tel', text: c.telefono }),
         el('td', { text: c.servicio }),
-        el('td', { text: fecha(c.inicio_reloj) }),
+        el('td', null, [
+          el('span', { class: 'sc-rcx is-' + (c.riesgo_cx || 'nada'), text: RIESGO_CX[c.riesgo_cx] || '—' }),
+          el('span', { class: 'sc-rcx-fecha', text: fecha(c.inicio_reloj) })
+        ]),
         el('td', null, [el('div', { class: 'sc-caso-celda', text: c.caso_solventar || '—', title: c.caso_solventar || '' })]),
         el('td', null, [el('span', { class: 'sc-estado-celda' }, [punto(c.color), el('span', null, [
           el('b', { text: ESTADOS[c.color].titulo }), ' · ', plazo(c)])])]),
@@ -431,7 +436,7 @@
         grid.appendChild(el('h3', { class: 'sc-grupo-oficina', text: grupoOf || 'Sin team' }));
       }
       grid.appendChild(el('button', { type: 'button', class: 'sc-caso', on: { click: function () { abrirFicha(c.id); } } }, [
-        el('div', { class: 'sc-eyebrow', text: 'En oficina desde ' + (fechaHora(c.caso_vencido_at) || '—') }),
+        el('div', { class: 'sc-eyebrow', text: c.caso_estado === 'vencido' ? 'En oficina desde ' + (fechaHora(c.caso_vencido_at) || '—') : 'Plazo vencido · aún no ha pasado a oficina' }),
         el('div', { class: 'sc-caso-t', text: c.nombre_cliente || 'SIN NOMBRE' }),
         el('div', { class: 'sc-caso-d', text: c.caso_solventar || '—' }),
         el('div', { class: 'sc-caso-m', text: c.agente + (c.telefono ? ' · ' + c.telefono : '') })
@@ -490,7 +495,7 @@
     $('sc-f-motivo').textContent = plazo(c);
     $('sc-f-servicio').textContent = c.servicio || '—';
     $('sc-f-venta').textContent = fecha(c.dia_venta) || '—';
-    $('sc-f-completado').textContent = fechaHora(c.inicio_reloj) || '—';
+    $('sc-f-completado').textContent = (RIESGO_CX[c.riesgo_cx] ? 'Riesgo ' + RIESGO_CX[c.riesgo_cx].toLowerCase() + ' · ' : '') + (fechaHora(c.inicio_reloj) || '—');
     $('sc-f-plazo').textContent = c.vence_at ? 'Oficina el ' + fechaHora(c.vence_at) : (c.solventado ? 'Solventado el ' + (fechaHora(c.caso_solventado_at) || '—') : '—');
     $('sc-f-caso').textContent = c.caso_solventar || '—';
     var ul = $('sc-f-comps');
