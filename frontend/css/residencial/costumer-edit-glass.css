@@ -1,232 +1,198 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   MODAL "EDITAR CLIENTE" — estilo glassmorphism sobrio
+   MODAL "EDITAR CLIENTE" — glassmorphism
    ═══════════════════════════════════════════════════════════════════════
    El contenido del modal se genera en costumer-main.js (toggleRowExpand)
    con estilos en línea; las clases em-* son los ganchos que usa esta hoja.
-   Por eso aquí hay !important: es la única forma de ganarle a un style="".
 
-   Idea: vidrio esmerilado discreto. La página se ve borrosa detrás, el
-   panel es translúcido con un borde claro que simula el filo del cristal,
-   y las secciones son láminas un poco más opacas. Sin colores saturados:
-   la paleta es la corporativa (marino + dorado) con mucha transparencia.
+   Cómo funciona
+   ─────────────
+   El vidrio solo "se ve" si detrás hay profundidad y color. Por eso el
+   fondo del modal es una noche azul con manchas de luz difusas (índigo,
+   azul acero, verde azulado y un toque dorado), todas desaturadas. Encima,
+   el panel y las secciones son vidrio esmerilado: blanco muy translúcido,
+   desenfoque fuerte, borde claro y un brillo en el filo superior.
+
+   Los estilos en línea del modal usan var(--ink-1), var(--sheet), var(--a)…
+   Redefinir esas variables DENTRO del modal repinta todo el texto y los
+   fondos sin tener que pelear cada style="" con !important.
+   El look es el mismo en tema claro y oscuro: el vidrio es el tema.
    ═══════════════════════════════════════════════════════════════════════ */
 
-:root {
-  --gl-overlay:     rgba(15, 27, 45, .28);
-  --gl-glow-1:      rgba(28, 58, 102, .30);
-  --gl-glow-2:      rgba(184, 146, 58, .18);
-  --gl-panel:       rgba(255, 255, 255, .62);
-  --gl-panel-edge:  rgba(255, 255, 255, .75);
-  --gl-sheet:       rgba(255, 255, 255, .55);
-  --gl-sheet-edge:  rgba(255, 255, 255, .80);
-  --gl-line:        rgba(15, 27, 45, .08);
-  --gl-input:       rgba(255, 255, 255, .72);
-  --gl-input-edge:  rgba(15, 27, 45, .12);
-  --gl-input-focus: rgba(255, 255, 255, .95);
-  --gl-ico-bg:      rgba(28, 58, 102, .08);
-  --gl-ico:         #1c3a66;
-  --gl-shadow:      0 30px 80px rgba(15, 27, 45, .22), 0 2px 6px rgba(15, 27, 45, .06);
-  --gl-sheet-shadow: 0 1px 2px rgba(15, 27, 45, .04), inset 0 1px 0 rgba(255, 255, 255, .6);
-}
-
-body.dark-theme {
-  --gl-overlay:     rgba(4, 8, 16, .45);
-  --gl-glow-1:      rgba(59, 100, 170, .28);
-  --gl-glow-2:      rgba(212, 178, 94, .12);
-  --gl-panel:       rgba(20, 29, 46, .62);
-  --gl-panel-edge:  rgba(255, 255, 255, .10);
-  --gl-sheet:       rgba(255, 255, 255, .04);
-  --gl-sheet-edge:  rgba(255, 255, 255, .08);
-  --gl-line:        rgba(255, 255, 255, .07);
-  --gl-input:       rgba(255, 255, 255, .05);
-  --gl-input-edge:  rgba(255, 255, 255, .12);
-  --gl-input-focus: rgba(255, 255, 255, .09);
-  --gl-ico-bg:      rgba(126, 166, 224, .12);
-  --gl-ico:         #9dbbe8;
-  --gl-shadow:      0 30px 80px rgba(0, 0, 0, .55), 0 2px 6px rgba(0, 0, 0, .3);
-  --gl-sheet-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
-}
-
-/* ── Fondo: la página borrosa con dos resplandores muy suaves ─────── */
 #editClienteModal {
+  /* Paleta local del modal */
+  --ink-1:   #f5f7fb;
+  --ink-2:   rgba(235, 240, 248, .86);
+  --ink-3:   rgba(220, 228, 240, .62);
+  --ink-4:   rgba(210, 220, 235, .45);
+  --sheet:   rgba(255, 255, 255, .06);
+  --sheet-2: rgba(255, 255, 255, .05);
+  --sheet-3: rgba(255, 255, 255, .08);
+  --line-1:  rgba(255, 255, 255, .14);
+  --line-2:  rgba(255, 255, 255, .22);
+  --a:       #a9c4f5;
+  --a-bg:    rgba(169, 196, 245, .14);
+  --a-line:  rgba(169, 196, 245, .35);
+  --warn:    #f2c879;
+  --warn-bg: rgba(242, 200, 121, .12);
+  --warn-ln: rgba(242, 200, 121, .35);
+
+  --gl-glass:      rgba(255, 255, 255, .08);
+  --gl-glass-2:    rgba(255, 255, 255, .06);
+  --gl-edge:       rgba(255, 255, 255, .18);
+  --gl-edge-top:   rgba(255, 255, 255, .45);
+  --gl-input:      rgba(255, 255, 255, .07);
+  --gl-input-edge: rgba(255, 255, 255, .16);
+  --gl-focus:      rgba(169, 196, 245, .55);
+
   background:
-    radial-gradient(circle at 18% 22%, var(--gl-glow-1), transparent 42%),
-    radial-gradient(circle at 82% 78%, var(--gl-glow-2), transparent 40%),
-    var(--gl-overlay) !important;
-  backdrop-filter: blur(14px) saturate(120%) !important;
-  -webkit-backdrop-filter: blur(14px) saturate(120%) !important;
+    radial-gradient(38% 45% at 15% 20%, rgba(99, 102, 241, .45), transparent 70%),
+    radial-gradient(35% 40% at 85% 15%, rgba(56, 132, 190, .40), transparent 70%),
+    radial-gradient(40% 45% at 75% 85%, rgba(45, 150, 140, .30), transparent 70%),
+    radial-gradient(30% 35% at 25% 90%, rgba(196, 160, 90, .22), transparent 70%),
+    linear-gradient(160deg, rgba(10, 18, 36, .88), rgba(14, 24, 48, .92)) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  color: var(--ink-1);
 }
 
-/* ── Panel de vidrio ──────────────────────────────────────────────── */
+/* ── Panel principal ──────────────────────────────────────────────── */
 #editClienteDialog {
-  background: var(--gl-panel) !important;
-  backdrop-filter: blur(28px) saturate(140%);
-  -webkit-backdrop-filter: blur(28px) saturate(140%);
-  border: 1px solid var(--gl-panel-edge);
-  border-radius: 20px !important;
-  box-shadow: var(--gl-shadow) !important;
-  overflow: hidden;
   position: relative;
+  background: linear-gradient(145deg, rgba(255, 255, 255, .13), rgba(255, 255, 255, .05)) !important;
+  backdrop-filter: blur(30px) saturate(150%);
+  -webkit-backdrop-filter: blur(30px) saturate(150%);
+  border: 1px solid var(--gl-edge);
+  border-radius: 24px !important;
+  box-shadow:
+    0 40px 100px rgba(0, 0, 0, .45),
+    inset 0 1px 0 var(--gl-edge-top),
+    inset 0 0 0 1px rgba(255, 255, 255, .03) !important;
+  overflow: hidden;
 }
-/* Reflejo sutil en el borde superior, como el filo de un cristal */
+/* Brillo diagonal muy suave sobre el vidrio */
 #editClienteDialog::before {
   content: '';
   position: absolute;
-  inset: 0 0 auto 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .9), transparent);
+  inset: 0;
+  background: linear-gradient(115deg, rgba(255, 255, 255, .10) 0%, transparent 28%, transparent 70%, rgba(255, 255, 255, .04) 100%);
   pointer-events: none;
+  z-index: 0;
 }
-body.dark-theme #editClienteDialog::before { background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .18), transparent); }
+#editClienteContent { position: relative; z-index: 1; }
 
-/* Navegadores sin backdrop-filter: panel opaco para que se lea igual */
+/* Navegadores sin backdrop-filter: vidrio más opaco para que se lea */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  #editClienteDialog { background: var(--sheet) !important; }
-  #editClienteModal  { background: rgba(15, 27, 45, .55) !important; }
+  #editClienteDialog { background: rgba(22, 32, 56, .96) !important; }
 }
 
 /* ── Cabecera ─────────────────────────────────────────────────────── */
 #editClienteContent .em-head {
-  border-bottom: 1px solid var(--gl-line) !important;
-  background: linear-gradient(180deg, rgba(255, 255, 255, .35), transparent);
+  border-bottom: 1px solid rgba(255, 255, 255, .10) !important;
+  padding: 22px 30px 20px !important;
 }
-body.dark-theme #editClienteContent .em-head { background: linear-gradient(180deg, rgba(255, 255, 255, .03), transparent); }
 #editClienteContent .em-head-ico {
-  width: 46px !important; height: 46px !important;
-  background: var(--gl-sheet) !important;
-  border: 1px solid var(--gl-sheet-edge) !important;
-  border-radius: 14px !important;
-  box-shadow: var(--gl-sheet-shadow);
+  width: 48px !important; height: 48px !important;
+  border-radius: 16px !important;
+  background: linear-gradient(145deg, rgba(255, 255, 255, .22), rgba(255, 255, 255, .06)) !important;
+  border: 1px solid rgba(255, 255, 255, .28) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), 0 8px 20px rgba(0, 0, 0, .2);
 }
-#editClienteContent .em-head-ico svg { stroke: var(--gl-ico); }
-#editClienteContent .em-title {
-  font-size: 1.12rem !important;
-  font-weight: 700 !important;
-  letter-spacing: -.01em;
-  color: var(--ink-1) !important;
-}
+#editClienteContent .em-head-ico svg { stroke: #ffffff; }
+#editClienteContent .em-title { font-size: 1.25rem !important; font-weight: 600 !important; letter-spacing: -.01em; color: #fff !important; }
 #editClienteContent .em-subtitle { color: var(--ink-3) !important; }
 
 /* ── Botones ──────────────────────────────────────────────────────── */
 #editClienteContent .em-btn {
-  border-radius: 10px !important;
+  border-radius: 12px !important;
   font-family: var(--f) !important;
-  transition: background .15s, border-color .15s, box-shadow .15s;
+  font-weight: 600 !important;
+  transition: background .18s, border-color .18s, box-shadow .18s, transform .18s;
 }
 #editClienteContent .em-btn-ghost {
-  background: var(--gl-input) !important;
-  border: 1px solid var(--gl-input-edge) !important;
-  color: var(--ink-2) !important;
-  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, .08) !important;
+  border: 1px solid rgba(255, 255, 255, .20) !important;
+  color: var(--ink-1) !important;
 }
-#editClienteContent .em-btn-ghost:hover { background: var(--gl-input-focus) !important; color: var(--ink-1) !important; }
+#editClienteContent .em-btn-ghost:hover { background: rgba(255, 255, 255, .16) !important; }
 #editClienteContent .em-btn-primary {
-  background: var(--navy, #13294b) !important;
-  color: #fff !important;
-  border: 1px solid rgba(255, 255, 255, .12) !important;
-  box-shadow: 0 6px 18px rgba(19, 41, 75, .25), inset 0 1px 0 rgba(255, 255, 255, .12) !important;
+  background: rgba(255, 255, 255, .92) !important;
+  color: #0f1b2d !important;
+  border: 1px solid rgba(255, 255, 255, .9) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .25), inset 0 -1px 0 rgba(15, 27, 45, .08) !important;
 }
-#editClienteContent .em-btn-primary:hover { background: var(--navy-2, #1c3a66) !important; }
-body.dark-theme #editClienteContent .em-btn-primary { background: #1f3a66 !important; box-shadow: 0 6px 18px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .1) !important; }
+#editClienteContent .em-btn-primary:hover { background: #ffffff !important; transform: translateY(-1px); }
+#editClienteContent .em-btn-primary svg { stroke: #0f1b2d; }
 #editClienteContent .em-btn-sm { padding: 6px 14px !important; }
 
 /* ── Columnas ─────────────────────────────────────────────────────── */
-#editClienteContent .em-col-l { border-right: 1px solid var(--gl-line) !important; }
+#editClienteContent .em-col-l { border-right: 1px solid rgba(255, 255, 255, .08) !important; }
 
-/* ── Secciones: láminas de vidrio más opacas ──────────────────────── */
+/* ── Secciones: láminas de vidrio ─────────────────────────────────── */
 #editClienteContent .em-sec {
-  background: var(--gl-sheet) !important;
-  border: 1px solid var(--gl-sheet-edge) !important;
-  border-radius: 16px !important;
-  box-shadow: var(--gl-sheet-shadow);
-  padding-left: 22px !important;   /* anula el padding de la franja lateral */
+  background: var(--gl-glass) !important;
+  border: 1px solid rgba(255, 255, 255, .12) !important;
+  border-radius: 18px !important;
+  padding-left: 22px !important;       /* anula el padding de la franja lateral */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 10px 30px rgba(0, 0, 0, .12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 #editClienteContent .em-sec-ico {
-  background: var(--gl-ico-bg) !important;
-  border-radius: 9px !important;
+  background: rgba(255, 255, 255, .12) !important;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 10px !important;
 }
-#editClienteContent .em-sec-ico svg { stroke: var(--gl-ico); }
-#editClienteContent .em-sec-title {
-  font-size: .68rem !important;
-  font-weight: 700 !important;
-  letter-spacing: .1em !important;
-  color: var(--ink-2) !important;
-}
+#editClienteContent .em-sec-ico svg { stroke: #dfe8f7; }
+#editClienteContent .em-sec-title { font-size: .68rem !important; font-weight: 600 !important; letter-spacing: .12em !important; color: var(--ink-1) !important; }
 
 /* ── Campos ───────────────────────────────────────────────────────── */
-#editClienteContent .em-lbl {
-  font-size: .6rem !important;
-  font-weight: 600 !important;
-  letter-spacing: .09em !important;
-  color: var(--ink-3) !important;
-}
+#editClienteContent .em-lbl { font-size: .6rem !important; font-weight: 500 !important; letter-spacing: .1em !important; color: var(--ink-3) !important; }
 #editClienteContent .em-input {
   background: var(--gl-input) !important;
   border: 1px solid var(--gl-input-edge) !important;
-  border-radius: 10px !important;
+  border-radius: 12px !important;
   color: var(--ink-1) !important;
   font-family: var(--f);
-  transition: background .15s, border-color .15s, box-shadow .15s;
+  transition: background .18s, border-color .18s, box-shadow .18s;
 }
-#editClienteContent .em-input:hover:not(:disabled) { border-color: rgba(28, 58, 102, .28) !important; }
-body.dark-theme #editClienteContent .em-input:hover:not(:disabled) { border-color: rgba(255, 255, 255, .22) !important; }
+#editClienteContent .em-input::placeholder { color: var(--ink-4); }
+#editClienteContent .em-input:hover:not(:disabled) { background: rgba(255, 255, 255, .10) !important; }
 #editClienteContent .em-input:focus {
   outline: none;
-  background: var(--gl-input-focus) !important;
-  border-color: rgba(28, 58, 102, .45) !important;
-  box-shadow: 0 0 0 4px rgba(28, 58, 102, .10) !important;
+  background: rgba(255, 255, 255, .13) !important;
+  border-color: var(--gl-focus) !important;
+  box-shadow: 0 0 0 4px rgba(169, 196, 245, .14) !important;
 }
-body.dark-theme #editClienteContent .em-input:focus {
-  border-color: rgba(126, 166, 224, .5) !important;
-  box-shadow: 0 0 0 4px rgba(126, 166, 224, .12) !important;
-}
-#editClienteContent select.em-input option { background: var(--sheet); color: var(--ink-1); }
-body.dark-theme #editClienteContent input.em-input[type="date"] { color-scheme: dark; }
-#editClienteContent .em-pts { font-family: var(--f-mono) !important; border-radius: 8px !important; }
+#editClienteContent select.em-input option { background: #1a2640; color: #f5f7fb; }
+#editClienteContent input.em-input[type="date"] { color-scheme: dark; }
+#editClienteContent .em-pts { font-family: var(--f-mono) !important; border-radius: 10px !important; }
 
-/* ── Tabla clave/valor (supervisor, motivo, puntaje) ──────────────── */
+/* ── Bloque clave/valor ───────────────────────────────────────────── */
 #editClienteContent .em-kv {
-  background: var(--gl-input) !important;
-  border: 1px solid var(--gl-input-edge) !important;
-  border-radius: 12px !important;
+  background: rgba(255, 255, 255, .05) !important;
+  border: 1px solid rgba(255, 255, 255, .12) !important;
+  border-radius: 14px !important;
 }
-#editClienteContent .em-kv > div { border-color: var(--gl-line) !important; }
+#editClienteContent .em-kv > div { border-color: rgba(255, 255, 255, .08) !important; }
 
 /* ── Notas ────────────────────────────────────────────────────────── */
-#editClienteContent .em-count {
-  background: var(--gl-ico-bg) !important;
-  border: 1px solid var(--gl-sheet-edge) !important;
-  color: var(--ink-2) !important;
-}
-#editClienteContent .em-note-wrap {
-  background: var(--gl-input) !important;
-  border: 1px solid var(--gl-input-edge) !important;
-  border-radius: 12px !important;
-}
+#editClienteContent .em-count { background: rgba(255, 255, 255, .12) !important; border: 1px solid rgba(255, 255, 255, .18) !important; color: var(--ink-1) !important; }
+#editClienteContent .em-note-wrap { background: rgba(255, 255, 255, .05) !important; border: 1px solid rgba(255, 255, 255, .14) !important; border-radius: 14px !important; }
+#editClienteContent #notes-list .note-card { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .12); }
 
 /* ── Captura / contrato ───────────────────────────────────────────── */
-#editClienteContent .em-file {
-  background: var(--gl-input) !important;
-  border: 1px solid var(--gl-input-edge) !important;
-  border-radius: 12px !important;
-}
-#editClienteContent .em-drop {
-  background: var(--gl-input) !important;
-  border: 1.5px dashed var(--gl-input-edge) !important;
-  border-radius: 12px !important;
-}
-#editClienteContent .em-verified {
-  background: rgba(31, 122, 77, .10) !important;
-  color: var(--go, #1f7a4d) !important;
-  border: 1px solid rgba(31, 122, 77, .25) !important;
-}
+#editClienteContent .em-file { background: rgba(255, 255, 255, .06) !important; border: 1px solid rgba(255, 255, 255, .14) !important; border-radius: 14px !important; }
+#editClienteContent .em-drop { background: rgba(255, 255, 255, .04) !important; border: 1.5px dashed rgba(255, 255, 255, .22) !important; border-radius: 14px !important; }
+#editClienteContent .em-drop svg { stroke: #cfe0f7; }
+#editClienteContent .em-drop span { color: var(--ink-3) !important; }
+#editClienteContent .em-verified { background: rgba(110, 220, 170, .14) !important; color: #9ff0c8 !important; border: 1px solid rgba(110, 220, 170, .35) !important; }
 
 /* Scroll interno discreto */
 #editClienteModal::-webkit-scrollbar { width: 8px; }
-#editClienteModal::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .35); border-radius: 8px; }
+#editClienteModal::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .25); border-radius: 8px; }
 
 @media (max-width: 900px) {
   #editClienteContent .em-body { grid-template-columns: 1fr !important; }
-  #editClienteContent .em-col-l { border-right: none !important; border-bottom: 1px solid var(--gl-line); }
+  #editClienteContent .em-col-l { border-right: none !important; border-bottom: 1px solid rgba(255, 255, 255, .08); }
   #editClienteContent .em-col { padding: 16px !important; }
 }
