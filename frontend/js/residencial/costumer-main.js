@@ -645,61 +645,72 @@
   function renderTableRows(){
     const tbody=document.getElementById('costumer-tbody');if(!tbody)return;
     const total=__filteredLeads.length,ps=pageSize===99999?total:pageSize,start=(currentPage-1)*ps,paged=__filteredLeads.slice(start,start+ps);
-    if(!paged.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--ink-4);font-size:.82rem;">Sin resultados para los filtros aplicados</td></tr>';}
+    if(!paged.length){tbody.innerHTML='<tr class="cv-empty"><td colspan="8"><div class="cv-empty-box"><div class="cv-empty-ico">🔍</div><div class="cv-empty-title">Sin resultados</div><div class="cv-empty-sub">Prueba con otros filtros o limpia la búsqueda.</div></div></td></tr>';}
     else{tbody.innerHTML=paged.map(function(lead,_ri){
       const lid=String(lead._id);
       const _dv7=String(lead.dia_venta||'').slice(0,7),_di7=String(lead.dia_instalacion||'').slice(0,7);
       const isCol=!!lead._es_colchon_route||(_dv7&&_di7&&_dv7!==_di7);
-      const rowClass=isCol?' class="row-colchon"':'';
-      const rowAnim='animation:rowFall .75s cubic-bezier(.16,1,.3,1) both;animation-delay:'+(_ri*0.06)+'s;';
+      const _st=String(lead.status||'pending').toLowerCase().replace(/[^a-z]/g,'');
+      const rowClass=' class="cv-row st-'+_st+(isCol?' row-colchon':'')+'"';
+      const rowAnim='animation-delay:'+(Math.min(_ri,20)*0.025)+'s;';
       const pts=lead.puntaje!==''&&lead.puntaje!==null&&lead.puntaje!==undefined?parseFloat(String(lead.puntaje).replace(',','.')):null;
-      const ptsColor=pts===null?'var(--ink-4)':pts>=1?'var(--go)':pts>=0.5?'var(--warn)':'var(--stop)';
+      const ptsCls=pts===null?'pts-none':pts>=1?'pts-high':pts>=0.5?'pts-mid':'pts-low';
       const _svcArr=(function(){var s=lead.servicios;if(Array.isArray(s))return s.map(function(x){return String(x||'').trim();}).filter(Boolean);var str=String(s||'').trim();return str?[str]:[];})();
-      const svcBadge=_svcArr.map(function(sv){return'<span style="display:inline-block;font-size:.67rem;font-weight:700;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:var(--rf);padding:2px 9px;color:var(--ink-2);white-space:nowrap;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);">'+escHTML(sv)+'</span>';}).join('');
-      const sisBadge=lead.sistema&&lead.sistema!=='N/A'?'<span style="display:inline-block;font-size:.67rem;font-weight:700;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.2);border-radius:var(--rf);padding:2px 9px;color:var(--info);white-space:nowrap;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);">'+escHTML(lead.sistema)+(lead.riesgo&&lead.riesgo!=='N/A'&&lead.riesgo!==''?' ('+escHTML(lead.riesgo)+')':'')+'</span>':'';
+      const svcBadge=_svcArr.map(function(sv){return'<span class="cv-chip cv-chip-svc">'+escHTML(sv)+'</span>';}).join('');
+      const _rg=String(lead.riesgo||'').trim();
+      const sisBadge=lead.sistema&&lead.sistema!=='N/A'?'<span class="cv-chip cv-chip-sis">'+escHTML(lead.sistema)+(_rg&&_rg!=='N/A'?' <em class="cv-risk cv-risk-'+escHTML(_rg.toLowerCase())+'">'+escHTML(_rg)+'</em>':'')+'</span>':'';
+      const _nm=String(lead.nombre_cliente||'').trim();
+      const _ini=(_nm.split(/\s+/).filter(Boolean).slice(0,2).map(function(w){return w.charAt(0);}).join('')||'?').toUpperCase();
       return'<tr data-id="'+escHTML(lid)+'"'+rowClass+' style="'+rowAnim+'">'+
         // Col 1: Agente / Cliente
-        '<td style="padding:10px 14px;">'+
-          '<div style="font-size:.69rem;color:var(--ink-3);font-weight:500;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;">'+escHTML(lead.agente||'—')+'</div>'+
-          '<div style="display:flex;align-items:center;gap:4px;">'+
-            (isCol?'<span title="Venta colchón" style="font-size:.75rem;flex-shrink:0;">🛏</span>':'')+
-            '<span style="font-weight:700;color:var(--ink-1);font-size:.84rem;line-height:1.3;">'+escHTML(lead.nombre_cliente)+'</span>'+
-            (_hasUnreadNotes(lead)?'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--a);flex-shrink:0;box-shadow:0 0 0 2px var(--a-bg);" title="Nota sin leer"></span>':'')+
+        '<td class="cv-client">'+
+          '<div class="cv-client-wrap">'+
+            '<span class="cv-avatar" aria-hidden="true">'+escHTML(_ini)+'</span>'+
+            '<div class="cv-client-text">'+
+              '<div class="cv-client-name">'+
+                (isCol?'<span class="cv-colchon-ico" title="Venta colchón">🛏</span>':'')+
+                '<span>'+escHTML(lead.nombre_cliente)+'</span>'+
+                (_hasUnreadNotes(lead)?'<span class="cv-unread" title="Nota sin leer"></span>':'')+
+              '</div>'+
+              '<div class="cv-agent">'+escHTML(lead.agente||'—')+'</div>'+
+            '</div>'+
           '</div>'+
         '</td>'+
         // Col 2: Contacto / Dirección
-        '<td style="padding:10px 14px;">'+
-          (lead.telefono?'<div style="font-weight:600;font-size:.82rem;font-family:var(--f-mono);color:var(--ink-1);">'+escHTML(normalizePhoneNumber(lead.telefono))+'</div>':'')+
-          (lead.telefono_alt?'<div style="font-size:.75rem;font-family:var(--f-mono);color:var(--ink-3);">'+escHTML(normalizePhoneNumber(lead.telefono_alt))+'</div>':'')+
-          (lead.direccion?'<div style="font-size:.71rem;color:var(--ink-4);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+escHTML(lead.direccion)+'">'+escHTML(lead.direccion)+'</div>':'')+
+        '<td class="cv-contact">'+
+          (lead.telefono?'<div class="cv-phone">'+escHTML(normalizePhoneNumber(lead.telefono))+'</div>':'')+
+          (lead.telefono_alt?'<div class="cv-phone-alt">'+escHTML(normalizePhoneNumber(lead.telefono_alt))+'</div>':'')+
+          (lead.direccion?'<div class="cv-addr" title="'+escHTML(lead.direccion)+'">'+escHTML(lead.direccion)+'</div>':'')+
         '</td>'+
         // Col 3: Servicio & Sistema (+ No. Cuenta)
-        '<td style="padding:10px 14px;">'+
-          '<div style="font-size:.69rem;color:var(--ink-4);font-family:var(--f-mono);margin-bottom:4px;">ACC: '+escHTML(lead.numero_cuenta||'—')+'</div>'+
-          '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">'+svcBadge+sisBadge+'</div>'+
-          (lead.motivo_llamada?'<div style="font-size:.71rem;color:var(--ink-3);">Motivo: <strong style="color:var(--ink-2);">'+escHTML(lead.motivo_llamada)+'</strong></div>':'')+
+        '<td class="cv-service">'+
+          '<div class="cv-chips">'+svcBadge+sisBadge+'</div>'+
+          (lead.motivo_llamada?'<div class="cv-motivo">'+escHTML(lead.motivo_llamada)+'</div>':'')+
+          '<div class="cv-acc">ACC '+escHTML(lead.numero_cuenta||'—')+'</div>'+
         '</td>'+
         // Col 4: Logística
-        '<td style="padding:10px 14px;">'+
-          '<div style="font-size:.78rem;color:var(--ink-2);white-space:nowrap;"><span style="color:var(--ink-4);font-size:.67rem;">Venta  </span>'+escHTML(fmtDate(lead.dia_venta))+'</div>'+
-          '<div style="font-size:.78rem;color:var(--ink-2);margin-top:4px;white-space:nowrap;"><span style="color:var(--ink-4);font-size:.67rem;">Inst     </span>'+escHTML(fmtDate(lead.dia_instalacion))+'</div>'+
+        '<td class="cv-dates">'+
+          '<div class="cv-date"><span class="cv-date-lbl">Venta</span><span class="cv-date-val">'+escHTML(fmtDate(lead.dia_venta))+'</span></div>'+
+          '<div class="cv-date"><span class="cv-date-lbl">Inst.</span><span class="cv-date-val">'+escHTML(fmtDate(lead.dia_instalacion))+'</span></div>'+
         '</td>'+
         // Col 5: Estatus
         '<td class="status-td">'+statusCellHTML(lid,lead.status,isCol)+'</td>'+
         // Col 6: Status Comisión (independiente — solo afecta la página de Comisiones)
         '<td class="status-td">'+statusComisionCellHTML(lid,lead.status_comision,isCol)+'</td>'+
         // Col 7: Métricas / Sup
-        '<td style="padding:10px 14px;">'+
-          '<div style="font-weight:700;font-size:.88rem;font-family:var(--f-mono);color:'+ptsColor+';">'+(pts!==null?escHTML(String(lead.puntaje))+' pts':'— pts')+'</div>'+
-          '<div style="font-size:.73rem;color:var(--ink-3);margin-top:3px;">Sup: '+escHTML(fmtSupervisor(lead.supervisor)||'—')+'</div>'+
+        '<td class="cv-metrics">'+
+          '<span class="cv-pts '+ptsCls+'">'+(pts!==null?escHTML(String(lead.puntaje)):'—')+'<small>pts</small></span>'+
+          '<div class="cv-sup">'+escHTML(fmtSupervisor(lead.supervisor)||'—')+'</div>'+
         '</td>'+
         // Col 8: Acción
-        '<td style="padding:8px 14px;white-space:nowrap;">'+
-          '<div style="display:inline-flex;gap:6px;">'+
-            '<button onclick="toggleRowExpand(\''+lid+'\')" title="Editar" style="width:30px;height:30px;border-radius:var(--r2);border:1px solid var(--line-1);background:var(--sheet);color:var(--a);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;" aria-label="Editar">'+
-              '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'+
+        '<td class="cv-actions">'+
+          '<div class="cv-actions-wrap">'+
+            '<button class="cv-act cv-act-edit" onclick="toggleRowExpand(\''+lid+'\')" title="Editar" aria-label="Editar">'+
+              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'+
             '</button>'+
-            '<button onclick="event.stopPropagation();deleteLead(\''+lid+'\')" title="Eliminar" style="width:30px;height:30px;border-radius:var(--r2);border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08);color:#ef4444;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:.88rem;" aria-label="Eliminar">✕</button>'+
+            '<button class="cv-act cv-act-del" onclick="event.stopPropagation();deleteLead(\''+lid+'\')" title="Eliminar" aria-label="Eliminar">'+
+              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>'+
+            '</button>'+
           '</div>'+
         '</td>'+
         '</tr>';
