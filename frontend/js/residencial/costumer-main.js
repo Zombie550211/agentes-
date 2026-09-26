@@ -1034,7 +1034,7 @@
 
     var imgSrc=_safeImgUrl(lead.imagen_url);
     var imgZoneHtml=
-      '<div id="ile-img-zone-'+lid+'" style="border:1.5px dashed var(--line-2);border-radius:10px;background:var(--sheet-2);height:180px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer;" onclick="document.getElementById(\'ile-file-'+lid+'\').click()">'+
+      '<div id="ile-img-zone-'+lid+'" class="em-drop" style="border:1.5px dashed var(--line-2);border-radius:10px;background:var(--sheet-2);height:180px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer;" onclick="document.getElementById(\'ile-file-'+lid+'\').click()">'+
         (imgSrc
           ?'<img id="ile-img-preview-'+lid+'" src="'+escHTML(imgSrc)+'" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;" onclick="event.stopPropagation();_openCostumerImgLightbox(\''+escHTML(imgSrc)+'\')" title="Click para ampliar">'+
            '<div style="position:absolute;bottom:3px;right:5px;background:rgba(0,0,0,.4);color:#fff;font-size:.6rem;padding:1px 5px;border-radius:2px;pointer-events:none;">🔍 Ver</div>'+
@@ -1055,9 +1055,9 @@
 
     // ── Helpers modal ──
     var phoneIcon='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.77 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.5a16 16 0 0 0 5.59 5.59l1.06-1.06a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 16.92z"/></svg>';
-    function _mSec(icon,title,body,accent){return'<div style="background:var(--sheet);border:1px solid var(--line-1);border-radius:12px;padding:18px 22px;'+(accent?'border-left:3px solid '+accent+';padding-left:19px;':'')+'">'+'<div style="display:flex;align-items:center;gap:9px;margin-bottom:16px;"><span style="width:28px;height:28px;background:var(--a-bg);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">'+icon+'</span><span style="font-size:.73rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-1);">'+title+'</span></div>'+body+'</div>';}
-    function _mField(lbl,id,val,type,lIcon){return'<div><label style="font-size:.65rem;font-weight:600;text-transform:uppercase;color:var(--ink-3);letter-spacing:.05em;display:block;margin-bottom:5px;">'+lbl+'</label><div style="position:relative;">'+(lIcon?'<span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--ink-4);pointer-events:none;display:inline-flex;">'+lIcon+'</span>':'')+'<input type="'+type+'" id="ile-'+id+'-'+lid+'" value="'+escHTML(String(val||''))+'" '+dis+' style="width:100%;padding:9px '+(lIcon?'10px 9px 32px':'12px')+';border:1px solid var(--line-1);border-radius:8px;font-size:.85rem;color:var(--ink-1);background:var(--sheet);box-sizing:border-box;'+opacity+'"></div></div>';}
-    function _mSel(lbl,id,opts){return'<div><label style="font-size:.65rem;font-weight:600;text-transform:uppercase;color:var(--ink-3);letter-spacing:.05em;display:block;margin-bottom:5px;">'+lbl+'</label><select id="ile-'+id+'-'+lid+'" '+dis+' style="width:100%;padding:9px 12px;border:1px solid var(--line-1);border-radius:8px;font-size:.85rem;color:var(--ink-1);background:var(--sheet);'+opacity+'">'+opts+'</select></div>';}
+    function _mSec(icon,title,body,accent){return'<div class="em-sec" style="background:var(--sheet);border:1px solid var(--line-1);border-radius:12px;padding:18px 22px;'+(accent?'border-left:3px solid '+accent+';padding-left:19px;':'')+'">'+'<div class="em-sec-head" style="display:flex;align-items:center;gap:9px;margin-bottom:16px;"><span class="em-sec-ico" style="width:28px;height:28px;background:var(--a-bg);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">'+icon+'</span><span class="em-sec-title" style="font-size:.73rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-1);">'+title+'</span></div>'+body+'</div>';}
+    function _mField(lbl,id,val,type,lIcon){return'<div class="em-field"><label class="em-lbl" style="font-size:.65rem;font-weight:600;text-transform:uppercase;color:var(--ink-3);letter-spacing:.05em;display:block;margin-bottom:5px;">'+lbl+'</label><div style="position:relative;">'+(lIcon?'<span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--ink-4);pointer-events:none;display:inline-flex;">'+lIcon+'</span>':'')+'<input class="em-input'+(lIcon?' em-has-ico':'')+'" type="'+type+'" id="ile-'+id+'-'+lid+'" value="'+escHTML(String(val||''))+'" '+dis+' style="width:100%;padding:9px '+(lIcon?'10px 9px 32px':'12px')+';border:1px solid var(--line-1);border-radius:8px;font-size:.85rem;color:var(--ink-1);background:var(--sheet);box-sizing:border-box;'+opacity+'"></div></div>';}
+    function _mSel(lbl,id,opts){return'<div class="em-field"><label class="em-lbl" style="font-size:.65rem;font-weight:600;text-transform:uppercase;color:var(--ink-3);letter-spacing:.05em;display:block;margin-bottom:5px;">'+lbl+'</label><select class="em-input" id="ile-'+id+'-'+lid+'" '+dis+' style="width:100%;padding:9px 12px;border:1px solid var(--line-1);border-radius:8px;font-size:.85rem;color:var(--ink-1);background:var(--sheet);'+opacity+'">'+opts+'</select></div>';}
     function selOpt(vals,cur){return vals.map(function(v){var vv=Array.isArray(v)?v[0]:v,lbl=Array.isArray(v)?v[1]:v;return'<option value="'+escHTML(vv)+'"'+(String(cur||'').toLowerCase()===String(vv).toLowerCase()?' selected':'')+'>'+escHTML(lbl)+'</option>';}).join('');}
 
     // Imagen: thumbnail si existe, zona upload si no
@@ -1065,7 +1065,7 @@
     if(imgSrc){
       var _fn=escHTML(imgSrc.split('/').pop().split('?')[0])||'imagen.png';
       imgDisplayHtml=
-        '<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line-1);border-radius:8px;background:var(--sheet-2);">'+
+        '<div class="em-file" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line-1);border-radius:8px;background:var(--sheet-2);">'+
           '<div style="width:46px;height:46px;border-radius:6px;overflow:hidden;flex-shrink:0;border:1px solid var(--line-1);display:flex;align-items:center;justify-content:center;background:var(--sheet);">'+
             '<img src="'+escHTML(imgSrc)+'" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;" onclick="event.stopPropagation();_openCostumerImgLightbox(\''+escHTML(imgSrc)+'\')" title="Ver imagen">'+
           '</div>'+
@@ -1073,7 +1073,7 @@
             '<div style="font-size:.82rem;font-weight:600;color:var(--ink-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+_fn+'</div>'+
             '<div style="font-size:.72rem;color:var(--a);cursor:pointer;margin-top:2px;" onclick="event.stopPropagation();_openCostumerImgLightbox(\''+escHTML(imgSrc)+'\')">Click para ampliar</div>'+
           '</div>'+
-          (canEdit?'<button type="button" onclick="document.getElementById(\'ile-file-'+lid+'\').click()" style="padding:6px 14px;border:1px solid var(--line-1);border-radius:6px;background:var(--sheet);font-size:.78rem;font-weight:600;cursor:pointer;color:var(--ink-2);flex-shrink:0;white-space:nowrap;">Cambiar</button>':'')+
+          (canEdit?'<button class="em-btn em-btn-ghost em-btn-sm" type="button" onclick="document.getElementById(\'ile-file-'+lid+'\').click()" style="padding:6px 14px;border:1px solid var(--line-1);border-radius:6px;background:var(--sheet);font-size:.78rem;font-weight:600;cursor:pointer;color:var(--ink-2);flex-shrink:0;white-space:nowrap;">Cambiar</button>':'')+
         '</div>'+
         '<input type="file" id="ile-file-'+lid+'" accept="image/*" style="display:none" onchange="_ileFileSelect(event,\''+lid+'\')">';
     } else {
@@ -1082,31 +1082,31 @@
 
     var html=
       // ── Cabecera ──
-      '<div style="display:flex;align-items:center;justify-content:space-between;padding:20px 28px 18px;border-bottom:1px solid var(--line-1);">'+
+      '<div class="em-head" style="display:flex;align-items:center;justify-content:space-between;padding:20px 28px 18px;border-bottom:1px solid var(--line-1);">'+
         '<div style="display:flex;align-items:center;gap:14px;">'+
-          '<div style="width:52px;height:52px;background:var(--a-bg);border:1px solid var(--a-line);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+
+          '<div class="em-head-ico" style="width:52px;height:52px;background:var(--a-bg);border:1px solid var(--a-line);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+
             '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'+
           '</div>'+
           '<div>'+
-            '<div style="font-size:1.15rem;font-weight:700;color:var(--ink-1);">Editar cliente</div>'+
-            '<div style="font-size:.76rem;color:var(--ink-4);margin-top:2px;">Modifica la información operativa y comercial del cliente seleccionado</div>'+
+            '<div class="em-title" style="font-size:1.15rem;font-weight:700;color:var(--ink-1);">Editar cliente</div>'+
+            '<div class="em-subtitle" style="font-size:.76rem;color:var(--ink-4);margin-top:2px;">Modifica la información operativa y comercial del cliente seleccionado</div>'+
           '</div>'+
         '</div>'+
         '<div style="display:flex;align-items:center;gap:10px;">'+
-          '<button type="button" onclick="window.closeEditModal()" style="padding:9px 22px;border:1.5px solid var(--line-1);border-radius:8px;background:var(--sheet);font-size:.85rem;font-weight:600;cursor:pointer;color:var(--ink-2);">Cancelar</button>'+
-          (canEdit?'<button type="button" onclick="guardarInlineEdit(\''+lid+'\')" id="ile-save-'+lid+'" style="padding:9px 22px;border:none;border-radius:8px;background:var(--a);color:#fff;font-size:.85rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 12px rgba(108,71,255,.3);">'+
+          '<button class="em-btn em-btn-ghost" type="button" onclick="window.closeEditModal()" style="padding:9px 22px;border:1.5px solid var(--line-1);border-radius:8px;background:var(--sheet);font-size:.85rem;font-weight:600;cursor:pointer;color:var(--ink-2);">Cancelar</button>'+
+          (canEdit?'<button class="em-btn em-btn-primary" type="button" onclick="guardarInlineEdit(\''+lid+'\')" id="ile-save-'+lid+'" style="padding:9px 22px;border:none;border-radius:8px;background:var(--a);color:#fff;font-size:.85rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 12px rgba(108,71,255,.3);">'+
             '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>'+
             ' Guardar cambios</button>'
-          :'<button type="button" onclick="_guardarSoloImagen(\''+lid+'\',\'leads\')" id="ile-save-img-'+lid+'" style="padding:9px 22px;border:none;border-radius:8px;background:var(--a);color:#fff;font-size:.85rem;font-weight:700;cursor:pointer;">📷 Subir imagen</button>')+
+          :'<button class="em-btn em-btn-primary" type="button" onclick="_guardarSoloImagen(\''+lid+'\',\'leads\')" id="ile-save-img-'+lid+'" style="padding:9px 22px;border:none;border-radius:8px;background:var(--a);color:#fff;font-size:.85rem;font-weight:700;cursor:pointer;">📷 Subir imagen</button>')+
         '</div>'+
       '</div>'+
       (!canEdit?'<div style="background:var(--warn-bg);border-bottom:1px solid var(--warn-ln);padding:9px 28px;font-size:.76rem;color:var(--warn);font-weight:600;display:flex;align-items:center;gap:8px;">🔒 Solo Administradores y Backoffice pueden editar.</div>':'')+
 
       // ── Cuerpo 2 columnas ──
-      '<div style="display:grid;grid-template-columns:1fr 390px;align-items:start;">'+
+      '<div class="em-body" style="display:grid;grid-template-columns:1fr 390px;align-items:start;">'+
 
         // Columna izquierda
-        '<div style="padding:22px 20px 24px 28px;display:flex;flex-direction:column;gap:14px;border-right:1px solid var(--line-1);">'+
+        '<div class="em-col em-col-l" style="padding:22px 20px 24px 28px;display:flex;flex-direction:column;gap:14px;border-right:1px solid var(--line-1);">'+
           _mSec('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>','Información personal',
             '<div style="margin-bottom:12px;">'+_mField('Nombre cliente','nombre',lead.nombre_cliente,'text','')+'</div>'+
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'+
@@ -1125,7 +1125,7 @@
           _mSec('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>','Detalles del servicio',
             '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;">'+
               _mSel('Tipo servicio','tipo','<option value="">Elige</option>')/* poblado dinámico: /api/productos */+
-              '<div><label style="font-size:.65rem;font-weight:600;text-transform:uppercase;color:var(--ink-3);letter-spacing:.05em;display:block;margin-bottom:5px;">Servicio</label><select id="ile-svc-'+lid+'" '+dis+' style="width:100%;padding:9px 12px;border:1px solid var(--line-1);border-radius:8px;font-size:.85rem;color:var(--ink-1);background:var(--sheet);'+opacity+'"></select></div>'+
+              '<div class="em-field"><label class="em-lbl" style="font-size:.65rem;font-weight:600;text-transform:uppercase;color:var(--ink-3);letter-spacing:.05em;display:block;margin-bottom:5px;">Servicio</label><select class="em-input" id="ile-svc-'+lid+'" '+dis+' style="width:100%;padding:9px 12px;border:1px solid var(--line-1);border-radius:8px;font-size:.85rem;color:var(--ink-1);background:var(--sheet);'+opacity+'"></select></div>'+
               _mSel('Sistema','sistema','<option value="">Elige</option>')/* poblado dinámico: /api/productos */+
               _mSel('Riesgo','riesgo','<option value="">—</option>'+selOpt([['Alto','Alto'],['Medio','Medio'],['Bajo','Bajo'],['N/A','N/A']],lead.riesgo))+
             '</div>',
@@ -1144,13 +1144,13 @@
         '</div>'+
 
         // Columna derecha
-        '<div style="padding:22px 28px 24px 20px;display:flex;flex-direction:column;gap:14px;">'+
+        '<div class="em-col em-col-r" style="padding:22px 28px 24px 20px;display:flex;flex-direction:column;gap:14px;">'+
           _mSec('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>','Logística & Métricas',
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">'+
               _mField('Dia venta','dv',lead.dia_venta,'date','')+
               _mField('Dia instalación','di',lead.dia_instalacion,'date','')+
             '</div>'+
-            '<div style="border:1px solid var(--line-1);border-radius:8px;overflow:hidden;margin-bottom:14px;">'+
+            '<div class="em-kv" style="border:1px solid var(--line-1);border-radius:8px;overflow:hidden;margin-bottom:14px;">'+
               '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line-1);">'+
                 '<span style="font-size:.68rem;font-weight:600;color:var(--ink-3);">SUPERVISOR / AGENTE:</span>'+
                 '<span style="font-size:.85rem;font-weight:700;color:var(--ink-1);">'+escHTML(fmtSupervisor(lead.supervisor)||'—')+(lead.agente?' / '+escHTML(lead.agente):'')+'</span>'+
@@ -1161,26 +1161,26 @@
               '</div>'+
               '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;">'+
                 '<span style="font-size:.68rem;font-weight:600;color:var(--ink-3);">PUNTAJE AUTOMÁTICO:</span>'+
-                '<input type="number" id="ile-pts-'+lid+'" value="'+escHTML(String(lead.puntaje||''))+'" '+dis+' style="width:80px;padding:5px 8px;border:1.5px solid var(--line-1);border-radius:6px;font-size:.88rem;font-weight:600;color:var(--ink-1);text-align:right;background:var(--sheet);'+opacity+'">'+
+                '<input class="em-input em-pts" type="number" id="ile-pts-'+lid+'" value="'+escHTML(String(lead.puntaje||''))+'" '+dis+' style="width:80px;padding:5px 8px;border:1.5px solid var(--line-1);border-radius:6px;font-size:.88rem;font-weight:600;color:var(--ink-1);text-align:right;background:var(--sheet);'+opacity+'">'+
               '</div>'+
             '</div>',
             'var(--a)')+
 
           // Notas
-          '<div style="background:var(--sheet);border:1px solid var(--line-1);border-radius:12px;padding:18px 22px;">'+
+          '<div class="em-sec" style="background:var(--sheet);border:1px solid var(--line-1);border-radius:12px;padding:18px 22px;">'+
             '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'+
-              '<div style="display:flex;align-items:center;gap:8px;">'+
-                '<span style="width:28px;height:28px;background:var(--a-bg);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>'+
-                '<span style="font-size:.73rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-1);">Notas</span>'+
-                '<span id="notes-count-badge" style="background:#f1f5f9;color:var(--ink-2);font-size:.7rem;font-weight:700;padding:1px 8px;border-radius:var(--rf);border:1px solid var(--line-1);">0</span>'+
+              '<div class="em-sec-head" style="display:flex;align-items:center;gap:8px;">'+
+                '<span class="em-sec-ico" style="width:28px;height:28px;background:var(--a-bg);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>'+
+                '<span class="em-sec-title" style="font-size:.73rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-1);">Notas</span>'+
+                '<span id="notes-count-badge" class="em-count" style="background:#f1f5f9;color:var(--ink-2);font-size:.7rem;font-weight:700;padding:1px 8px;border-radius:var(--rf);border:1px solid var(--line-1);">0</span>'+
               '</div>'+
               '<button type="button" onclick="(function(){var w=document.getElementById(\'ile-note-wrap-'+lid+'\');if(w)w.style.display=w.style.display===\'none\'?\'block\':\'none\';})()" style="font-size:.78rem;font-weight:700;color:var(--a);background:transparent;border:none;cursor:pointer;">+ Agregar nota</button>'+
             '</div>'+
-            '<div id="ile-note-wrap-'+lid+'" style="display:none;margin-bottom:12px;border:1px solid var(--a-line);border-radius:8px;padding:10px;background:var(--sheet);">'+
+            '<div id="ile-note-wrap-'+lid+'" class="em-note-wrap" style="display:none;margin-bottom:12px;border:1px solid var(--a-line);border-radius:8px;padding:10px;background:var(--sheet);">'+
               '<input type="hidden" id="edit-lead-id" value="'+escHTML(String(lid))+'">'+
-              '<textarea id="new-note-input" rows="3" placeholder="Escribe una nota… (Ctrl+Enter para guardar)" style="width:100%;padding:8px 10px;border:1px solid var(--line-1);border-radius:7px;font-size:.82rem;resize:none;box-sizing:border-box;font-family:var(--f);color:var(--ink-1);background:var(--sheet-2);margin-bottom:8px;display:block;outline:none;"></textarea>'+
+              '<textarea class="em-input" id="new-note-input" rows="3" placeholder="Escribe una nota… (Ctrl+Enter para guardar)" style="width:100%;padding:8px 10px;border:1px solid var(--line-1);border-radius:7px;font-size:.82rem;resize:none;box-sizing:border-box;font-family:var(--f);color:var(--ink-1);background:var(--sheet-2);margin-bottom:8px;display:block;outline:none;"></textarea>'+
               '<div style="display:flex;align-items:center;gap:7px;">'+
-                '<select id="note-type-select" style="flex:1;min-width:0;padding:5px 8px;border:1px solid var(--line-1);border-radius:6px;font-size:.74rem;background:var(--sheet);color:var(--ink-1);"><option value="general">💬 General</option><option value="llamada">📞 Llamada</option><option value="visita">🏠 Visita</option><option value="alerta">⚠️ Alerta</option><option value="seguimiento">📌 Seguimiento</option></select>'+
+                '<select class="em-input" id="note-type-select" style="flex:1;min-width:0;padding:5px 8px;border:1px solid var(--line-1);border-radius:6px;font-size:.74rem;background:var(--sheet);color:var(--ink-1);"><option value="general">💬 General</option><option value="llamada">📞 Llamada</option><option value="visita">🏠 Visita</option><option value="alerta">⚠️ Alerta</option><option value="seguimiento">📌 Seguimiento</option></select>'+
                 '<button id="btn-add-note" type="button" onclick="addNoteToLead()" style="padding:5px 14px;background:var(--a);color:#fff;border:none;border-radius:6px;font-size:.74rem;font-weight:700;cursor:pointer;flex-shrink:0;">Guardar</button>'+
               '</div>'+
             '</div>'+
@@ -1188,13 +1188,13 @@
           '</div>'+
 
           // Captura o Contrato
-          '<div style="background:var(--sheet);border:1px solid var(--line-1);border-radius:12px;padding:18px 22px;">'+
+          '<div class="em-sec" style="background:var(--sheet);border:1px solid var(--line-1);border-radius:12px;padding:18px 22px;">'+
             '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'+
-              '<div style="display:flex;align-items:center;gap:8px;">'+
-                '<span style="width:28px;height:28px;background:var(--a-bg);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></span>'+
-                '<span style="font-size:.73rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-1);">Captura o Contrato</span>'+
+              '<div class="em-sec-head" style="display:flex;align-items:center;gap:8px;">'+
+                '<span class="em-sec-ico" style="width:28px;height:28px;background:var(--a-bg);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></span>'+
+                '<span class="em-sec-title" style="font-size:.73rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-1);">Captura o Contrato</span>'+
               '</div>'+
-              (imgSrc?'<span style="font-size:.68rem;font-weight:700;background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;border-radius:var(--rf);padding:3px 10px;">Verificado</span>':'')+
+              (imgSrc?'<span class="em-verified" style="font-size:.68rem;font-weight:700;background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;border-radius:var(--rf);padding:3px 10px;">Verificado</span>':'')+
             '</div>'+
             imgDisplayHtml+
             // Capturas de llamadas de verificación/seguimiento (fila, scroll invisible)
