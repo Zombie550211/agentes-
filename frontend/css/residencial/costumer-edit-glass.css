@@ -1,198 +1,344 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   MODAL "EDITAR CLIENTE" — glassmorphism
+   MODAL "EDITAR CLIENTE" — vista de perfil + glassmorphism
    ═══════════════════════════════════════════════════════════════════════
-   El contenido del modal se genera en costumer-main.js (toggleRowExpand)
-   con estilos en línea; las clases em-* son los ganchos que usa esta hoja.
+   Marcado: costumer-main.js (toggleRowExpand). Clases:
+     .ep-*  estructura de la vista de perfil
+     .em-*  piezas reutilizadas (campos, botones, notas, captura)
 
-   Cómo funciona
-   ─────────────
-   El vidrio solo "se ve" si detrás hay profundidad y color. Por eso el
-   fondo del modal es una noche azul con manchas de luz difusas (índigo,
-   azul acero, verde azulado y un toque dorado), todas desaturadas. Encima,
-   el panel y las secciones son vidrio esmerilado: blanco muy translúcido,
-   desenfoque fuerte, borde claro y un brillo en el filo superior.
+   Composición
+   ───────────
+   ┌──────────────┬──────────────────────────────┐
+   │  PERFIL      │  Ficha del cliente        ✕  │
+   │  avatar      │  PERSONAL ─────────────────  │
+   │  nombre      │  CUENTA ───────────────────  │
+   │  status/pts  │  SERVICIO ─────────────────  │
+   │  datos clave │  GESTIÓN ──────────────────  │
+   │  fechas      │  NOTAS ────────────────────  │
+   │  captura     ├──────────────────────────────┤
+   │              │          Cancelar  Guardar   │
+   └──────────────┴──────────────────────────────┘
+   El perfil queda fijo; solo el formulario hace scroll, y la barra de
+   acciones siempre está visible abajo.
 
-   Los estilos en línea del modal usan var(--ink-1), var(--sheet), var(--a)…
-   Redefinir esas variables DENTRO del modal repinta todo el texto y los
-   fondos sin tener que pelear cada style="" con !important.
-   El look es el mismo en tema claro y oscuro: el vidrio es el tema.
+   Estética: fondo noche con manchas de luz difusas y desaturadas; panel
+   de vidrio esmerilado; el perfil es una lámina algo más opaca. Los
+   grupos del formulario NO son tarjetas: título + línea fina, para que
+   respire. La paleta se redefine con variables locales al modal, así los
+   estilos en línea que queden se repintan solos.
    ═══════════════════════════════════════════════════════════════════════ */
 
 #editClienteModal {
-  /* Paleta local del modal */
   --ink-1:   #f5f7fb;
   --ink-2:   rgba(235, 240, 248, .86);
   --ink-3:   rgba(220, 228, 240, .62);
-  --ink-4:   rgba(210, 220, 235, .45);
+  --ink-4:   rgba(210, 220, 235, .42);
   --sheet:   rgba(255, 255, 255, .06);
   --sheet-2: rgba(255, 255, 255, .05);
   --sheet-3: rgba(255, 255, 255, .08);
-  --line-1:  rgba(255, 255, 255, .14);
-  --line-2:  rgba(255, 255, 255, .22);
+  --line-1:  rgba(255, 255, 255, .12);
+  --line-2:  rgba(255, 255, 255, .20);
   --a:       #a9c4f5;
   --a-bg:    rgba(169, 196, 245, .14);
   --a-line:  rgba(169, 196, 245, .35);
-  --warn:    #f2c879;
-  --warn-bg: rgba(242, 200, 121, .12);
-  --warn-ln: rgba(242, 200, 121, .35);
 
-  --gl-glass:      rgba(255, 255, 255, .08);
-  --gl-glass-2:    rgba(255, 255, 255, .06);
-  --gl-edge:       rgba(255, 255, 255, .18);
-  --gl-edge-top:   rgba(255, 255, 255, .45);
-  --gl-input:      rgba(255, 255, 255, .07);
-  --gl-input-edge: rgba(255, 255, 255, .16);
-  --gl-focus:      rgba(169, 196, 245, .55);
+  --ep-glass:      rgba(255, 255, 255, .07);
+  --ep-edge:       rgba(255, 255, 255, .16);
+  --ep-input:      rgba(255, 255, 255, .06);
+  --ep-input-edge: rgba(255, 255, 255, .14);
+  --ep-focus:      rgba(169, 196, 245, .55);
 
   background:
-    radial-gradient(38% 45% at 15% 20%, rgba(99, 102, 241, .45), transparent 70%),
-    radial-gradient(35% 40% at 85% 15%, rgba(56, 132, 190, .40), transparent 70%),
-    radial-gradient(40% 45% at 75% 85%, rgba(45, 150, 140, .30), transparent 70%),
-    radial-gradient(30% 35% at 25% 90%, rgba(196, 160, 90, .22), transparent 70%),
-    linear-gradient(160deg, rgba(10, 18, 36, .88), rgba(14, 24, 48, .92)) !important;
+    radial-gradient(38% 45% at 12% 18%, rgba(99, 102, 241, .42), transparent 70%),
+    radial-gradient(35% 40% at 88% 12%, rgba(56, 132, 190, .36), transparent 70%),
+    radial-gradient(40% 45% at 78% 88%, rgba(45, 150, 140, .26), transparent 70%),
+    radial-gradient(30% 35% at 22% 92%, rgba(196, 160, 90, .20), transparent 70%),
+    linear-gradient(160deg, rgba(10, 18, 36, .90), rgba(14, 24, 48, .94)) !important;
   backdrop-filter: blur(6px) !important;
   -webkit-backdrop-filter: blur(6px) !important;
   color: var(--ink-1);
 }
 
-/* ── Panel principal ──────────────────────────────────────────────── */
+/* ── Panel de vidrio ──────────────────────────────────────────────── */
 #editClienteDialog {
   position: relative;
-  background: linear-gradient(145deg, rgba(255, 255, 255, .13), rgba(255, 255, 255, .05)) !important;
+  max-width: 1040px !important;
+  background: linear-gradient(145deg, rgba(255, 255, 255, .12), rgba(255, 255, 255, .04)) !important;
   backdrop-filter: blur(30px) saturate(150%);
   -webkit-backdrop-filter: blur(30px) saturate(150%);
-  border: 1px solid var(--gl-edge);
+  border: 1px solid var(--ep-edge);
   border-radius: 24px !important;
-  box-shadow:
-    0 40px 100px rgba(0, 0, 0, .45),
-    inset 0 1px 0 var(--gl-edge-top),
-    inset 0 0 0 1px rgba(255, 255, 255, .03) !important;
+  box-shadow: 0 40px 100px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .35) !important;
   overflow: hidden;
 }
-/* Brillo diagonal muy suave sobre el vidrio */
-#editClienteDialog::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(115deg, rgba(255, 255, 255, .10) 0%, transparent 28%, transparent 70%, rgba(255, 255, 255, .04) 100%);
-  pointer-events: none;
-  z-index: 0;
-}
-#editClienteContent { position: relative; z-index: 1; }
-
-/* Navegadores sin backdrop-filter: vidrio más opaco para que se lea */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  #editClienteDialog { background: rgba(22, 32, 56, .96) !important; }
+  #editClienteDialog { background: rgba(22, 32, 56, .97) !important; }
 }
 
-/* ── Cabecera ─────────────────────────────────────────────────────── */
-#editClienteContent .em-head {
-  border-bottom: 1px solid rgba(255, 255, 255, .10) !important;
-  padding: 22px 30px 20px !important;
+.ep-shell {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  height: min(86vh, 780px);
 }
-#editClienteContent .em-head-ico {
-  width: 48px !important; height: 48px !important;
+
+/* ═══ PERFIL (izquierda) ═══════════════════════════════════════════ */
+.ep-profile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 34px 24px 24px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .10), rgba(255, 255, 255, .03));
+  border-right: 1px solid rgba(255, 255, 255, .10);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.ep-profile::-webkit-scrollbar { display: none; }
+/* En una columna flex con scroll, los hijos se encogían (avatar aplastado) */
+.ep-profile > * { flex-shrink: 0; }
+
+.ep-avatar {
+  width: 86px; height: 86px;
+  border-radius: 28px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--f-mono);
+  font-size: 1.7rem; font-weight: 600; letter-spacing: .02em;
+  color: #fff;
+  background: linear-gradient(145deg, rgba(255, 255, 255, .28), rgba(255, 255, 255, .06));
+  border: 1px solid rgba(255, 255, 255, .32);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 0 14px 30px rgba(0, 0, 0, .25);
+}
+.ep-name {
+  margin-top: 16px;
+  font-size: 1.2rem; font-weight: 600; letter-spacing: -.01em;
+  color: #fff; text-align: center; line-height: 1.25;
+  word-break: break-word;
+}
+.ep-agent {
+  margin-top: 4px;
+  font-size: .64rem; font-weight: 500; text-transform: uppercase; letter-spacing: .12em;
+  color: var(--ink-3);
+}
+
+.ep-chips { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
+.ep-status, .ep-pts {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 26px; padding: 0 11px;
+  border-radius: 999px;
+  font-size: .64rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  border: 1px solid rgba(255, 255, 255, .18);
+  background: rgba(255, 255, 255, .08);
+  color: #fff;
+}
+.ep-status::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.ep-status.badge-pending   { color: #f4cf86; border-color: rgba(244, 207, 134, .35); background: rgba(244, 207, 134, .10); }
+.ep-status.badge-active    { color: #8fe3bb; border-color: rgba(143, 227, 187, .35); background: rgba(143, 227, 187, .10); }
+.ep-status.badge-cancelled { color: #f5a3a0; border-color: rgba(245, 163, 160, .35); background: rgba(245, 163, 160, .10); }
+.ep-status.badge-hold      { color: #c6cfdd; }
+.ep-pts { font-family: var(--f-mono); letter-spacing: 0; font-size: .74rem; }
+.ep-pts small { font-family: var(--f); font-size: .56rem; opacity: .7; letter-spacing: .08em; }
+.ep-pts.pts-high { color: #8fe3bb; }
+.ep-pts.pts-mid  { color: #f4cf86; }
+.ep-pts.pts-low  { color: #f5a3a0; }
+
+.ep-svc {
+  margin-top: 10px;
+  font-family: var(--f-mono); font-size: .68rem; color: var(--ink-3);
+  text-align: center;
+}
+
+.ep-divider { width: 100%; height: 1px; margin: 20px 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .18), transparent); flex-shrink: 0; }
+
+.ep-facts { width: 100%; display: flex; flex-direction: column; gap: 11px; margin: 0; }
+.ep-facts > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.ep-facts dt { font-size: .6rem; font-weight: 500; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); flex-shrink: 0; }
+.ep-facts dd { margin: 0; font-size: .78rem; font-weight: 500; color: var(--ink-1); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ep-mono { font-family: var(--f-mono); }
+
+.ep-mini-fields { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+
+.ep-capture { width: 100%; }
+.ep-capture-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.ep-label { font-size: .6rem; font-weight: 500; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); }
+.ep-caps-row { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin-top: 10px; }
+
+/* Zona de imagen y archivo dentro del perfil */
+#editClienteContent .em-drop {
+  height: 130px !important; min-height: 130px !important;
+  background: rgba(255, 255, 255, .04) !important;
+  border: 1.5px dashed rgba(255, 255, 255, .22) !important;
   border-radius: 16px !important;
-  background: linear-gradient(145deg, rgba(255, 255, 255, .22), rgba(255, 255, 255, .06)) !important;
-  border: 1px solid rgba(255, 255, 255, .28) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), 0 8px 20px rgba(0, 0, 0, .2);
 }
-#editClienteContent .em-head-ico svg { stroke: #ffffff; }
-#editClienteContent .em-title { font-size: 1.25rem !important; font-weight: 600 !important; letter-spacing: -.01em; color: #fff !important; }
-#editClienteContent .em-subtitle { color: var(--ink-3) !important; }
+#editClienteContent .em-drop svg { stroke: #cfe0f7; }
+#editClienteContent .em-drop span { color: var(--ink-3) !important; }
+#editClienteContent .em-file {
+  background: rgba(255, 255, 255, .06) !important;
+  border: 1px solid rgba(255, 255, 255, .14) !important;
+  border-radius: 14px !important;
+}
+#editClienteContent .em-verified {
+  font-size: .58rem !important; font-weight: 600 !important; letter-spacing: .06em; text-transform: uppercase;
+  padding: 2px 8px !important; border-radius: 999px !important;
+  background: rgba(143, 227, 187, .12) !important; color: #8fe3bb !important; border: 1px solid rgba(143, 227, 187, .32) !important;
+}
 
-/* ── Botones ──────────────────────────────────────────────────────── */
-#editClienteContent .em-btn {
+/* ═══ FORMULARIO (derecha) ═════════════════════════════════════════ */
+.ep-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+
+.ep-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: 26px 32px 18px;
+  flex-shrink: 0;
+}
+.ep-eyebrow { font-size: .6rem; font-weight: 500; text-transform: uppercase; letter-spacing: .16em; color: var(--ink-3); }
+.ep-title { margin: 4px 0 0; font-size: 1.4rem; font-weight: 600; letter-spacing: -.02em; color: #fff; }
+.ep-close {
+  width: 36px; height: 36px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  background: rgba(255, 255, 255, .06);
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.ep-close:hover { background: rgba(255, 255, 255, .14); color: #fff; }
+
+.ep-lock {
+  margin: 0 32px 10px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  font-size: .74rem; font-weight: 500;
+  color: #f4cf86;
+  background: rgba(244, 207, 134, .10);
+  border: 1px solid rgba(244, 207, 134, .28);
+}
+
+.ep-form {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 32px 24px;
+  display: flex; flex-direction: column; gap: 26px;
+}
+.ep-form::-webkit-scrollbar { width: 8px; }
+.ep-form::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .18); border-radius: 8px; }
+
+/* Grupos: título + línea fina, sin caja */
+.ep-group { display: flex; flex-direction: column; gap: 12px; }
+.ep-group-title {
+  display: flex; align-items: center; gap: 12px;
+  margin: 0;
+  font-size: .64rem; font-weight: 600; text-transform: uppercase; letter-spacing: .16em;
+  color: var(--ink-2);
+}
+.ep-group > .ep-group-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, .18), transparent);
+}
+.ep-group-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ep-link {
+  background: none; border: none; cursor: pointer;
+  font-family: var(--f); font-size: .74rem; font-weight: 500;
+  color: var(--a);
+}
+.ep-link:hover { color: #fff; }
+
+.ep-row { display: grid; gap: 12px; }
+.ep-cols-1   { grid-template-columns: 1fr; }
+.ep-cols-2   { grid-template-columns: 1fr 1fr; }
+.ep-cols-3-1 { grid-template-columns: 3fr 1fr; }
+
+/* ── Campos ───────────────────────────────────────────────────────── */
+#editClienteContent .em-field { min-width: 0; }
+#editClienteContent .em-lbl {
+  display: block;
+  margin-bottom: 6px !important;
+  font-size: .6rem !important; font-weight: 500 !important;
+  text-transform: uppercase; letter-spacing: .1em !important;
+  color: var(--ink-3) !important;
+}
+#editClienteContent .em-input {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px !important;
+  box-sizing: border-box;
+  background: var(--ep-input) !important;
+  border: 1px solid var(--ep-input-edge) !important;
   border-radius: 12px !important;
-  font-family: var(--f) !important;
-  font-weight: 600 !important;
-  transition: background .18s, border-color .18s, box-shadow .18s, transform .18s;
-}
-#editClienteContent .em-btn-ghost {
-  background: rgba(255, 255, 255, .08) !important;
-  border: 1px solid rgba(255, 255, 255, .20) !important;
   color: var(--ink-1) !important;
+  font-family: var(--f);
+  font-size: .84rem !important;
+  transition: background .18s, border-color .18s, box-shadow .18s;
 }
-#editClienteContent .em-btn-ghost:hover { background: rgba(255, 255, 255, .16) !important; }
+#editClienteContent .em-input.em-has-ico { padding-left: 34px !important; }
+#editClienteContent textarea.em-input { height: auto; min-height: 84px; padding: 10px 12px !important; resize: vertical; margin-bottom: 10px; display: block; }
+#editClienteContent .em-input::placeholder { color: var(--ink-4); }
+#editClienteContent .em-input:hover:not(:disabled) { background: rgba(255, 255, 255, .09) !important; }
+#editClienteContent .em-input:focus {
+  outline: none;
+  background: rgba(255, 255, 255, .12) !important;
+  border-color: var(--ep-focus) !important;
+  box-shadow: 0 0 0 4px rgba(169, 196, 245, .14) !important;
+}
+#editClienteContent .em-input:disabled { opacity: .55; }
+#editClienteContent select.em-input option { background: #1a2640; color: #f5f7fb; }
+#editClienteContent input.em-input[type="date"] { color-scheme: dark; font-family: var(--f-mono); font-size: .8rem !important; }
+#editClienteContent .em-pts { font-family: var(--f-mono) !important; }
+
+/* ── Notas ────────────────────────────────────────────────────────── */
+#editClienteContent .em-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 18px; padding: 0 6px;
+  border-radius: 999px;
+  font-size: .6rem; letter-spacing: 0;
+  background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .18); color: var(--ink-1);
+}
+#editClienteContent .em-note-wrap {
+  padding: 12px;
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 14px;
+}
+.ep-note-actions { display: flex; gap: 8px; align-items: center; }
+.ep-note-actions select { flex: 1; }
+.ep-notes { max-height: 240px; overflow-y: auto; scrollbar-width: thin; }
+#editClienteContent .note-card { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .12); }
+#editClienteContent .notes-empty { color: var(--ink-3); padding: 14px 0; }
+
+/* ── Barra de acciones ────────────────────────────────────────────── */
+.ep-foot {
+  display: flex; justify-content: flex-end; gap: 10px;
+  padding: 16px 32px;
+  border-top: 1px solid rgba(255, 255, 255, .10);
+  background: linear-gradient(0deg, rgba(255, 255, 255, .05), transparent);
+  flex-shrink: 0;
+}
+#editClienteContent .em-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 40px; padding: 0 20px;
+  border-radius: 12px;
+  font-family: var(--f); font-size: .8rem; font-weight: 600;
+  cursor: pointer;
+  transition: background .18s, border-color .18s, transform .18s;
+}
+#editClienteContent .em-btn-ghost { background: rgba(255, 255, 255, .06) !important; border: 1px solid rgba(255, 255, 255, .18) !important; color: var(--ink-1) !important; }
+#editClienteContent .em-btn-ghost:hover { background: rgba(255, 255, 255, .14) !important; }
 #editClienteContent .em-btn-primary {
   background: rgba(255, 255, 255, .92) !important;
   color: #0f1b2d !important;
   border: 1px solid rgba(255, 255, 255, .9) !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, .25), inset 0 -1px 0 rgba(15, 27, 45, .08) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .25) !important;
 }
-#editClienteContent .em-btn-primary:hover { background: #ffffff !important; transform: translateY(-1px); }
-#editClienteContent .em-btn-primary svg { stroke: #0f1b2d; }
-#editClienteContent .em-btn-sm { padding: 6px 14px !important; }
+#editClienteContent .em-btn-primary:hover { background: #fff !important; transform: translateY(-1px); }
+#editClienteContent .em-btn-sm { height: 36px; padding: 0 14px !important; font-size: .74rem; }
 
-/* ── Columnas ─────────────────────────────────────────────────────── */
-#editClienteContent .em-col-l { border-right: 1px solid rgba(255, 255, 255, .08) !important; }
-
-/* ── Secciones: láminas de vidrio ─────────────────────────────────── */
-#editClienteContent .em-sec {
-  background: var(--gl-glass) !important;
-  border: 1px solid rgba(255, 255, 255, .12) !important;
-  border-radius: 18px !important;
-  padding-left: 22px !important;       /* anula el padding de la franja lateral */
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 10px 30px rgba(0, 0, 0, .12);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-#editClienteContent .em-sec-ico {
-  background: rgba(255, 255, 255, .12) !important;
-  border: 1px solid rgba(255, 255, 255, .18);
-  border-radius: 10px !important;
-}
-#editClienteContent .em-sec-ico svg { stroke: #dfe8f7; }
-#editClienteContent .em-sec-title { font-size: .68rem !important; font-weight: 600 !important; letter-spacing: .12em !important; color: var(--ink-1) !important; }
-
-/* ── Campos ───────────────────────────────────────────────────────── */
-#editClienteContent .em-lbl { font-size: .6rem !important; font-weight: 500 !important; letter-spacing: .1em !important; color: var(--ink-3) !important; }
-#editClienteContent .em-input {
-  background: var(--gl-input) !important;
-  border: 1px solid var(--gl-input-edge) !important;
-  border-radius: 12px !important;
-  color: var(--ink-1) !important;
-  font-family: var(--f);
-  transition: background .18s, border-color .18s, box-shadow .18s;
-}
-#editClienteContent .em-input::placeholder { color: var(--ink-4); }
-#editClienteContent .em-input:hover:not(:disabled) { background: rgba(255, 255, 255, .10) !important; }
-#editClienteContent .em-input:focus {
-  outline: none;
-  background: rgba(255, 255, 255, .13) !important;
-  border-color: var(--gl-focus) !important;
-  box-shadow: 0 0 0 4px rgba(169, 196, 245, .14) !important;
-}
-#editClienteContent select.em-input option { background: #1a2640; color: #f5f7fb; }
-#editClienteContent input.em-input[type="date"] { color-scheme: dark; }
-#editClienteContent .em-pts { font-family: var(--f-mono) !important; border-radius: 10px !important; }
-
-/* ── Bloque clave/valor ───────────────────────────────────────────── */
-#editClienteContent .em-kv {
-  background: rgba(255, 255, 255, .05) !important;
-  border: 1px solid rgba(255, 255, 255, .12) !important;
-  border-radius: 14px !important;
-}
-#editClienteContent .em-kv > div { border-color: rgba(255, 255, 255, .08) !important; }
-
-/* ── Notas ────────────────────────────────────────────────────────── */
-#editClienteContent .em-count { background: rgba(255, 255, 255, .12) !important; border: 1px solid rgba(255, 255, 255, .18) !important; color: var(--ink-1) !important; }
-#editClienteContent .em-note-wrap { background: rgba(255, 255, 255, .05) !important; border: 1px solid rgba(255, 255, 255, .14) !important; border-radius: 14px !important; }
-#editClienteContent #notes-list .note-card { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .12); }
-
-/* ── Captura / contrato ───────────────────────────────────────────── */
-#editClienteContent .em-file { background: rgba(255, 255, 255, .06) !important; border: 1px solid rgba(255, 255, 255, .14) !important; border-radius: 14px !important; }
-#editClienteContent .em-drop { background: rgba(255, 255, 255, .04) !important; border: 1.5px dashed rgba(255, 255, 255, .22) !important; border-radius: 14px !important; }
-#editClienteContent .em-drop svg { stroke: #cfe0f7; }
-#editClienteContent .em-drop span { color: var(--ink-3) !important; }
-#editClienteContent .em-verified { background: rgba(110, 220, 170, .14) !important; color: #9ff0c8 !important; border: 1px solid rgba(110, 220, 170, .35) !important; }
-
-/* Scroll interno discreto */
-#editClienteModal::-webkit-scrollbar { width: 8px; }
-#editClienteModal::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .25); border-radius: 8px; }
-
-@media (max-width: 900px) {
-  #editClienteContent .em-body { grid-template-columns: 1fr !important; }
-  #editClienteContent .em-col-l { border-right: none !important; border-bottom: 1px solid rgba(255, 255, 255, .08); }
-  #editClienteContent .em-col { padding: 16px !important; }
+/* ── Responsive ───────────────────────────────────────────────────── */
+@media (max-width: 860px) {
+  .ep-shell { grid-template-columns: 1fr; height: auto; max-height: none; }
+  .ep-profile { border-right: none; border-bottom: 1px solid rgba(255, 255, 255, .10); padding: 24px 20px; }
+  .ep-form { overflow: visible; padding: 4px 20px 20px; }
+  .ep-head { padding: 20px 20px 14px; }
+  .ep-foot { padding: 14px 20px; position: sticky; bottom: 0; backdrop-filter: blur(20px); }
+  .ep-cols-2, .ep-cols-3-1 { grid-template-columns: 1fr; }
 }
