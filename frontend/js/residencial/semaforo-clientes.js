@@ -194,8 +194,17 @@
     sel: null
   };
 
+  // El endpoint cuenta como "del mes" tres casos: vendido en el mes, instalado en
+  // el mes habiéndose vendido antes (el colchón) y, si no hay fechas, creado en el
+  // mes. En el semáforo sólo interesan los vendidos en el mes, así que el colchón
+  // se recorta aquí: el backend no sabe distinguir los dos casos con un parámetro.
+  function vendidoEnElMes(lead, mes) {
+    if (!mes) return true;                 // "Todos los meses": no se recorta nada
+    return primero(lead, ['dia_venta', 'fecha_contratacion']).slice(0, 7) === mes;
+  }
+
   function construir(leads) {
-    st.clientes = leads.map(function (l, i) {
+    st.clientes = leads.filter(function (l) { return vendidoEnElMes(l, st.mes); }).map(function (l, i) {
       var status = normalizarStatus(primero(l, ['status_comision', 'statusComision']) || primero(l, ['status', 'Status', 'estado']));
       var c = contacto(l);
       return {
