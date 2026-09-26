@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>El Semáforo</title>
-  <link rel="stylesheet" href="/css/base/theme.css?v=20251124f"
+  <link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
+  <link rel="stylesheet" href="/css/base/theme.css?v=20251124f">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -12,11 +13,12 @@
   <script src="/js/core/logout-handler.js" defer></script>
 
   <link rel="stylesheet" href="/css/residencial/semaforo.css">
+  <link rel="stylesheet" href="/css/residencial/semaforo-clientes.css?v=20260919b">
   <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
-  <link rel="stylesheet" href="/css/base/dark-mode.css?v=20260601">
+  <link rel="stylesheet" href="/css/base/form-controls.css?v=20260921">
 </head>
 <body>
-  <script src="/js/core/theme-init.js" defer></script>
+  <script src="/js/core/theme-init.js"></script>
   <script src="/js/layout/sidebar.js" defer></script>
   <script src="/js/layout/sidebar-ui.js" defer></script>
   <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
@@ -26,11 +28,15 @@
     <nav class="sidebar" id="app-sidebar"></nav>
     <main class="main-content">
       <div class="page-wrap">
+       <div class="libro" id="libro-semaforo">
+
+        <!-- ═══ CARA DE DELANTE: semáforo de ventas ═══ -->
+        <section class="cara cara-ventas" id="cara-ventas" aria-labelledby="titulo-ventas">
 
         <!-- HEADER -->
         <div class="page-header">
           <div class="page-header-left">
-            <h1>El Semáforo</h1>
+            <h1 id="titulo-ventas" tabindex="-1">El Semáforo</h1>
             <p>Desempeño mensual del equipo de ventas</p>
             <div class="month-nav" id="month-nav">
               <button type="button" class="month-nav-btn" id="btn-month-prev" aria-label="Mes anterior">&#9664;</button>
@@ -39,6 +45,10 @@
             </div>
           </div>
           <div class="header-actions">
+            <button type="button" class="btn btn-outline btn-voltear" data-voltear="clientes">
+              <i class="fa-solid fa-book-open" aria-hidden="true"></i>
+              <span>Semáforo de clientes</span>
+            </button>
             <button id="btn-cuadratura-final" type="button" class="btn btn-outline">
               <i class="fa-solid fa-file-excel"></i>
               <span>Cuadratura Final</span>
@@ -105,6 +115,112 @@
           </div>
 
         </div><!-- /view-stack -->
+        </section><!-- /cara-ventas -->
+
+        <!-- ═══ CARA DE DETRÁS: semáforo de clientes (js/residencial/semaforo-clientes.js) ═══ -->
+        <section class="cara cara-clientes" id="cara-clientes" aria-labelledby="sc-titulo" hidden>
+
+        <div class="page-header">
+          <div class="page-header-left">
+            <h1 id="sc-titulo" tabindex="-1">Semáforo de Clientes</h1>
+            <p>Riesgo de pérdida de cliente · según el status de comisión</p>
+            <div class="sc-origen" id="sc-origen">Sin clientes que mostrar</div>
+          </div>
+          <div class="header-actions">
+            <label class="sc-mes">
+              <span class="sc-sr">Filtrar clientes por mes</span>
+              <i class="fa-regular fa-calendar" aria-hidden="true"></i>
+              <select id="sc-mes"></select>
+            </label>
+            <button type="button" class="btn btn-outline" id="sc-refrescar">
+              <i class="fa-solid fa-rotate" aria-hidden="true"></i>
+              <span>Refrescar</span>
+            </button>
+            <button type="button" class="btn btn-outline btn-voltear" data-voltear="ventas">
+              <i class="fa-solid fa-book-open" aria-hidden="true"></i>
+              <span>Semáforo de ventas</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="sc-tabs" role="tablist" aria-label="Secciones del semáforo de clientes">
+          <button type="button" class="sc-tab" role="tab" id="sc-tab-panel" data-tab="panel" aria-controls="sc-panel-panel" aria-selected="true">Panel</button>
+          <button type="button" class="sc-tab" role="tab" id="sc-tab-cartera" data-tab="cartera" aria-controls="sc-panel-cartera" aria-selected="false" tabindex="-1">Cartera</button>
+          <button type="button" class="sc-tab" role="tab" id="sc-tab-oficina" data-tab="oficina" aria-controls="sc-panel-oficina" aria-selected="false" tabindex="-1">Bandeja de oficina<span class="sc-tab-n" id="sc-tab-oficina-n" hidden></span></button>
+        </div>
+
+        <!-- Panel -->
+        <div class="sc-panel" role="tabpanel" id="sc-panel-panel" aria-labelledby="sc-tab-panel">
+          <div class="sc-panel-grid">
+            <div class="sc-escena">
+              <div class="sc-poste" aria-hidden="true">
+                <div class="sc-caja">
+                  <div class="sc-tapa sc-tapa-sup"></div>
+                  <div class="sc-tapa sc-tapa-inf"></div>
+                  <div class="sc-brillo"></div>
+                  <div class="sc-foco is-verde" data-foco="verde"><div class="sc-foco-hueco"></div><div class="sc-foco-luz"><span class="sc-foco-num">0</span></div><div class="sc-visera"></div></div>
+                  <div class="sc-foco is-amarillo" data-foco="amarillo"><div class="sc-foco-hueco"></div><div class="sc-foco-luz"><span class="sc-foco-num">0</span></div><div class="sc-visera"></div></div>
+                  <div class="sc-foco is-ambar" data-foco="ambar"><div class="sc-foco-hueco"></div><div class="sc-foco-luz"><span class="sc-foco-num">0</span></div><div class="sc-visera"></div></div>
+                  <div class="sc-foco is-rojo" data-foco="rojo"><div class="sc-foco-hueco"></div><div class="sc-foco-luz"><span class="sc-foco-num">0</span></div><div class="sc-visera"></div></div>
+                  <div class="sc-foco is-negro" data-foco="negro"><div class="sc-foco-hueco"></div><div class="sc-foco-luz"><span class="sc-foco-num">0</span></div><div class="sc-visera"></div></div>
+                </div>
+                <div class="sc-mastil"></div>
+                <div class="sc-base"></div>
+              </div>
+              <div class="sc-suelo" aria-hidden="true"></div>
+            </div>
+            <div class="sc-panel-der">
+              <div class="sc-kpis">
+                <div><div class="sc-eyebrow">Clientes</div><div class="sc-kpi-v" id="sc-kpi-total">0</div></div>
+                <div><div class="sc-eyebrow">En riesgo</div><div class="sc-kpi-v" id="sc-kpi-riesgo">—</div></div>
+                <div><div class="sc-eyebrow">Nunca contactados</div><div class="sc-kpi-v" id="sc-kpi-sincontacto">—</div></div>
+              </div>
+              <div class="sc-tarjetas" id="sc-tarjetas"></div>
+              <section class="sc-info-card" aria-labelledby="sc-urgentes-t">
+                <h2 class="sc-info-t" id="sc-urgentes-t">Atención inmediata <span>rojo y negro · pulsa un cliente para abrir su ficha</span></h2>
+                <ul class="sc-urgentes" id="sc-urgentes"></ul>
+              </section>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cartera -->
+        <div class="sc-panel" role="tabpanel" id="sc-panel-cartera" aria-labelledby="sc-tab-cartera" hidden>
+          <div class="sc-cartera-barra">
+            <label class="sc-buscar">
+              <span class="sc-sr">Buscar en la cartera</span>
+              <input type="search" id="sc-buscar" placeholder="Buscar cliente, agente, teléfono o servicio" autocomplete="off">
+            </label>
+            <div class="sc-chips" id="sc-chips" role="group" aria-label="Filtrar por estado"></div>
+          </div>
+          <p class="sc-resumen" id="sc-resumen" aria-live="polite"></p>
+          <div class="sc-tabla-wrap">
+            <table class="sc-tabla">
+              <caption class="sc-sr">Cartera de clientes clasificada por riesgo</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Agente</th>
+                  <th scope="col">Cliente</th>
+                  <th scope="col">Teléfono</th>
+                  <th scope="col">Servicio</th>
+                  <th scope="col">Fecha venta</th>
+                  <th scope="col">Fecha instalación</th>
+                  <th scope="col">Status comisión</th>
+                  <th scope="col" class="num">Sin contacto</th>
+                </tr>
+              </thead>
+              <tbody id="sc-filas"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Bandeja de oficina -->
+        <div class="sc-panel" role="tabpanel" id="sc-panel-oficina" aria-labelledby="sc-tab-oficina" hidden>
+          <p class="sc-intro">Clientes cuyo <b>status de comisión es «oficina»</b> en la lista de clientes de residencial: la oficina asume la gestión y el agente queda informado.</p>
+          <div class="sc-oficina-grid" id="sc-negros"></div>
+        </div>
+        </section><!-- /cara-clientes -->
+       </div><!-- /libro -->
       </div><!-- /page-wrap -->
     </main>
   </div>
@@ -183,8 +299,40 @@
     </div>
   </div>
 
+  <!-- FICHA DE CLIENTE (semáforo de clientes). Fuera del libro: dentro, el giro 3D
+       rompería su position: fixed. -->
+  <div class="sc-ficha-fondo" id="sc-ficha-fondo" hidden></div>
+  <aside class="sc-ficha" id="sc-ficha" role="dialog" aria-modal="true" aria-labelledby="sc-f-nombre" hidden>
+    <button type="button" class="btn btn-ghost sc-ficha-cerrar" id="sc-ficha-cerrar">
+      <i class="fa-solid fa-xmark" aria-hidden="true"></i> Cerrar
+    </button>
+    <div class="sc-eyebrow">Ficha de cliente</div>
+    <h2 id="sc-f-nombre"></h2>
+    <div class="sc-f-sub" id="sc-f-sub"></div>
+    <div class="sc-f-estado">
+      <span class="sc-punto" id="sc-f-luz" aria-hidden="true"></span>
+      <div>
+        <div class="sc-f-estado-t" id="sc-f-estado"></div>
+        <div class="sc-f-motivo" id="sc-f-motivo"></div>
+      </div>
+    </div>
+    <dl class="sc-f-datos">
+      <div><dt>Servicio</dt><dd id="sc-f-servicio"></dd></div>
+      <div><dt>Fecha de venta</dt><dd id="sc-f-venta"></dd></div>
+      <div><dt>Fecha de instalación</dt><dd id="sc-f-instalacion"></dd></div>
+      <div><dt>Sin contacto</dt><dd id="sc-f-dias"></dd></div>
+    </dl>
+    <div class="sc-eyebrow">Notas de esta sesión</div>
+    <ul class="sc-f-notas" id="sc-f-notas"></ul>
+    <label class="sc-sr" for="sc-f-borrador">Nueva nota sobre la gestión</label>
+    <textarea id="sc-f-borrador" rows="3" maxlength="1000" placeholder="Escribe una nota sobre la gestión…"></textarea>
+    <button type="button" class="btn btn-primary" id="sc-f-guardar">Guardar nota</button>
+    <p class="sc-nota">Las notas quedan solo en esta pestaña: no se guardan en el servidor y se pierden al recargar.</p>
+  </aside>
+
   <!-- TOOLTIP -->
   <div id="tooltip-floating" class="tooltip-floating" aria-hidden="true"></div>
-  <script src="/js/residencial/semaforo-main.js?v=20260519" defer></script>
+  <script src="/js/residencial/semaforo-main.js?v=20260918" defer></script>
+  <script src="/js/residencial/semaforo-clientes.js?v=20260919b" defer></script>
 </body>
 </html>
