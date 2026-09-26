@@ -832,10 +832,12 @@
     return new Promise((res,rej)=>{ const s=document.createElement('script');s.src=src;s.async=false;s.onload=()=>res(true);s.onerror=()=>rej(new Error('No se pudo cargar: '+src));document.head.appendChild(s); });
   }
 
+  // Copia local: la CSP bloquea los CDNs, y la 0.20.3 corrige los CVE de la 0.18.5
+  // (prototype pollution y ReDoS al leer archivos manipulados).
   async function loadSheetJS() {
     if (window.XLSX) return window.XLSX;
-    const cdns=['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js','https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js','https://unpkg.com/xlsx/dist/xlsx.full.min.js'];
-    for (const src of cdns) { try { await loadScript(src); if (window.XLSX) return window.XLSX; } catch(_) {} }
+    await loadScript('/vendor/xlsx/xlsx-0.20.3.full.min.js');
+    if (window.XLSX) return window.XLSX;
     throw new Error('No se pudo cargar SheetJS.');
   }
 
