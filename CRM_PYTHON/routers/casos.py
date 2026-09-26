@@ -71,8 +71,16 @@ async def _lead_visible(s, lead_id: str, user: dict) -> dict:
     restr = await _mercado_restrict(user)
     if restr and str(row.get("mercado") or "").strip().upper() != restr:
         raise HTTPException(404, "Lead no encontrado")
-    if _is_agent(user) and not _es_dueno(row, user):
+    amb = casos.ambito(user)
+    if amb == "agente" and not _es_dueno(row, user):
         raise HTTPException(404, "Lead no encontrado")
+    if amb == "supervisor":
+        sql, p = await casos.filtro_ambito(s, user)
+        ok = await s.execute(text(
+            f"SELECT 1 FROM (SELECT supervisor, {casos.SQL_EQUIPO} AS equipo FROM leads WHERE id = :id) t WHERE {sql}"),
+            {"id": row["id"], **p})
+        if ok.first() is None:
+            raise HTTPException(404, "Lead no encontrado")
     return row
 
 
@@ -132,8 +140,11 @@ async def _vencer_si_toca():
 @router.get("/api/casos/semaforo")
 async def semaforo_listado(
     mes: Optional[str] = Query(None, description="AAAA-MM del inicio del reloj; vacío = todos"),
+    team: Optional[str] = Query(None, description="solo este team (administración y backoffice)"),
     user: dict = Depends(current_user),
 ):
+    """Clientes del semáforo según el rol: el agente ve los suyos, el supervisor
+    los de su team y el resto de roles todos, cada uno con su `equipo`."""
     await _vencer_si_toca()
     where = [casos.SQL_EN_SEMAFORO]
     params: dict = {}
@@ -141,24 +152,32 @@ async def semaforo_listado(
     if restr:
         where.append("UPPER(TRIM(COALESCE(mercado,''))) = :mer")
         params["mer"] = restr
-    if _is_agent(user):
-        where.append("(agente_nombre = :u OR agente = :u OR created_by = :u OR agente_nombre = :n OR agente = :n)")
-        params["u"] = (user.get("username") or "").strip()
-        params["n"] = (user.get("name") or "").strip() or params["u"]
     if mes and re.match(r"^\d{4}-\d{2}$", mes):
         where.append(f"DATE_FORMAT({casos.SQL_INICIO_RELOJ}, '%Y-%m') = :mes")
         params["mes"] = mes
+    amb = casos.ambito(user)
 
     async with AsyncSessionLocal() as s:
         inicio = await casos.get_inicio(s)
         params["inicio"] = inicio
+        filtro, fparams = await casos.filtro_ambito(s, user)
+        params.update(fparams)
+        externo = [filtro]
+        if team and amb == "todos":
+            externo.append("equipo = :team_sel")
+            params["team_sel"] = team.strip()
+        # Subconsulta: `equipo` es una columna calculada y se filtra fuera.
         r = await s.execute(text(f"""
-            SELECT id, nombre_cliente, telefono_principal, telefono, agente, agente_nombre, created_by,
-                   supervisor, servicios, tipo_servicio, status, dia_venta, dia_instalacion,
-                   fecha_completed, caso_solventar, caso_estado, caso_creado_at,
-                   caso_solventado_at, caso_vencido_at
-            FROM leads WHERE {' AND '.join(where)}
-            ORDER BY {casos.SQL_INICIO_RELOJ} DESC
+            SELECT * FROM (
+                SELECT id, nombre_cliente, telefono_principal, telefono, agente, agente_nombre, created_by,
+                       supervisor, servicios, tipo_servicio, status, dia_venta, dia_instalacion,
+                       fecha_completed, caso_solventar, caso_estado, caso_creado_at,
+                       caso_solventado_at, caso_vencido_at,
+                       {casos.SQL_EQUIPO} AS equipo, {casos.SQL_INICIO_RELOJ} AS _ini
+                FROM leads WHERE {' AND '.join(where)}
+            ) t
+            WHERE {' AND '.join(externo)}
+            ORDER BY _ini DESC
             LIMIT 5000
         """), params)
         filas = [dict(x) for x in r.mappings().all()]
@@ -172,6 +191,8 @@ async def semaforo_listado(
 
     ahora = _utcnow()
     items = [_item(f, ahora, conteo.get(str(f["id"]), 0)) for f in filas]
+    for it, f in zip(items, filas):
+        it["equipo"] = f.get("equipo") or "Sin team"
     # Meses con casos, para el selector (del más reciente al más antiguo).
     meses = sorted({(i["inicio_reloj"] or "")[:7] for i in items if i["inicio_reloj"]}, reverse=True)
     return {
@@ -179,6 +200,8 @@ async def semaforo_listado(
         "inicio": inicio.isoformat(),
         "reglas": {"verde": casos.HORAS_VERDE, "amarillo": casos.HORAS_AMARILLO, "rojo": casos.HORAS_ROJO},
         "meses": meses,
+        "ambito": amb,
+        "equipos": sorted({i["equipo"] for i in items}),
         "total": len(items),
         "data": items,
     }
@@ -192,18 +215,21 @@ async def casos_pendientes(full: Optional[str] = Query(None), user: dict = Depen
     `bloqueado` = hay alguna que bloquea. Solo agentes: admin, backoffice y
     supervisores no reciben aviso ni bloqueo. Con full=1 devuelve además los
     leads completos (`leads`) para costumer.html?casos=1."""
-    if not _is_agent(user):
+    if not casos.es_agente(user):
         return {"success": True, "bloqueado": False, "total": 0, "data": [], "leads": []}
     await _vencer_si_toca()
     ahora = _utcnow()
     async with AsyncSessionLocal() as s:
         pend = await casos.llamadas_pendientes(s, user, ahora)
+        activo = await casos.bloqueo_activo(s)
     items = []
     for row, info in pend:
         it = _item(row, ahora)
         it.update(info)
         items.append(it)
-    out = {"success": True, "bloqueado": any(i["bloquea"] for i in items),
+    # Con el bloqueo apagado la pantalla no se bloquea: solo aviso.
+    out = {"success": True, "bloqueo_activo": activo,
+           "bloqueado": activo and any(i["bloquea"] for i in items),
            "total": len(items), "data": items}
     if str(full or "").lower() in ("1", "true"):
         from routers.leads import _serialize_lead

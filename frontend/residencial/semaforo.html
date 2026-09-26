@@ -13,7 +13,7 @@
   <script src="/js/core/logout-handler.js" defer></script>
 
   <link rel="stylesheet" href="/css/residencial/semaforo.css">
-  <link rel="stylesheet" href="/css/residencial/semaforo-clientes.css?v=20260927c">
+  <link rel="stylesheet" href="/css/residencial/semaforo-clientes.css?v=20260927d">
   <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
   <link rel="stylesheet" href="/css/base/form-controls.css?v=20260921">
 </head>
@@ -132,6 +132,11 @@
               <i class="fa-regular fa-calendar" aria-hidden="true"></i>
               <select id="sc-mes"></select>
             </label>
+            <label class="sc-mes" id="sc-team-wrap" hidden>
+              <span class="sc-sr">Filtrar clientes por team</span>
+              <i class="fa-solid fa-users" aria-hidden="true"></i>
+              <select id="sc-team"></select>
+            </label>
             <button type="button" class="btn btn-outline" id="sc-refrescar">
               <i class="fa-solid fa-rotate" aria-hidden="true"></i>
               <span>Refrescar</span>
@@ -175,6 +180,14 @@
                 <div><div class="sc-eyebrow">Por solventar</div><div class="sc-kpi-v" id="sc-kpi-pendientes">—</div></div>
               </div>
               <div class="sc-tarjetas" id="sc-tarjetas"></div>
+              <section class="sc-info-card sc-por-team" id="sc-por-team" aria-labelledby="sc-por-team-t" hidden>
+                <h2 class="sc-info-t" id="sc-por-team-t">Por team <span>pulsa un team para ver su cartera</span></h2>
+                <div class="sc-por-team-wrap"><table class="sc-tabla sc-tabla-team">
+                  <caption class="sc-sr">Clientes del semáforo por team y color</caption>
+                  <thead><tr><th scope="col">Team</th><th scope="col" class="num">Verde</th><th scope="col" class="num">Amarillo</th><th scope="col" class="num">Rojo</th><th scope="col" class="num">Negro</th><th scope="col" class="num">Total</th></tr></thead>
+                  <tbody id="sc-por-team-filas"></tbody>
+                </table></div>
+              </section>
               <section class="sc-info-card" aria-labelledby="sc-urgentes-t">
                 <h2 class="sc-info-t" id="sc-urgentes-t">Clientes en seguimiento <span>10 de todos los colores · pulsa un cliente para abrir su ficha</span></h2>
                 <ul class="sc-urgentes" id="sc-urgentes"></ul>
@@ -332,6 +345,6 @@
   <!-- TOOLTIP -->
   <div id="tooltip-floating" class="tooltip-floating" aria-hidden="true"></div>
   <script src="/js/residencial/semaforo-main.js?v=20260918" defer></script>
-  <script src="/js/residencial/semaforo-clientes.js?v=20260927c" defer></script>
+  <script src="/js/residencial/semaforo-clientes.js?v=20260927d" defer></script>
 </body>
 </html>

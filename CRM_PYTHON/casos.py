@@ -123,6 +123,76 @@ def clasificar(caso_estado: str, fecha_completed, caso_creado_at, ahora: Optiona
     }
 
 
+# ── Quién ve qué ────────────────────────────────────────────────────
+# agente      → solo sus clientes
+# supervisor  → los clientes de los agentes de su team (y los que lo tengan a él
+#               como supervisor en el lead)
+# resto       → todos (administración, backoffice, ICON…), separados por team
+def _rol(user: dict) -> str:
+    import unicodedata
+    return unicodedata.normalize("NFD", str(user.get("role") or "")).encode("ascii", "ignore").decode().lower()
+
+
+def es_supervisor(user: dict) -> bool:
+    return "supervisor" in _rol(user)
+
+
+def es_agente(user: dict) -> bool:
+    r = _rol(user)
+    if "supervisor" in r or "admin" in r or "backoffice" in r:
+        return False
+    return "agent" in r or "vendedor" in r
+
+
+def ambito(user: dict) -> str:
+    if es_supervisor(user):
+        return "supervisor"
+    if es_agente(user):
+        return "agente"
+    return "todos"
+
+
+# Team de un lead: el team ACTUAL de su agente en users; si no, el del lead; si
+# no, el del supervisor que figura en el lead. (En leads.team casi nunca hay nada.)
+SQL_EQUIPO = """COALESCE(
+    (SELECT NULLIF(TRIM(ua.team),'') FROM users ua
+      WHERE ua.username IN (leads.agente_nombre, leads.agente, leads.created_by)
+        AND COALESCE(TRIM(ua.team),'') <> '' LIMIT 1),
+    NULLIF(TRIM(leads.team),''),
+    (SELECT NULLIF(TRIM(us.team),'') FROM users us
+      WHERE (us.username = leads.supervisor OR us.name = leads.supervisor)
+        AND LOWER(us.role) LIKE '%supervisor%' AND COALESCE(TRIM(us.team),'') <> '' LIMIT 1),
+    'Sin team')"""
+
+
+async def team_de_usuario(session, user: dict) -> str:
+    """Team del usuario según la tabla users (el token puede estar desactualizado)."""
+    try:
+        r = await session.execute(text("SELECT team FROM users WHERE username = :u LIMIT 1"),
+                                  {"u": (user.get("username") or "").strip()})
+        row = r.first()
+        if row and row[0]:
+            return str(row[0]).strip()
+    except Exception:
+        pass
+    return str(user.get("team") or "").strip()
+
+
+async def filtro_ambito(session, user: dict) -> tuple:
+    """(sql, params) que limita los leads a lo que el usuario puede ver en el
+    semáforo. Usa la columna calculada `equipo` (SQL_EQUIPO AS equipo)."""
+    a = ambito(user)
+    if a == "agente":
+        return SQL_DUENO, params_dueno(user)
+    if a == "supervisor":
+        team = await team_de_usuario(session, user)
+        u = (user.get("username") or "").strip()
+        n = (user.get("name") or "").strip() or u
+        return ("(equipo = :sup_team OR supervisor = :sup_u OR supervisor = :sup_n)",
+                {"sup_team": team or "__sin_team__", "sup_u": u, "sup_n": n})
+    return "1=1", {}
+
+
 # ── Llamadas (bloqueo de pantalla) ──────────────────────────────────
 # 1ª llamada = la del CASO: se pide en cuanto el cliente pasa a completed y la
 # pantalla del agente queda bloqueada hasta que sube el comprobante (captura o
@@ -205,10 +275,36 @@ async def llamadas_pendientes(session, user: dict, ahora: Optional[datetime] = N
     return out
 
 
+# Interruptor del bloqueo: app_config.semaforo_bloqueo = '1' lo activa. Apagado,
+# las llamadas se siguen pidiendo con el aviso, pero ni se bloquea la pantalla
+# ni se rechazan ventas (el semáforo y el paso a oficina corren igual).
+# Se activa sin desplegar código:  UPDATE app_config SET valor='1'
+#                                  WHERE clave='semaforo_bloqueo';
+_bloqueo_cache: dict = {"valor": None, "ts": 0.0}
+
+
+async def bloqueo_activo(session) -> bool:
+    import time
+    if _bloqueo_cache["valor"] is not None and time.time() - _bloqueo_cache["ts"] < 60:
+        return _bloqueo_cache["valor"]
+    valor = False
+    try:
+        r = await session.execute(text(
+            "SELECT valor FROM app_config WHERE clave = 'semaforo_bloqueo' LIMIT 1"))
+        row = r.first()
+        valor = bool(row and str(row[0]).strip() == "1")
+    except Exception:
+        valor = False
+    _bloqueo_cache.update(valor=valor, ts=time.time())
+    return valor
+
+
 async def tiene_bloqueo(user: dict) -> bool:
     from database_mysql import AsyncSessionLocal
     try:
         async with AsyncSessionLocal() as s:
+            if not await bloqueo_activo(s):
+                return False
             return any(info["bloquea"] for _, info in await llamadas_pendientes(s, user))
     except Exception as e:  # BD sin migrar: no bloquear
         print(f"[semaforo] tiene_bloqueo: {e}")

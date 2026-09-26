@@ -118,6 +118,16 @@ async def bulk_status_by_phone(body: BulkByPhoneBody, user: dict = Depends(curre
                 llamada_cliente = CASE WHEN LOWER(:status) LIKE 'complet%'
                         AND LOWER(COALESCE(status,'')) NOT LIKE 'complet%'
                     THEN 'Pendiente' ELSE llamada_cliente END,
+                -- Semáforo de clientes: al pasar a completed el cliente entra
+                -- (casos.py). Van antes de `status`, que aún tiene el valor viejo.
+                caso_vencido_at = CASE WHEN LOWER(:status) LIKE 'complet%'
+                        AND LOWER(COALESCE(status,'')) NOT LIKE 'complet%'
+                        AND caso_estado = 'vencido'
+                    THEN NULL ELSE caso_vencido_at END,
+                caso_estado = CASE WHEN LOWER(:status) LIKE 'complet%'
+                        AND LOWER(COALESCE(status,'')) NOT LIKE 'complet%'
+                        AND (caso_estado IS NULL OR caso_estado = 'vencido')
+                    THEN 'pendiente' ELSE caso_estado END,
                 status = :status, updated_at = :now, updated_by = :by
             WHERE id IN ({placeholders})
         """), params)
@@ -206,6 +216,16 @@ async def bulk_status_by_name(body: BulkByNameBody, user: dict = Depends(current
                 llamada_cliente = CASE WHEN LOWER(:status) LIKE 'complet%'
                         AND LOWER(COALESCE(status,'')) NOT LIKE 'complet%'
                     THEN 'Pendiente' ELSE llamada_cliente END,
+                -- Semáforo de clientes: al pasar a completed el cliente entra
+                -- (casos.py). Van antes de `status`, que aún tiene el valor viejo.
+                caso_vencido_at = CASE WHEN LOWER(:status) LIKE 'complet%'
+                        AND LOWER(COALESCE(status,'')) NOT LIKE 'complet%'
+                        AND caso_estado = 'vencido'
+                    THEN NULL ELSE caso_vencido_at END,
+                caso_estado = CASE WHEN LOWER(:status) LIKE 'complet%'
+                        AND LOWER(COALESCE(status,'')) NOT LIKE 'complet%'
+                        AND (caso_estado IS NULL OR caso_estado = 'vencido')
+                    THEN 'pendiente' ELSE caso_estado END,
                 status = :status, updated_at = :now, updated_by = :by
             WHERE id IN ({placeholders})
         """), params)

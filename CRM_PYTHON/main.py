@@ -280,6 +280,22 @@ _MIGRATIONS: list[tuple[str, str]] = [
     ("0052_comprobantes_llamada", """ALTER TABLE lead_caso_comprobantes
         ADD COLUMN llamada VARCHAR(20) NOT NULL DEFAULT 'caso',
         ADD COLUMN numero  INT         NULL"""),
+    # El semáforo arranca con los clientes completados desde el viernes 25-09-2026
+    # a las 00:00 hora del centro de EE. UU. (05:00 UTC), no desde el despliegue.
+    ("0053_semaforo_inicio_25sep", """UPDATE app_config SET valor = '2026-09-25 05:00:00'
+        WHERE clave = 'semaforo_casos_inicio'"""),
+    # Y esos clientes entran aunque se registraran antes del campo "caso a
+    # solventar": su reloj cuenta desde fecha_completed (caso_creado_at NULL).
+    ("0054_semaforo_completados_desde_25sep", """UPDATE leads
+        SET caso_estado = 'pendiente'
+        WHERE caso_estado IS NULL
+          AND fecha_completed >= '2026-09-25 05:00:00'
+          AND (LOWER(COALESCE(status,'')) LIKE 'complet%'
+               OR LOWER(COALESCE(status,'')) IN ('active','activo','activa'))"""),
+    # Bloqueo de pantalla por llamadas pendientes: APAGADO al arrancar (solo aviso).
+    # Se activa con valor = '1' (ver casos.bloqueo_activo).
+    ("0055_semaforo_bloqueo_apagado", """INSERT IGNORE INTO app_config (clave, valor)
+        VALUES ('semaforo_bloqueo', '0')"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración

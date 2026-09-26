@@ -1608,7 +1608,7 @@
     if(c.proximo_seguimiento){
       var seg=_el('p','ec-seg'+(c.seguimiento_vencido?' ec-seg-vencido':''),
         c.seguimiento_vencido
-          ?('Toca la llamada de seguimiento '+(c.seg_llamadas+1)+' (desde el '+_fmtFechaHora(c.proximo_seguimiento)+'). Si no se sube en 3 días, el CRM se bloquea.')
+          ?('Toca la llamada de seguimiento '+(c.seg_llamadas+1)+' (desde el '+_fmtFechaHora(c.proximo_seguimiento)+'). Súbela en los próximos 3 días.')
           :('Próxima llamada de seguimiento: '+_fmtFechaHora(c.proximo_seguimiento)+' · llamadas de seguimiento hechas: '+c.seg_llamadas));
       box.appendChild(seg);
     }

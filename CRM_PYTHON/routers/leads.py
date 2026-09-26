@@ -577,8 +577,8 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
     # del caso de un cliente completado, o un seguimiento vencido hace 3 días) no
     # puede registrar ventas hasta subirlas. La pantalla la bloquea el frontend
     # (js/componentes/llamadas-bloqueo.js); esto lo hace cumplir en el servidor.
-    if _is_agent(user):
-        from casos import tiene_bloqueo
+    from casos import es_agente, tiene_bloqueo
+    if es_agente(user):
         if await tiene_bloqueo(user):
             raise HTTPException(423, "Tienes llamadas pendientes: sube la captura o el audio de la llamada antes de registrar ventas nuevas")
     now = _utcnow()
@@ -1387,13 +1387,15 @@ def _llamada_sets_on_status_change(old_status: str, new_status: str) -> str:
     if old_n == new_n:
         return ""
     if "complet" in new_n:
-        # Semáforo: si el caso venció (el lead estaba en oficina) y lo vuelven a
-        # completar, el caso se reactiva y su reloj arranca de nuevo con la nueva
-        # fecha_completed. caso_vencido_at va antes: MySQL evalúa las asignaciones
-        # de izquierda a derecha con los valores ya actualizados.
+        # Semáforo de clientes (casos.py): al pasar a completed el cliente entra
+        # al semáforo aunque no tenga caso escrito (leads anteriores al campo);
+        # solo quedan fuera los marcados "sin caso pendiente". Si el caso venció
+        # (estaba en oficina) y lo vuelven a completar, se reactiva y su reloj
+        # arranca con la nueva fecha_completed. caso_vencido_at va antes: MySQL
+        # evalúa las asignaciones de izquierda a derecha con los valores nuevos.
         return (", fecha_completed = UTC_TIMESTAMP(), llamada_cliente = 'Pendiente'"
                 ", caso_vencido_at = IF(caso_estado = 'vencido', NULL, caso_vencido_at)"
-                ", caso_estado = IF(caso_estado = 'vencido', 'pendiente', caso_estado)")
+                ", caso_estado = IF(caso_estado IS NULL OR caso_estado = 'vencido', 'pendiente', caso_estado)")
     if "cancel" in new_n:
         return ", llamada_cliente = 'Pendiente'"
     return ""

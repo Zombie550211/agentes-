@@ -31,6 +31,7 @@
     rojo:     { t: 'Rojo',     bg: '#991b1b', dot: '#f87171' }
   };
   var ORDEN = { rojo: 0, amarillo: 1, verde: 2 };
+  var BLOQUEO_ACTIVO = false;   // lo dice el servidor (app_config.semaforo_bloqueo)
 
   function el(tag, css, txt) {
     var n = document.createElement(tag);
@@ -86,7 +87,7 @@
     var h = el('h2', 'margin:0;font-size:1.05rem;font-weight:800;letter-spacing:.02em;text-transform:uppercase;', 'Llamadas pendientes');
     h.id = 'casos-aviso-titulo';
     tit.appendChild(h);
-    tit.appendChild(el('p', 'margin:4px 0 0;font-size:.78rem;color:#5b6577;', 'Sube la captura o el audio de la llamada donde lo solventaste, en Editar cliente. Si el rojo se acaba, el cliente pasa a oficina.'));
+    tit.appendChild(el('p', 'margin:4px 0 0;font-size:.78rem;color:#5b6577;', 'Sube la captura o el audio de la llamada en Editar cliente. Si el rojo se acaba sin la llamada del caso, el cliente pasa a oficina y deja de contar para ti.'));
     var cerrar = el('button', 'background:none;border:1px solid #dde1e8;border-radius:6px;width:34px;height:34px;cursor:pointer;font-size:1rem;color:#5b6577;flex-shrink:0;', '✕');
     cerrar.type = 'button';
     cerrar.setAttribute('aria-label', 'Cerrar');
@@ -108,7 +109,7 @@
       var plazo = el('div', 'text-align:right;font-size:.72rem;font-weight:700;color:' + cfg.bg + ';white-space:nowrap;');
       if (c.motivo === 'seguimiento') {
         plazo.appendChild(el('div', 'color:#13294b;', 'Seguimiento ' + c.numero));
-        plazo.appendChild(el('div', 'font-weight:500;color:#5b6577;margin-top:2px;', 'bloquea el ' + fechaHora(c.bloquea_at)));
+        plazo.appendChild(el('div', 'font-weight:500;color:#5b6577;margin-top:2px;', (BLOQUEO_ACTIVO ? 'bloquea el ' : 'súbela antes del ') + fechaHora(c.bloquea_at)));
       } else {
         plazo.appendChild(el('div', null, cfg.t));
         plazo.appendChild(el('div', 'font-weight:500;color:#5b6577;margin-top:2px;', 'quedan ' + horas(c.horas_restantes_color)));
@@ -156,7 +157,7 @@
     txt.appendChild(el('span', 'display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px;background:' + cfg.dot + ';box-shadow:0 0 6px ' + cfg.dot + ';'));
     var segs = casos.filter(function (c) { return c.motivo === 'seguimiento'; }).length;
     txt.appendChild(document.createTextNode(segs === casos.length
-      ? 'Tienes ' + segs + ' llamada(s) de seguimiento por hacer: súbelas antes de 3 días o se bloqueará el CRM'
+      ? 'Tienes ' + segs + ' llamada(s) de seguimiento por hacer' + (BLOQUEO_ACTIVO ? ': súbelas antes de 3 días o se bloqueará el CRM' : '')
       : 'Tienes ' + casos.length + ' caso(s) por solventar (' + resumen(casos) + ')'));
     var btnCss = 'background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:4px 12px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;';
     var ver = el('button', btnCss, 'Ver casos');
@@ -334,6 +335,7 @@
       var data = await res.json();
       var casos = (data && data.data) || [];
       window.__casosPendientes = casos;
+      BLOQUEO_ACTIVO = !!(data && data.bloqueo_activo);
       if (data && data.bloqueado) { pantallaBloqueo(casos); return; }
       var estabaBloqueado = !!document.getElementById('casos-bloqueo');
       levantarBloqueo();

@@ -120,6 +120,9 @@
     cargando: false,
     error: '',
     mes: '',            // '' = todos los meses (el semáforo es operativo: lo vivo)
+    team: '',           // filtro de team (solo administración / backoffice)
+    ambito: '',         // 'agente' | 'supervisor' | 'todos' (lo decide el servidor)
+    equipos: [],
     tab: 'panel',
     filtro: 'todos',
     busqueda: '',
@@ -149,12 +152,26 @@
     if (sel.value !== st.mes) st.mes = '';
   }
 
+  function pintarTeams() {
+    var wrap = $('sc-team-wrap'), sel = $('sc-team');
+    if (!wrap || !sel) return;
+    wrap.hidden = st.ambito !== 'todos';
+    if (st.ambito !== 'todos') return;
+    vaciar(sel);
+    sel.appendChild(el('option', { value: '', text: 'Todos los teams' }));
+    st.equipos.forEach(function (t) { sel.appendChild(el('option', { value: t, text: t })); });
+    sel.value = st.team;
+  }
+
   function cargarDesdeCRM() {
     if (st.cargando) return;
     st.cargando = true;
     st.error = '';
     pintarCabecera();
-    fetch(URL_SEMAFORO + (st.mes ? '?mes=' + encodeURIComponent(st.mes) : ''), cfgFetch())
+    var qs = [];
+    if (st.mes) qs.push('mes=' + encodeURIComponent(st.mes));
+    if (st.team) qs.push('team=' + encodeURIComponent(st.team));
+    fetch(URL_SEMAFORO + (qs.length ? '?' + qs.join('&') : ''), cfgFetch())
       .then(function (r) {
         if (!r.ok) throw new Error('El servidor respondió ' + r.status);
         return r.json();
@@ -163,6 +180,8 @@
         st.cargando = false;
         st.clientes = (d && Array.isArray(d.data)) ? d.data : [];
         if (!st.mes && Array.isArray(d.meses)) { st.meses = d.meses; pintarMeses(); }
+        st.ambito = d.ambito || '';
+        if (!st.team && Array.isArray(d.equipos)) { st.equipos = d.equipos; pintarTeams(); }
         st.filtro = 'todos';
         pintarTodo();
       })
@@ -190,7 +209,9 @@
       if (st.cargando) a.textContent = 'Cargando ' + periodo + '…';
       else if (st.error) a.textContent = 'No se pudo cargar: ' + st.error;
       else if (!st.clientes.length) a.textContent = 'Sin casos en ' + periodo;
-      else a.textContent = st.clientes.length + ' clientes con caso · ' + periodo;
+      else a.textContent = st.clientes.length + ' clientes · ' + periodo + ' · ' +
+        (st.ambito === 'agente' ? 'tus clientes' : st.ambito === 'supervisor' ? 'clientes de tu team' :
+         (st.team ? st.team : 'todos los teams'));
     }
     var n = cuenta('negro'), badge = $('sc-tab-oficina-n');
     if (badge) {
@@ -258,6 +279,8 @@
     $('sc-kpi-solventados').textContent = total ? String(solv) : '—';
     $('sc-kpi-pendientes').textContent = total ? String(pend) : '—';
 
+    pintarPorTeam();
+
     var ul = $('sc-urgentes');
     vaciar(ul);
     if (st.cargando) { ul.appendChild(el('li', { class: 'sc-vacio', text: 'Cargando…' })); return; }
@@ -269,6 +292,50 @@
     mezcla(10).forEach(function (c) {
       ul.appendChild(el('li', null, [fila(c, function () { abrirFicha(c.id); })]));
     });
+  }
+
+  function porTeam() {
+    var m = {};
+    st.clientes.forEach(function (c) {
+      var t = c.equipo || 'Sin team';
+      if (!m[t]) m[t] = { verde: 0, amarillo: 0, rojo: 0, negro: 0, total: 0 };
+      m[t][c.color] = (m[t][c.color] || 0) + 1;
+      m[t].total++;
+    });
+    return m;
+  }
+
+  function pintarPorTeam() {
+    var sec = $('sc-por-team'), tb = $('sc-por-team-filas');
+    if (!sec || !tb) return;
+    var ver = st.ambito === 'todos' && !st.team && st.clientes.length > 0;
+    sec.hidden = !ver;
+    if (!ver) return;
+    vaciar(tb);
+    var m = porTeam();
+    Object.keys(m).sort().forEach(function (t) {
+      var fila = el('tr', { class: 'sc-team-fila', tabindex: '0', role: 'button', 'aria-label': 'Ver la cartera de ' + t,
+        on: {
+          click: function () { elegirTeam(t, true); },
+          keydown: function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); elegirTeam(t, true); } }
+        } }, [
+        el('th', { scope: 'row', text: t }),
+        el('td', { class: 'num' }, [m[t].verde ? el('span', { class: 'sc-n is-verde', text: String(m[t].verde) }) : '—']),
+        el('td', { class: 'num' }, [m[t].amarillo ? el('span', { class: 'sc-n is-amarillo', text: String(m[t].amarillo) }) : '—']),
+        el('td', { class: 'num' }, [m[t].rojo ? el('span', { class: 'sc-n is-rojo', text: String(m[t].rojo) }) : '—']),
+        el('td', { class: 'num' }, [m[t].negro ? el('span', { class: 'sc-n is-negro', text: String(m[t].negro) }) : '—']),
+        el('td', { class: 'num', text: String(m[t].total) })
+      ]);
+      tb.appendChild(fila);
+    });
+  }
+
+  function elegirTeam(t, abrirCartera) {
+    st.team = t || '';
+    var sel = $('sc-team');
+    if (sel) sel.value = st.team;
+    cargarDesdeCRM();
+    if (abrirCartera) irATab('cartera', true);
   }
 
   function filtrados() {
@@ -302,7 +369,27 @@
 
     var tbody = $('sc-filas');
     vaciar(tbody);
+    // Administración / backoffice: separados por team, y dentro de cada team de
+    // verde a negro. Agente y supervisor: una sola lista.
+    var agrupar = st.ambito === 'todos';
+    if (agrupar) {
+      lista.sort(function (a, b) {
+        return String(a.equipo || '').localeCompare(String(b.equipo || ''), 'es') ||
+          (POS[a.color] - POS[b.color]) || porUrgencia(a, b);
+      });
+    }
+    var grupo = null, cuentaGrupo = {};
+    lista.forEach(function (c) { cuentaGrupo[c.equipo] = (cuentaGrupo[c.equipo] || 0) + 1; });
     lista.slice(0, 1000).forEach(function (c) {
+      if (agrupar && c.equipo !== grupo) {
+        grupo = c.equipo;
+        tbody.appendChild(el('tr', { class: 'sc-grupo' }, [
+          el('th', { colspan: '8', scope: 'colgroup' }, [
+            el('span', { class: 'sc-grupo-t', text: grupo || 'Sin team' }),
+            el('span', { class: 'sc-grupo-n', text: cuentaGrupo[grupo] + ' cliente(s)' })
+          ])
+        ]));
+      }
       var tr = el('tr', { class: 'sc-fila is-' + c.color + (c.solventado ? ' is-solventado' : ''),
         on: { click: function (ev) { if (!ev.target.closest('button')) abrirFicha(c.id); } } }, [
         el('td', { text: c.agente || '—' }),
@@ -336,7 +423,13 @@
         text: st.clientes.length ? 'Ningún cliente ha pasado a oficina.' : 'No hay clientes que mostrar.' }));
       return;
     }
+    if (st.ambito === 'todos') negros.sort(function (a, b) { return String(a.equipo || '').localeCompare(String(b.equipo || ''), 'es'); });
+    var grupoOf = null;
     negros.forEach(function (c) {
+      if (st.ambito === 'todos' && c.equipo !== grupoOf) {
+        grupoOf = c.equipo;
+        grid.appendChild(el('h3', { class: 'sc-grupo-oficina', text: grupoOf || 'Sin team' }));
+      }
       grid.appendChild(el('button', { type: 'button', class: 'sc-caso', on: { click: function () { abrirFicha(c.id); } } }, [
         el('div', { class: 'sc-eyebrow', text: 'En oficina desde ' + (fechaHora(c.caso_vencido_at) || '—') }),
         el('div', { class: 'sc-caso-t', text: c.nombre_cliente || 'SIN NOMBRE' }),
@@ -391,7 +484,7 @@
     st.sel = id;
     focoPrevio = document.activeElement;
     $('sc-f-nombre').textContent = c.nombre_cliente || 'SIN NOMBRE';
-    $('sc-f-sub').textContent = (c.telefono || 'Sin teléfono') + ' · ' + (c.agente || '—');
+    $('sc-f-sub').textContent = (c.telefono || 'Sin teléfono') + ' · ' + (c.agente || '—') + (c.equipo ? ' · ' + c.equipo : '');
     $('sc-f-luz').className = 'sc-punto is-' + c.color;
     $('sc-f-estado').textContent = ESTADOS[c.color].titulo + ' — ' + (c.solventado ? 'caso solventado' : ESTADOS[c.color].nota);
     $('sc-f-motivo').textContent = plazo(c);
@@ -531,6 +624,8 @@
     if (refrescar) refrescar.addEventListener('click', cargarDesdeCRM);
 
     pintarMeses();
+    var selTeam = $('sc-team');
+    if (selTeam) selTeam.addEventListener('change', function (ev) { elegirTeam(ev.target.value, false); });
     var selMes = $('sc-mes');
     if (selMes) selMes.addEventListener('change', function (ev) {
       st.mes = ev.target.value;
