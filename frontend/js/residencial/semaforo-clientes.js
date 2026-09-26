@@ -5,30 +5,20 @@
  *    botones [data-voltear] doblan la hoja con una animación 3D. #clientes en la
  *    URL abre directamente la cara de detrás.
  *
- * 2) El semáforo de clientes: lee los leads del CRM (/api/leads, el mismo origen
- *    que la lista de clientes de residencial) y los clasifica por su STATUS DE
- *    COMISIÓN. El endpoint ya filtra por rol, así que un agente sólo ve los suyos.
+ * 2) El semáforo de clientes: los CASOS A SOLVENTAR de las ventas completadas
+ *    (/api/casos/semaforo; reglas en CRM_PYTHON/casos.py). Al pasar a completed
+ *    el cliente cae en verde y el agente tiene 3 días; luego amarillo (+2) y
+ *    rojo (+1). Sin comprobante, pasa solo a negro: status y status comisión
+ *    «oficina». El caso se solventa subiendo el comprobante en Editar cliente.
+ *    El color lo calcula el servidor; el endpoint ya filtra por rol.
  *
  * Seguridad: todo lo que viene del servidor se pinta con textContent / nodos del
- * DOM, nunca con innerHTML ni dentro de atributos de evento o de estilo. El semáforo
- * de ventas ya tuvo un XSS por interpolar datos en innerHTML.
+ * DOM, nunca con innerHTML ni dentro de atributos de evento o de estilo.
  */
 (function () {
   'use strict';
 
-  var URL_MESES = '/api/leads/months?limit=120';
-
-  // El mes se aplica en el servidor (?month=AAAA-MM). '' = todos los meses, que
-  // en este endpoint se pide con noAutoMonth=1: sin eso el backend filtra por el
-  // mes en curso por su cuenta.
-  function urlLeads(mes) {
-    return '/api/leads?limit=10000' + (mes ? '&month=' + encodeURIComponent(mes) : '&noAutoMonth=1');
-  }
-
-  function mesActual() {
-    var d = new Date();
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-  }
+  var URL_SEMAFORO = '/api/casos/semaforo';
 
   var MESES_ES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
                   'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -40,34 +30,14 @@
   }
 
   var ESTADOS = {
-    verde:    { titulo: 'Verde',    nota: 'Comisión completada' },
-    amarillo: { titulo: 'Amarillo', nota: 'Comisión en hold' },
-    ambar:    { titulo: 'Ámbar',    nota: 'Comisión pendiente' },
-    rojo:     { titulo: 'Rojo',     nota: 'Comisión cancelada' },
-    negro:    { titulo: 'Negro',    nota: 'Interviene oficina' },
-    gris:     { titulo: 'Sin clasificar', nota: 'Status fuera del semáforo' }
+    verde:    { titulo: 'Verde',    nota: 'En plazo (3 días) o solventado' },
+    amarillo: { titulo: 'Amarillo', nota: 'Días 4 y 5 sin solventar' },
+    rojo:     { titulo: 'Rojo',     nota: 'Último día para solventar' },
+    negro:    { titulo: 'Negro',    nota: 'Pasó a oficina' }
   };
-
-  // De menos a más grave. 'gris' queda fuera: no tiene luz en el poste ni entra
-  // en los recuentos de color, sólo se ve en la cartera.
-  var ORDEN = ['verde', 'amarillo', 'ambar', 'rojo', 'negro'];
-  var PRIORIDAD = { negro: 0, rojo: 1, ambar: 2, amarillo: 3, verde: 4, gris: 5 };
-
-  // Status de comisión -> color. Lo que no esté aquí (reserva, active, repro,
-  // n/a…) se muestra en la cartera sin color, para que se vea que hay que
-  // corregirlo en la lista de residencial en vez de esconderlo.
-  var COLOR_POR_STATUS = {
-    completed: 'verde',
-    hold:      'amarillo',
-    pending:   'ambar',
-    cancelled: 'rojo',
-    oficina:   'negro'
-  };
-
-  var ETIQUETA_STATUS = {
-    completed: 'Completed', pending: 'Pending', hold: 'Hold', cancelled: 'Cancelled',
-    oficina: 'Oficina', reserva: 'Reserva', active: 'Active', rescheduled: 'Rescheduled'
-  };
+  // Orden de la cartera y del poste: verde → amarillo → rojo → negro.
+  var ORDEN = ['verde', 'amarillo', 'rojo', 'negro'];
+  var POS = { verde: 0, amarillo: 1, rojo: 2, negro: 3 };
 
   // ── Utilidades ─────────────────────────────────────────────────────────
   function $(id) { return document.getElementById(id); }
@@ -97,16 +67,15 @@
   function punto(estado) { return el('span', { class: 'sc-punto is-' + estado, 'aria-hidden': 'true' }); }
   function reduceMovimiento() { return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
 
-  function usuarioActual() {
-    try {
-      var u = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-      return String(u.name || u.username || '').trim() || 'Tú';
-    } catch (_) { return 'Tú'; }
-  }
-
   function tokenActual() {
     try { return sessionStorage.getItem('token') || localStorage.getItem('token') || ''; }
     catch (_) { return ''; }
+  }
+  function cfgFetch() {
+    var cfg = { credentials: 'include', headers: {} };
+    var tk = tokenActual();
+    if (tk) cfg.headers.Authorization = 'Bearer ' + tk;
+    return cfg;
   }
 
   function normalizar(t) {
@@ -114,188 +83,88 @@
       .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   }
 
-  // Mismo criterio que normalizeStatus() de js/residencial/costumer-main.js: si
-  // las dos páginas no normalizan igual, el semáforo y la lista de clientes
-  // acabarían discrepando sobre el mismo cliente.
-  function normalizarStatus(sv) {
-    var s = String(sv == null ? '' : sv).trim().toLowerCase();
-    if (!s) return 'pending';
-    if (s === 'pending' || s === 'pendiente' || s.indexOf('pend') !== -1) return 'pending';
-    if (s === 'reserva' || s.indexOf('reser') !== -1) return 'reserva';
-    if (s === 'cancelled' || s.indexOf('cancel') !== -1) return 'cancelled';
-    if (s === 'hold' || s.indexOf('hold') !== -1) return 'hold';
-    if (s.indexOf('resched') !== -1 || s.indexOf('reagend') !== -1 || s.indexOf('reprogram') !== -1) return 'rescheduled';
-    if (s === 'oficina' || (s.indexOf('active') !== -1 && s.indexOf('oficina') !== -1)) return 'oficina';
-    if (s === 'active' || s === 'activo' || s === 'activa') return 'active';
-    if (s === 'completed' || s.indexOf('complet') !== -1 || s.indexOf('cerrad') !== -1) return 'completed';
-    return s;
+  // Fechas del servidor en UTC ("2026-09-26T22:08:04" o "2026-09-26 22:08:04").
+  function fechaUTC(v) {
+    if (!v) return null;
+    var s = String(v).replace(' ', 'T');
+    if (!/[zZ]|[+-]\d{2}:?\d{2}$/.test(s)) s += 'Z';
+    var d = new Date(s);
+    return isNaN(d) ? null : d;
   }
-
-  function primero(obj, claves) {
-    for (var i = 0; i < claves.length; i++) {
-      var v = obj[claves[i]];
-      if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
-    }
-    return '';
-  }
-
-  var HOY = (function () { var d = new Date(); d.setHours(0, 0, 0, 0); return d; })();
-
-  function diasDesde(v) {
-    var t = String(v == null ? '' : v).trim();
-    var m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-    if (!m) return NaN;
-    var d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-    if (isNaN(d)) return NaN;
-    d.setHours(0, 0, 0, 0);
-    return Math.round((HOY - d) / 86400000);
-  }
-
   function fecha(v) {
     var m = String(v == null ? '' : v).slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
     return m ? m[3] + '/' + m[2] + '/' + m[1] : '';
   }
-
-  // ── Reglas ─────────────────────────────────────────────────────────────
-  // El color lo decide el status de comisión, no el tiempo sin contacto
-  // (decisión de negocio del 25-09-2026). Los días sin contacto pasan a ser
-  // un dato informativo de la ficha y de la cartera.
-  function clasificar(status) {
-    return COLOR_POR_STATUS[status] || 'gris';
+  function fechaHora(v) {
+    var d = fechaUTC(v);
+    return d ? d.toLocaleString('es', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+  }
+  function horas(h) {
+    if (h == null || isNaN(h)) return '';
+    var t = Math.round(h), d = Math.floor(t / 24), r = t % 24;
+    return d > 0 ? d + ' d' + (r ? ' ' + r + ' h' : '') : t + ' h';
   }
 
-  // Días desde la última llamada de validación. El 76% de la cartera no tiene
-  // ninguna registrada: en ese caso se cuenta desde la venta y se marca como
-  // nunca contactado, que es justo el caso que interesa sacar a la luz.
-  function contacto(lead) {
-    var ref = primero(lead, ['fecha_ultima_llamada', 'fecha_completed']);
-    if (ref) {
-      var d = diasDesde(ref);
-      if (!isNaN(d)) return { dias: d, nunca: false };
-    }
-    var venta = primero(lead, ['dia_venta', 'fecha_contratacion', 'created_at']);
-    if (venta) {
-      var dv = diasDesde(venta);
-      if (!isNaN(dv)) return { dias: dv, nunca: true };
-    }
-    return { dias: NaN, nunca: true };
+  // Texto del plazo de un caso.
+  function plazo(c) {
+    if (c.solventado) return 'Solventado';
+    if (c.color === 'negro') return 'Pasó a oficina';
+    if (c.horas_restantes_color == null) return '—';
+    return 'Quedan ' + horas(c.horas_restantes_color) + (c.color === 'rojo' ? ' para oficina' : ' en ' + ESTADOS[c.color].titulo.toLowerCase());
   }
 
   // ── Estado ─────────────────────────────────────────────────────────────
   var st = {
     clientes: [],
+    meses: [],
     cargando: false,
     error: '',
-    mes: mesActual(),   // por defecto, el mes en curso
+    mes: '',            // '' = todos los meses (el semáforo es operativo: lo vivo)
     tab: 'panel',
     filtro: 'todos',
     busqueda: '',
-    notas: {},       // id -> [{autor, fecha, texto}]  (solo en memoria)
     sel: null
   };
 
-  // El endpoint cuenta como "del mes" tres casos: vendido en el mes, instalado en
-  // el mes habiéndose vendido antes (el colchón) y, si no hay fechas, creado en el
-  // mes. En el semáforo sólo interesan los vendidos en el mes, así que el colchón
-  // se recorta aquí: el backend no sabe distinguir los dos casos con un parámetro.
-  function vendidoEnElMes(lead, mes) {
-    if (!mes) return true;                 // "Todos los meses": no se recorta nada
-    return primero(lead, ['dia_venta', 'fecha_contratacion']).slice(0, 7) === mes;
-  }
-
-  function construir(leads) {
-    st.clientes = leads.filter(function (l) { return vendidoEnElMes(l, st.mes); }).map(function (l, i) {
-      var status = normalizarStatus(primero(l, ['status_comision', 'statusComision']) || primero(l, ['status', 'Status', 'estado']));
-      var c = contacto(l);
-      return {
-        id: i,
-        agente:      primero(l, ['agente_nombre', 'agente', 'created_by']) || '—',
-        nombre:      primero(l, ['nombre_cliente', 'clientName', 'nombre']) || 'SIN NOMBRE',
-        telefono:    primero(l, ['telefono_principal', 'telefono', 'telefonoPrincipal']),
-        servicio:    primero(l, ['tipo_servicio', 'servicios_texto', 'producto_contratado']) || servicioDeLista(l),
-        venta:       primero(l, ['dia_venta', 'fecha_contratacion']),
-        instalacion: primero(l, ['dia_instalacion', 'fecha_instalacion']),
-        status:      status,
-        dias:        c.dias,
-        nunca:       c.nunca,
-        estado:      clasificar(status)
-      };
-    });
-    st.filtro = 'todos';
-    st.busqueda = '';
-    st.notas = {};
-    if ($('sc-buscar')) $('sc-buscar').value = '';
-    pintarTodo();
-  }
-
-  // `servicios` llega como array JSON desde el backend.
-  function servicioDeLista(l) {
-    var v = l && l.servicios;
-    if (Array.isArray(v)) return v.filter(Boolean).join(', ');
-    return v ? String(v) : '';
-  }
-
   function cuenta(estado) {
-    return st.clientes.filter(function (c) { return c.estado === estado; }).length;
+    return st.clientes.filter(function (c) { return c.color === estado; }).length;
   }
 
-  // ── Meses disponibles ──────────────────────────────────────────────────
-  // El desplegable se llena con los meses que el CRM dice tener. El mes en curso
-  // se añade aunque todavía no haya ventas, para que la opción por defecto exista
-  // siempre (si no, el primer día del mes el selector aparecería en otro mes).
-  function cargarMeses() {
+  // Dentro de cada color: primero lo que va a vencer antes; los solventados al final.
+  function porUrgencia(a, b) {
+    if (a.solventado !== b.solventado) return a.solventado ? 1 : -1;
+    var ha = a.horas_restantes_color == null ? 1e9 : a.horas_restantes_color;
+    var hb = b.horas_restantes_color == null ? 1e9 : b.horas_restantes_color;
+    return ha - hb;
+  }
+
+  // ── Carga ──────────────────────────────────────────────────────────────
+  function pintarMeses() {
     var sel = $('sc-mes');
     if (!sel) return;
-
-    function pintar(meses) {
-      vaciar(sel);
-      sel.appendChild(el('option', { value: '', text: 'Todos los meses' }));
-      meses.forEach(function (m) {
-        sel.appendChild(el('option', { value: m, text: nombreMes(m) }));
-      });
-      sel.value = st.mes;
-      if (sel.value !== st.mes) {      // el mes guardado ya no está en la lista
-        st.mes = sel.value || '';
-      }
-    }
-
-    pintar([st.mes]);                  // algo usable mientras responde el servidor
-
-    var cfg = { credentials: 'include', headers: {} };
-    var tk = tokenActual();
-    if (tk) cfg.headers.Authorization = 'Bearer ' + tk;
-
-    fetch(URL_MESES, cfg)
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (d) {
-        var meses = (d && (d.data || d.months)) || [];
-        if (!Array.isArray(meses) || !meses.length) return;
-        if (meses.indexOf(st.mes) === -1) meses = [st.mes].concat(meses);
-        pintar(meses);
-      })
-      .catch(function () { /* el selector se queda con el mes en curso */ });
+    vaciar(sel);
+    sel.appendChild(el('option', { value: '', text: 'Todos los meses' }));
+    st.meses.forEach(function (m) { sel.appendChild(el('option', { value: m, text: nombreMes(m) })); });
+    sel.value = st.mes;
+    if (sel.value !== st.mes) st.mes = '';
   }
 
-  // ── Carga desde el CRM ─────────────────────────────────────────────────
   function cargarDesdeCRM() {
     if (st.cargando) return;
     st.cargando = true;
     st.error = '';
     pintarCabecera();
-
-    var cfg = { credentials: 'include', headers: {} };
-    var tk = tokenActual();
-    if (tk) cfg.headers.Authorization = 'Bearer ' + tk;
-
-    fetch(urlLeads(st.mes), cfg)
+    fetch(URL_SEMAFORO + (st.mes ? '?mes=' + encodeURIComponent(st.mes) : ''), cfgFetch())
       .then(function (r) {
         if (!r.ok) throw new Error('El servidor respondió ' + r.status);
         return r.json();
       })
       .then(function (d) {
-        var filas = Array.isArray(d) ? d : (d && (d.data || d.leads)) || [];
         st.cargando = false;
-        construir(filas);
+        st.clientes = (d && Array.isArray(d.data)) ? d.data : [];
+        if (!st.mes && Array.isArray(d.meses)) { st.meses = d.meses; pintarMeses(); }
+        st.filtro = 'todos';
+        pintarTodo();
       })
       .catch(function (e) {
         st.cargando = false;
@@ -320,8 +189,8 @@
       var periodo = st.mes ? nombreMes(st.mes) : 'todos los meses';
       if (st.cargando) a.textContent = 'Cargando ' + periodo + '…';
       else if (st.error) a.textContent = 'No se pudo cargar: ' + st.error;
-      else if (!st.clientes.length) a.textContent = 'Sin clientes en ' + periodo;
-      else a.textContent = st.clientes.length + ' clientes · ' + periodo + ' · status de comisión';
+      else if (!st.clientes.length) a.textContent = 'Sin casos en ' + periodo;
+      else a.textContent = st.clientes.length + ' clientes con caso · ' + periodo;
     }
     var n = cuenta('negro'), badge = $('sc-tab-oficina-n');
     if (badge) {
@@ -335,6 +204,30 @@
       st.filtro = estado;
       irATab(estado === 'negro' ? 'oficina' : 'cartera', true);
     };
+  }
+
+  // 10 clientes mezclados entre los 4 colores: se toma uno de cada color por
+  // turnos (rojo, amarillo, verde, negro), el más urgente primero, hasta 10.
+  function mezcla(max) {
+    var colas = { rojo: [], amarillo: [], verde: [], negro: [] };
+    st.clientes.slice().sort(porUrgencia).forEach(function (c) { if (colas[c.color]) colas[c.color].push(c); });
+    var turno = ['rojo', 'amarillo', 'verde', 'negro'], out = [];
+    while (out.length < max && turno.some(function (k) { return colas[k].length; })) {
+      turno.forEach(function (k) { if (out.length < max && colas[k].length) out.push(colas[k].shift()); });
+    }
+    return out;
+  }
+
+  function fila(c, onClick) {
+    return el('button', { type: 'button', class: 'sc-urgente is-' + c.color, on: { click: onClick } }, [
+      punto(c.color),
+      el('b', { class: 'sc-urgente-nombre', text: c.nombre_cliente || 'SIN NOMBRE' }),
+      el('span', { class: 'sc-urgente-motivo', text: (c.caso_solventar || '—') }),
+      el('span', { class: 'sc-urgente-ej' }, [
+        el('span', { class: 'sc-urgente-plazo', text: plazo(c) }),
+        el('span', { class: 'sc-urgente-agente', text: c.agente || '—' })
+      ])
+    ]);
   }
 
   function pintarPanel() {
@@ -359,54 +252,37 @@
     });
 
     var total = st.clientes.length;
-    var riesgo = cuenta('rojo') + cuenta('negro');
-    var sinContacto = st.clientes.filter(function (c) { return c.nunca; }).length;
+    var solv = st.clientes.filter(function (c) { return c.solventado; }).length;
+    var pend = st.clientes.filter(function (c) { return !c.solventado && c.color !== 'negro'; }).length;
     $('sc-kpi-total').textContent = String(total);
-    $('sc-kpi-riesgo').textContent = total ? Math.round(riesgo / total * 100) + '%' : '—';
-    $('sc-kpi-sincontacto').textContent = total ? String(sinContacto) : '—';
+    $('sc-kpi-solventados').textContent = total ? String(solv) : '—';
+    $('sc-kpi-pendientes').textContent = total ? String(pend) : '—';
 
     var ul = $('sc-urgentes');
     vaciar(ul);
-    var urgentes = st.clientes.filter(function (c) { return c.estado === 'rojo' || c.estado === 'negro'; })
-      .sort(function (a, b) { return PRIORIDAD[a.estado] - PRIORIDAD[b.estado] || (b.dias || 0) - (a.dias || 0); });
-    if (st.cargando) ul.appendChild(el('li', { class: 'sc-vacio', text: 'Cargando…' }));
-    else if (!total) ul.appendChild(el('li', { class: 'sc-vacio', text: 'No hay clientes que mostrar.' }));
-    else if (!urgentes.length) ul.appendChild(el('li', { class: 'sc-vacio', text: 'Ningún cliente en rojo ni en negro.' }));
-    urgentes.slice(0, 50).forEach(function (c) {
-      ul.appendChild(el('li', null, [
-        el('button', { type: 'button', class: 'sc-urgente', on: { click: function () { abrirFicha(c.id); } } }, [
-          punto(c.estado),
-          el('b', { class: 'sc-urgente-nombre', text: c.nombre }),
-          el('span', { class: 'sc-urgente-motivo', text: etiqueta(c.status) + ' · ' + textoContacto(c) }),
-          el('span', { class: 'sc-urgente-ej', text: c.agente })
-        ])
-      ]));
+    if (st.cargando) { ul.appendChild(el('li', { class: 'sc-vacio', text: 'Cargando…' })); return; }
+    if (st.error) { ul.appendChild(el('li', { class: 'sc-vacio', text: 'No se pudieron cargar los clientes.' })); return; }
+    if (!total) {
+      ul.appendChild(el('li', { class: 'sc-vacio', text: 'Todavía no hay clientes con caso a solventar. Entran al semáforo cuando una venta con caso pasa a completed.' }));
+      return;
+    }
+    mezcla(10).forEach(function (c) {
+      ul.appendChild(el('li', null, [fila(c, function () { abrirFicha(c.id); })]));
     });
-  }
-
-  function etiqueta(status) {
-    return ETIQUETA_STATUS[status] || (status ? status.charAt(0).toUpperCase() + status.slice(1) : '—');
-  }
-
-  function textoContacto(c) {
-    if (isNaN(c.dias)) return 'sin fecha';
-    return c.dias + ' d' + (c.nunca ? ' sin contactar' : ' sin contacto');
   }
 
   function filtrados() {
     var q = normalizar(st.busqueda);
     return st.clientes.filter(function (c) {
-      return (st.filtro === 'todos' || c.estado === st.filtro) &&
-        (!q || normalizar(c.nombre + ' ' + c.agente + ' ' + c.telefono + ' ' + c.servicio).indexOf(q) !== -1);
-    }).sort(function (a, b) { return PRIORIDAD[a.estado] - PRIORIDAD[b.estado] || (b.dias || 0) - (a.dias || 0); });
+      return (st.filtro === 'todos' || c.color === st.filtro) &&
+        (!q || normalizar([c.nombre_cliente, c.agente, c.telefono, c.servicio, c.caso_solventar].join(' ')).indexOf(q) !== -1);
+    }).sort(function (a, b) { return (POS[a.color] - POS[b.color]) || porUrgencia(a, b); });
   }
 
   function pintarCartera() {
     var chips = $('sc-chips');
     vaciar(chips);
-    var conColor = ORDEN.slice();
-    if (cuenta('gris')) conColor.push('gris');
-    ['todos'].concat(conColor).forEach(function (f) {
+    ['todos'].concat(ORDEN).forEach(function (f) {
       var n = f === 'todos' ? st.clientes.length : cuenta(f);
       chips.appendChild(el('button', { type: 'button', class: 'sc-chip', 'aria-pressed': String(st.filtro === f),
         on: { click: function () { st.filtro = f; pintarCartera(); } } }, [
@@ -417,26 +293,28 @@
 
     var lista = filtrados();
     $('sc-resumen').textContent = st.cargando
-      ? 'Cargando clientes del CRM…'
+      ? 'Cargando clientes…'
       : st.error
         ? 'No se pudieron cargar los clientes: ' + st.error
         : st.clientes.length
-          ? lista.length + ' de ' + st.clientes.length + ' clientes · pulsa en un cliente para abrir su ficha.'
-          : 'No hay clientes en ' + (st.mes ? nombreMes(st.mes) : 'ningún mes') + '.';
+          ? lista.length + ' de ' + st.clientes.length + ' clientes · verde, amarillo, rojo y negro · pulsa en un cliente para abrir su ficha.'
+          : 'No hay clientes con caso a solventar' + (st.mes ? ' en ' + nombreMes(st.mes) : '') + '.';
 
     var tbody = $('sc-filas');
     vaciar(tbody);
     lista.slice(0, 1000).forEach(function (c) {
-      var tr = el('tr', { on: { click: function (ev) { if (!ev.target.closest('button')) abrirFicha(c.id); } } }, [
-        el('td', { text: c.agente }),
-        el('td', null, [el('button', { type: 'button', class: 'sc-cliente-btn', text: c.nombre, on: { click: function () { abrirFicha(c.id); } } })]),
+      var tr = el('tr', { class: 'sc-fila is-' + c.color + (c.solventado ? ' is-solventado' : ''),
+        on: { click: function (ev) { if (!ev.target.closest('button')) abrirFicha(c.id); } } }, [
+        el('td', { text: c.agente || '—' }),
+        el('td', null, [el('button', { type: 'button', class: 'sc-cliente-btn', text: c.nombre_cliente || 'SIN NOMBRE', on: { click: function () { abrirFicha(c.id); } } })]),
         el('td', { class: 'sc-tel', text: c.telefono }),
         el('td', { text: c.servicio }),
-        el('td', { text: fecha(c.venta) }),
-        el('td', { text: fecha(c.instalacion) }),
-        el('td', null, [el('span', { class: 'sc-estado-celda' }, [punto(c.estado), etiqueta(c.status)])]),
-        el('td', { class: 'num' + (c.nunca ? ' es-nunca' : ''), text: isNaN(c.dias) ? '—' : c.dias + ' d',
-                   title: c.nunca ? 'Nunca se le hizo la llamada de validación: se cuenta desde la venta' : 'Desde la última llamada de validación' })
+        el('td', { text: fecha(c.inicio_reloj) }),
+        el('td', null, [el('div', { class: 'sc-caso-celda', text: c.caso_solventar || '—', title: c.caso_solventar || '' })]),
+        el('td', null, [el('span', { class: 'sc-estado-celda' }, [punto(c.color), el('span', null, [
+          el('b', { text: ESTADOS[c.color].titulo }), ' · ', plazo(c)])])]),
+        el('td', { class: 'num', text: c.comprobantes ? '✓ ' + c.comprobantes : '—',
+                   title: c.comprobantes ? 'Comprobantes subidos' : 'Sin comprobante' })
       ]);
       tbody.appendChild(tr);
     });
@@ -445,25 +323,24 @@
     }
     if (lista.length > 1000) {
       tbody.appendChild(el('tr', null, [el('td', { colspan: '8', class: 'sc-vacio',
-        text: 'Se muestran los 1000 más urgentes de ' + lista.length + '. Afina la búsqueda o el filtro.' })]));
+        text: 'Se muestran 1000 de ' + lista.length + '. Afina la búsqueda o el filtro.' })]));
     }
   }
 
   function pintarOficina() {
     var grid = $('sc-negros');
     vaciar(grid);
-    var negros = st.clientes.filter(function (c) { return c.estado === 'negro'; })
-      .sort(function (a, b) { return (b.dias || 0) - (a.dias || 0); });
+    var negros = st.clientes.filter(function (c) { return c.color === 'negro'; });
     if (!negros.length) {
       grid.appendChild(el('p', { class: 'sc-vacio',
-        text: st.clientes.length ? 'Ningún cliente con status de comisión «oficina».' : 'No hay clientes que mostrar.' }));
+        text: st.clientes.length ? 'Ningún cliente ha pasado a oficina.' : 'No hay clientes que mostrar.' }));
       return;
     }
     negros.forEach(function (c) {
       grid.appendChild(el('button', { type: 'button', class: 'sc-caso', on: { click: function () { abrirFicha(c.id); } } }, [
-        el('div', { class: 'sc-eyebrow', text: 'Status de comisión: oficina' }),
-        el('div', { class: 'sc-caso-t', text: c.nombre }),
-        el('div', { class: 'sc-caso-d', text: (c.servicio || 'Sin servicio') + ' · venta ' + (fecha(c.venta) || '—') + ' · ' + textoContacto(c) }),
+        el('div', { class: 'sc-eyebrow', text: 'En oficina desde ' + (fechaHora(c.caso_vencido_at) || '—') }),
+        el('div', { class: 'sc-caso-t', text: c.nombre_cliente || 'SIN NOMBRE' }),
+        el('div', { class: 'sc-caso-d', text: c.caso_solventar || '—' }),
         el('div', { class: 'sc-caso-m', text: c.agente + (c.telefono ? ' · ' + c.telefono : '') })
       ]));
     });
@@ -486,23 +363,62 @@
 
   // ── Ficha (diálogo) ────────────────────────────────────────────────────
   var focoPrevio = null;
+  function comprobante(cp) {
+    var li = el('li', { class: 'sc-f-comp' });
+    li.appendChild(el('div', { class: 'sc-f-comp-llamada', text: cp.llamada === 'seguimiento' ? 'Seguimiento ' + (cp.numero || '') : 'Llamada del caso' }));
+    var url = String(cp.url || '');
+    var seguro = /^(\/api\/files\/\d+(\/image)?|\/uploads\/files\/[A-Za-z0-9._\- ]+)$/.test(url);
+    if (!seguro) { li.appendChild(el('span', { text: 'Comprobante no disponible' })); return li; }
+    if (cp.tipo === 'imagen') {
+      var a = el('a', { href: url, target: '_blank', rel: 'noopener', class: 'sc-f-comp-img', title: 'Abrir captura' });
+      a.appendChild(el('img', { src: url, alt: 'Captura del comprobante', loading: 'lazy' }));
+      li.appendChild(a);
+    } else if (cp.tipo === 'audio') {
+      var au = el('audio', { controls: 'controls', preload: 'none', class: 'sc-f-comp-audio' });
+      au.src = encodeURI(url);
+      li.appendChild(au);
+    } else {
+      li.appendChild(el('a', { href: encodeURI(url), target: '_blank', rel: 'noopener', text: '📄 ' + (cp.nombre || 'Documento') }));
+    }
+    li.appendChild(el('div', { class: 'sc-f-comp-meta', text: (cp.created_by || '—') + ' · ' + fechaHora(cp.created_at) }));
+    if (cp.nota) li.appendChild(el('div', { class: 'sc-f-comp-nota', text: cp.nota }));
+    return li;
+  }
+
   function abrirFicha(id) {
     var c = st.clientes.filter(function (x) { return x.id === id; })[0];
     if (!c) return;
     st.sel = id;
     focoPrevio = document.activeElement;
-    $('sc-f-nombre').textContent = c.nombre;
-    $('sc-f-sub').textContent = (c.telefono || 'Sin teléfono') + ' · ' + c.agente;
-    $('sc-f-luz').className = 'sc-punto is-' + c.estado;
-    $('sc-f-estado').textContent = ESTADOS[c.estado].titulo + ' — ' + ESTADOS[c.estado].nota;
-    $('sc-f-motivo').textContent = 'Status de comisión «' + etiqueta(c.status) + '» en la lista de clientes de residencial.' +
-      (c.nunca ? ' Nunca se le registró la llamada de validación.' : '');
+    $('sc-f-nombre').textContent = c.nombre_cliente || 'SIN NOMBRE';
+    $('sc-f-sub').textContent = (c.telefono || 'Sin teléfono') + ' · ' + (c.agente || '—');
+    $('sc-f-luz').className = 'sc-punto is-' + c.color;
+    $('sc-f-estado').textContent = ESTADOS[c.color].titulo + ' — ' + (c.solventado ? 'caso solventado' : ESTADOS[c.color].nota);
+    $('sc-f-motivo').textContent = plazo(c);
     $('sc-f-servicio').textContent = c.servicio || '—';
-    $('sc-f-venta').textContent = fecha(c.venta) || '—';
-    $('sc-f-instalacion').textContent = fecha(c.instalacion) || '—';
-    $('sc-f-dias').textContent = isNaN(c.dias) ? '—' : textoContacto(c);
-    $('sc-f-borrador').value = '';
-    pintarNotas();
+    $('sc-f-venta').textContent = fecha(c.dia_venta) || '—';
+    $('sc-f-completado').textContent = fechaHora(c.inicio_reloj) || '—';
+    $('sc-f-plazo').textContent = c.vence_at ? 'Oficina el ' + fechaHora(c.vence_at) : (c.solventado ? 'Solventado el ' + (fechaHora(c.caso_solventado_at) || '—') : '—');
+    $('sc-f-caso').textContent = c.caso_solventar || '—';
+    var ul = $('sc-f-comps');
+    vaciar(ul);
+    ul.appendChild(el('li', { class: 'sc-vacio', text: 'Cargando…' }));
+    fetch('/api/leads/' + encodeURIComponent(c.id) + '/caso', cfgFetch())
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (st.sel !== id) return;
+        vaciar(ul);
+        var comps = (d && d.comprobantes_lista) || [];
+        if (!comps.length) ul.appendChild(el('li', { class: 'sc-vacio', text: 'Sin comprobante todavía.' }));
+        comps.forEach(function (cp) { ul.appendChild(comprobante(cp)); });
+        var dd = d && d.data;
+        if (dd && dd.proximo_seguimiento) {
+          $('sc-f-plazo').textContent = (dd.seguimiento_vencido ? 'Seguimiento pendiente desde el ' : 'Próximo seguimiento: ') + fechaHora(dd.proximo_seguimiento);
+        }
+        var ed = $('sc-f-editar');
+        if (ed) ed.hidden = !(d && d.data && d.data.puede_subir) || c.color === 'negro';
+      })
+      .catch(function () { if (st.sel === id) { vaciar(ul); ul.appendChild(el('li', { class: 'sc-vacio', text: 'No se pudieron cargar los comprobantes.' })); } });
     $('sc-ficha-fondo').hidden = false;
     $('sc-ficha').hidden = false;
     document.querySelector('.layout').inert = true;
@@ -515,27 +431,6 @@
     $('sc-ficha-fondo').hidden = true;
     document.querySelector('.layout').inert = false;
     if (focoPrevio && document.contains(focoPrevio)) focoPrevio.focus();
-  }
-  function pintarNotas() {
-    var ul = $('sc-f-notas');
-    vaciar(ul);
-    var notas = st.notas[st.sel] || [];
-    if (!notas.length) ul.appendChild(el('li', { class: 'sc-vacio', text: 'Sin notas todavía.' }));
-    notas.forEach(function (n) {
-      ul.appendChild(el('li', null, [el('div', { class: 'sc-f-nota-meta', text: n.fecha + ' · ' + n.autor }), n.texto]));
-    });
-  }
-  function guardarNota() {
-    var t = $('sc-f-borrador').value.trim();
-    if (!t || st.sel === null) return;
-    var ahora = new Date();
-    (st.notas[st.sel] = st.notas[st.sel] || []).unshift({
-      autor: usuarioActual(),
-      fecha: ahora.toLocaleDateString('es') + ' ' + ahora.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }),
-      texto: t.slice(0, 1000)
-    });
-    $('sc-f-borrador').value = '';
-    pintarNotas();
   }
 
   // ── El volteo de la página ─────────────────────────────────────────────
@@ -558,7 +453,7 @@
       destino.hidden = false;
       document.title = hacia === 'clientes' ? 'Semáforo de Clientes' : 'El Semáforo';
       // La primera vez que se abre la cara de clientes se piden los datos.
-      if (hacia === 'clientes' && !st.clientes.length && !st.cargando && !st.error) cargarDesdeCRM();
+      if (hacia === 'clientes' && !st.cargado && !st.cargando) { st.cargado = true; cargarDesdeCRM(); }
     }
     function terminar() {
       desde.classList.remove('gira');
@@ -635,7 +530,7 @@
     var refrescar = $('sc-refrescar');
     if (refrescar) refrescar.addEventListener('click', cargarDesdeCRM);
 
-    cargarMeses();
+    pintarMeses();
     var selMes = $('sc-mes');
     if (selMes) selMes.addEventListener('change', function (ev) {
       st.mes = ev.target.value;
@@ -647,12 +542,11 @@
     // Ficha
     $('sc-ficha-cerrar').addEventListener('click', cerrarFicha);
     $('sc-ficha-fondo').addEventListener('click', cerrarFicha);
-    $('sc-f-guardar').addEventListener('click', guardarNota);
     document.addEventListener('keydown', function (ev) {
       if (st.sel === null) return;
       if (ev.key === 'Escape') { ev.preventDefault(); cerrarFicha(); return; }
       if (ev.key === 'Tab') {       // foco atrapado dentro del diálogo
-        var foc = $('sc-ficha').querySelectorAll('button, textarea');
+        var foc = [].filter.call($('sc-ficha').querySelectorAll('button, a[href], audio'), function (x) { return !x.hidden && x.offsetParent !== null; });
         var primeroF = foc[0], ultimo = foc[foc.length - 1];
         if (ev.shiftKey && document.activeElement === primeroF) { ev.preventDefault(); ultimo.focus(); }
         else if (!ev.shiftKey && document.activeElement === ultimo) { ev.preventDefault(); primeroF.focus(); }
@@ -664,7 +558,7 @@
     segunHash(false);
     // Si se entra directamente con #clientes, segunHash ya abrió la cara y pidió
     // los datos; si no, se piden al voltear.
-    if (location.hash === '#clientes' && !st.clientes.length && !st.cargando) cargarDesdeCRM();
+    if (location.hash === '#clientes' && !st.cargado && !st.cargando) { st.cargado = true; cargarDesdeCRM(); }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);

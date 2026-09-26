@@ -483,3 +483,61 @@
   .btn-voltear i, .sc-tarjeta, .sc-caso, .sc-foco-luz { transition: none; }
   .sc-ficha { animation: none; }
 }
+
+/* ═══ Casos a solventar (27-09-2026) ════════════════════════════════════
+   Filas de la cartera y de la lista del panel teñidas con un degradado del
+   color del cliente: fuerte a la izquierda y desvaneciéndose hacia la derecha,
+   con un filete del color pleno. Los solventados, más tenues. */
+.sc-fila, .sc-urgente { --sc-fila: transparent; --sc-fila-borde: transparent; }
+.sc-fila.is-verde,    .sc-urgente.is-verde    { --sc-fila: rgba(47, 174, 82, .20);  --sc-fila-borde: var(--sc-verde); }
+.sc-fila.is-amarillo, .sc-urgente.is-amarillo { --sc-fila: rgba(237, 187, 0, .24);  --sc-fila-borde: var(--sc-amarillo); }
+.sc-fila.is-rojo,     .sc-urgente.is-rojo     { --sc-fila: rgba(200, 50, 31, .20);  --sc-fila-borde: var(--sc-rojo); }
+.sc-fila.is-negro,    .sc-urgente.is-negro    { --sc-fila: rgba(32, 30, 29, .22);   --sc-fila-borde: var(--sc-negro); }
+.sc-fila.is-solventado { --sc-fila: rgba(47, 174, 82, .09); }
+
+.sc-tabla tbody tr.sc-fila {
+  background: linear-gradient(90deg, var(--sc-fila) 0%, color-mix(in srgb, var(--sc-fila) 35%, transparent) 45%, transparent 85%);
+}
+.sc-tabla tbody tr.sc-fila td:first-child { box-shadow: inset 4px 0 0 var(--sc-fila-borde); }
+.sc-tabla tbody tr.sc-fila:hover { background: linear-gradient(90deg, var(--sc-fila) 0%, color-mix(in srgb, var(--sc-fila) 60%, transparent) 60%, var(--sup-3) 100%); }
+.sc-caso-celda {
+  max-width: 280px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; line-height: 1.35; font-size: 13px; color: var(--texto-2);
+}
+.sc-estado-celda b { font-weight: 700; }
+.sc-fila.is-solventado .sc-estado-celda { color: var(--sc-verde); }
+
+/* Lista mixta del panel */
+.sc-urgente {
+  grid-template-columns: 14px minmax(0, 1fr) minmax(0, 1.4fr) minmax(120px, auto);
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--sc-fila) 0%, transparent 80%);
+  box-shadow: inset 4px 0 0 var(--sc-fila-borde);
+}
+.sc-urgentes > li + li { border-top: 0; margin-top: 6px; }
+.sc-urgente-ej { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.sc-urgente-plazo { font-weight: 700; color: var(--texto-2); font-size: 12.5px; white-space: nowrap; }
+.sc-urgente-agente { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+@media (max-width: 560px) {
+  .sc-urgente { grid-template-columns: 14px minmax(0, 1fr); }
+  .sc-urgente-ej { align-items: flex-start; }
+}
+
+/* Ficha: caso y comprobantes */
+.sc-f-caso {
+  margin: 4px 0 14px; padding: 10px 12px;
+  font-size: 14px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere;
+  background: var(--sup-3, #f3f4f7); border-radius: 8px; border-left: 3px solid var(--sc-amarillo);
+}
+.sc-f-comps { list-style: none; display: grid; gap: 10px; margin: 4px 0 14px; }
+.sc-f-comp { padding: 10px; border: 1px solid var(--border); border-radius: 10px; display: grid; gap: 6px; }
+.sc-f-comp-img { display: block; border-radius: 8px; overflow: hidden; max-height: 180px; }
+.sc-f-comp-img img { width: 100%; height: 100%; max-height: 180px; object-fit: cover; display: block; }
+.sc-f-comp-audio { width: 100%; }
+.sc-f-comp-meta { font-size: 12px; color: var(--muted); }
+.sc-f-comp-nota { font-size: 13.5px; line-height: 1.4; }
+.sc-f-editar { display: inline-flex; margin-bottom: 8px; }
+
+.sc-f-comp-llamada { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--accent); }

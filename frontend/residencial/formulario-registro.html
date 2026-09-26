@@ -454,6 +454,24 @@
           </div>
           <p class="agents-note mt-1">Si la lista no aparece, el nombre del agente se enviará como asignación.</p>
         </div>
+        <!-- Caso a solventar: alimenta el Semáforo de clientes. Cuando la venta
+             pasa a completed el agente tiene 3 días (verde), +2 (amarillo) y +1
+             (rojo) para solventarlo subiendo el comprobante en Editar cliente. -->
+        <div id="caso-field" class="pt-3 border-t border-slate-100">
+          <label for="caso-solventar" class="text-[10px] font-bold text-slate-500 uppercase flex justify-between items-center">
+            <span>Caso a solventar <span class="text-red-500" aria-hidden="true">*</span></span>
+            <span class="text-[9px] font-normal text-slate-400 normal-case" id="caso-count">0 / 2000</span>
+          </label>
+          <textarea id="caso-solventar" name="caso_solventar" rows="3" maxlength="2000"
+            placeholder="Ej: desconectar el servicio en la dirección anterior, cancelar el servicio anterior, reducir el precio…"
+            aria-describedby="caso-ayuda"
+            class="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 outline-none focus:border-teal-500 transition resize-y"></textarea>
+          <label class="mt-2 flex items-center gap-2 text-xs text-slate-600 cursor-pointer select-none">
+            <input type="checkbox" id="sin-caso" class="w-4 h-4 accent-teal-600 cursor-pointer">
+            Sin caso pendiente
+          </label>
+          <p id="caso-ayuda" class="text-[10px] text-slate-400 mt-1">Al completarse la venta tendrás 6 días para solventarlo y subir el comprobante (captura o audio) en Editar cliente.</p>
+        </div>
       </div>
     </div>
 
@@ -721,6 +739,21 @@
     el.addEventListener('input',  function(){ _vOk(this); });
     el.addEventListener('change', function(){ _vOk(this); });
   });
+  // Caso a solventar: la casilla "sin caso" desactiva el cuadro.
+  (function(){
+    const ta = document.getElementById('caso-solventar');
+    const sin = document.getElementById('sin-caso');
+    const cnt = document.getElementById('caso-count');
+    if (!ta || !sin) return;
+    function sync(){
+      ta.disabled = sin.checked;
+      ta.style.opacity = sin.checked ? '0.5' : '';
+      if (sin.checked) _vOk(ta);
+    }
+    ta.addEventListener('input', function(){ _vOk(ta); if (cnt) cnt.textContent = ta.value.length + ' / 2000'; });
+    sin.addEventListener('change', sync);
+    sync();
+  })();
   document.getElementById('img-upload-zone').addEventListener('click', function(){
     _vOk(this);
     const hint = document.getElementById('img-required-hint');
@@ -759,6 +792,14 @@
       .forEach(function(el) {
         if ((el.value || '').trim() === '') { _vErr(el); hasErrors = true; }
       });
+
+    // ── 2b. Caso a solventar (obligatorio salvo "Sin caso pendiente") ──
+    const _casoTa = document.getElementById('caso-solventar');
+    const _sinCaso = document.getElementById('sin-caso');
+    _vOk(_casoTa);
+    if (_casoTa && !(_sinCaso && _sinCaso.checked) && !_casoTa.value.trim()) {
+      _vErr(_casoTa); hasErrors = true;
+    }
 
     // ── 3. Motivo de llamada (chips) ──
     const motivo = Array.from(document.querySelectorAll('.chip.active'))
@@ -808,7 +849,7 @@
       showToast('❌ Completa todos los campos y sube una imagen', 'error');
       // Scroll al primer campo inválido
       const firstErr = document.querySelector(
-        'input[style*="ef4444"], select[style*="ef4444"], ' +
+        'input[style*="ef4444"], select[style*="ef4444"], textarea[style*="ef4444"], ' +
         '#img-upload-zone[style*="ef4444"], ' +
         '.chips-wrap[style*="ef4444"], .radio-group[style*="ef4444"]'
       );
@@ -851,7 +892,9 @@
       dia_instalacion:   document.getElementById('dia-instalacion').value,
       supervisor:        (function(){ var sel=document.getElementById('supervisor'); var selVal=(sel&&sel.value)||''; if(selVal) return selVal; try{ var u=JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}'); return u.supervisor||u.supervisorKey||''; }catch(e){ return ''; } })(),
       agente:            (function(){ try{ var u=JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'{}'); return document.getElementById('agentAssign').value.trim()||u.username||''; }catch(e){ return document.getElementById('agentAssign').value.trim()||''; } })(),
-      creadoEn:          new Date().toISOString()
+      creadoEn:          new Date().toISOString(),
+      caso_solventar:    (document.getElementById('sin-caso').checked ? '' : document.getElementById('caso-solventar').value.trim()),
+      sin_caso:          document.getElementById('sin-caso').checked
     };
 
     // ── Deshabilitar botón ──
@@ -902,6 +945,10 @@
       gaugeLabel.textContent = '--';
       gaugeRing.style.background = 'conic-gradient(rgba(13,148,136,0.12) 100%)';
       removeImg();
+      const _cta = document.getElementById('caso-solventar'), _csc = document.getElementById('sin-caso');
+      if (_cta) { _cta.value = ''; _cta.disabled = false; _cta.style.opacity = ''; }
+      if (_csc) _csc.checked = false;
+      const _ccn = document.getElementById('caso-count'); if (_ccn) _ccn.textContent = '0 / 2000';
       const imgHint = document.getElementById('img-required-hint');
       if (imgHint) imgHint.style.display = 'none';
 

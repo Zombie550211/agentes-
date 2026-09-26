@@ -511,6 +511,28 @@ class LeadCreateBody(BaseModel):
     supervisor:         str = ""
     agente:             str = ""
     creadoEn:           Optional[str] = None
+    # Semáforo de clientes. None = el formulario no los envía (versión anterior
+    # abierta en el navegador): el lead se guarda sin caso, como antes.
+    caso_solventar:     Optional[str] = None
+    sin_caso:           Optional[bool] = None
+
+
+_CASO_MAX = 2000
+
+
+def _caso_de_alta(body: "LeadCreateBody") -> tuple:
+    """(caso_solventar, caso_estado) para un lead nuevo. Obligatorio escribir el
+    caso salvo que se marque 'sin caso pendiente'."""
+    if body.caso_solventar is None and body.sin_caso is None:
+        return None, None
+    if body.sin_caso:
+        return None, "sin_caso"
+    caso = (body.caso_solventar or "").strip()
+    if not caso:
+        raise HTTPException(400, "El caso a solventar es obligatorio (o marca 'Sin caso pendiente')")
+    if len(caso) > _CASO_MAX:
+        raise HTTPException(400, f"El caso a solventar no puede superar {_CASO_MAX} caracteres")
+    return caso, "pendiente"
 
 
 def _parse_date_str(s: str) -> Optional[str]:
@@ -550,6 +572,15 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
     # Para reactivarlo, restaurar:
     #   if await _count_llamadas_vencidas(user) > 0:
     #       raise HTTPException(423, "Tienes clientes completados por llamar. ...")
+    #
+    # Semáforo de clientes (27-09-2026): el agente con llamadas que bloquean (la
+    # del caso de un cliente completado, o un seguimiento vencido hace 3 días) no
+    # puede registrar ventas hasta subirlas. La pantalla la bloquea el frontend
+    # (js/componentes/llamadas-bloqueo.js); esto lo hace cumplir en el servidor.
+    if _is_agent(user):
+        from casos import tiene_bloqueo
+        if await tiene_bloqueo(user):
+            raise HTTPException(423, "Tienes llamadas pendientes: sube la captura o el audio de la llamada antes de registrar ventas nuevas")
     now = _utcnow()
     # Auto-asignar supervisor/team desde el perfil del agente si no viene en el body
     if not body.supervisor:
@@ -567,6 +598,7 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
     except ValueError:
         _client_puntaje = 0.0
     _svc_key = body.servicios[0] if isinstance(body.servicios, list) and body.servicios else body.servicios
+    caso_txt, caso_estado = _caso_de_alta(body)
 
     async with AsyncSessionLocal() as s:
         # Puntaje calculado en el BACKEND (tabla productos). Si el servicio no está
@@ -578,14 +610,19 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
                tipo_servicio, numero_cuenta, mercado, motivo_llamada, status, status_comision,
                autopago, sistema, riesgo,
                puntaje, dia_venta, dia_instalacion, supervisor, agente, agente_nombre,
-               imagen_url, source_collection, created_by, created_at, updated_at)
+               imagen_url, source_collection, created_by, created_at, updated_at,
+               caso_solventar, caso_estado, caso_creado_at)
             VALUES
               (:nc, :tp, :t2, :talt, :dir, :zip, :srv,
                :ts, :nc2, :mer, :ml, :st, :st,
                :ap, :sis, :rie,
                :pts, :dv, :di, :sup, :ag, :agn,
-               :img, 'leads', :by, :now, :now)
+               :img, 'leads', :by, :now, :now,
+               :caso, :caso_est, :caso_at)
         """), {
+            "caso":     caso_txt,
+            "caso_est": caso_estado,
+            "caso_at":  now if caso_estado == "pendiente" else None,
             "nc":   body.nombre_cliente,
             "tp":   body.telefono_principal,
             "t2":   body.telefono_2,
@@ -1350,7 +1387,13 @@ def _llamada_sets_on_status_change(old_status: str, new_status: str) -> str:
     if old_n == new_n:
         return ""
     if "complet" in new_n:
-        return ", fecha_completed = UTC_TIMESTAMP(), llamada_cliente = 'Pendiente'"
+        # Semáforo: si el caso venció (el lead estaba en oficina) y lo vuelven a
+        # completar, el caso se reactiva y su reloj arranca de nuevo con la nueva
+        # fecha_completed. caso_vencido_at va antes: MySQL evalúa las asignaciones
+        # de izquierda a derecha con los valores ya actualizados.
+        return (", fecha_completed = UTC_TIMESTAMP(), llamada_cliente = 'Pendiente'"
+                ", caso_vencido_at = IF(caso_estado = 'vencido', NULL, caso_vencido_at)"
+                ", caso_estado = IF(caso_estado = 'vencido', 'pendiente', caso_estado)")
     if "cancel" in new_n:
         return ", llamada_cliente = 'Pendiente'"
     return ""

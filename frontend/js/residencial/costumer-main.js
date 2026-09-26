@@ -606,7 +606,7 @@
   }
 
   /* ── STATUS CONFIG ── */
-  const STATUS_CFG={completed:{label:'Completed',cls:'badge-active'},active:{label:'Completed',cls:'badge-active'},oficina:{label:'Oficina',cls:'badge-active'},pending:{label:'Pending',cls:'badge-pending'},reserva:{label:'Reserva',cls:'badge-pending'},cancelled:{label:'Cancelled',cls:'badge-cancelled'},hold:{label:'Hold',cls:'badge-hold'},rescheduled:{label:'Rescheduled',cls:'badge-hold'}};
+  const STATUS_CFG={completed:{label:'Completed',cls:'badge-active'},active:{label:'Completed',cls:'badge-active'},oficina:{label:'Oficina',cls:'badge-oficina'},pending:{label:'Pending',cls:'badge-pending'},reserva:{label:'Reserva',cls:'badge-pending'},cancelled:{label:'Cancelled',cls:'badge-cancelled'},hold:{label:'Hold',cls:'badge-hold'},rescheduled:{label:'Rescheduled',cls:'badge-hold'}};
 
   function badgeHTML(status,isColchon){
     const cfg=STATUS_CFG[status]||{label:status,cls:'badge-hold'};
@@ -717,9 +717,9 @@
     }).join('');}
     window._openCostumerImgLightbox=function(src){
       var ov=document.createElement('div');
-      // z-index por encima del modal "Editar cliente" (10000): con 9999 la imagen
-      // se abría detrás del modal y no se veía.
-      ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:10050;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px;';
+      // z-index por encima del modal "Editar cliente" (10000) y del aviso superior
+      // de casos (99999): con 9999 la imagen se abría detrás y no se veía.
+      ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:100001;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px;';
       // createElement en vez de innerHTML: .src toma el valor como dato y nunca lo
       // interpreta como HTML, así una URL con comillas no puede inyectar onerror=.
       var im=document.createElement('img');
@@ -1174,6 +1174,11 @@
               _pRow(2,_mSel('Supervisor','sup','<option value="">—</option>')+_mSel('Agente','agente','<option value="">— Agente —</option>'))+
               _pRow(1,_mSel('Motivo llamada','motivo','<option value="">—</option>'))
             )+
+            // Caso a solventar (semáforo de clientes) — lo rellena _loadCasoUI()
+            '<section class="ep-group ec-caso" id="ile-caso-'+escHTML(lid)+'" aria-live="polite">'+
+              '<h3 class="ep-group-title">Caso a solventar</h3>'+
+              '<div class="ec-cargando">Cargando…</div>'+
+            '</section>'+
             // Notas
             '<section class="ep-group">'+
               '<div class="ep-group-bar">'+
@@ -1278,6 +1283,7 @@
 
     renderNotesPanel(lid);
     _loadLlamadasUI(lid);
+    _loadCasoUI(lid);
     var _noteTA=document.getElementById('new-note-input');
     if(_noteTA){_noteTA.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();window.addNoteToLead();}});}
   };
@@ -1476,6 +1482,173 @@
   window.switchBulkTab=_switchBulkTab;
   function _updateBulkCount(){const execBtn=document.getElementById('btnExecuteBulkStatus');const selSt=document.getElementById('bulkNewStatus');const countEl=document.getElementById('phoneCount');if(_bulkMode==='phone'){const ta=document.getElementById('bulkPhoneNumbers');const nums=ta?(ta.value.split('\n').map(function(s){const d=String(s||'').replace(/\D/g,'');return d.length>=10?d.slice(-10):'';}).filter(function(s){return s.length===10;})):[];if(countEl)countEl.textContent=nums.length+' números';if(execBtn&&selSt)execBtn.disabled=!(nums.length>0&&selSt.value);}else{const ta=document.getElementById('bulkNamesList');const names=ta?(ta.value.split('\n').map(function(s){return s.trim();}).filter(function(s){return s.length>=3;})):[];if(countEl)countEl.textContent=names.length+' nombres';if(execBtn&&selSt)execBtn.disabled=!(names.length>0&&selSt.value);}}
   window.executeBulkStatus=async function(){if(!canUseBulkStatus()){showToast('No tienes permisos','error');return;}const newStatus=document.getElementById('bulkNewStatus')&&document.getElementById('bulkNewStatus').value;if(!newStatus){showToast('Selecciona un status','error');return;}const btn=document.getElementById('btnExecuteBulkStatus');const preview=document.getElementById('bulkStatusPreview');const content=document.getElementById('bulkStatusPreviewContent');if(btn){btn.disabled=true;btn.textContent='⏳ Actualizando…';}if(preview)preview.style.display='block';if(content)content.textContent='Procesando…';try{let res,data,normalizedStatus=normalizeStatus(newStatus);if(_bulkMode==='phone'){const ta=document.getElementById('bulkPhoneNumbers');const nums=(ta?ta.value:'').split('\n').map(function(s){const d=String(s||'').replace(/\D/g,'');return d.length>=10?d.slice(-10):'';}).filter(function(s){return s.length===10;});if(!nums.length){showToast('Sin números válidos','error');return;}res=await AUTH.secureFetch('/api/leads/bulk-status-by-phone',{method:'POST',body:JSON.stringify({phones:nums,newStatus:normalizeStatus(newStatus)})});if(!res)throw new Error('Sin conexión');data=await res.json().catch(function(){return{};});if(!res.ok||!data.success){showToast((data&&data.message)||('Error: '+res.status),'error');if(content)content.textContent=(data&&data.message)||'Error';return;}const src=(Array.isArray(data.updatedLeads)&&data.updatedLeads.length)?data.updatedLeads.map(function(x){return x&&x.telefono;}):(Array.isArray(data.foundPhones)?data.foundPhones:[]);const fSet=new Set((src||[]).map(function(p){const d=String(p||'').replace(/\D/g,'');return d.length>=10?d.slice(-10):d;}).filter(Boolean));__allLeadsData.forEach(function(l){const d=String(l.telefono||'').replace(/\D/g,'');const c=d.length>=10?d.slice(-10):d;if(fSet.has(c))l.status=normalizedStatus;});}else{const ta=document.getElementById('bulkNamesList');const names=(ta?ta.value:'').split('\n').map(function(s){return s.trim();}).filter(function(s){return s.length>=3;});if(!names.length){showToast('Sin nombres válidos','error');return;}res=await AUTH.secureFetch('/api/leads/bulk-status-by-name',{method:'POST',body:JSON.stringify({names:names,newStatus:normalizeStatus(newStatus)})});if(!res)throw new Error('Sin conexión');data=await res.json().catch(function(){return{};});if(!res.ok||!data.success){showToast((data&&data.message)||('Error: '+res.status),'error');if(content)content.textContent=(data&&data.message)||'Error';return;}const updatedLeads=Array.isArray(data.updatedLeads)?data.updatedLeads:[];const nameSet=new Set(updatedLeads.map(function(x){return String(x&&x.nombre_cliente||'').trim().toLowerCase();}).filter(Boolean));__allLeadsData.forEach(function(l){if(nameSet.has(String(l.nombre_cliente||'').trim().toLowerCase()))l.status=normalizedStatus;});}applyFilters();if(content)content.innerHTML='<div style="color:var(--go);font-weight:700;">✅ Actualizado: '+(data.updated||0)+' leads</div>';showToast('Status masivo aplicado ✓','ok');}catch(e){if(content)content.textContent=e&&e.message?e.message:'Error inesperado';showToast(e&&e.message?e.message:'Error inesperado','error');}finally{if(btn){btn.disabled=false;btn.textContent='🔄 Actualizar status';}}};
+
+  /* ── CASO A SOLVENTAR (semáforo de clientes) ──
+     Reglas en CRM_PYTHON/casos.py. El comprobante (captura, audio o documento)
+     se sube a /api/files/upload y se asocia al caso: con el primero, el caso
+     queda solventado. Todo lo que viene del servidor se pinta con textContent. */
+  var _CASO_TXT={
+    verde:{t:'Verde',d:'en plazo'},amarillo:{t:'Amarillo',d:'fuera del primer plazo'},
+    rojo:{t:'Rojo',d:'último día'},negro:{t:'Negro',d:'pasó a oficina'}
+  };
+  function _el(tag,cls,txt){var n=document.createElement(tag);if(cls)n.className=cls;if(txt!=null)n.textContent=String(txt);return n;}
+  function _fmtHoras(h){if(h==null)return'';var t=Math.round(h),d=Math.floor(t/24),r=t%24;return d>0?(d+' d'+(r?' '+r+' h':'')):(t+' h');}
+  function _fmtFechaHora(v){if(!v)return'';var d=new Date(String(v).replace(' ','T')+(String(v).indexOf('Z')===-1&&String(v).indexOf('+')===-1?'Z':''));if(isNaN(d))return String(v);return d.toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});}
+
+  function _casoChip(c){
+    var chip=_el('span','ec-chip');
+    var color=c.solventado?'verde':(c.color||'');
+    if(!c.caso_estado){chip.classList.add('ec-gris');chip.textContent='Sin caso registrado';return chip;}
+    if(c.caso_estado==='sin_caso'){chip.classList.add('ec-gris');chip.textContent='Sin caso pendiente';return chip;}
+    chip.classList.add('ec-'+color);
+    chip.appendChild(_el('span','ec-dot'));
+    if(c.solventado){chip.appendChild(document.createTextNode('Solventado'));return chip;}
+    var t=_CASO_TXT[color]||{t:color,d:''};
+    var txt=t.t;
+    if(!c.en_semaforo&&c.caso_estado==='pendiente') txt='Pendiente · el reloj empieza al completarse';
+    else if(c.color==='negro') txt='Negro · pasó a oficina';
+    else if(c.horas_restantes_color!=null) txt=t.t+' · quedan '+_fmtHoras(c.horas_restantes_color)+(color==='rojo'?' para negro':' para el siguiente color');
+    chip.appendChild(document.createTextNode(txt));
+    return chip;
+  }
+
+  function _casoComprobante(lid,cp,puedeBorrar){
+    var li=_el('li','ec-comp');
+    var url=String(cp.url||'');
+    if(cp.tipo==='imagen'){
+      var safe=_safeImgUrl(url);
+      var b=_el('button','ec-comp-img');b.type='button';b.title='Ver comprobante';
+      var im=document.createElement('img');im.alt='Comprobante';im.loading='lazy';if(safe)im.src=safe;
+      b.appendChild(im);b.addEventListener('click',function(){if(safe)window._openCostumerImgLightbox(safe);});
+      li.appendChild(b);
+    }else if(cp.tipo==='audio'){
+      var au=document.createElement('audio');au.controls=true;au.preload='none';au.src=encodeURI(url);au.className='ec-comp-audio';
+      li.appendChild(au);
+    }else{
+      var a=document.createElement('a');a.className='ec-comp-doc';a.href=encodeURI(url);a.target='_blank';a.rel='noopener';
+      a.textContent='📄 '+(cp.nombre||'Documento');li.appendChild(a);
+    }
+    li.insertBefore(_el('div','ec-comp-llamada',cp.llamada==='seguimiento'?('Seguimiento '+(cp.numero||'')):'Llamada del caso'),li.firstChild);
+    var meta=_el('div','ec-comp-meta');
+    meta.appendChild(_el('span','ec-comp-autor',cp.created_by||'—'));
+    meta.appendChild(_el('span','ec-comp-fecha',_fmtFechaHora(cp.created_at)));
+    li.appendChild(meta);
+    if(cp.nota)li.appendChild(_el('div','ec-comp-nota',cp.nota));
+    if(puedeBorrar){
+      var del=_el('button','ec-comp-del','Quitar');del.type='button';
+      del.addEventListener('click',async function(){
+        if(!await window.confirmAsync('¿Quitar este comprobante?','Si era el único, el caso vuelve a pendiente.'))return;
+        var r=await AUTH.secureFetch('/api/leads/'+encodeURIComponent(lid)+'/caso/comprobante/'+encodeURIComponent(cp.id),{method:'DELETE'});
+        if(r&&r.ok){showToast('Comprobante quitado','ok');_loadCasoUI(lid);}
+        else showToast('No se pudo quitar el comprobante','error');
+      });
+      li.appendChild(del);
+    }
+    return li;
+  }
+
+  async function _loadCasoUI(lid){
+    var box=document.getElementById('ile-caso-'+lid);if(!box)return;
+    var res=await AUTH.secureFetch('/api/leads/'+encodeURIComponent(lid)+'/caso');
+    if(!box.isConnected)return;
+    while(box.children.length>1)box.removeChild(box.lastChild);
+    if(!res||!res.ok){box.appendChild(_el('div','ec-cargando','No se pudo cargar el caso.'));return;}
+    var j=await res.json().catch(function(){return{};});
+    var c=j.data||{},comps=j.comprobantes_lista||[];
+
+    box.appendChild(_casoChip(c));
+
+    // Texto del caso
+    var tieneCaso=c.caso_estado==='pendiente'||c.caso_estado==='solventado'||c.caso_estado==='vencido';
+    if(c.puede_editar&&(tieneCaso||!c.caso_estado||c.caso_estado==='sin_caso')){
+      var ta=_el('textarea','em-input ec-texto');ta.id='ile-caso-txt-'+lid;ta.rows=3;ta.maxLength=2000;
+      ta.placeholder='Qué hay que solventar: desconectar servicio anterior, cancelar servicio, reducir precio…';
+      ta.value=c.caso_solventar||'';
+      ta.setAttribute('aria-label','Caso a solventar');
+      box.appendChild(ta);
+      var fila=_el('div','ec-acciones');
+      var g=_el('button','em-btn em-btn-ghost em-btn-sm',tieneCaso?'Guardar caso':'Registrar caso');g.type='button';
+      g.addEventListener('click',async function(){
+        var v=ta.value.trim();if(!v){showToast('Escribe el caso a solventar','error');ta.focus();return;}
+        g.disabled=true;
+        var r=await AUTH.secureFetch('/api/leads/'+encodeURIComponent(lid)+'/caso',{method:'PUT',body:JSON.stringify({caso_solventar:v})});
+        g.disabled=false;
+        if(r&&r.ok){showToast('Caso guardado ✓','ok');_loadCasoUI(lid);}
+        else{var e=r?await r.json().catch(function(){return{};}):{};showToast(e.detail||'No se pudo guardar el caso','error');}
+      });
+      fila.appendChild(g);
+      if(c.puede_sin_caso&&c.caso_estado!=='sin_caso'&&c.caso_estado!=='solventado'&&c.caso_estado!=='vencido'){
+        var sc=_el('button','ep-link','Marcar sin caso pendiente');sc.type='button';
+        sc.addEventListener('click',async function(){
+          if(!await window.confirmAsync('¿Marcar sin caso pendiente?','El cliente sale del semáforo de clientes.'))return;
+          var r=await AUTH.secureFetch('/api/leads/'+encodeURIComponent(lid)+'/caso',{method:'PUT',body:JSON.stringify({sin_caso:true})});
+          if(r&&r.ok){showToast('Marcado sin caso','ok');_loadCasoUI(lid);}else showToast('No se pudo cambiar','error');
+        });
+        fila.appendChild(sc);
+      }
+      box.appendChild(fila);
+    }else if(tieneCaso){
+      box.appendChild(_el('p','ec-texto-ro',c.caso_solventar||'—'));
+    }
+
+    if(!tieneCaso)return;
+
+    // Comprobantes
+    var cab=_el('div','ec-sub');cab.appendChild(_el('span',null,'Comprobantes'));
+    cab.appendChild(_el('span','em-count',String(comps.length)));box.appendChild(cab);
+    if(!comps.length){
+      box.appendChild(_el('p','ec-vacio',c.caso_estado==='vencido'?'Sin comprobante: el caso venció.':'Aún no hay comprobante. Sube la captura o el audio de la llamada donde se solventó el caso.'));
+    }else{
+      var ul=_el('ul','ec-comps');
+      comps.forEach(function(cp){ul.appendChild(_casoComprobante(lid,cp,c.puede_borrar));});
+      box.appendChild(ul);
+    }
+
+    // Seguimiento (tras la llamada del caso: 14 d, 14 d y luego cada 30 d)
+    if(c.proximo_seguimiento){
+      var seg=_el('p','ec-seg'+(c.seguimiento_vencido?' ec-seg-vencido':''),
+        c.seguimiento_vencido
+          ?('Toca la llamada de seguimiento '+(c.seg_llamadas+1)+' (desde el '+_fmtFechaHora(c.proximo_seguimiento)+'). Si no se sube en 3 días, el CRM se bloquea.')
+          :('Próxima llamada de seguimiento: '+_fmtFechaHora(c.proximo_seguimiento)+' · llamadas de seguimiento hechas: '+c.seg_llamadas));
+      box.appendChild(seg);
+    }
+
+    // Subir comprobante: el del caso mientras esté pendiente; si toca un
+    // seguimiento, la llamada de seguimiento.
+    var modoSeg=!!c.puede_subir_seguimiento;
+    if(c.puede_subir&&(c.caso_estado==='pendiente'||modoSeg||c.caso_estado==='vencido'||c.caso_estado==='solventado')){
+      var up=_el('div','ec-subir');
+      var fid='ile-caso-file-'+lid;
+      var fi=document.createElement('input');fi.type='file';fi.id=fid;fi.accept='image/*,audio/*,.pdf';fi.className='ec-file';
+      var lbl=document.createElement('label');lbl.htmlFor=fid;lbl.className='em-btn em-btn-ghost em-btn-sm ec-file-btn';lbl.textContent=modoSeg?'📎 Captura o audio del seguimiento':'📎 Elegir captura o audio';
+      var nom=_el('span','ec-file-nom','Ningún archivo');
+      var nota=_el('input','em-input ec-nota');nota.type='text';nota.maxLength=1000;nota.placeholder='Nota (opcional): qué se resolvió';nota.setAttribute('aria-label','Nota del comprobante');
+      var bs=_el('button','em-btn em-btn-primary em-btn-sm',modoSeg?'Registrar llamada de seguimiento':'Subir comprobante');bs.type='button';bs.disabled=true;
+      fi.addEventListener('change',function(){var f=fi.files&&fi.files[0];nom.textContent=f?f.name:'Ningún archivo';bs.disabled=!f;});
+      bs.addEventListener('click',async function(){
+        var f=fi.files&&fi.files[0];if(!f)return;
+        bs.disabled=true;bs.textContent='Subiendo…';
+        try{
+          var fd=new FormData();fd.append('file',f);fd.append('leadId',lid);
+          var upr=await fetch('/api/files/upload',{method:'POST',credentials:'include',body:fd});
+          var upj=await upr.json().catch(function(){return{};});
+          if(!upr.ok)throw new Error(upj.detail||'No se pudo subir el archivo');
+          var url=(upj.data&&upj.data.url)||'';if(!url)throw new Error('El servidor no devolvió la URL del archivo');
+          var mt=String(f.type||'');
+          var tipo=mt.indexOf('image/')===0?'imagen':(mt.indexOf('audio/')===0?'audio':'documento');
+          var ruta=modoSeg?('/api/leads/'+encodeURIComponent(lid)+'/seguimiento'):('/api/leads/'+encodeURIComponent(lid)+'/caso/comprobante');
+          var r=await AUTH.secureFetch(ruta,{method:'POST',body:JSON.stringify({url:url,tipo:tipo,nombre:f.name,nota:nota.value.trim()})});
+          if(!r)return;
+          var rj=await r.json().catch(function(){return{};});
+          if(!r.ok)throw new Error(rj.detail||'No se pudo guardar el comprobante');
+          showToast(modoSeg?'Llamada de seguimiento registrada ✓':(c.caso_estado==='pendiente'?'Caso solventado ✓':'Comprobante guardado ✓'),'ok');
+          _loadCasoUI(lid);
+        }catch(e){showToast(e.message||'Error subiendo el comprobante','error');bs.disabled=false;bs.textContent=modoSeg?'Registrar llamada de seguimiento':'Subir comprobante';}
+      });
+      up.appendChild(fi);up.appendChild(lbl);up.appendChild(nom);up.appendChild(nota);up.appendChild(bs);
+      box.appendChild(up);
+    }
+  }
 
   /* ── LLAMADAS DE VERIFICACIÓN / SEGUIMIENTO ── */
   var _llamadaFiles={};
@@ -1904,9 +2077,34 @@
   /* ── INIT ── */
   // Modo llamadas pendientes: ?llamadas=1 → solo los leads que el usuario debe llamar
   const __llamadasMode=/[?&]llamadas=1/.test(window.location.search||'');
+  // Modo "mis casos": ?casos=1 → solo los clientes con caso a solventar pendiente
+  // (lo abre el aviso de js/componentes/llamadas-bloqueo.js).
+  const __casosMode=/[?&]casos=1/.test(window.location.search||'');
+
+  function _avisoModoCasos(n){
+    var zona=document.querySelector('.command-zone');if(!zona||document.getElementById('casos-modo-aviso'))return;
+    var d=document.createElement('div');d.id='casos-modo-aviso';d.className='casos-modo-aviso';d.setAttribute('role','status');
+    var t=document.createElement('span');
+    t.textContent=n?('Mostrando tus '+n+' cliente(s) con caso por solventar. Abre Editar y sube la captura o el audio donde lo solventaste.'):'No tienes casos por solventar.';
+    var a=document.createElement('a');a.href='/residencial/costumer.html';a.textContent='Ver todos los clientes';
+    d.appendChild(t);d.appendChild(a);zona.appendChild(d);
+  }
 
   async function loadInitialData(){
     if(!AUTH.check())return;
+
+    if(__casosMode){
+      var resCa=await AUTH.secureFetch('/api/casos/pendientes?full=1');
+      if(resCa&&resCa.ok){
+        try{
+          var dCa=await resCa.json();
+          __allDataLoaded=true; // el buscador filtra en local, sin pedir el mes al servidor
+          window.renderCostumerTable(dCa.leads||[]);
+          _avisoModoCasos((dCa.leads||[]).length);
+        }catch(_){}
+      }
+      return;
+    }
 
     if(__llamadasMode){
       var resLl=await AUTH.secureFetch('/api/leads/llamadas-pendientes?full=1');
@@ -2260,6 +2458,11 @@
     (function(){
       async function reloadData(){
         try{
+          if(__casosMode){
+            var resCa=await AUTH.secureFetch('/api/casos/pendientes?full=1');
+            if(resCa&&resCa.ok){var dCa=await resCa.json();__allDataLoaded=true;window.renderCostumerTable(dCa.leads||[]);}
+            return;
+          }
           if(__llamadasMode){
             var resLl=await AUTH.secureFetch('/api/leads/llamadas-pendientes?full=1');
             if(resLl&&resLl.ok){var dLl=await resLl.json();__allDataLoaded=true;window.renderCostumerTable(dLl.leads||[]);}

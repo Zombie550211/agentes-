@@ -53,6 +53,7 @@ from routers import (
     comisiones_stats as comisiones_stats_router,
     permissions_admin as permissions_admin_router,
     ai_chat as ai_chat_router,
+    casos as casos_router,
 )
 
 # ── Rutas base ──────────────────────────────────────────────────
@@ -240,6 +241,45 @@ _MIGRATIONS: list[tuple[str, str]] = [
         WHERE servicio = 'ATT 2G+'
           AND NOT EXISTS (SELECT 1 FROM leads
                           WHERE JSON_CONTAINS(servicios, '"ATT 2G+"'))"""),
+    # ── Semáforo de clientes: casos a solventar (ver CRM_PYTHON/casos.py) ──
+    ("0047_leads_caso_a_solventar", """ALTER TABLE leads
+        ADD COLUMN caso_solventar     TEXT         NULL,
+        ADD COLUMN caso_estado        VARCHAR(20)  NULL,
+        ADD COLUMN caso_creado_at     DATETIME     NULL,
+        ADD COLUMN caso_solventado_at DATETIME     NULL,
+        ADD COLUMN caso_vencido_at    DATETIME     NULL,
+        ADD INDEX idx_leads_caso_estado (caso_estado)"""),
+    # Comprobantes de que el caso se solventó (captura, audio o documento).
+    ("0048_create_lead_caso_comprobantes", """CREATE TABLE IF NOT EXISTS lead_caso_comprobantes (
+        id          INT AUTO_INCREMENT PRIMARY KEY,
+        lead_id     VARCHAR(50)  NOT NULL,
+        tipo        VARCHAR(20)  NOT NULL,
+        url         VARCHAR(1000) NOT NULL,
+        nombre      VARCHAR(255) NULL,
+        nota        TEXT         NULL,
+        created_by  VARCHAR(150) NULL,
+        created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_caso_comp_lead (lead_id)
+    )"""),
+    ("0049_create_app_config", """CREATE TABLE IF NOT EXISTS app_config (
+        clave      VARCHAR(100) PRIMARY KEY,
+        valor      VARCHAR(255) NULL,
+        updated_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )"""),
+    # Activación del semáforo = hora del primer arranque con esta versión (el
+    # despliegue). Solo cuentan los casos cuyo reloj arranca después; las ventas
+    # anteriores no pasan a oficina. INSERT IGNORE: no se mueve en reinicios.
+    ("0050_semaforo_casos_inicio", """INSERT IGNORE INTO app_config (clave, valor)
+        VALUES ('semaforo_casos_inicio', CAST(UTC_TIMESTAMP() AS CHAR))"""),
+    # Llamadas de seguimiento tras la llamada del caso: a los 14 y 28 días y luego
+    # cada 30, mientras el cliente siga completed (reglas en casos.py).
+    ("0051_leads_seguimiento", """ALTER TABLE leads
+        ADD COLUMN seg_ultima_llamada_at DATETIME NULL,
+        ADD COLUMN seg_llamadas          INT      NOT NULL DEFAULT 0"""),
+    # Cada comprobante dice de qué llamada es: la del caso o un seguimiento (nº).
+    ("0052_comprobantes_llamada", """ALTER TABLE lead_caso_comprobantes
+        ADD COLUMN llamada VARCHAR(20) NOT NULL DEFAULT 'caso',
+        ADD COLUMN numero  INT         NULL"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración
@@ -404,14 +444,21 @@ async def _inicializar_esquema_y_datos():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_mysql()
+    tarea_semaforo = None
     if _debe_inicializar_bd():
         await _inicializar_esquema_y_datos()
+        # Semáforo de clientes: pasa a oficina los casos vencidos cada 5 min.
+        # Solo en la instancia dueña del esquema, para no duplicar los avisos.
+        from casos import bucle_vencimientos
+        tarea_semaforo = asyncio.create_task(bucle_vencimientos())
     else:
         print("[init] Migraciones y seeds OMITIDOS: esta instancia no es dueña del "
               "esquema (NODE_ENV != production y RUN_DB_INIT no activo). La app "
               "arranca y sirve, pero NO altera el esquema ni siembra datos. Para "
               "forzarlo (p.ej. contra una BD local), exporta RUN_DB_INIT=1.")
     yield
+    if tarea_semaforo:
+        tarea_semaforo.cancel()
     await close_mysql()
 
 
@@ -625,6 +672,7 @@ app.include_router(productividad_bo_router.router)
 app.include_router(comisiones_stats_router.router)
 app.include_router(permissions_admin_router.router)
 app.include_router(ai_chat_router.router)
+app.include_router(casos_router.router)
 
 # ── Archivos estáticos ───────────────────────────────────────────
 class _RevalidateStaticFiles(StaticFiles):

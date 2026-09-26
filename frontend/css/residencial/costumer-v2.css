@@ -52,6 +52,7 @@
   --hold: #475467;  --hold-bg: #eef1f5;  --hold-ln: #c9d0da;
   --info: #1d5fa8;  --info-bg: #e9f1fb;  --info-ln: #b6cfee;
   --col:  #5b3fa0;  --col-bg:  #f1edf9;  --col-ln:  #cfc3ea;
+  --ofi:  #0b0d12;  --ofi-bg:  #e4e6ea;  --ofi-ln:  #9aa1ad;   /* oficina = negro del semáforo */
 
   --sh-1: 0 1px 2px rgba(15, 27, 45, .06);
   --sh-2: 0 1px 3px rgba(15, 27, 45, .08), 0 1px 2px rgba(15, 27, 45, .04);
@@ -89,6 +90,7 @@ body.dark-theme {
   --hold: #a6b0c0;  --hold-bg: rgba(166, 176, 192, .10); --hold-ln: rgba(166, 176, 192, .28);
   --info: #6fa8ec;  --info-bg: rgba(111, 168, 236, .10); --info-ln: rgba(111, 168, 236, .30);
   --col:  #b39ae6;  --col-bg:  rgba(179, 154, 230, .12); --col-ln:  rgba(179, 154, 230, .32);
+  --ofi:  #0b0d12;  --ofi-bg:  rgba(0, 0, 0, .45);        --ofi-ln:  rgba(255, 255, 255, .28);
 
   --sh-1: 0 1px 2px rgba(0, 0, 0, .35);
   --sh-2: 0 1px 3px rgba(0, 0, 0, .45);
@@ -149,7 +151,7 @@ body { font-family: var(--f); background: var(--bg); color: var(--ink-1); }
 .cls-item:nth-child(3) .cls-dot { background: var(--go)     !important; }
 .cls-item:nth-child(4) .cls-dot { background: var(--warn)   !important; }
 .cls-item:nth-child(5) .cls-dot { background: var(--stop)   !important; }
-.cls-item:nth-child(6) .cls-dot { background: var(--hold)   !important; }
+.cls-item:nth-child(6) .cls-dot { background: var(--ofi)    !important; }  /* oficina: negro */
 .cls-item:nth-child(7) .cls-dot { background: var(--info)   !important; }
 .cls-item:nth-child(8) .cls-dot { background: var(--col)    !important; }
 .cls-val { font-family: var(--f-mono); font-size: 1.2rem; font-weight: 600; letter-spacing: -.02em; line-height: 1.15; order: 1; color: var(--ink-1); }
@@ -294,8 +296,8 @@ body.dark-theme .token.drop-open { color: var(--a); border-color: var(--a-line);
 .stab::before { width: 7px; height: 7px; border-radius: 1px; }
 .stab.all::before       { background: var(--navy-2); }
 .stab.pending::before   { background: var(--warn); }
-.stab.active::before,
-.stab.oficina::before   { background: var(--go); }
+.stab.active::before    { background: var(--go); }
+.stab.oficina::before   { background: var(--ofi); }
 .stab.colchon::before   { background: var(--col); }
 .stab.reserva::before   { background: var(--info); }
 .stab.cancelled::before { background: var(--stop); }
@@ -460,8 +462,8 @@ body.dark-theme .costumer-table tbody tr:hover td:first-child {
 }
 .costumer-table tbody tr.st-pending     { --st-color: var(--warn); }
 .costumer-table tbody tr.st-completed,
-.costumer-table tbody tr.st-active,
-.costumer-table tbody tr.st-oficina     { --st-color: var(--go); }
+.costumer-table tbody tr.st-active      { --st-color: var(--go); }
+.costumer-table tbody tr.st-oficina     { --st-color: var(--ofi); }
 .costumer-table tbody tr.st-reserva     { --st-color: var(--info); }
 .costumer-table tbody tr.st-cancelled   { --st-color: var(--stop); }
 .costumer-table tbody tr.st-hold,
@@ -602,9 +604,14 @@ body.dark-theme .cv-act-edit:hover { color: var(--a); }
 .status-td .status-inline-select.badge-pending   { color: var(--ink-1) !important; background-color: var(--warn-bg) !important; border-color: var(--warn-ln) !important; border-left-color: var(--warn) !important; }
 .status-td .status-inline-select.badge-cancelled { color: var(--ink-1) !important; background-color: var(--stop-bg) !important; border-color: var(--stop-ln) !important; border-left-color: var(--stop) !important; }
 .status-td .status-inline-select.badge-hold      { color: var(--ink-1) !important; background-color: var(--hold-bg) !important; border-color: var(--hold-ln) !important; border-left-color: var(--hold) !important; }
+.status-td .status-inline-select.badge-oficina   { color: var(--ink-1) !important; background-color: var(--ofi-bg)  !important; border-color: var(--ofi-ln)  !important; border-left-color: var(--ofi)  !important; }
 /* Agentes y supervisores ven el status como etiqueta (no select): también en negro */
 .status-td .badge-active, .status-td .badge-pending,
 .status-td .badge-cancelled, .status-td .badge-hold { color: var(--ink-1) !important; }
+.badge-oficina { color: var(--ink-1); background: var(--ofi-bg); border: 1px solid var(--ofi-ln); }
+.badge-oficina::before { background: var(--ofi); }
+body.dark-theme .costumer-table .badge-oficina { color: var(--ink-1) !important; background-color: var(--ofi-bg) !important; }
+body.dark-theme .status-td .status-inline-select.badge-oficina { border-left-color: #000 !important; }
 /* Opciones de la lista abierta: fondo claro y texto marino, como la tabla */
 .status-td .status-inline-select option,
 .token select option {
@@ -673,6 +680,17 @@ body.dark-theme .section-label { color: var(--gold); }
 .drp-day.drp-in-range { background: var(--a-bg); color: var(--ink-1); }
 .drp-day.drp-today, .drp-selected-range { color: var(--gold); }
 .drp-day.drp-today::after { background: var(--gold); }
+
+/* Modo "mis casos" (costumer.html?casos=1): franja informativa bajo los filtros */
+.casos-modo-aviso {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  margin-top: 12px; padding: 10px 14px;
+  font-size: .78rem; font-weight: 600; color: var(--ink-1);
+  background: var(--gold-bg); border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent);
+  border-left: 4px solid var(--gold); border-radius: var(--r3);
+}
+.casos-modo-aviso a { color: var(--navy); font-weight: 700; white-space: nowrap; }
+body.dark-theme .casos-modo-aviso a { color: var(--a); }
 
 /* ── RESPONSIVE ───────────────────────────────────────────────────────
    Tres modos de la lista:

@@ -134,6 +134,8 @@
 .ep-status.badge-active    { color: #8fe3bb; border-color: rgba(143, 227, 187, .35); background: rgba(143, 227, 187, .10); }
 .ep-status.badge-cancelled { color: #f5a3a0; border-color: rgba(245, 163, 160, .35); background: rgba(245, 163, 160, .10); }
 .ep-status.badge-hold      { color: #c6cfdd; }
+.ep-status.badge-oficina   { color: #f5f7fb; border-color: rgba(0, 0, 0, .7); background: rgba(0, 0, 0, .6); }
+.ep-status.badge-oficina::before { background: #0b0d12; box-shadow: 0 0 0 2px rgba(255, 255, 255, .55); }
 .ep-pts { font-family: var(--f-mono); letter-spacing: 0; font-size: .74rem; }
 .ep-pts small { font-family: var(--f); font-size: .56rem; opacity: .7; letter-spacing: .08em; }
 .ep-pts.pts-high { color: #8fe3bb; }
@@ -305,6 +307,71 @@
 .ep-notes { max-height: 240px; overflow-y: auto; scrollbar-width: thin; }
 #editClienteContent .note-card { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .12); }
 #editClienteContent .notes-empty { color: var(--ink-3); padding: 14px 0; }
+
+/* ── Caso a solventar (semáforo de clientes) ─────────────────────── */
+.ec-caso { gap: 10px; }
+.ec-cargando, .ec-vacio { font-size: .76rem; color: var(--ink-3); margin: 0; }
+.ec-chip {
+  align-self: flex-start;
+  display: inline-flex; align-items: center; gap: 7px;
+  min-height: 28px; padding: 4px 12px;
+  border-radius: 999px;
+  font-size: .72rem; font-weight: 600; letter-spacing: .02em;
+  color: #fff;
+  background: rgba(255, 255, 255, .08);
+  border: 1px solid rgba(255, 255, 255, .18);
+}
+.ec-dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; flex-shrink: 0; }
+.ec-chip.ec-verde    { color: #8fe3bb; border-color: rgba(143, 227, 187, .4);  background: rgba(143, 227, 187, .12); }
+.ec-chip.ec-amarillo { color: #f7dc6f; border-color: rgba(247, 220, 111, .45); background: rgba(247, 220, 111, .12); }
+.ec-chip.ec-rojo     { color: #f5a3a0; border-color: rgba(245, 163, 160, .45); background: rgba(245, 163, 160, .14); }
+.ec-chip.ec-negro    { color: #e6e9ef; border-color: rgba(0, 0, 0, .6);         background: rgba(0, 0, 0, .55); }
+.ec-chip.ec-negro .ec-dot { background: #0b0d12; box-shadow: 0 0 0 2px rgba(255, 255, 255, .5); }
+.ec-chip.ec-gris     { color: var(--ink-2); }
+#editClienteContent .ec-texto { min-height: 76px; }
+.ec-texto-ro {
+  margin: 0; padding: 10px 12px;
+  font-size: .84rem; line-height: 1.45; color: var(--ink-1); white-space: pre-wrap;
+  background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .12); border-radius: 12px;
+}
+.ec-acciones { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.ec-sub {
+  display: flex; align-items: center; gap: 8px; margin-top: 4px;
+  font-size: .6rem; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: var(--ink-2);
+}
+.ec-comps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 10px; }
+.ec-comp {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px;
+  background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .12); border-radius: 14px;
+}
+.ec-comp-img { padding: 0; border: none; background: none; cursor: zoom-in; border-radius: 10px; overflow: hidden; height: 110px; }
+.ec-comp-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ec-comp-img:focus-visible { outline: 2px solid var(--ep-focus); outline-offset: 2px; }
+.ec-comp-audio { width: 100%; height: 36px; color-scheme: dark; }
+.ec-comp-doc { color: var(--a); font-size: .8rem; font-weight: 600; text-decoration: none; word-break: break-word; }
+.ec-comp-doc:hover { text-decoration: underline; }
+.ec-comp-meta { display: flex; justify-content: space-between; gap: 8px; font-size: .64rem; color: var(--ink-3); }
+.ec-comp-autor { font-weight: 600; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ec-comp-nota { font-size: .74rem; color: var(--ink-1); line-height: 1.35; }
+.ec-comp-del { align-self: flex-end; background: none; border: none; color: #f5a3a0; font-size: .68rem; font-weight: 600; cursor: pointer; padding: 0; }
+.ec-comp-del:hover { text-decoration: underline; }
+.ec-subir {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px 10px;
+  padding: 12px; margin-top: 2px;
+  background: rgba(255, 255, 255, .04); border: 1px dashed rgba(255, 255, 255, .22); border-radius: 14px;
+}
+.ec-file { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.ec-file:focus-visible + .ec-file-btn { outline: 2px solid var(--ep-focus); outline-offset: 2px; }
+#editClienteContent .ec-file-btn { cursor: pointer; }
+.ec-file-nom { font-size: .74rem; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#editClienteContent .ec-nota { grid-column: 1 / -1; height: 38px; }
+.ec-subir .em-btn-primary { grid-column: 1 / -1; justify-content: center; }
+.ec-subir .em-btn-primary:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+.ec-comp-llamada { font-size: .58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: var(--a); }
+.ec-seg { margin: 0; padding: 8px 12px; font-size: .74rem; line-height: 1.4; color: var(--ink-2); background: rgba(169, 196, 245, .10); border: 1px solid rgba(169, 196, 245, .28); border-radius: 12px; }
+.ec-seg.ec-seg-vencido { color: #f7dc6f; background: rgba(247, 220, 111, .10); border-color: rgba(247, 220, 111, .4); font-weight: 600; }
 
 /* ── Barra de acciones ────────────────────────────────────────────── */
 .ep-foot {
