@@ -526,7 +526,12 @@
     const svc = selServicio.value;
     const riesgo = selRiesgo.value;
     const tipoServicio = selTipoServicio.value;
-    if (!svc || !riesgo) {
+    // Los servicios de puntaje fijo (score_base, p. ej. todos los ATT) no dependen
+    // del riesgo: se calculan en cuanto se elige el servicio. El riesgo está más
+    // abajo en el formulario, y esperar por él dejaba el puntaje en "--".
+    const meta = window.Productos && window.Productos.metaFor(svc);
+    const puntajeFijo = !!meta && meta.score_base != null;
+    if (!svc || (!riesgo && !puntajeFijo)) {
       gaugeLabel.textContent = '--'; scoreNum.textContent = '--';
       gaugeRing.style.background = 'conic-gradient(rgba(13,148,136,0.12) 100%)'; return;
     }
