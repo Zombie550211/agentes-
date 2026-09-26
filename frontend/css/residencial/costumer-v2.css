@@ -110,27 +110,9 @@ body { font-family: var(--f); background: var(--bg); color: var(--ink-1); }
 }
 .cmd-top { padding-bottom: 18px; gap: 20px; align-items: flex-end; }
 
-.cmd-title-block { margin-right: auto; display: flex; flex-direction: column; align-items: flex-start; gap: 7px; min-width: 190px; }
-.cmd-title {
-  font-size: 1.75rem;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: .02em;
-  text-transform: uppercase;
-  color: var(--ink-1);
-  padding-bottom: 8px;
-  border-bottom: 3px solid var(--gold);
-}
-.cmd-sub {
-  font-size: .66rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .14em;
-  color: var(--ink-3);
-}
-
 /* KPIs: franja continua tipo reporte, divisiones finas y cifra en mono */
 .cmd-live-stats {
+  width: 100%;
   background: var(--sheet);
   border: 1px solid var(--line-1);
   border-radius: var(--r3);
@@ -141,6 +123,7 @@ body { font-family: var(--f); background: var(--bg); color: var(--ink-1); }
 }
 .cls-item,
 .cls-item--colchon {
+  flex: 1 1 0;
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
@@ -174,7 +157,6 @@ body { font-family: var(--f); background: var(--bg); color: var(--ink-1); }
 
 /* ── BOTONES ──────────────────────────────────────────────────────── */
 .btn,
-.drp-trigger,
 .btn-cancel {
   font-family: var(--f);
   font-weight: 600;
@@ -186,7 +168,6 @@ body { font-family: var(--f); background: var(--bg); color: var(--ink-1); }
   transition: background .12s, border-color .12s, color .12s;
 }
 .btn:hover,
-.drp-trigger:hover,
 .btn-cancel:hover { background: var(--sheet-2); border-color: var(--ink-3); color: var(--ink-1); box-shadow: var(--sh-1); }
 .btn:active { transform: none; }
 
@@ -213,8 +194,13 @@ body.dark-theme .btn-save,
 body.dark-theme .drp-btn-apply { background: #1f3a66 !important; border-color: #2a4a80 !important; }
 .btn-save:disabled { background: var(--sheet-3) !important; border-color: var(--line-1) !important; color: var(--ink-4) !important; box-shadow: none; }
 
-.cmd-actions .btn { height: 38px; padding: 0 16px; font-size: .74rem; }
-#enable-notifications-btn { width: 38px; padding: 0; justify-content: center; }
+/* Campanita y Refrescar viven en la barra de filtros, a la altura del resto */
+.cmd-bar-right .cmd-actions { display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 0; border: none; }
+.cmd-actions .btn { height: 32px; padding: 0 14px; font-size: .7rem; }
+#enable-notifications-btn { width: 32px; padding: 0; justify-content: center; font-size: .8rem; }
+
+/* Título solo para lectores de pantalla (la cabecera visual se quitó) */
+.cv-sr { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
 /* ── BARRA DE FILTROS ─────────────────────────────────────────────── */
 .cmd-bar-row {
@@ -319,9 +305,6 @@ body.dark-theme .cls-item:nth-child(1) .cls-dot { background: var(--ink-3) !impo
 .stab:hover { background: transparent; color: var(--ink-1); box-shadow: inset 0 -2px 0 var(--line-2); }
 .stab.is-active { background: transparent; color: var(--ink-1); border: none; box-shadow: inset 0 -2px 0 var(--gold); }
 
-.cmd-dates { border-left: none; padding: 0; height: auto; }
-.drp-trigger { height: 32px; font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; box-shadow: none; }
-.drp-trigger.active { background: var(--a-bg); color: var(--navy); border-color: var(--navy-2); }
 
 .cmd-bar-right { border-left: none; padding: 0; margin-left: auto; height: auto; gap: 8px; }
 #recuentoCount,
@@ -335,11 +318,65 @@ body.dark-theme .cls-item:nth-child(1) .cls-dot { background: var(--ink-3) !impo
   letter-spacing: .02em;
 }
 #recuentoCount     { color: var(--ink-1); background: var(--sheet-3); border: 1px solid var(--line-1); }
-#puntajeTotalCount { color: var(--gold);  background: var(--gold-bg); border: 1px solid color-mix(in srgb, var(--gold) 35%, transparent); }
+/* Total de puntos: el dorado sobre crema no se leía. Cifra en negro y más
+   grande; el dorado queda solo como filete para distinguirlo. */
+#puntajeTotalCount {
+  color: var(--ink-1);
+  background: var(--gold-bg);
+  border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent);
+  border-left: 4px solid var(--gold);
+  font-size: .86rem;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+body.dark-theme #puntajeTotalCount { color: var(--ink-1); }
 #scroll-left, #scroll-right { height: 32px !important; width: 32px; padding: 0 !important; justify-content: center; font-size: .85rem !important; box-shadow: none; }
 
-/* Panel desplegable de los tokens (el HTML le fija un fondo oscuro en línea) */
-#cdrop { border-radius: var(--r3) !important; box-shadow: var(--sh-3) !important; }
+/* Panel desplegable de los filtros: lámina clara con el lenguaje de la
+   tabla (borde fino, cabecera marino como filete superior, mono en las
+   letras de índice, marca dorada en la opción elegida). */
+#cdrop {
+  background: var(--sheet);
+  border: 1px solid var(--line-2);
+  border-top: 3px solid var(--navy);
+  border-radius: var(--r3);
+  box-shadow: var(--sh-3);
+  padding: 4px;
+  min-width: 180px;
+  max-width: min(320px, calc(100vw - 16px));
+  max-height: min(340px, 60vh);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  color-scheme: light;
+}
+#cdrop::-webkit-scrollbar-thumb { background: var(--line-2); }
+.cdrop-item {
+  gap: 8px;
+  padding: 7px 10px 7px 8px;
+  border-radius: var(--r2);
+  border-left: 3px solid transparent;
+  font-size: .76rem;
+  font-weight: 500;
+  color: var(--ink-2);
+  white-space: normal;
+  line-height: 1.25;
+}
+.cdrop-item:hover { background: var(--sheet-2); color: var(--ink-1); }
+.cdrop-item.cdrop-sel { background: var(--a-bg); color: var(--navy); font-weight: 700; border-left-color: var(--gold); }
+.cdrop-check { color: var(--gold); font-weight: 800; }
+.cdrop-letter {
+  margin-top: 4px;
+  padding: 6px 10px 4px;
+  font-family: var(--f-mono);
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  color: var(--ink-4);
+  border-top: 1px solid var(--line-1);
+}
+.cdrop-letter:first-child { border-top: none; margin-top: 0; }
+body.dark-theme #cdrop { border-top-color: var(--gold); color-scheme: dark; }
+body.dark-theme .cdrop-item.cdrop-sel { color: var(--a); }
 
 /* ── PANEL DE LA TABLA ────────────────────────────────────────────── */
 .table-panel {
@@ -382,8 +419,10 @@ body.dark-theme .cls-item:nth-child(1) .cls-dot { background: var(--ink-3) !impo
 .costumer-table thead th:nth-child(2) { width: 14%; }
 .costumer-table thead th:nth-child(3) { width: 19%; }
 .costumer-table thead th:nth-child(4) { width: 12%; }
-.costumer-table thead th:nth-child(5) { width: 132px; }
-.costumer-table thead th:nth-child(6) { width: 132px; }
+.costumer-table thead th:nth-child(5) { width: 108px; }
+.costumer-table thead th:nth-child(6) { width: 108px; }
+.costumer-table thead th:nth-child(5),
+.costumer-table thead th:nth-child(6) { padding: 0 8px; white-space: normal; line-height: 1.25; }
 .costumer-table thead th:nth-child(7) { width: 9%; }
 .costumer-table thead th:nth-child(8) { width: 100px; text-align: right; padding-right: 20px; }
 
@@ -525,33 +564,62 @@ body.dark-theme .cv-act-edit:hover { color: var(--a); }
 .cv-act-del:hover  { color: var(--stop); background: var(--stop-bg); border-color: var(--stop-ln); }
 
 /* ── STATUS (select en línea y badges) ────────────────────────────── */
-.status-td { padding: 10px 8px !important; }
+.status-td { padding: 10px 8px !important; width: 108px; }
 .status-td .status-inline-select,
 .status-td .status-inline-select.colchon-select,
 .status-td .status-inline-select.colchon-select.badge-active {
-  height: 28px;
-  padding: 0 22px 0 10px;
+  width: 100%;
+  max-width: 96px;
+  min-width: 0;
+  height: 26px;
+  padding: 0 18px 0 7px;
+  /* form-controls.css reserva 32px !important a la flecha de todo <select>:
+     aquí la flecha es pequeña y ese hueco cortaba el texto ("PENDI…"). */
+  padding-right: 18px !important;
+  /* La lista que abre el navegador sigue el tema claro de la página aunque
+     el sistema operativo esté en oscuro (en Kali/GTK salía negra). */
+  color-scheme: light;
+  text-overflow: ellipsis;
   font-family: var(--f);
   font-size: .62rem;
   font-weight: 700;
   font-style: normal;
-  letter-spacing: .08em;
+  letter-spacing: .04em;
   border-width: 1px !important;
   border-style: solid !important;
   border-left-width: 3px !important;
   border-radius: var(--r2);
   box-shadow: none;
-  background-position: right 8px center;
+  background-position: right 6px center;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238a93a3' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
   background-repeat: no-repeat !important;
   background-size: 9px !important;
 }
 .status-td .status-inline-select:focus { outline: none; box-shadow: 0 0 0 3px var(--a-bg); }
-.status-td .status-inline-select.badge-active    { color: var(--go)   !important; background-color: var(--go-bg)   !important; border-color: var(--go-ln)   !important; border-left-color: var(--go)   !important; }
-.status-td .status-inline-select.badge-pending   { color: var(--warn) !important; background-color: var(--warn-bg) !important; border-color: var(--warn-ln) !important; border-left-color: var(--warn) !important; }
-.status-td .status-inline-select.badge-cancelled { color: var(--stop) !important; background-color: var(--stop-bg) !important; border-color: var(--stop-ln) !important; border-left-color: var(--stop) !important; }
-.status-td .status-inline-select.badge-hold      { color: var(--hold) !important; background-color: var(--hold-bg) !important; border-color: var(--hold-ln) !important; border-left-color: var(--hold) !important; }
-.status-td .status-inline-select option { color: var(--ink-1); background: var(--sheet); }
+/* Texto en negro para leerse de un vistazo; el status lo dicen el fondo
+   tenue y el filete de color de la izquierda. */
+.status-td .status-inline-select.badge-active    { color: var(--ink-1) !important; background-color: var(--go-bg)   !important; border-color: var(--go-ln)   !important; border-left-color: var(--go)   !important; }
+.status-td .status-inline-select.badge-pending   { color: var(--ink-1) !important; background-color: var(--warn-bg) !important; border-color: var(--warn-ln) !important; border-left-color: var(--warn) !important; }
+.status-td .status-inline-select.badge-cancelled { color: var(--ink-1) !important; background-color: var(--stop-bg) !important; border-color: var(--stop-ln) !important; border-left-color: var(--stop) !important; }
+.status-td .status-inline-select.badge-hold      { color: var(--ink-1) !important; background-color: var(--hold-bg) !important; border-color: var(--hold-ln) !important; border-left-color: var(--hold) !important; }
+/* Agentes y supervisores ven el status como etiqueta (no select): también en negro */
+.status-td .badge-active, .status-td .badge-pending,
+.status-td .badge-cancelled, .status-td .badge-hold { color: var(--ink-1) !important; }
+/* Opciones de la lista abierta: fondo claro y texto marino, como la tabla */
+.status-td .status-inline-select option,
+.token select option {
+  color: var(--ink-1) !important;
+  background-color: #ffffff !important;
+  font-family: var(--f);
+  font-size: .8rem;
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: none;
+}
+.status-td .status-inline-select option:checked { color: var(--navy) !important; background-color: var(--a-bg) !important; }
+body.dark-theme .status-td .status-inline-select { color-scheme: dark; }
+body.dark-theme .status-td .status-inline-select option,
+body.dark-theme .token select option { color: var(--ink-1) !important; background-color: var(--sheet) !important; }
 
 .badge { border-radius: 3px; padding: 3px 8px; font-size: .6rem; font-weight: 700; letter-spacing: .07em; border-width: 1px; }
 .badge::before { width: 5px; height: 5px; border-radius: 1px; animation: none !important; }
@@ -606,19 +674,235 @@ body.dark-theme .section-label { color: var(--gold); }
 .drp-day.drp-today, .drp-selected-range { color: var(--gold); }
 .drp-day.drp-today::after { background: var(--gold); }
 
-/* ── RESPONSIVE ───────────────────────────────────────────────────── */
+/* ── RESPONSIVE ───────────────────────────────────────────────────────
+   Tres modos de la lista:
+     > 860 px    tabla con las 8 columnas, siempre al ancho de la pantalla
+                 (se compacta por debajo de 1440 y más aún por debajo de 1180)
+     ≤ 860 px    tarjetas en rejilla (tablet vertical y móvil)
+   Los contadores nunca se ocultan: bajan a su propia fila y, en móvil,
+   forman una rejilla de 4 × 2. Costumer.css los escondía por debajo de
+   1200 px: aquí se anula. */
+
+/* Pantallas muy anchas: el panel no se estira sin límite */
+@media (min-width: 1920px) {
+  .command-zone, .table-panel { max-width: 2200px; }
+  .costumer-table { font-size: .84rem; }
+}
+
+/* Portátiles: la tabla cabe sin scroll lateral */
+/* Pantallas pequeñas y medianas (861–1440 px): la tabla SIEMPRE cabe en el
+   ancho disponible, con las 8 columnas a la vista. Anchos fijos por
+   columna (table-layout: fixed) y el contenido se recorta con "…" o baja
+   de línea en vez de empujar la tabla fuera de la pantalla. */
+@media (max-width: 1440px) and (min-width: 861px) {
+  .costumer-table { min-width: 0; width: 100%; table-layout: fixed; }
+  .costumer-table thead th:nth-child(1) { width: 20%; }
+  .costumer-table thead th:nth-child(2) { width: 14%; }
+  .costumer-table thead th:nth-child(3) { width: 18%; }
+  .costumer-table thead th:nth-child(4) { width: 14%; }
+  .costumer-table thead th:nth-child(5),
+  .costumer-table thead th:nth-child(6) { width: 100px; }
+  .costumer-table thead th:nth-child(7) { width: 11%; }
+  .costumer-table thead th:nth-child(8) { width: 76px; padding-right: 12px; }
+  .costumer-table thead th { padding: 0 10px; letter-spacing: .1em; white-space: normal; line-height: 1.2; }
+  .costumer-table tbody td { padding: 11px 10px; overflow: hidden; text-overflow: ellipsis; }
+  .costumer-table thead th:first-child,
+  .costumer-table tbody td:first-child { padding-left: 16px; }
+  .status-td { width: auto; padding: 10px 6px !important; }
+  .status-td .status-inline-select,
+  .status-td .status-inline-select.colchon-select,
+  .status-td .status-inline-select.colchon-select.badge-active { max-width: none; }
+
+  .cv-avatar { width: 30px; height: 30px; font-size: .62rem; }
+  .cv-client-wrap { gap: 9px; }
+  .cv-client-text { overflow: hidden; }
+  .cv-phone, .cv-phone-alt, .cv-addr, .cv-motivo, .cv-acc, .cv-sup, .cv-agent { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cv-chips { gap: 4px; }
+  .cv-chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .cv-date { gap: 6px; }
+  .cv-date-lbl { width: 30px; flex-shrink: 0; }
+  .cv-actions { padding-right: 10px !important; }
+  .cv-act { width: 28px; height: 28px; }
+}
+
+/* 861–1180 px: se aprieta un poco más (ventanas a media pantalla, portátiles
+   pequeños). Sin avatar, sin dirección y fechas con etiqueta de una letra. */
+@media (max-width: 1180px) and (min-width: 861px) {
+  .command-zone { padding: 16px 16px 0; }
+  .table-panel { margin: 12px 16px 16px; }
+  .costumer-table { font-size: .76rem; }
+  .costumer-table thead th:nth-child(1) { width: 19%; }
+  .costumer-table thead th:nth-child(4) { width: 12%; }
+  .costumer-table thead th:nth-child(5),
+  .costumer-table thead th:nth-child(6) { width: 88px; }
+  .costumer-table thead th:nth-child(8) { width: 68px; }
+  .costumer-table thead th { font-size: .56rem; padding: 0 8px; }
+  .costumer-table tbody td { padding: 10px 8px; }
+  .costumer-table thead th:first-child,
+  .costumer-table tbody td:first-child { padding-left: 14px; }
+  .cv-avatar { display: none; }
+  .cv-client-name { font-size: .8rem; }
+  .cv-addr { display: none; }
+  .cv-date-lbl { width: 10px; font-size: 0; }
+  .cv-date:first-child .cv-date-lbl::before { content: 'V'; font-size: .56rem; }
+  .cv-date + .cv-date .cv-date-lbl::before { content: 'I'; font-size: .56rem; }
+  .costumer-table thead th:nth-child(3) { width: 16%; }
+  .costumer-table thead th:nth-child(4) { width: 14%; }
+  .cv-date { gap: 4px; }
+  .cv-date-val { font-size: .66rem; letter-spacing: -.02em; }
+  .cv-pts { font-size: .84rem; }
+  /* Sin flecha (sigue abriéndose al pulsar): así cabe la palabra completa,
+     incluso CANCELLED, en vez de quedar en "PENDI…". */
+  .status-td { padding: 10px 4px !important; }
+  .status-td .status-inline-select,
+  .status-td .status-inline-select.colchon-select,
+  .status-td .status-inline-select.colchon-select.badge-active {
+    font-size: .56rem; padding: 0 5px 0 6px; padding-right: 5px !important; letter-spacing: .02em;
+    background-image: none !important; text-overflow: clip; text-align: left;
+  }
+  .cv-actions-wrap { gap: 2px; }
+}
+
+/* Contadores: siempre visibles a lo ancho (costumer.css los ocultaba) */
 @media (max-width: 1280px) {
-  .cmd-live-stats { display: none; }
+  .cmd-live-stats { display: flex !important; }
+  .cls-item, .cls-item--colchon { min-width: 0; }
 }
+
+/* ── Tarjetas (tablet vertical y móvil, ≤ 860 px) ─────────────────── */
+@media (max-width: 860px) {
+  .table-panel { background: transparent; border: none; box-shadow: none; overflow: visible; }
+  .tscroll { overflow: visible; max-height: none; }
+  .scrollbar-mirror, #scroll-left, #scroll-right { display: none !important; }
+
+  .costumer-table,
+  .costumer-table tbody { display: block; min-width: 0; width: 100%; }
+  .costumer-table thead { display: none; }
+  .costumer-table tbody {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
+    gap: 12px;
+  }
+
+  .costumer-table tbody tr.cv-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "cli   cli"
+      "con   fec"
+      "svc   svc"
+      "st    com"
+      "met   act";
+    background: var(--sheet) !important;
+    border: 1px solid var(--line-1);
+    border-left: 4px solid var(--st-color, var(--line-2));
+    border-radius: var(--r3);
+    box-shadow: var(--sh-1);
+    overflow: hidden;
+  }
+  .costumer-table tbody tr.cv-row.row-colchon { background: color-mix(in srgb, var(--col-bg) 60%, var(--sheet)) !important; }
+  .costumer-table tbody tr.cv-row td,
+  .costumer-table tbody tr.cv-row:nth-child(even) td,
+  .costumer-table tbody tr.cv-row:hover td {
+    display: block;
+    min-width: 0;
+    width: auto !important;
+    background: transparent;
+    border: none;
+    box-shadow: none !important;
+    padding: 8px 14px !important;
+  }
+  .costumer-table tbody tr.cv-row td:nth-child(1) { grid-area: cli; padding-top: 14px !important; padding-bottom: 10px !important; border-bottom: 1px solid var(--line-1); }
+  .costumer-table tbody tr.cv-row td:nth-child(2) { grid-area: con; }
+  .costumer-table tbody tr.cv-row td:nth-child(3) { grid-area: svc; }   /* servicio & sistema */
+  .costumer-table tbody tr.cv-row td:nth-child(4) { grid-area: fec; }   /* fechas, junto al contacto */
+  .costumer-table tbody tr.cv-row td:nth-child(5) { grid-area: st;  border-top: 1px solid var(--line-1); }
+  .costumer-table tbody tr.cv-row td:nth-child(6) { grid-area: com; border-top: 1px solid var(--line-1); }
+  .costumer-table tbody tr.cv-row td:nth-child(7) { grid-area: met; background: var(--sheet-2); border-top: 1px solid var(--line-1); }
+  .costumer-table tbody tr.cv-row td:nth-child(8) { grid-area: act; background: var(--sheet-2); border-top: 1px solid var(--line-1); display: flex; align-items: center; justify-content: flex-end; }
+  /* Etiqueta de las dos columnas de status (en tabla la ponía la cabecera) */
+  .costumer-table tbody tr.cv-row td.status-td::before {
+    display: block;
+    margin-bottom: 5px;
+    font-size: .56rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em;
+    color: var(--ink-4);
+  }
+  .costumer-table tbody tr.cv-row td:nth-child(5)::before { content: 'Estatus'; }
+  .costumer-table tbody tr.cv-row td:nth-child(6)::before { content: 'Status comisión'; }
+  .status-td { width: auto; }
+  .status-td .status-inline-select,
+  .status-td .status-inline-select.colchon-select,
+  .status-td .status-inline-select.colchon-select.badge-active { max-width: none; height: 32px; font-size: .64rem; }
+
+  .cv-client-name { white-space: normal; }
+  .cv-addr { max-width: none; white-space: normal; }
+  .cv-date { justify-content: flex-end; }
+  .cv-sup { white-space: normal; }
+  .cv-act { width: 38px; height: 38px; }   /* objetivo táctil cómodo */
+
+  .costumer-table tbody tr.cv-empty { display: block; grid-column: 1 / -1; }
+  .costumer-table tbody tr.cv-empty td { display: block; border: 1px solid var(--line-1); border-radius: var(--r3); }
+
+  .pag { flex-wrap: wrap; justify-content: center; gap: 8px; border: 1px solid var(--line-1); border-radius: var(--r3); margin-top: 12px; }
+}
+
 @media (max-width: 900px) {
-  .command-zone { padding: 14px 12px 0; }
-  .table-panel { margin: 12px 12px 14px; }
-  .cmd-title { font-size: 1.4rem; }
+  .command-zone { padding: 16px 16px 0; }
+  .table-panel { margin: 12px 16px 16px; }
+  /* costumer.css ponía la barra en columna (centrando y desbordando los
+     filtros) y ocultaba Agente y Mercado: aquí todo baja de línea y se ve. */
+  .cmd-bar-row { flex-direction: row; flex-wrap: wrap; align-items: stretch; overflow: visible; }
+  .cmd-bar-row > * { min-width: 0; max-width: 100%; }
+  #token-agent, #token-mercado { display: inline-flex; }
+  .cmd-tokens { flex-wrap: wrap; flex: 1 1 100%; }
+  .cmd-status-tabs { flex: 1 1 100%; overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+  .cmd-status-tabs::-webkit-scrollbar { display: none; }
+  .stab { flex-shrink: 0; }
+  .input__container { max-width: none; flex: 1 1 100%; }
 }
+
+/* Con el menú lateral convertido en botón ☰ (fijo arriba a la izquierda),
+   se deja su hueco arriba para que no tape los contadores. Mismo corte que
+   sidebar-static.css. */
+@media (max-width: 768px), (hover: none) {
+  .command-zone { padding-top: 64px !important; }
+}
+
+/* Móvil */
 @media (max-width: 600px) {
-  .cmd-bar-row { padding: 10px; }
-  .input__container { max-width: none; width: 100%; }
-  .costumer-table { min-width: 1180px; }
+  .command-zone { padding: 14px 12px 0; }
+  .table-panel { margin: 10px 12px 14px; }
+  .cmd-top { gap: 10px; padding-bottom: 12px; }
+  .cmd-bar-right .cmd-actions { flex: 1 1 100%; }
+  .cmd-actions .btn { height: 38px; }
+  #refresh-table { flex: 1; }
+  #enable-notifications-btn { width: 44px; }
+
+  .cmd-live-stats { display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .cls-item, .cls-item--colchon { padding: 8px 8px 7px; min-width: 0; border-bottom: 1px solid var(--line-1); }
+  .cls-item:nth-child(4n) { border-right: none; }
+  .cls-item:nth-child(n+5) { border-bottom: none; }
+  .cls-val { font-size: 1rem; }
+  .cls-lbl { font-size: .52rem; letter-spacing: .08em; }
+  .cls-item .cls-dot { top: 9px; right: 7px; width: 9px; }
+
+  .cmd-bar-row { padding: 10px; gap: 8px; }
+  .cmd-tokens { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .token { min-width: 0; height: 38px; }
+  .token .token-val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cmd-bar-right { flex: 1 1 100%; margin-left: 0; justify-content: space-between; flex-wrap: wrap; }
+  #recuentoCount, #puntajeTotalCount { flex: 1 1 auto; text-align: center; }
+
+  .costumer-table tbody tr.cv-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+
+/* Móviles muy estrechos: una sola columna dentro de la tarjeta */
+@media (max-width: 380px) {
+  .costumer-table tbody tr.cv-row {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "cli" "con" "fec" "svc" "st" "com" "met" "act";
+  }
+  .cv-date { justify-content: flex-start; }
 }
 
 @media (prefers-reduced-motion: reduce) {

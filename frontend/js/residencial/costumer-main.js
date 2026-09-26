@@ -717,14 +717,20 @@
     }).join('');}
     window._openCostumerImgLightbox=function(src){
       var ov=document.createElement('div');
-      ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px;';
+      // z-index por encima del modal "Editar cliente" (10000): con 9999 la imagen
+      // se abría detrás del modal y no se veía.
+      ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:10050;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px;';
       // createElement en vez de innerHTML: .src toma el valor como dato y nunca lo
       // interpreta como HTML, así una URL con comillas no puede inyectar onerror=.
       var im=document.createElement('img');
       im.src=String(src||'');
       im.style.cssText='max-width:100%;max-height:95vh;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,0.6);';
       ov.appendChild(im);
-      ov.onclick=function(){document.body.removeChild(ov);};
+      // Escape cierra solo la imagen (fase de captura: no llega a cerrar el modal).
+      function cerrar(){ if(ov.parentNode) ov.parentNode.removeChild(ov); document.removeEventListener('keydown',onKey,true); }
+      function onKey(e){ if(e.key==='Escape'){ e.stopPropagation(); e.preventDefault(); cerrar(); } }
+      ov.onclick=cerrar;
+      document.addEventListener('keydown',onKey,true);
       document.body.appendChild(ov);
     };
     const countEl=document.getElementById('recuentoCount');if(countEl){countEl.value=total;countEl.textContent=total+' Registros Totales';}

@@ -333,12 +333,87 @@
 #editClienteContent .em-btn-primary:hover { background: #fff !important; transform: translateY(-1px); }
 #editClienteContent .em-btn-sm { height: 36px; padding: 0 14px !important; font-size: .74rem; }
 
+/* El modal va por encima del aviso "Activa las notificaciones" (z 9999),
+   que tapaba el botón Guardar. El HTML le fija z-index 500 en línea. */
+#editClienteModal { z-index: 10000 !important; }
+
+/* Ninguna columna puede ensancharse por su contenido (un teléfono o un
+   supervisor largo hacían que el panel midiera más que la pantalla). */
+.ep-shell { grid-template-columns: 300px minmax(0, 1fr); }
+.ep-facts > div { min-width: 0; }
+.ep-facts dd { min-width: 0; }
+
 /* ── Responsive ───────────────────────────────────────────────────── */
+/* Pantallas bajas (portátiles de 768 px de alto): el panel usa casi todo el alto */
+@media (max-height: 820px) and (min-width: 861px) {
+  .ep-shell { height: calc(100dvh - 40px); }
+  .ep-profile { padding-top: 24px; }
+  .ep-avatar { width: 68px; height: 68px; border-radius: 22px; font-size: 1.35rem; }
+}
+
+@media (max-width: 1100px) and (min-width: 861px) {
+  .ep-shell { grid-template-columns: 260px minmax(0, 1fr); }
+  .ep-form, .ep-head { padding-left: 24px; padding-right: 24px; }
+  .ep-foot { padding: 14px 24px; }
+}
+
+/* Tablet y móvil: pantalla completa. Todo el contenido hace scroll dentro
+   del panel y la barra Cancelar / Guardar queda fija abajo. */
 @media (max-width: 860px) {
-  .ep-shell { grid-template-columns: 1fr; height: auto; max-height: none; }
-  .ep-profile { border-right: none; border-bottom: 1px solid rgba(255, 255, 255, .10); padding: 24px 20px; }
-  .ep-form { overflow: visible; padding: 4px 20px 20px; }
-  .ep-head { padding: 20px 20px 14px; }
-  .ep-foot { padding: 14px 20px; position: sticky; bottom: 0; backdrop-filter: blur(20px); }
-  .ep-cols-2, .ep-cols-3-1 { grid-template-columns: 1fr; }
+  #editClienteModal { padding: 0 !important; align-items: stretch !important; }
+  #editClienteDialog {
+    max-width: none !important;
+    width: 100% !important;
+    min-height: 100dvh;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    border: none;
+  }
+  .ep-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .ep-main { min-height: auto; }
+  .ep-profile { overflow: visible; border-right: none; border-bottom: 1px solid rgba(255, 255, 255, .10); padding: 20px 20px 18px; }
+  .ep-avatar { width: 64px; height: 64px; border-radius: 20px; font-size: 1.25rem; }
+  .ep-name { margin-top: 12px; font-size: 1.1rem; }
+  .ep-divider { margin: 14px 0; }
+  /* Fechas y puntaje en fila para no alargar el perfil */
+  .ep-mini-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .ep-form { overflow: visible; padding: 4px 20px 20px; gap: 22px; }
+  .ep-head { padding: 18px 20px 12px; }
+  /* La ✕ del formulario queda lejos al hacer scroll: en móvil hay un botón
+     de cierre fijo arriba a la derecha (el mismo .ep-close, recolocado). */
+  .ep-head .ep-close {
+    position: fixed; top: 12px; right: 12px; z-index: 4;
+    background: rgba(16, 26, 50, .85);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  }
+  /* Barra de acciones fija al pie de la pantalla (el diálogo, con
+     backdrop-filter, es su bloque contenedor y ocupa toda la pantalla):
+     Guardar se ve siempre, se esté en el perfil o en el formulario. */
+  .ep-foot {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 3;
+    padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+    background: rgba(16, 26, 50, .94);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  }
+  .ep-foot .em-btn { flex: 1 1 0; justify-content: center; }
+  /* Con el modal abierto a pantalla completa, la burbuja del asistente y el
+     indicador "En vivo" tapaban el botón Guardar. */
+  body:has(#editClienteModal[style*="flex"]) #aiw-toggle-btn,
+  body:has(#editClienteModal[style*="flex"]) #aiw-panel,
+  body:has(#editClienteModal[style*="flex"]) #crm-rt-badge { display: none !important; }
+  .ep-shell { padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
+}
+
+@media (max-width: 600px) {
+  .ep-cols-2, .ep-cols-3-1 { grid-template-columns: minmax(0, 1fr); }
+  .ep-mini-fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .ep-mini-fields > .em-field:last-child { grid-column: 1 / -1; }
+  #editClienteContent .em-input { height: 44px; font-size: 16px !important; }  /* 16px: iOS no hace zoom al enfocar */
+  .ep-title { font-size: 1.15rem; }
 }
