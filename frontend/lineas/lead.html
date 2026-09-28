@@ -378,11 +378,11 @@
 
     function buildSvcOptions(selected) {
       // Valores guardados en BD sin acentos (consistencia con filtros/consultas).
-      // WEARABLE agrupa lo que antes eran TABLETS y RELOJ (tablets, smartwatch, otros).
       var opts = [
-        { v: 'LINEA + EQUIPO', t: 'LÍNEA + EQUIPO' },
-        { v: 'ESIM CARD',      t: 'ESIM CARD' },
-        { v: 'WEARABLE',       t: 'WEARABLE (TABLETS / SMARTWATCH / OTROS)' }
+        { v: 'SIM WIRELES', t: 'SIM WIRELES' },
+        { v: 'WIRELESS',    t: 'WIRELESS' },
+        { v: 'TABLET',      t: 'TABLET' },
+        { v: 'SMART WATCH', t: 'SMART WATCH' }
       ];
       return opts.map(function(o){
         return '<option value="' + o.v + '"' + (selected === o.v ? ' selected' : '') + '>' + o.t + '</option>';
@@ -396,11 +396,11 @@
       for (var i = 1; i <= 10; i++) {
         var telEl = document.getElementById('tel_' + i);
         var svcEl = document.getElementById('svc_' + i);
-        if (telEl) saved[i] = { tel: telEl.value, svc: svcEl ? svcEl.value : 'LINEA + EQUIPO' };
+        if (telEl) saved[i] = { tel: telEl.value, svc: svcEl ? svcEl.value : 'SIM WIRELES' };
       }
       container.innerHTML = '';
       for (var i = 1; i <= n; i++) {
-        var val = saved[i] || { tel: '', svc: 'LINEA + EQUIPO' };
+        var val = saved[i] || { tel: '', svc: 'SIM WIRELES' };
         var div = document.createElement('div');
         div.className = 'll-line-block open';
         div.innerHTML =
@@ -523,7 +523,7 @@
 
         for (var i = 1; i <= n; i++) {
           var v = _cleanTel(document.getElementById('tel_'+i).value);
-          var s = (document.getElementById('svc_'+i)||{}).value || 'LINEA + EQUIPO';
+          var s = (document.getElementById('svc_'+i)||{}).value || 'SIM WIRELES';
           telefonos.push(v);
           servicios.push(s);
           lines.push({ telefono: v, servicio: s, estado: defaultLineStatus });
