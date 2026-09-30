@@ -5,6 +5,11 @@
   /* ── Estado ── */
   let socket = null;           // (legacy Socket.IO — ya no se usa, ver initSSE)
   let sse = null;              // EventSource de tiempo real
+  let sseEspera = 2000;        // espera antes de reconectar (se duplica hasta 30 s)
+  let sseTimer = null;
+  let sseParado = false;       // sesión caída: no insistir
+  let sseYaConecto = false;
+  const pendientesPropios = []; // textos enviados desde ESTA pestaña, aún sin eco del servidor
   let currentUser = null;
   let activePeer = null;       // { username, name, avatarUrl }
   let allUsers = [];
@@ -85,36 +90,88 @@
     renderChatList();
     initSSE();
     bindEvents();
+    abrirDesdeEnlace();
+  }
+
+  // chat.html?con=<usuario> (lo usan los avisos de chat del resto del CRM):
+  // abre directamente esa conversación.
+  function abrirDesdeEnlace() {
+    const con = new URLSearchParams(location.search).get('con');
+    if (!con) return;
+    history.replaceState(null, '', location.pathname);
+    const u = allUsers.find(x => x.username === con);
+    if (u) openConversation({ username: u.username, name: u.name || u.username, avatarUrl: u.avatarUrl || '' });
   }
 
   /* ── Tiempo real (SSE) ──
    * El backend publica cada mensaje nuevo en el canal del destinatario; aquí
    * abrimos un EventSource a /api/chat/stream (la sesión viaja en la cookie
-   * httponly). EventSource reconecta solo, así que no gestionamos reintentos. */
+   * httponly).
+   *
+   * EventSource solo reintenta por su cuenta tras un corte de red. Si nginx
+   * responde 502 (el backend se reinicia en cada despliegue) se rinde para
+   * siempre: el chat dejaba de estar en vivo hasta recargar la página. Por eso
+   * la reconexión es manual, y al volver se recupera lo llegado mientras tanto. */
   function initSSE() {
-    if (!window.EventSource) return;
+    clearTimeout(sseTimer);
+    if (!window.EventSource || sse || sseParado) return;
     try {
       sse = new EventSource('/api/chat/stream');
-    } catch (e) { return; }
+    } catch (e) { sse = null; programarReconexion(); return; }
 
     sse.onmessage = ev => {
       let data;
       try { data = JSON.parse(ev.data || '{}'); } catch (_) { return; }
-      if (!data || data.type === 'connected') return;
+      if (!data) return;
+      if (data.type === 'connected') {
+        sseEspera = 2000;
+        if (sseYaConecto) resincronizar();
+        sseYaConecto = true;
+        return;
+      }
       if (data.type === 'chat:message' && data.message) {
         handleIncomingMessage(data.message);
       }
     };
 
-    // EventSource reintenta la conexión por sí mismo; no hacemos nada en error.
-    sse.onerror = () => {};
+    sse.onerror = () => {
+      try { sse.close(); } catch (_) {}
+      sse = null;
+      fetch('/api/auth/me', { credentials: 'same-origin' })
+        .then(r => { if (r.status === 401) sseParado = true; else programarReconexion(); })
+        .catch(programarReconexion);
+    };
+  }
+
+  function programarReconexion() {
+    if (sseParado) return;
+    clearTimeout(sseTimer);
+    sseTimer = setTimeout(initSSE, sseEspera);
+    sseEspera = Math.min(sseEspera * 2, 30000);
+  }
+
+  // Tras una reconexión: lista, no leídos y la conversación abierta, por si
+  // llegó algo mientras no se escuchaba.
+  async function resincronizar() {
+    await loadConversations();
+    renderChatList($('searchInput').value);
+    loadUnreadCount();
+    if (!activePeer) return;
+    const peer = activePeer;
+    try {
+      const data = await apiFetch(`/api/chat/messages/${encodeURIComponent(peer.username)}`);
+      if (activePeer === peer) renderMessages(data.messages || []);
+    } catch (_) {}
   }
 
   function handleIncomingMessage(msg) {
     // ¿Pertenece a la conversación abierta?
     if (activePeer && (msg.from === activePeer.username || msg.to === activePeer.username)) {
-      // No re-agregar los propios (ya hubo append optimista en esta pestaña)
-      if (msg.from !== currentUser.username) {
+      // Los propios enviados desde esta pestaña ya se pintaron al enviarlos; los
+      // enviados desde otra pestaña o equipo sí hay que pintarlos.
+      const i = msg.from === currentUser.username ? pendientesPropios.indexOf(msg.body) : -1;
+      if (i >= 0) pendientesPropios.splice(i, 1);
+      else {
         appendMessage(msg);
         scrollToBottom();
       }
@@ -256,7 +313,7 @@
 
     // Actualizar UI izquierda
     document.querySelectorAll('.chat-item').forEach(el => el.classList.remove('active'));
-    const chatItem = document.querySelector(`.chat-item[data-username="${peer.username}"]`);
+    const chatItem = document.querySelector(`.chat-item[data-username="${CSS.escape(peer.username)}"]`);
     if (chatItem) { chatItem.classList.add('active'); chatItem.classList.remove('unread'); chatItem.querySelector('.unread-dot').style.display = 'none'; }
 
     // Mostrar panel derecho
@@ -288,7 +345,7 @@
 
     // Cargar mensajes
     try {
-      const data = await apiFetch(`/api/chat/messages/${peer.username}`);
+      const data = await apiFetch(`/api/chat/messages/${encodeURIComponent(peer.username)}`);
       renderMessages(data.messages || []);
       $('convStatus').textContent = 'En línea'; // se actualizará con presencia real
     } catch (e) {
@@ -371,6 +428,7 @@
     // Optimistic UI
     appendMessage({ from: currentUser.username, to: activePeer.username, body, timestamp: new Date() });
     scrollToBottom();
+    pendientesPropios.push(body);
 
     try {
       await apiFetch('/api/chat/messages', {
@@ -378,6 +436,8 @@
         body: JSON.stringify({ to: activePeer.username, toName: activePeer.name, body, type: 'chat' })
       });
     } catch (e) {
+      const i = pendientesPropios.indexOf(body);
+      if (i >= 0) pendientesPropios.splice(i, 1);
       showToast('Error al enviar el mensaje');
     }
   }
@@ -693,6 +753,14 @@
     $('btnConvSearchClose').addEventListener('click', () => closeConvSearch());
     $('convSearchInput').addEventListener('input', e => filterConvMessages(e.target.value));
     $('convSearchInput').addEventListener('keydown', e => { if (e.key === 'Escape') closeConvSearch(); });
+
+    // Al volver a la pestaña: si la conexión en vivo se cayó, reabrirla ya
+    // (al conectar, resincronizar() recupera lo que llegó mientras tanto).
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden || sse || sseParado) return;
+      sseEspera = 2000;
+      initSSE();
+    });
 
     // Bandeja completa
     $('btnOpenInbox').addEventListener('click', () => {

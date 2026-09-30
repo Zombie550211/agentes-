@@ -1,0 +1,103 @@
+/* Avisos de chat en todo el CRM — lo usa js/componentes/chat-avisos.js,
+   que carga esta hoja por su cuenta (no hace falta enlazarla en cada página). */
+
+/* ── Globo de no leídos en el botón «Chat» del menú ─────────────────────── */
+#app-sidebar a.sb-item[href="/chat.html"] .sb-ic { position: relative; }
+.sb-chat-globo {
+  position: absolute;
+  top: -5px;
+  right: -7px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font: 700 10.5px/18px 'Outfit', system-ui, sans-serif;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--sb-bg-top, #0b3080);   /* lo separa del fondo del menú */
+  pointer-events: none;
+}
+
+.sb-mobile-toggle .sb-chat-globo { top: -6px; right: -6px; box-shadow: 0 0 0 2px #fff; }
+
+/* ── Tarjetas de mensaje nuevo ──────────────────────────────────────────── */
+.chat-avisos {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 100000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(360px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.chat-aviso {
+  position: relative;
+  display: flex;
+  pointer-events: auto;
+  background: var(--sup-1);
+  border: 1px solid var(--linea);
+  border-left: 4px solid #0d9488;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, .18);
+  animation: chat-aviso-entra .25s ease-out;
+}
+.chat-aviso-enlace {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 38px 12px 14px;
+  border-radius: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+.chat-aviso-enlace:focus-visible { outline: 3px solid #0284c7; outline-offset: 2px; }
+.chat-aviso-avatar {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #ccfbf1;
+  color: #0f766e;
+  font: 700 13px/36px 'Outfit', system-ui, sans-serif;
+  text-align: center;
+}
+.chat-aviso-cuerpo { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.chat-aviso-titulo { font: 700 14px/1.3 'Outfit', system-ui, sans-serif; color: var(--texto-1); }
+.chat-aviso-texto {
+  font: 400 13px/1.4 'Outfit', system-ui, sans-serif;
+  color: var(--texto-2b);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.chat-aviso-ir { font: 600 12px/1.3 'Outfit', system-ui, sans-serif; color: #0d9488; margin-top: 4px; }
+.chat-aviso-cerrar {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--texto-3);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.chat-aviso-cerrar:hover { background: var(--sup-3); color: var(--texto-1); }
+.chat-aviso-cerrar:focus-visible { outline: 3px solid #0284c7; outline-offset: 1px; }
+
+@keyframes chat-aviso-entra {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .chat-aviso { animation: none; } }
+@media print { .chat-avisos { display: none; } }

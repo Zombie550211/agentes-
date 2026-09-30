@@ -187,7 +187,7 @@
     // páginas con menú. chat.html los gestiona por su cuenta en chat-page.js.
     if (!/\/chat\.html$/i.test(location.pathname)) {
       const avisos = document.createElement('script');
-      avisos.src = '/js/componentes/chat-avisos.js?v=20260919';
+      avisos.src = '/js/componentes/chat-avisos.js?v=20260930';
       document.head.appendChild(avisos);
     }
   }
