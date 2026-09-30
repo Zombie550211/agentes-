@@ -132,7 +132,7 @@ async def armar_paquete(inicio: date) -> dict:
     fin = inicio + timedelta(days=6)
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
-            SELECT id, username, name, nombre_completo, role, team, supervisor, reloj_id
+            SELECT id, username, name, nombre_completo, fecha_ingreso, role, team, supervisor, reloj_id
             FROM users WHERE COALESCE(active, 1) = 1
         """))
         usuarios = agentes_de_equipos(r.mappings().all())
@@ -168,7 +168,7 @@ async def armar_paquete(inicio: date) -> dict:
         if int(u["id"]) not in por_usuario:
             continue
         nombre, apellido = _separar_nombre(u["nombre_completo"] or u["name"] or u["username"])
-        agentes.append({
+        agente = {
             "crm_agent_id": str(u["id"]),
             "badge_number": (u["reloj_id"] or None),
             "first_name": nombre[:100],
@@ -176,7 +176,10 @@ async def armar_paquete(inicio: date) -> dict:
             "campaign": (u["team"] or None) and u["team"][:120],
             "supervisor": (u["supervisor"] or None) and u["supervisor"][:160],
             "shifts": por_usuario.get(int(u["id"]), []),
-        })
+        }
+        if u["fecha_ingreso"]:
+            agente["hire_date"] = u["fecha_ingreso"].isoformat()
+        agentes.append(agente)
     return {"date_from": inicio.isoformat(), "date_to": fin.isoformat(), "roster_complete": True,
             "agents": agentes}
 

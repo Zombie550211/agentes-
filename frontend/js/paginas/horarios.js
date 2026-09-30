@@ -72,6 +72,7 @@
     var d = new Date(iso.replace(' ', 'T'));
     return isNaN(d) ? iso : d.toLocaleString('es-SV', { dateStyle: 'medium', timeStyle: 'short' });
   }
+  function fmtFechaCorta(ymd) { return ymd.slice(8, 10) + '/' + ymd.slice(5, 7) + '/' + ymd.slice(0, 4); }
   function horas(hhmm) { var p = hhmm.split(':'); return (+p[0]) + (+p[1]) / 60; }
   function h12(hhmm) {   // '15:30' → '3:30', '10:00' → '10'
     var p = hhmm.split(':'), h = +p[0] % 12 || 12;
@@ -386,7 +387,11 @@
       ? 'Reloj <input class="hr-reloj' + (a.reloj_id ? '' : ' missing') + '" data-reloj="' + a.id + '" value="' + esc(a.reloj_id || '') +
         '" placeholder="sin ID" inputmode="numeric" maxlength="32" aria-label="ID de reloj de ' + esc(nombre) + '">'
       : 'Reloj ' + esc(a.reloj_id || '—');
-    var resumen = trabaja(t) ? etiquetaCorta(t) + ' · ' + fmtHoras(horasTurno(t)) : (t ? etiquetaCorta(t) : '—');
+    var ingreso = a.fecha_ingreso ? fmtFechaCorta(a.fecha_ingreso) : '';
+    var ingresoHtml = d.puede_editar
+      ? '<button type="button" class="hr-ingreso' + (ingreso ? '' : ' missing') + '" data-ingreso="' + a.id + '" title="Fecha de ingreso (clic para cambiarla)">' +
+        (ingreso ? 'Ingreso ' + ingreso : 'sin ingreso') + '</button>'
+      : (ingreso ? '<span>Ingreso ' + ingreso + '</span>' : '');
 
     var barra;
     if (trabaja(t)) {
@@ -419,7 +424,7 @@
       '<div class="hr-who"><div class="hr-name-row"><div class="hr-name' + (a.nombre_completo ? '' : ' sin-completo') + '" title="' + esc(nombre) +
       (a.nombre_completo ? '' : ' (sin nombre completo)') + '">' + esc(nombre) + (a.es_supervisor ? '<em> · Supervisor</em>' : '') + '</div>' +
       (d.puede_editar ? '<button type="button" class="hr-edit-nombre" data-nombre="' + a.id + '" title="Nombre completo" aria-label="Editar el nombre completo de ' + esc(nombre) + '">✎</button>' : '') + '</div>' +
-      '<div class="hr-mark"><span class="hr-user" title="Usuario del CRM">' + esc(a.username || '') + '</span> · ' + reloj + '<span>· ' + esc(resumen) + '</span></div></div>' +
+      '<div class="hr-mark"><span class="hr-user" title="Usuario del CRM">' + esc(a.username || '') + '</span> · ' + reloj + (ingresoHtml ? ' · ' + ingresoHtml : '') + '</div></div>' +
       '<button type="button" class="hr-line' + (a._dirtyDays && a._dirtyDays[f] ? ' dirty' : '') + '" data-u="' + a.id + '"' +
       (ed && d.puede_editar ? '' : ' disabled') + ' title="' + (d.puede_editar && !ed ? 'Día pasado: lo corrige RRHH en Cuadratura' : '') +
       '" aria-label="Turno de ' + esc(nombre) + ' el ' + DIAS_LARGOS[state.dia] + ': ' + esc(etiquetaCorta(t)) + '">' + barra + '</button>' +
@@ -628,6 +633,26 @@
     } catch (e) { toast(e.message, true); }
   }
 
+  async function editarIngreso(id) {
+    var a = agentePorId(id);
+    var val = prompt('Fecha de ingreso de ' + nombreDe(a) + ' (dd/mm/aaaa; vacío para quitarla):', a.fecha_ingreso ? fmtFechaCorta(a.fecha_ingreso) : '');
+    if (val === null) return;
+    val = val.trim();
+    var iso = null;
+    if (val) {
+      var m = val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (!m) return toast('Use el formato dd/mm/aaaa, p. ej. 16/09/2026', true);
+      iso = m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+    }
+    if (iso === (a.fecha_ingreso || null)) return;
+    try {
+      var r = await api('PUT', '/api/horarios/ingreso/' + a.id, { fecha_ingreso: iso });
+      a.fecha_ingreso = r.fecha_ingreso;
+      renderTablero();
+      toast(r.fecha_ingreso ? 'Fecha de ingreso de ' + nombreDe(a) + ': ' + fmtFechaCorta(r.fecha_ingreso) : 'Fecha de ingreso quitada');
+    } catch (e) { toast(e.message, true); }
+  }
+
   async function copiarAnterior() {
     if (Object.keys(state.dirty).length) return toast('Guarde o descarte los cambios antes de copiar', true);
     if (!confirm('Se copiarán los horarios de la semana anterior' + (state.equipo ? ' (solo ' + state.equipo + ')' : '') +
@@ -701,6 +726,8 @@
       }
       var ed = e.target.closest('[data-nombre]');
       if (ed) { editarNombre(ed.dataset.nombre); return; }
+      var ing = e.target.closest('[data-ingreso]');
+      if (ing) { editarIngreso(ing.dataset.ingreso); return; }
       var linea = e.target.closest('.hr-line');
       if (linea && !linea.disabled && state.data.puede_editar) {
         window.__hrClickX = e.clientX || null;

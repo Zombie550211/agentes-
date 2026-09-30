@@ -362,6 +362,8 @@ _MIGRATIONS: list[tuple[str, str]] = [
     ) ENGINE=InnoDB"""),
     # Nombre legal completo del agente (lo muestra Horarios y va a Cuadratura).
     ("0063_users_nombre_completo", "ALTER TABLE users ADD COLUMN nombre_completo VARCHAR(160) NULL"),
+    # Fecha de ingreso del agente (Horarios; va a Cuadratura como hire_date).
+    ("0064_users_fecha_ingreso", "ALTER TABLE users ADD COLUMN fecha_ingreso DATE NULL"),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración

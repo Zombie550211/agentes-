@@ -16,6 +16,7 @@ Reglas de edición:
   responde 409 y no se toca nada.
 - Nombre completo (users.nombre_completo): el nombre legal; es el que se ve en Horarios
   y el que va a Cuadratura al crear el empleado.
+- Fecha de ingreso (users.fecha_ingreso): va a Cuadratura como hire_date.
 - ID de reloj (users.reloj_id): es el número con el que el agente marca en el reloj
   biométrico. Lo usa Cuadratura para enlazar horario y marcaciones. Único por agente.
 
@@ -65,7 +66,7 @@ def _es_supervisor(user: dict) -> bool:
 
 async def _agentes_visibles(s, user: dict, equipo: str = "") -> list[dict]:
     r = await s.execute(text("""
-        SELECT id, username, name, nombre_completo, role, team, supervisor, reloj_id
+        SELECT id, username, name, nombre_completo, fecha_ingreso, role, team, supervisor, reloj_id
         FROM users WHERE COALESCE(active, 1) = 1 ORDER BY name
     """))
     agentes = [dict(u) for u in cs.agentes_de_equipos(r.mappings().all())]
@@ -218,6 +219,17 @@ class NombreIn(BaseModel):
         return v or None
 
 
+class IngresoIn(BaseModel):
+    fecha_ingreso: Optional[date] = None
+
+    @field_validator("fecha_ingreso")
+    @classmethod
+    def _v(cls, v):
+        if v and not (date(1990, 1, 1) <= v <= cs.hoy_sv() + timedelta(days=366)):
+            raise ValueError("Fecha de ingreso fuera de rango")
+        return v
+
+
 class CopiarIn(BaseModel):
     desde: date
     hacia: date
@@ -294,6 +306,7 @@ async def ver_semana(inicio: Optional[str] = Query(None), equipo: str = Query(""
             "supervisor": a["supervisor"],
             "reloj_id": a["reloj_id"],
             "nombre_completo": a["nombre_completo"],
+            "fecha_ingreso": a["fecha_ingreso"].isoformat() if a["fecha_ingreso"] else None,
             "dias": dias_por_agente.get(int(a["id"]), {}),
             "version": versiones.get(int(a["id"]), _VERSION_VACIA),
         } for a in agentes],
@@ -393,6 +406,22 @@ async def asignar_nombre(user_id: int, body: NombreIn, request: Request, user: d
     audit._log("horarios_nombre_completo", user.get("username", ""), _ip(request),
                {"agente": user_id, "nombre_completo": body.nombre_completo})
     return {"success": True, "nombre_completo": body.nombre_completo}
+
+
+@router.put("/ingreso/{user_id}")
+async def asignar_ingreso(user_id: int, body: IngresoIn, request: Request, user: dict = Depends(current_user)):
+    if not (_es_admin_bo(user) or _es_supervisor(user)):
+        raise HTTPException(403, "No autorizado")
+    async with AsyncSessionLocal() as s:
+        if user_id not in {int(a["id"]) for a in await _agentes_visibles(s, user)}:
+            raise HTTPException(403, "Ese agente no pertenece a su equipo")
+        await s.execute(text("UPDATE users SET fecha_ingreso = :f WHERE id = :u"),
+                        {"f": body.fecha_ingreso, "u": user_id})
+        await s.commit()
+    fecha = body.fecha_ingreso.isoformat() if body.fecha_ingreso else None
+    audit._log("horarios_fecha_ingreso", user.get("username", ""), _ip(request),
+               {"agente": user_id, "fecha_ingreso": fecha})
+    return {"success": True, "fecha_ingreso": fecha}
 
 
 @router.post("/copiar")
