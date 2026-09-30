@@ -42,6 +42,7 @@
     {"href": "/residencial/llamadas-ventas.html", "label": "Llamadas y Ventas por Team", "color": "#475569", "icon": "<path d=\"M5 4c0 9 6 15 15 15l1-4-5-2-2 2c-3-1.5-5-3.5-6-6l2-2-2-5-4 1z\"/>"},
     {"href": "/residencial/comisiones.html", "label": "Comisión", "color": "#0891b2", "icon": "<circle cx=\"9\" cy=\"9\" r=\"5\"/><circle cx=\"15\" cy=\"15\" r=\"5\" fill=\"none\"/>"},
     {"href": "/residencial/semaforo.html", "label": "El Semáforo", "color": "#64748b", "icon": "<rect x=\"9\" y=\"2\" width=\"6\" height=\"20\" rx=\"2\"/><circle cx=\"12\" cy=\"6\" r=\"1.4\" fill=\"currentColor\"/><circle cx=\"12\" cy=\"12\" r=\"1.4\" fill=\"currentColor\"/><circle cx=\"12\" cy=\"18\" r=\"1.4\" fill=\"currentColor\"/>"},
+    {"href": "/horarios.html", "label": "Horarios", "color": "#2563eb", "icon": "<rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2\"/><line x1=\"3\" y1=\"10\" x2=\"21\" y2=\"10\"/><line x1=\"8\" y1=\"3\" x2=\"8\" y2=\"7\"/><line x1=\"16\" y1=\"3\" x2=\"16\" y2=\"7\"/><path d=\"M12 13v3l2 1\"/>"},
     {"sec": "ADMINISTRACIÓN"},
     {"href": "/residencial/empleado-mes.html", "label": "Empleado del Mes", "color": "#ca8a04", "icon": "<path d=\"M12 2l3 6.5 7 .8-5.2 4.8 1.4 7-6.2-3.6L5.8 21.1l1.4-7L2 9.3l7-.8z\"/>"},
     {"href": "/residencial/tabla-puntaje.html", "label": "Tabla de Puntaje", "color": "#ea580c", "icon": "<line x1=\"9\" y1=\"6\" x2=\"20\" y2=\"6\"/><line x1=\"9\" y1=\"12\" x2=\"20\" y2=\"12\"/><line x1=\"9\" y1=\"18\" x2=\"20\" y2=\"18\"/><circle cx=\"4.5\" cy=\"6\" r=\"1.3\" fill=\"currentColor\"/><circle cx=\"4.5\" cy=\"12\" r=\"1.3\" fill=\"currentColor\"/><circle cx=\"4.5\" cy=\"18\" r=\"1.3\" fill=\"currentColor\"/>"},
@@ -56,7 +57,8 @@
     {"href": "/lineas/lead.html", "label": "Nuevo Lead", "color": "#0d9488", "icon": "<circle cx=\"9\" cy=\"8\" r=\"3\"/><path d=\"M3 20c0-4 3-6 6-6s6 2 6 6\"/><line x1=\"19\" y1=\"8\" x2=\"19\" y2=\"14\"/><line x1=\"16\" y1=\"11\" x2=\"22\" y2=\"11\"/>"},
     {"href": "/lineas/costumer.html", "label": "Costumer Líneas", "color": "#0d9488", "icon": "<circle cx=\"8\" cy=\"8\" r=\"3\"/><path d=\"M2 20c0-3.5 2.7-6 6-6s6 2.5 6 6\"/><circle cx=\"17\" cy=\"9\" r=\"2.6\"/><path d=\"M15.5 14c2.6.4 4.5 2.6 4.5 6\"/>"},
     {"href": "/lineas/estadisticas.html", "label": "Estadísticas Líneas", "color": "#0d9488", "icon": "<line x1=\"4\" y1=\"20\" x2=\"20\" y2=\"20\"/><rect x=\"6\" y=\"12\" width=\"3\" height=\"8\" rx=\"2\"/><rect x=\"11\" y=\"8\" width=\"3\" height=\"12\" rx=\"2\"/><rect x=\"16\" y=\"4\" width=\"3\" height=\"16\" rx=\"2\"/>"},
-    {"href": "/lineas/ranking.html", "label": "Ranking Líneas", "color": "#0d9488", "icon": "<path d=\"M4 16l5-5 4 3 7-8\"/><path d=\"M4 20h16\"/>"}
+    {"href": "/lineas/ranking.html", "label": "Ranking Líneas", "color": "#0d9488", "icon": "<path d=\"M4 16l5-5 4 3 7-8\"/><path d=\"M4 20h16\"/>"},
+    {"href": "/horarios.html", "label": "Horarios", "color": "#2563eb", "icon": "<rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2\"/><line x1=\"3\" y1=\"10\" x2=\"21\" y2=\"10\"/><line x1=\"8\" y1=\"3\" x2=\"8\" y2=\"7\"/><line x1=\"16\" y1=\"3\" x2=\"16\" y2=\"7\"/><path d=\"M12 13v3l2 1\"/>"}
   ],
   };
 

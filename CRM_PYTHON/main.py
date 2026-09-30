@@ -54,6 +54,7 @@ from routers import (
     permissions_admin as permissions_admin_router,
     ai_chat as ai_chat_router,
     casos as casos_router,
+    horarios as horarios_router,
 )
 
 # ── Rutas base ──────────────────────────────────────────────────
@@ -326,6 +327,39 @@ _MIGRATIONS: list[tuple[str, str]] = [
     # con valor = '1' (ver casos.oficina_activa).
     ("0058_semaforo_oficina_apagado", """INSERT IGNORE INTO app_config (clave, valor)
         VALUES ('semaforo_oficina', '0')"""),
+    # ── Horarios de agentes → Sistema de Cuadratura (ver routers/horarios.py) ──
+    # ID con el que el agente marca en el reloj biométrico (enlaza horario ↔ marcaciones).
+    ("0059_users_reloj_id", "ALTER TABLE users ADD COLUMN reloj_id VARCHAR(32) NULL"),
+    ("0060_uq_users_reloj_id", "CREATE UNIQUE INDEX uq_users_reloj_id ON users (reloj_id)"),
+    ("0061_create_agent_schedules", """CREATE TABLE IF NOT EXISTS agent_schedules (
+        id            INT AUTO_INCREMENT PRIMARY KEY,
+        user_id       INT UNSIGNED NOT NULL,
+        work_date     DATE NOT NULL,
+        start_time    TIME NULL,
+        end_time      TIME NULL,
+        break_minutes SMALLINT NOT NULL DEFAULT 60,
+        rest_day      TINYINT(1) NOT NULL DEFAULT 0,
+        notes         VARCHAR(500) NULL,
+        updated_by    VARCHAR(150) NULL,
+        updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_as_user_date (user_id, work_date),
+        INDEX idx_as_date (work_date)
+    ) ENGINE=InnoDB"""),
+    ("0062_create_cuadratura_envios", """CREATE TABLE IF NOT EXISTS cuadratura_envios (
+        id           INT AUTO_INCREMENT PRIMARY KEY,
+        date_from    DATE NOT NULL,
+        date_to      DATE NOT NULL,
+        payload_hash CHAR(64) NOT NULL,
+        estado       VARCHAR(20) NOT NULL,
+        http_status  SMALLINT NULL,
+        agentes      INT NOT NULL DEFAULT 0,
+        resumen      JSON NULL,
+        error        TEXT NULL,
+        origen       VARCHAR(20) NOT NULL DEFAULT 'auto',
+        enviado_por  VARCHAR(150) NULL,
+        created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_ce_semana (date_from, id)
+    ) ENGINE=InnoDB"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración
@@ -490,21 +524,26 @@ async def _inicializar_esquema_y_datos():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_mysql()
-    tarea_semaforo = None
+    tarea_semaforo = tarea_horarios = None
     if _debe_inicializar_bd():
         await _inicializar_esquema_y_datos()
         # Semáforo de clientes: pasa a oficina los casos vencidos cada 5 min.
         # Solo en la instancia dueña del esquema, para no duplicar los avisos.
         from casos import bucle_vencimientos
         tarea_semaforo = asyncio.create_task(bucle_vencimientos())
+        # Horarios de agentes → Cuadratura: envío automático (semana actual y, desde
+        # el sábado, la siguiente) solo cuando cambian. Ver cuadratura_sync.py.
+        from cuadratura_sync import bucle_envio_horarios
+        tarea_horarios = asyncio.create_task(bucle_envio_horarios())
     else:
         print("[init] Migraciones y seeds OMITIDOS: esta instancia no es dueña del "
               "esquema (NODE_ENV != production y RUN_DB_INIT no activo). La app "
               "arranca y sirve, pero NO altera el esquema ni siembra datos. Para "
               "forzarlo (p.ej. contra una BD local), exporta RUN_DB_INIT=1.")
     yield
-    if tarea_semaforo:
-        tarea_semaforo.cancel()
+    for tarea in (tarea_semaforo, tarea_horarios):
+        if tarea:
+            tarea.cancel()
     await close_mysql()
 
 
@@ -719,6 +758,7 @@ app.include_router(comisiones_stats_router.router)
 app.include_router(permissions_admin_router.router)
 app.include_router(ai_chat_router.router)
 app.include_router(casos_router.router)
+app.include_router(horarios_router.router)
 
 # ── Archivos estáticos ───────────────────────────────────────────
 class _RevalidateStaticFiles(StaticFiles):
