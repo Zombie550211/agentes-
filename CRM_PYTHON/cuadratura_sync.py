@@ -86,14 +86,28 @@ def agentes_de_equipos(usuarios) -> list:
             if clave_equipo(u["team"]) in con_sup and not _es_backoffice(u["role"])]
 
 
+_PARTICULAS = {"de", "del", "la", "las", "los", "y"}
+
+
 def _separar_nombre(nombre: str) -> tuple[str, str]:
-    partes = (nombre or "").split()
+    # «de», «del», «la»… van pegadas a la palabra siguiente: «Emanuel De Jesús
+    # Velásquez Hernández» → nombres «Emanuel De Jesús», apellidos «Velásquez Hernández».
+    partes: list[str] = []
+    pendiente = ""
+    for p in (nombre or "").split():
+        if p.lower() in _PARTICULAS:
+            pendiente = f"{pendiente} {p}".strip()
+            continue
+        partes.append(f"{pendiente} {p}".strip())
+        pendiente = ""
+    if pendiente:
+        partes.append(pendiente)
     if not partes:
         return "Sin", "Nombre"
     if len(partes) == 1:
         return partes[0], "-"
-    # "Carlos Alberto Pérez López" → nombres = 2 primeras, apellidos = resto
-    corte = 2 if len(partes) >= 4 else 1
+    # 4 o más: los 2 últimos son apellidos («Carlos Alberto Pérez López»); si no, 1 nombre.
+    corte = len(partes) - 2 if len(partes) >= 4 else 1
     return " ".join(partes[:corte]), " ".join(partes[corte:])
 
 
@@ -118,7 +132,7 @@ async def armar_paquete(inicio: date) -> dict:
     fin = inicio + timedelta(days=6)
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
-            SELECT id, username, name, role, team, supervisor, reloj_id
+            SELECT id, username, name, nombre_completo, role, team, supervisor, reloj_id
             FROM users WHERE COALESCE(active, 1) = 1
         """))
         usuarios = agentes_de_equipos(r.mappings().all())
@@ -153,7 +167,7 @@ async def armar_paquete(inicio: date) -> dict:
     for u in sorted(usuarios, key=_orden):
         if int(u["id"]) not in por_usuario:
             continue
-        nombre, apellido = _separar_nombre(u["name"] or u["username"])
+        nombre, apellido = _separar_nombre(u["nombre_completo"] or u["name"] or u["username"])
         agentes.append({
             "crm_agent_id": str(u["id"]),
             "badge_number": (u["reloj_id"] or None),

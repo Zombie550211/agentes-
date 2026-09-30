@@ -14,6 +14,8 @@ Reglas de edición:
   pestañas). Para que una no borre sin saberlo lo que guardó la otra, cada agente viaja
   con una `version` (huella de sus días en la semana): si al guardar ya no coincide, se
   responde 409 y no se toca nada.
+- Nombre completo (users.nombre_completo): el nombre legal; es el que se ve en Horarios
+  y el que va a Cuadratura al crear el empleado.
 - ID de reloj (users.reloj_id): es el número con el que el agente marca en el reloj
   biométrico. Lo usa Cuadratura para enlazar horario y marcaciones. Único por agente.
 
@@ -63,7 +65,7 @@ def _es_supervisor(user: dict) -> bool:
 
 async def _agentes_visibles(s, user: dict, equipo: str = "") -> list[dict]:
     r = await s.execute(text("""
-        SELECT id, username, name, role, team, supervisor, reloj_id
+        SELECT id, username, name, nombre_completo, role, team, supervisor, reloj_id
         FROM users WHERE COALESCE(active, 1) = 1 ORDER BY name
     """))
     agentes = [dict(u) for u in cs.agentes_de_equipos(r.mappings().all())]
@@ -204,6 +206,18 @@ class RelojIn(BaseModel):
         return v.lstrip("0") or "0"  # el reloj rellena con ceros: '0083' = '83'
 
 
+class NombreIn(BaseModel):
+    nombre_completo: Optional[str] = Field(default=None, max_length=160)
+
+    @field_validator("nombre_completo")
+    @classmethod
+    def _v(cls, v):
+        v = " ".join(str(v or "").split())
+        if v and not re.fullmatch(r"[^\W\d_]+(?:[ '.-][^\W\d_]+)*", v):
+            raise ValueError("El nombre completo solo admite letras, espacios, guion y apóstrofo")
+        return v or None
+
+
 class CopiarIn(BaseModel):
     desde: date
     hacia: date
@@ -279,6 +293,7 @@ async def ver_semana(inicio: Optional[str] = Query(None), equipo: str = Query(""
             "es_supervisor": cs._es_supervisor_rol(a["role"]),
             "supervisor": a["supervisor"],
             "reloj_id": a["reloj_id"],
+            "nombre_completo": a["nombre_completo"],
             "dias": dias_por_agente.get(int(a["id"]), {}),
             "version": versiones.get(int(a["id"]), _VERSION_VACIA),
         } for a in agentes],
@@ -363,6 +378,21 @@ async def asignar_reloj(user_id: int, body: RelojIn, request: Request, user: dic
     audit._log("horarios_reloj_id", user.get("username", ""), _ip(request),
                {"agente": user_id, "reloj_id": body.reloj_id})
     return {"success": True, "reloj_id": body.reloj_id}
+
+
+@router.put("/nombre/{user_id}")
+async def asignar_nombre(user_id: int, body: NombreIn, request: Request, user: dict = Depends(current_user)):
+    if not (_es_admin_bo(user) or _es_supervisor(user)):
+        raise HTTPException(403, "No autorizado")
+    async with AsyncSessionLocal() as s:
+        if user_id not in {int(a["id"]) for a in await _agentes_visibles(s, user)}:
+            raise HTTPException(403, "Ese agente no pertenece a su equipo")
+        await s.execute(text("UPDATE users SET nombre_completo = :n WHERE id = :u"),
+                        {"n": body.nombre_completo, "u": user_id})
+        await s.commit()
+    audit._log("horarios_nombre_completo", user.get("username", ""), _ip(request),
+               {"agente": user_id, "nombre_completo": body.nombre_completo})
+    return {"success": True, "nombre_completo": body.nombre_completo}
 
 
 @router.post("/copiar")

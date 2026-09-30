@@ -54,6 +54,16 @@
   }
 
   // ── Fechas (AAAA-MM-DD, sin zona: se manejan como texto/UTC) ──
+  // Nombre que se muestra: el completo (users.nombre_completo) si lo hay, en tipo título;
+  // si no, el del CRM. «JOSELYN LISBETH CORTEZ GONZALEZ» → «Joselyn Lisbeth Cortez Gonzalez».
+  var PARTICULAS = { de: 1, del: 1, la: 1, las: 1, los: 1, y: 1 };
+  function tipoTitulo(s) {
+    return String(s).toLowerCase().split(' ').map(function (w, i) {
+      return i && PARTICULAS[w] ? w : w.charAt(0).toUpperCase() + w.slice(1);
+    }).join(' ');
+  }
+  function nombreDe(a) { return a.nombre_completo ? tipoTitulo(a.nombre_completo) : (a.name || a.username || ''); }
+
   function fecha(ymd) { return new Date(ymd + 'T00:00:00Z'); }
   function addDays(ymd, n) { var d = fecha(ymd); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
   function fmtCorta(ymd) { var d = fecha(ymd); return d.getUTCDate() + ' ' + MESES[d.getUTCMonth()]; }
@@ -171,6 +181,7 @@
     var q = state.busqueda.trim().toLowerCase();
     return state.data.agentes.filter(function (a) {
       return !q || (a.name || '').toLowerCase().indexOf(q) >= 0 || (a.username || '').toLowerCase().indexOf(q) >= 0 ||
+        (a.nombre_completo || '').toLowerCase().indexOf(q) >= 0 ||
         String(a.reloj_id || '') === q || (a.team || '').toLowerCase().indexOf(q) >= 0;
     });
   }
@@ -243,7 +254,7 @@
       (u.origen === 'auto' ? ' (automático)' : ' por ' + esc(u.enviado_por || '')) + '</span>';
     if (obs.length) {
       html += '<details><summary>' + obs.length + ' con observaciones</summary><ul>' + obs.map(function (o) {
-        var ag = (agentePorId(o.crm_agent_id) || {}).name || ('ID CRM ' + o.crm_agent_id);
+        var ag = agentePorId(o.crm_agent_id) ? nombreDe(agentePorId(o.crm_agent_id)) : ('ID CRM ' + o.crm_agent_id);
         var extra = (o.conflict_dates || []).length ? ' (' + o.conflict_dates.join(', ') + ')' : '';
         return '<li><b>' + esc(ag) + ':</b> ' + esc(o.message || o.status) + esc(extra) + '</li>';
       }).join('') + '</ul></details>';
@@ -338,7 +349,7 @@
     var buscando = !!state.busqueda.trim(), seccion = null;
     var cuerpo = (d.grupos || []).map(function (g) {
       var miembros = lista.filter(function (a) { return a.grupo === g.clave; })
-        .sort(function (x, y) { return (y.es_supervisor - x.es_supervisor) || (x.name || '').localeCompare(y.name || '', 'es'); });
+        .sort(function (x, y) { return (y.es_supervisor - x.es_supervisor) || nombreDe(x).localeCompare(nombreDe(y), 'es'); });
       if (!miembros.length) return '';
       var abierto = buscando || !state.colapsados[g.clave];
       var horasEq = miembros.reduce(function (s, a) { return s + totalAgente(a); }, 0);
@@ -370,9 +381,10 @@
 
   function filaAgente(a, f) {
     var d = state.data, t = a.dias[f], ed = editable(f);
+    var nombre = nombreDe(a);
     var reloj = d.puede_editar
       ? 'Reloj <input class="hr-reloj' + (a.reloj_id ? '' : ' missing') + '" data-reloj="' + a.id + '" value="' + esc(a.reloj_id || '') +
-        '" placeholder="sin ID" inputmode="numeric" maxlength="32" aria-label="ID de reloj de ' + esc(a.name) + '">'
+        '" placeholder="sin ID" inputmode="numeric" maxlength="32" aria-label="ID de reloj de ' + esc(nombre) + '">'
       : 'Reloj ' + esc(a.reloj_id || '—');
     var resumen = trabaja(t) ? etiquetaCorta(t) + ' · ' + fmtHoras(horasTurno(t)) : (t ? etiquetaCorta(t) : '—');
 
@@ -404,11 +416,13 @@
     var tot = totalAgente(a);
 
     return '<div class="hr-row3 hr-agent">' +
-      '<div class="hr-who"><div class="hr-name" title="' + esc(a.name) + '">' + esc(a.name) + (a.es_supervisor ? '<em> · Supervisor</em>' : '') + '</div>' +
-      '<div class="hr-mark">' + reloj + '<span>· ' + esc(resumen) + '</span></div></div>' +
+      '<div class="hr-who"><div class="hr-name-row"><div class="hr-name' + (a.nombre_completo ? '' : ' sin-completo') + '" title="' + esc(nombre) +
+      (a.nombre_completo ? '' : ' (sin nombre completo)') + '">' + esc(nombre) + (a.es_supervisor ? '<em> · Supervisor</em>' : '') + '</div>' +
+      (d.puede_editar ? '<button type="button" class="hr-edit-nombre" data-nombre="' + a.id + '" title="Nombre completo" aria-label="Editar el nombre completo de ' + esc(nombre) + '">✎</button>' : '') + '</div>' +
+      '<div class="hr-mark"><span class="hr-user" title="Usuario del CRM">' + esc(a.username || '') + '</span> · ' + reloj + '<span>· ' + esc(resumen) + '</span></div></div>' +
       '<button type="button" class="hr-line' + (a._dirtyDays && a._dirtyDays[f] ? ' dirty' : '') + '" data-u="' + a.id + '"' +
       (ed && d.puede_editar ? '' : ' disabled') + ' title="' + (d.puede_editar && !ed ? 'Día pasado: lo corrige RRHH en Cuadratura' : '') +
-      '" aria-label="Turno de ' + esc(a.name) + ' el ' + DIAS_LARGOS[state.dia] + ': ' + esc(etiquetaCorta(t)) + '">' + barra + '</button>' +
+      '" aria-label="Turno de ' + esc(nombre) + ' el ' + DIAS_LARGOS[state.dia] + ': ' + esc(etiquetaCorta(t)) + '">' + barra + '</button>' +
       '<div class="hr-wk"><div class="hr-sq">' + cuadros + '</div><span class="hr-tot' + (!tot ? ' zero' : tot > MAX_HORAS_SEMANA ? ' over' : '') + '">' + fmtHoras(tot) + '</span></div>' +
       '</div>';
   }
@@ -463,7 +477,7 @@
 
     var pop = $('hr-pop');
     pop.innerHTML =
-      '<div class="hr-pop-title">' + esc(a.name) + ' · ' + DIAS[state.dia] + ' ' + f.slice(8) + (shortday ? ' · shortday' : '') + '</div>' +
+      '<div class="hr-pop-title">' + esc(nombreDe(a)) + ' · ' + DIAS[state.dia] + ' ' + f.slice(8) + (shortday ? ' · shortday' : '') + '</div>' +
       grupos +
       '<div class="hr-pop-group">Otros</div>' +
       opcion('libre', 'Libre', '', 'var(--hr-libre)', libre) +
@@ -513,6 +527,9 @@
         asignar(a, [f], { rest_day: true, break_minutes: 0, notes: VACACIONES });
       } else if (op === 'otro') {
         $('hp-custom').hidden = false;
+        // Al crecer puede salirse por abajo: se sube lo necesario.
+        var alto = pop.getBoundingClientRect();
+        if (alto.bottom > window.innerHeight - 8) pop.style.top = Math.max(8, window.innerHeight - alto.height - 8) + 'px';
         $('hp-start').focus();
       } else if (op === 'otro-ok') {
         var s = $('hp-start').value, e = $('hp-end').value;
@@ -590,11 +607,25 @@
       a.reloj_id = r.reloj_id;
       input.value = r.reloj_id || '';
       input.classList.toggle('missing', !r.reloj_id);
-      toast(r.reloj_id ? 'ID de reloj de ' + a.name + ': ' + r.reloj_id : 'ID de reloj quitado a ' + a.name);
+      toast(r.reloj_id ? 'ID de reloj de ' + nombreDe(a) + ': ' + r.reloj_id : 'ID de reloj quitado a ' + nombreDe(a));
     } catch (e) {
       input.value = a.reloj_id || '';
       toast(e.message, true);
     }
+  }
+
+  async function editarNombre(id) {
+    var a = agentePorId(id);
+    var val = prompt('Nombre completo de ' + (a.name || a.username) + ' (usuario CRM: ' + a.username + '):', a.nombre_completo || '');
+    if (val === null) return;
+    val = val.trim().replace(/\s+/g, ' ');
+    if (val === (a.nombre_completo || '')) return;
+    try {
+      var r = await api('PUT', '/api/horarios/nombre/' + a.id, { nombre_completo: val || null });
+      a.nombre_completo = r.nombre_completo;
+      renderTablero();
+      toast(r.nombre_completo ? 'Nombre completo guardado: ' + nombreDe(a) : 'Nombre completo quitado a ' + a.username);
+    } catch (e) { toast(e.message, true); }
   }
 
   async function copiarAnterior() {
@@ -668,6 +699,8 @@
         renderTablero();
         return;
       }
+      var ed = e.target.closest('[data-nombre]');
+      if (ed) { editarNombre(ed.dataset.nombre); return; }
       var linea = e.target.closest('.hr-line');
       if (linea && !linea.disabled && state.data.puede_editar) {
         window.__hrClickX = e.clientX || null;

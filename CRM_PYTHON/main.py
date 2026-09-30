@@ -360,6 +360,8 @@ _MIGRATIONS: list[tuple[str, str]] = [
         created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_ce_semana (date_from, id)
     ) ENGINE=InnoDB"""),
+    # Nombre legal completo del agente (lo muestra Horarios y va a Cuadratura).
+    ("0063_users_nombre_completo", "ALTER TABLE users ADD COLUMN nombre_completo VARCHAR(160) NULL"),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración

@@ -13,7 +13,7 @@ body{min-height:100vh;background:var(--sup-2);font-family:'Inter',system-ui,sans
   /* Turnos: 8–5, 10–7, 1–9, 9–6 y otros horarios */
   --hr-a:#2563eb; --hr-b:#0d9488; --hr-c:#334155; --hr-d:#b45309; --hr-x:#7c3aed;
   --hr-libre:#e2e8f0; --hr-vac:#94a3b8;
-  --hr-cols:240px minmax(0,1fr) 150px
+  --hr-cols:280px minmax(0,1fr) 150px
 }
 .hr-page{max-width:1440px;margin:0 auto}
 
@@ -71,7 +71,7 @@ body{min-height:100vh;background:var(--sup-2);font-family:'Inter',system-ui,sans
 
 /* ── Tablero ── */
 .hr-scroll{overflow-x:auto;margin-top:24px}
-.hr-board{min-width:1040px}
+.hr-board{min-width:1080px}
 .hr-loading,.hr-empty{padding:40px 0;text-align:center;color:var(--texto-3);font-size:14px}
 .hr-row3{display:grid;grid-template-columns:var(--hr-cols);gap:12px}
 
@@ -101,9 +101,15 @@ body{min-height:100vh;background:var(--sup-2);font-family:'Inter',system-ui,sans
 
 .hr-agent{align-items:center;padding:4px 0;border-bottom:1px solid var(--linea)}
 .hr-who{min-width:0}
-.hr-name{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hr-name-row{display:flex;align-items:center;gap:4px;min-width:0}
+.hr-name{font-size:15px;font-weight:600;line-height:1.25;min-width:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.hr-name.sin-completo{color:var(--texto-2)}
+.hr-edit-nombre{flex:none;width:22px;height:22px;border:0;border-radius:5px;background:transparent;color:var(--texto-4);font-size:13px;cursor:pointer;opacity:0;transition:opacity .15s}
+.hr-agent:hover .hr-edit-nombre,.hr-edit-nombre:focus-visible{opacity:1}
+.hr-edit-nombre:hover{background:var(--sup-3);color:var(--hr-accent)}
+.hr-user{max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hr-name em{font-weight:400;color:var(--texto-3)}
-.hr-mark{font-size:12px;color:var(--texto-3);display:flex;align-items:center;gap:6px;margin-top:1px}
+.hr-mark{font-size:12px;color:var(--texto-3);display:flex;align-items:center;gap:6px;margin-top:1px;white-space:nowrap;overflow:hidden}
 .hr-reloj{width:64px;height:20px;padding:0 5px;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--texto-2);font:inherit;font-size:12px}
 .hr-reloj:hover,.hr-reloj:focus{border-color:var(--linea-fuerte);background:var(--sup-1);outline:none}
 .hr-reloj.missing{color:var(--hr-warn);border-color:var(--hr-warn-bg)}
