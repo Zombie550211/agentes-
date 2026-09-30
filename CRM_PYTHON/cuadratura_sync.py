@@ -108,8 +108,13 @@ def _hhmm(v) -> str | None:
 
 
 async def armar_paquete(inicio: date) -> dict:
-    """Paquete de la semana. Incluye a TODOS los agentes activos: los que no tienen
-    horario van con shifts=[] para que Cuadratura libere lo que tuviera del CRM."""
+    """Paquete de la semana: solo los agentes que tienen horario cargado en ella (así no
+    se crean en Cuadratura fichas vacías de quien no tiene horario).
+
+    Va con roster_complete=True porque siempre se arma con la semana ENTERA de todos
+    los teams: a quien estaba en un envío anterior y ya no viene (le quitaron el
+    horario), Cuadratura le libera los turnos que vinieron del CRM, respetando los
+    ajustes manuales de RRHH."""
     fin = inicio + timedelta(days=6)
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
@@ -146,6 +151,8 @@ async def armar_paquete(inicio: date) -> dict:
 
     agentes = []
     for u in sorted(usuarios, key=_orden):
+        if int(u["id"]) not in por_usuario:
+            continue
         nombre, apellido = _separar_nombre(u["name"] or u["username"])
         agentes.append({
             "crm_agent_id": str(u["id"]),
@@ -156,7 +163,8 @@ async def armar_paquete(inicio: date) -> dict:
             "supervisor": (u["supervisor"] or None) and u["supervisor"][:160],
             "shifts": por_usuario.get(int(u["id"]), []),
         })
-    return {"date_from": inicio.isoformat(), "date_to": fin.isoformat(), "agents": agentes}
+    return {"date_from": inicio.isoformat(), "date_to": fin.isoformat(), "roster_complete": True,
+            "agents": agentes}
 
 
 def _hash(paquete: dict) -> str:
