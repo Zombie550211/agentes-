@@ -136,8 +136,16 @@ async def armar_paquete(inicio: date) -> dict:
             turno["notes"] = f["notes"][:500]
         por_usuario.setdefault(int(f["user_id"]), []).append(turno)
 
+    # Ordenados por team, igual que en /horarios.html: Residencial y luego Líneas; dentro,
+    # team por team, con el supervisor primero y sus agentes por nombre.
+    from deps import team_seccion
+
+    def _orden(u):
+        return (team_seccion(u["team"]) != "residencial", clave_equipo(u["team"]),
+                not _es_supervisor_rol(u["role"]), (u["name"] or u["username"] or "").strip().lower())
+
     agentes = []
-    for u in sorted(usuarios, key=lambda x: x["id"]):
+    for u in sorted(usuarios, key=_orden):
         nombre, apellido = _separar_nombre(u["name"] or u["username"])
         agentes.append({
             "crm_agent_id": str(u["id"]),
