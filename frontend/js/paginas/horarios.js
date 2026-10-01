@@ -194,7 +194,7 @@
     $('hr-dayopts').hidden = false;
     $('hr-actions').hidden = !d.puede_editar;
     if (!d.puede_editar) {
-      $('hr-eyebrow').textContent = 'Mi horario';
+      $('hr-eyebrow').textContent = 'Horario de mi team';
       $('hr-search').hidden = true;
       $('hr-short-wrap').hidden = true;
       $('hr-hint').hidden = true;
@@ -373,8 +373,8 @@
         (abierto ? miembros.map(function (a) { return filaAgente(a, f); }).join('') : '') + '</section>';
     }).join('');
 
-    // El agente solo se ve a sí mismo: la cobertura por hora no le dice nada.
-    $('hr-board').innerHTML = (d.puede_editar ? histHtml : '') + cab + (cuerpo || '<div class="hr-empty">Ningún agente coincide con la búsqueda.</div>');
+    // Con un solo agente a la vista la cobertura por hora no dice nada.
+    $('hr-board').innerHTML = (lista.length > 1 ? histHtml : '') + cab + (cuerpo || '<div class="hr-empty">Ningún agente coincide con la búsqueda.</div>');
   }
 
   function etiquetaHora(h) { return (h > 12 ? h - 12 : h) + (h < 12 ? 'a' : 'p'); }
@@ -386,7 +386,7 @@
     var reloj = d.puede_editar
       ? 'Reloj <input class="hr-reloj' + (a.reloj_id ? '' : ' missing') + '" data-reloj="' + a.id + '" value="' + esc(a.reloj_id || '') +
         '" placeholder="sin ID" inputmode="numeric" maxlength="32" aria-label="ID de reloj de ' + esc(nombre) + '">'
-      : 'Reloj ' + esc(a.reloj_id || '—');
+      : (String(a.id) === String(d.yo) ? 'Reloj ' + esc(a.reloj_id || '—') : '');
     var ingreso = a.fecha_ingreso ? fmtFechaCorta(a.fecha_ingreso) : '';
     var ingresoHtml = d.puede_editar
       ? '<button type="button" class="hr-ingreso' + (ingreso ? '' : ' missing') + '" data-ingreso="' + a.id + '" title="Fecha de ingreso (clic para cambiarla)">' +
@@ -420,11 +420,12 @@
     }).join('');
     var tot = totalAgente(a);
 
-    return '<div class="hr-row3 hr-agent">' +
+    return '<div class="hr-row3 hr-agent' + (!d.puede_editar && String(a.id) === String(d.yo) ? ' yo' : '') + '">' +
       '<div class="hr-who"><div class="hr-name-row"><div class="hr-name' + (a.nombre_completo ? '' : ' sin-completo') + '" title="' + esc(nombre) +
       (a.nombre_completo ? '' : ' (sin nombre completo)') + '">' + esc(nombre) + (a.es_supervisor ? '<em> · Supervisor</em>' : '') + '</div>' +
       (d.puede_editar ? '<button type="button" class="hr-edit-nombre" data-nombre="' + a.id + '" title="Nombre completo" aria-label="Editar el nombre completo de ' + esc(nombre) + '">✎</button>' : '') + '</div>' +
-      '<div class="hr-mark"><span class="hr-user" title="Usuario del CRM">' + esc(a.username || '') + '</span> · ' + reloj + (ingresoHtml ? ' · ' + ingresoHtml : '') + '</div></div>' +
+      '<div class="hr-mark">' + ['<span class="hr-user" title="Usuario del CRM">' + esc(a.username || '') + '</span>', reloj, ingresoHtml]
+        .filter(Boolean).join(' · ') + '</div></div>' +
       '<button type="button" class="hr-line' + (a._dirtyDays && a._dirtyDays[f] ? ' dirty' : '') + '" data-u="' + a.id + '"' +
       (ed && d.puede_editar ? '' : ' disabled') + ' title="' + (d.puede_editar && !ed ? 'Día pasado: lo corrige RRHH en Cuadratura' : '') +
       '" aria-label="Turno de ' + esc(nombre) + ' el ' + DIAS_LARGOS[state.dia] + ': ' + esc(etiquetaCorta(t)) + '">' + barra + '</button>' +

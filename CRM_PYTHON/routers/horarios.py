@@ -2,8 +2,10 @@
 
 Quién ve qué:
 - Admin / Back Office: todos los agentes activos (con filtro opcional por equipo).
-- Supervisor: los agentes de su mismo equipo (users.team), o cuyo users.supervisor sea su nombre/usuario.
-- Agente: solo su propio horario, en lectura.
+- Supervisor: solo su propio team (users.team); es quien carga el horario de cada agente.
+- Agente: el horario de su propio team, en lectura. De los compañeros no ve el ID de reloj
+  ni la fecha de ingreso (solo los suyos).
+El team se lee de la BD en cada petición (el de la sesión puede estar desactualizado).
 
 Reglas de edición:
 - El supervisor no puede modificar días pasados (lo ya trabajado lo corrige RRHH en
@@ -69,19 +71,18 @@ async def _agentes_visibles(s, user: dict, equipo: str = "") -> list[dict]:
         SELECT id, username, name, nombre_completo, fecha_ingreso, role, team, supervisor, reloj_id
         FROM users WHERE COALESCE(active, 1) = 1 ORDER BY name
     """))
-    agentes = [dict(u) for u in cs.agentes_de_equipos(r.mappings().all())]
+    todos = [dict(u) for u in r.mappings().all()]
+    agentes = [dict(u) for u in cs.agentes_de_equipos(todos)]
     if _es_admin_bo(user):
         if equipo:
             agentes = [a for a in agentes if _norm(a["team"]) == _norm(equipo)]
         return agentes
-    if _es_supervisor(user):
-        # En los datos reales el vínculo fiable es el EQUIPO: el supervisor y sus agentes
-        # comparten users.team (p.ej. Eduardo Nuñez → "TEAM MIGUEL NUÑEZ"). users.supervisor
-        # suele venir vacío o con iniciales, así que solo se usa como respaldo por nombre.
-        equipo_sup = _norm(user.get("team"))
-        claves = {k for k in (_norm(user.get("name")), _norm(user.get("username"))) if k}
-        return [a for a in agentes
-                if (equipo_sup and _norm(a["team"]) == equipo_sup) or _norm(a["supervisor"]) in claves]
+    # Supervisor y agente: solo su propio team. El vínculo fiable es users.team (el
+    # supervisor y sus agentes lo comparten, p.ej. Eduardo Nuñez → "TEAM MIGUEL NUÑEZ").
+    yo = next((u for u in todos if str(u["id"]) == str(user.get("id"))), None)
+    mi_team = _norm((yo or {}).get("team") or user.get("team"))
+    if mi_team:
+        return [a for a in agentes if _norm(a["team"]) == mi_team]
     return [a for a in agentes if str(a["id"]) == str(user.get("id"))]
 
 
@@ -283,6 +284,11 @@ async def ver_semana(inicio: Optional[str] = Query(None), equipo: str = Query(""
             equipos = sorted({a["team"] for a in await _agentes_visibles(s, user) if a.get("team")})
 
     puede_editar = _es_admin_bo(user) or _es_supervisor(user)
+
+    def _privado(a: dict, valor):
+        # Quien no edita (agente) solo ve el ID de reloj y la fecha de ingreso propios.
+        return valor if puede_editar or str(a["id"]) == str(user.get("id")) else None
+
     return {
         "success": True,
         "inicio": lunes.isoformat(),
@@ -292,6 +298,7 @@ async def ver_semana(inicio: Optional[str] = Query(None), equipo: str = Query(""
         "puede_editar": puede_editar,
         "editable_desde": None if _es_admin_bo(user) else cs.hoy_sv().isoformat(),
         "es_admin": _es_admin_bo(user),
+        "yo": user.get("id"),
         "cuadratura_configurada": cs.configurado(),
         "equipos": equipos,
         "ultimo_envio": _envio_json(ultimo) if ultimo else None,
@@ -304,9 +311,9 @@ async def ver_semana(inicio: Optional[str] = Query(None), equipo: str = Query(""
             "grupo": _norm(a["team"]),
             "es_supervisor": cs._es_supervisor_rol(a["role"]),
             "supervisor": a["supervisor"],
-            "reloj_id": a["reloj_id"],
+            "reloj_id": _privado(a, a["reloj_id"]),
             "nombre_completo": a["nombre_completo"],
-            "fecha_ingreso": a["fecha_ingreso"].isoformat() if a["fecha_ingreso"] else None,
+            "fecha_ingreso": _privado(a, a["fecha_ingreso"].isoformat() if a["fecha_ingreso"] else None),
             "dias": dias_por_agente.get(int(a["id"]), {}),
             "version": versiones.get(int(a["id"]), _VERSION_VACIA),
         } for a in agentes],
