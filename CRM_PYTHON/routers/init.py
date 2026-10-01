@@ -4,6 +4,7 @@ from sqlalchemy import text
 from deps import current_user
 from typing import Optional
 import datetime as _dt, unicodedata, re, json, calendar
+from tiempo_sv import ahora_sv
 
 def _utcnow() -> _dt.datetime:
     """UTC naive (reemplazo de datetime.utcnow() deprecado en Python 3.12+)."""
@@ -128,6 +129,7 @@ def _row_to_lead(row) -> dict:
 @router.get("/api/init-dashboard")
 async def init_dashboard(user: dict = Depends(current_user)):
     now      = _utcnow()
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     role     = (user.get("role") or "").lower()
     username = user.get("username", "")
 
@@ -137,7 +139,7 @@ async def init_dashboard(user: dict = Depends(current_user)):
     is_agent     = "agente" in role or "agent" in role
     is_adm_or_bo = is_admin or is_bo
 
-    start_date, end_date = _month_range(now.year, now.month)
+    start_date, end_date = _month_range(_sv.year, _sv.month)
     sup_agents = get_supervisor_agents(username) if is_sup else []
 
     where  = ["""(
@@ -259,7 +261,7 @@ async def init_dashboard(user: dict = Depends(current_user)):
         "chartTeams": chart_teams, "chartProductos": chart_productos,
         "isAdmin": is_admin, "isBackoffice": is_bo, "isSupervisor": is_sup, "isAgent": is_agent,
         "roleInfo": {"supervisorAgents": sup_agents if is_sup else [], "viewAllUsers": is_adm_or_bo},
-        "monthYear": f"{now.month}/{now.year}",
+        "monthYear": f"{_sv.month}/{_sv.year}",
     }
 
 
@@ -268,7 +270,8 @@ async def init_dashboard(user: dict = Depends(current_user)):
 @router.get("/api/init-rankings")
 async def init_rankings(user: dict = Depends(current_user)):
     now = _utcnow()
-    start_date, end_date = _month_range(now.year, now.month)
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
+    start_date, end_date = _month_range(_sv.year, _sv.month)
 
     current_month_ranking = []
     try:
@@ -301,7 +304,7 @@ async def init_rankings(user: dict = Depends(current_user)):
             agg[key]["ventas"]      += 1
 
         sorted_agg = sorted(agg.items(), key=lambda x: (-x[1]["sum_puntaje"], -x[1]["ventas"]))[:30]
-        mes_key    = f"{now.year}-{str(now.month).zfill(2)}"
+        mes_key    = f"{_sv.year}-{str(_sv.month).zfill(2)}"
         for i, (key, data) in enumerate(sorted_agg):
             pts = round(data["sum_puntaje"], 2)
             current_month_ranking.append({
@@ -314,8 +317,8 @@ async def init_rankings(user: dict = Depends(current_user)):
 
     monthly_rankings: dict = {}
     for i in range(6):
-        m = now.month - i
-        y = now.year
+        m = _sv.month - i
+        y = _sv.year
         while m <= 0:
             m += 12; y -= 1
         ms, me  = _month_range(y, m)
@@ -371,7 +374,7 @@ async def init_rankings(user: dict = Depends(current_user)):
                 "second": top[1] if len(top) > 1 else None,
                 "third":  top[2] if len(top) > 2 else None,
             },
-            "monthYear": f"{now.month}/{now.year}",
+            "monthYear": f"{_sv.month}/{_sv.year}",
         },
         "ttl": 300000,
     }
@@ -382,7 +385,8 @@ async def init_rankings(user: dict = Depends(current_user)):
 @router.get("/api/init-estadisticas")
 async def init_estadisticas(user: dict = Depends(current_user)):
     now = _utcnow()
-    ms, me = _month_range(now.year, now.month)
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
+    ms, me = _month_range(_sv.year, _sv.month)
 
     date_cond = """(
         (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR LEFT(dia_instalacion,7)=LEFT(dia_venta,7)))
@@ -447,7 +451,7 @@ async def init_estadisticas(user: dict = Depends(current_user)):
     leads_chart_data = []
     try:
         date_from = (now - _dt.timedelta(days=60)).strftime("%Y-%m-%d")
-        date_to   = now.strftime("%Y-%m-%d")
+        date_to   = _sv.strftime("%Y-%m-%d")
         async with AsyncSessionLocal() as s:
             r = await s.execute(text("""
                 SELECT DATE_FORMAT(COALESCE(dia_venta, created_at), '%Y-%m-%d') AS fecha_key,
@@ -489,7 +493,7 @@ async def init_estadisticas(user: dict = Depends(current_user)):
         "data": {
             "teamsData": teams_data, "agentsData": agents_data,
             "leadsChartData": leads_chart_data, "statusSummary": status_summary,
-            "monthYear": f"{now.month}/{now.year}",
+            "monthYear": f"{_sv.month}/{_sv.year}",
         },
         "ttl": 300000,
     }
@@ -500,7 +504,8 @@ async def init_estadisticas(user: dict = Depends(current_user)):
 @router.get("/api/init-all-pages")
 async def init_all_pages(user: dict = Depends(current_user)):
     now = _utcnow()
-    ms, me = _month_range(now.year, now.month)
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
+    ms, me = _month_range(_sv.year, _sv.month)
     date_cond = """(
         (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR LEFT(dia_instalacion,7)=LEFT(dia_venta,7)))
         OR (dia_instalacion IS NOT NULL AND LEFT(dia_instalacion,7)=LEFT(:s,7) AND (dia_venta IS NULL OR LEFT(dia_venta,7)<LEFT(:s,7)))
@@ -580,7 +585,7 @@ async def init_all_pages(user: dict = Depends(current_user)):
         "user": {"username": user.get("username"), "role": user.get("role"), "team": user.get("team","Sin equipo")},
         "data": {
             "customers": customers, "leads": [], "rankings": rankings,
-            "stats": stats_agg, "monthYear": f"{now.month}/{now.year}",
+            "stats": stats_agg, "monthYear": f"{_sv.month}/{_sv.year}",
         },
         "ttl": 300000,
     }
@@ -591,7 +596,8 @@ async def init_all_pages(user: dict = Depends(current_user)):
 @router.get("/api/init-lead")
 async def init_lead(user: dict = Depends(current_user)):
     now = _utcnow()
-    ms, me = _month_range(now.year, now.month)
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
+    ms, me = _month_range(_sv.year, _sv.month)
     date_cond = "(dia_venta BETWEEN :s AND :e OR (created_at BETWEEN :s AND :e AND dia_venta IS NULL))"
     params    = {"s": ms, "e": me}
 
@@ -626,7 +632,7 @@ async def init_lead(user: dict = Depends(current_user)):
         "user": {"username": user.get("username"), "role": user.get("role")},
         "data": {
             "leadsData": leads_data, "statusSummary": status_summary,
-            "monthYear": f"{now.month}/{now.year}",
+            "monthYear": f"{_sv.month}/{_sv.year}",
         },
         "ttl": 300000,
     }
@@ -637,7 +643,8 @@ async def init_lead(user: dict = Depends(current_user)):
 @router.get("/api/init-facturacion")
 async def init_facturacion(user: dict = Depends(current_user)):
     now = _utcnow()
-    ms, me = _month_range(now.year, now.month)
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
+    ms, me = _month_range(_sv.year, _sv.month)
     date_cond = "(dia_venta BETWEEN :s AND :e OR (created_at BETWEEN :s AND :e AND dia_venta IS NULL))"
     params    = {"s": ms, "e": me}
 
@@ -678,7 +685,7 @@ async def init_facturacion(user: dict = Depends(current_user)):
         "data": {
             "facturacionData": facturacion_data,
             "ingresosSummary": ingresos_summary,
-            "monthYear": f"{now.month}/{now.year}",
+            "monthYear": f"{_sv.month}/{_sv.year}",
         },
         "ttl": 300000,
     }

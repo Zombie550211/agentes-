@@ -6,6 +6,7 @@ from permissions import resolve_market_restriction
 from datetime import datetime, timezone
 from typing import Optional
 import unicodedata, re, time, json
+from tiempo_sv import ahora_sv
 
 
 def _utcnow() -> datetime:
@@ -78,6 +79,7 @@ async def _get_ranking_core(
     para poder llamarla en proceso desde otros lugares (ej. tools de la IA) reutilizando
     el mismo filtrado por permisos (resolve_market_restriction)."""
     now = _utcnow()
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
 
     # Permiso 'market:restrict_view' (por equipo o usuario): si aplica, ignora el
     # mercado pedido por query y fuerza el asignado — el cliente no puede sortearlo.
@@ -100,9 +102,9 @@ async def _get_ranking_core(
         elif month and year and re.match(r"^\d{4}$", year or ""):
             yr, mo = int(year), int(month)
         else:
-            yr, mo = now.year, now.month
+            yr, mo = _sv.year, _sv.month
         start_date = f"{yr}-{mo:02d}-01"
-        end_date   = now.strftime("%Y-%m-%d")
+        end_date   = _sv.strftime("%Y-%m-%d")
 
     hard_limit = min(int(limit) if limit else 100, 500)
 
@@ -360,7 +362,7 @@ async def instalaciones_dia(
     if fecha and re.match(r"^\d{4}-\d{2}-\d{2}$", fecha):
         f = fecha
     else:
-        f = _utcnow().strftime("%Y-%m-%d")
+        f = ahora_sv().strftime("%Y-%m-%d")
 
     total = 0
     completadas = 0
@@ -408,9 +410,10 @@ async def ranking_init(
     from datetime import date as _date, timezone
     # Fechas por defecto: mes actual
     now = datetime.now()
-    fi = fechaInicio or f"{now.year}-{now.month:02d}-01"
-    last_day = (datetime(now.year, now.month % 12 + 1, 1) - __import__('datetime').timedelta(days=1)).day if now.month < 12 else 31
-    ff = fechaFin or f"{now.year}-{now.month:02d}-{last_day:02d}"
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
+    fi = fechaInicio or f"{_sv.year}-{_sv.month:02d}-01"
+    last_day = (datetime(_sv.year, _sv.month % 12 + 1, 1) - __import__('datetime').timedelta(days=1)).day if _sv.month < 12 else 31
+    ff = fechaFin or f"{_sv.year}-{_sv.month:02d}-{last_day:02d}"
 
     # _get_ranking_core y no get_ranking: llamado en proceso, los parámetros que no
     # se pasan a un endpoint valen el objeto Query() de FastAPI, no None, y

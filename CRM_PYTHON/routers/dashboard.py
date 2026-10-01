@@ -8,6 +8,7 @@ from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
 import datetime as _dt, calendar, traceback, json as _json
+from tiempo_sv import ahora_sv
 
 
 def _utcnow() -> _dt.datetime:
@@ -31,19 +32,20 @@ _STATUS_EXCLUDE_RE = "cancel|reserva|hold|rescheduled|reagendado"
 @router.get("/home")
 async def dashboard_home(user: dict = Depends(current_user)):
     now      = _utcnow()
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     role     = (user.get("role") or "").lower()
     username = (user.get("name") or user.get("username") or "").strip().lower()
     is_adm_bo = any(r in role for r in ("admin","administrator","administrador","backoffice","bo","administrativo"))
 
-    start, _end = _month_range(now.year, now.month)
+    start, _end = _month_range(_sv.year, _sv.month)
     # Usar el primer día del mes siguiente para capturar todas las horas del último día
     import calendar as _cal
-    _nm = now.month + 1 if now.month < 12 else 1
-    _ny = now.year if now.month < 12 else now.year + 1
+    _nm = _sv.month + 1 if _sv.month < 12 else 1
+    _ny = _sv.year if _sv.month < 12 else _sv.year + 1
     end = start  # alias para queries que usan :e como fecha fin
     end   = _end  # fin del mes completo (YYYY-MM-DD)
     end_excl = f"{_ny}-{_nm:02d}-01"  # fecha exclusiva para BETWEEN con datetime
-    year_start = f"{now.year}-01-01"
+    year_start = f"{_sv.year}-01-01"
 
     try:
         async with AsyncSessionLocal() as s:
@@ -391,8 +393,8 @@ async def dashboard_home(user: dict = Depends(current_user)):
         "llamadas_pendientes":    llamadas_pendientes,
         "mapa_clientes": _build_map_pins(map_rows),
         "meta": {
-            "mes":       now.month,
-            "anio":      now.year,
+            "mes":       _sv.month,
+            "anio":      _sv.year,
             "timestamp": now.isoformat(),
         },
     }

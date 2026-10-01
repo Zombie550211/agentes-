@@ -10,6 +10,7 @@ from geocoder import geocode_and_save
 from scoring import score_for
 from validators import ImagenUrl
 import realtime
+from tiempo_sv import ahora_sv
 
 
 def _utcnow() -> datetime:
@@ -220,10 +221,11 @@ async def _leads_bootstrap_core(
         is_global    = str(allData or "").lower() in ("true", "1")
         if not is_global and not disable_auto:
             now = _utcnow()
+            _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
             if month and re.match(r"^\d{4}-\d{2}$", month):
                 yr, mo = map(int, month.split("-"))
             else:
-                yr, mo = now.year, now.month
+                yr, mo = _sv.year, _sv.month
 
             # Sin mes específico (primera carga) se devuelve SOLO el mes en curso.
             #
@@ -317,14 +319,15 @@ async def _leads_bootstrap_core(
     async def _get_lineas_stats():
         try:
             now = _utcnow()  # noqa
+            _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
             if month and re.match(r"^\d{4}-\d{2}$", month):
                 yr, mo = map(int, month.split("-"))
             else:
-                yr, mo = now.year, now.month
+                yr, mo = _sv.year, _sv.month
             _, last_day = calendar.monthrange(yr, mo)
             mes_ini = f"{yr}-{mo:02d}-01"
             mes_fin = f"{yr}-{mo:02d}-{last_day:02d}"
-            hoy     = now.strftime("%Y-%m-%d")
+            hoy     = _sv.strftime("%Y-%m-%d")
 
             # Agrupar por supervisor directamente desde lineas_clientes
             async with AsyncSessionLocal() as s:
@@ -391,13 +394,14 @@ async def leads_agents_summary(
     user: dict = Depends(current_user),
 ):
     now = _utcnow()
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     if month and re.match(r"^\d{4}-\d{2}$", month):
         yr, mo = map(int, month.split("-"))
     else:
-        yr, mo = now.year, now.month
+        yr, mo = _sv.year, _sv.month
 
     start = fechaInicio or f"{yr}-{mo:02d}-01"
-    end   = fechaFin   or now.strftime("%Y-%m-%d")
+    end   = fechaFin   or _sv.strftime("%Y-%m-%d")
 
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
@@ -427,13 +431,14 @@ async def leads_kpis(
     user: dict = Depends(current_user),
 ):
     now = _utcnow()
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     if month and re.match(r"^\d{4}-\d{2}$", month):
         yr, mo = map(int, month.split("-"))
     else:
-        yr, mo = now.year, now.month
+        yr, mo = _sv.year, _sv.month
 
     start = fechaInicio or f"{yr}-{mo:02d}-01"
-    end   = fechaFin   or now.strftime("%Y-%m-%d")
+    end   = fechaFin   or _sv.strftime("%Y-%m-%d")
 
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
@@ -582,6 +587,7 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
         if await tiene_bloqueo(user):
             raise HTTPException(423, "Tienes llamadas pendientes: sube la captura o el audio de la llamada antes de registrar ventas nuevas")
     now = _utcnow()
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     # Auto-asignar supervisor/team desde el perfil del agente si no viene en el body
     if not body.supervisor:
         if _is_supervisor(user):
@@ -745,12 +751,13 @@ async def list_leads(
     is_global = any(str(v or "").lower() in ("true", "1") for v in [allData, noFilter, skipDate])
     if not is_global and not disable_auto and not fechaInicio and not fechaFin and not has_search:
         now = _utcnow()
+        _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
         if month and re.match(r"^\d{4}-\d{2}$", month):
             yr, mo = map(int, month.split("-"))
         elif month and year and re.match(r"^\d{4}$", year or ""):
             yr, mo = int(year), int(month)
         else:
-            yr, mo = now.year, now.month
+            yr, mo = _sv.year, _sv.month
         fechaInicio = f"{yr}-{mo:02d}-01"
         _, last_day = calendar.monthrange(yr, mo)
         fechaFin = f"{yr}-{mo:02d}-{last_day:02d}"
@@ -793,13 +800,14 @@ async def leads_dashboard(
     user: dict = Depends(current_user),
 ):
     now = _utcnow()
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     if month and re.match(r"^\d{4}-\d{2}$", month):
         yr, mo = map(int, month.split("-"))
     else:
-        yr, mo = now.year, now.month
+        yr, mo = _sv.year, _sv.month
 
     start = fechaInicio or f"{yr}-{mo:02d}-01"
-    end   = fechaFin   or now.strftime("%Y-%m-%d")
+    end   = fechaFin   or _sv.strftime("%Y-%m-%d")
     p = {"s": start, "e": end}
 
     async with AsyncSessionLocal() as s:
@@ -840,8 +848,9 @@ async def semaforo(
     user: dict = Depends(current_user),
 ):
     now = _utcnow()
-    start = fechaInicio or datetime(now.year, now.month, 1).strftime("%Y-%m-%d")
-    end   = fechaFin   or now.strftime("%Y-%m-%d")
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
+    start = fechaInicio or datetime(_sv.year, _sv.month, 1).strftime("%Y-%m-%d")
+    end   = fechaFin   or _sv.strftime("%Y-%m-%d")
 
     status_clause = ""
     params: dict = {"s": start, "e": end}
@@ -901,17 +910,18 @@ async def comisiones_agents(
     user: dict = Depends(current_user),
 ):
     now = _utcnow()
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     if month and re.match(r"^\d{4}-\d{2}$", month):
         yr, mo = map(int, month.split("-"))
     elif month and year and re.match(r"^\d{4}$", year or ""):
         yr, mo = int(year), int(month)
     else:
-        yr, mo = now.year, now.month
+        yr, mo = _sv.year, _sv.month
 
     start = fechaInicio or f"{yr}-{mo:02d}-01"
-    is_current = (now.year == yr and now.month == mo)
+    is_current = (_sv.year == yr and _sv.month == mo)
     end_of_month = f"{yr}-{mo:02d}-{calendar.monthrange(yr, mo)[1]:02d}"
-    end = fechaFin or (now.strftime("%Y-%m-%d") if is_current else end_of_month)
+    end = fechaFin or (_sv.strftime("%Y-%m-%d") if is_current else end_of_month)
 
     async with AsyncSessionLocal() as s:
         try:
@@ -973,12 +983,13 @@ async def comisiones_agentes_lineas(
     user: dict = Depends(current_user),
 ):
     now = _utcnow()
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     if month and re.match(r"^\d{4}-\d{2}$", month):
         yr, mo = map(int, month.split("-"))
     elif month and year and re.match(r"^\d{4}$", year or ""):
         yr, mo = int(year), int(month)
     else:
-        yr, mo = now.year, now.month
+        yr, mo = _sv.year, _sv.month
 
     start = f"{yr}-{mo:02d}-01"
     end   = f"{yr}-{mo:02d}-{calendar.monthrange(yr, mo)[1]:02d}"
@@ -1060,10 +1071,11 @@ async def leads_lineas(
     target_month = month
     if not target_month:
         now = _utcnow()
+        _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
         if year and re.match(r"^\d{4}$", year):
-            target_month = f"{year}-{now.month:02d}"
+            target_month = f"{year}-{_sv.month:02d}"
         else:
-            target_month = now.strftime("%Y-%m")
+            target_month = _sv.strftime("%Y-%m")
 
     where = ["1=1"]
     params: dict = {}
@@ -1300,6 +1312,7 @@ async def registrar_llamada(
         numero = n_actual + 1
         tipo   = "verificacion" if n_actual == 0 else "seguimiento"
         now    = _utcnow()
+        _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
         autor  = user.get("name") or user.get("username") or "system"
 
         await s.execute(text("""
@@ -1894,6 +1907,7 @@ async def crm_agente(raw_request: Request, user: dict = Depends(current_user)):
     agent_supervisor = agent_row.get("supervisor") or ""
     col_name = f"costumers_{agent_username.replace('.','_').replace(' ','_')}"
     now = _utcnow()
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     servicios = request_data.get("servicios")
 
     async with AsyncSessionLocal() as s:

@@ -16,6 +16,7 @@ import os
 import json
 import httpx
 from datetime import datetime, timezone
+from tiempo_sv import ahora_sv
 
 AI_GATEWAY_URL   = os.getenv("AI_GATEWAY_URL", "").rstrip("/")
 AI_GATEWAY_TOKEN = os.getenv("AI_GATEWAY_TOKEN", "")
@@ -407,13 +408,13 @@ async def _tool_consultar_facturacion(args: dict, user: dict) -> dict:
     from routers.facturacion import _campos_from_row, _to_number
     from database_mysql import AsyncSessionLocal
     from sqlalchemy import text
-    now = datetime.now(timezone.utc)
+    _sv = ahora_sv()  # «mes en curso» en hora de El Salvador
     async with AsyncSessionLocal() as s:
-        r = await s.execute(text("SELECT campos FROM facturacion WHERE anio = :y AND mes = :m"), {"y": now.year, "m": now.month})
+        r = await s.execute(text("SELECT campos FROM facturacion WHERE anio = :y AND mes = :m"), {"y": _sv.year, "m": _sv.month})
         rows = r.mappings().all()
     total_mes = sum(_to_number(_campos_from_row(row)[12]) for row in rows)
-    resumen = f"EXACTO — El total facturado en {now.year}-{now.month:02d} es {round(total_mes, 2)}."
-    return {"resumen": resumen, "anio": now.year, "mes": now.month, "total": round(total_mes, 2)}
+    resumen = f"EXACTO — El total facturado en {_sv.year}-{_sv.month:02d} es {round(total_mes, 2)}."
+    return {"resumen": resumen, "anio": _sv.year, "mes": _sv.month, "total": round(total_mes, 2)}
 
 
 async def _tool_consultar_comisiones(args: dict, user: dict) -> dict:
@@ -426,8 +427,8 @@ async def _tool_consultar_comisiones(args: dict, user: dict) -> dict:
     from routers.comisiones_stats import _EFECTIVO_YM, _COMPLETED
     from database_mysql import AsyncSessionLocal
     from sqlalchemy import text
-    now = datetime.now(timezone.utc)
-    ym = now.strftime("%Y-%m")
+    _sv = ahora_sv()  # «mes en curso» en hora de El Salvador
+    ym = _sv.strftime("%Y-%m")
     async with AsyncSessionLocal() as s:
         r = await s.execute(text(f"""
             SELECT TRIM(COALESCE(supervisor,'')) AS team, COUNT(*) AS ventas, COALESCE(SUM(puntaje),0) AS pts

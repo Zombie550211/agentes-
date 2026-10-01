@@ -693,6 +693,9 @@ _CSP = (
 # mide cuánto falta para la CSP estricta a medida que se migren los <script> inline
 # y los onclick a addEventListener. Cuando la consola quede limpia, esta pasa a ser
 # _CSP y la política deja de tener puntos débiles.
+# Apagada por defecto (llenaba la consola de todos los usuarios de avisos sin efecto):
+# se activa con CSP_REPORT_ONLY=1 en el .env para medir.
+_CSP_REPORT_ONLY_ACTIVA = os.getenv("CSP_REPORT_ONLY", "0").strip().lower() in ("1", "true", "si", "sí")
 _CSP_REPORT_ONLY = (
     "default-src 'self'; "
     "script-src 'self'; "
@@ -715,7 +718,8 @@ async def _security_headers(request: Request, call_next):
     resp.headers["X-Frame-Options"] = "DENY"
     resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     resp.headers["Content-Security-Policy"] = _CSP
-    resp.headers["Content-Security-Policy-Report-Only"] = _CSP_REPORT_ONLY
+    if _CSP_REPORT_ONLY_ACTIVA:
+        resp.headers["Content-Security-Policy-Report-Only"] = _CSP_REPORT_ONLY
     # El CRM no usa ninguna de estas APIs del navegador (se comprobó en todo el
     # frontend), así que se niegan: si un XSS llegara a colarse, no puede pedirlas.
     # `clipboard` NO se bloquea — sí se usa, para copiar datos de leads.

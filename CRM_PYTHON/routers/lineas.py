@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from typing import Optional, List, Any
 import re, random, unicodedata, time, json, os, secrets, asyncio
 import realtime
+from tiempo_sv import ahora_sv
 
 
 def _utcnow() -> datetime:
@@ -404,6 +405,7 @@ async def webhook_post(request: Request, x_api_key: str = Header(default="")):
         return JSONResponse({"success": False, "message": "Campo requerido: telefono"}, 400, headers=cors_headers)
 
     now            = _utcnow()
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     supervisor_key = clean(body.get("supervisor", "")).upper() or await _pick_supervisor_key()
     assigned_agent = await _pick_agent(supervisor_key) or "SIN ASIGNAR"
 
@@ -428,7 +430,7 @@ async def webhook_post(request: Request, x_api_key: str = Header(default="")):
             "si":    clean(body.get("servicio") or body.get("servicio_interes", "")),
             "notas": clean(body.get("notas") or body.get("mensaje", "")),
             "fuente": clean(body.get("fuente", "Chatbot AI")),
-            "dv":    now.strftime("%Y-%m-%d"),
+            "dv":    _sv.strftime("%Y-%m-%d"),
             "ag":    assigned_agent,
             "cl":    int(body.get("cantidad_lineas", 1) or 1),
             "now":   now,
@@ -634,6 +636,7 @@ async def post_lineas(body: LineasBody, user: dict = Depends(current_user)):
         initial_lines.append({"telefono": telf, "servicio": serv, "estado": st})
 
     now = _utcnow()
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
 
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
@@ -833,6 +836,7 @@ async def lineas_notes_add(body: NoteBody, user: dict = Depends(current_user)):
     if not body.clientId:
         raise HTTPException(400, "clientId requerido")
     now   = _utcnow()
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     texto = str(body.texto or "")[:1000]
     autor = user.get("username", "Sistema")
 
@@ -1142,6 +1146,7 @@ async def lineas_registrar_llamada(
         raise HTTPException(400, "ID inválido")
 
     now   = _utcnow()
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     autor = user.get("name") or user.get("username") or "system"
 
     async with AsyncSessionLocal() as s:
@@ -1231,7 +1236,7 @@ async def lineas_stats_global(
         else:
             # Sin mes → año actual completo (la gráfica anual de inicio lo usa)
             where = "WHERE LEFT(COALESCE(dia_venta, created_at), 4) = :p"
-            params["p"] = str(_utcnow().year)
+            params["p"] = str(ahora_sv().year)
 
     cache_key = f"__stats__{params.get('p', '__all__')}"
     cached = _cache_get(cache_key)
@@ -1267,16 +1272,17 @@ async def lineas_team_stats(
     user: dict = Depends(current_user),
 ):
     now = _utcnow()
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     if month and re.match(r"^\d{4}-\d{2}$", month):
         yr, mo = map(int, month.split("-"))
     else:
-        yr, mo = now.year, now.month
+        yr, mo = _sv.year, _sv.month
 
     import calendar as _cal
     _, last_day = _cal.monthrange(yr, mo)
     mes_ini = f"{yr}-{mo:02d}-01"
     mes_fin = f"{yr}-{mo:02d}-{last_day:02d}"
-    hoy     = now.strftime("%Y-%m-%d")
+    hoy     = _sv.strftime("%Y-%m-%d")
 
     # Obtener supervisores de Team Lineas desde users
     async with AsyncSessionLocal() as s:

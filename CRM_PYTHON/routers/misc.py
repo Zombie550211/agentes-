@@ -6,6 +6,7 @@ import session_guard
 from typing import Optional
 import datetime as _dt
 import re, json, calendar
+from tiempo_sv import ahora_sv
 
 router = APIRouter(tags=["Misc"])
 
@@ -47,8 +48,8 @@ def _normalize_status(raw: str) -> str:
 
 
 def _is_colchon(lead: dict, ref_date: _dt.datetime = None) -> bool:
-    now = ref_date or _utcnow()
-    ref_ym = f"{now.year}-{str(now.month).zfill(2)}"
+    _sv = ref_date or ahora_sv()  # «mes en curso» en hora de El Salvador
+    ref_ym = f"{_sv.year}-{str(_sv.month).zfill(2)}"
     dv = str(lead.get("dia_venta") or "")[:7]
     di = str(lead.get("dia_instalacion") or "")[:7]
     if not dv or not di or dv == di:
@@ -519,6 +520,7 @@ async def notificaciones_status(
     se le devuelven.
     """
     now = _utcnow()
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     lim_min = now - _dt.timedelta(days=7)
     since = None
     if desde:

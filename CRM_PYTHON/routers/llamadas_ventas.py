@@ -5,6 +5,7 @@ from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
 import datetime as _dt, re, calendar
+from tiempo_sv import ahora_sv
 
 def _utcnow() -> _dt.datetime:
     """UTC naive (reemplazo de datetime.utcnow() deprecado en Python 3.12+)."""
@@ -85,8 +86,9 @@ async def get_llamadas_ventas(
         raise HTTPException(403, "No autorizado")
 
     now          = _utcnow()
-    target_month = month if month else now.month
-    target_year  = year  if year  else now.year
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
+    target_month = month if month else _sv.month
+    target_year  = year  if year  else _sv.year
 
     _, last_day = calendar.monthrange(target_year, target_month)
     start_date  = f"{target_year}-{target_month:02d}-01"
@@ -138,8 +140,9 @@ async def post_llamadas_ventas(body: LlamadasVentasBody, user: dict = Depends(cu
             raise HTTPException(400, "Valor no numérico para LLAMADAS/VENTAS")
 
     now         = _utcnow()
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     day         = int(body.day)
-    fecha       = f"{now.year}-{now.month:02d}-{day:02d}"
+    fecha       = f"{_sv.year}-{_sv.month:02d}-{day:02d}"
     valor_final = body.value if body.type == "TOTALES" else (float(body.value) if body.value is not None else 0)
     by          = user.get("username", "unknown")
 
@@ -220,13 +223,14 @@ class CreateSheetBody(BaseModel):
 async def excel_create_sheet(body: CreateSheetBody, user: dict = Depends(current_user)):
     _check_excel_access(user)
     now       = _utcnow()
-    base_name = (body.name or "").strip() or now.strftime("%Y-%m-%d")
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
+    base_name = (body.name or "").strip() or _sv.strftime("%Y-%m-%d")
     by        = user.get("username", "unknown")
 
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("SELECT id FROM lv_excel_sheets WHERE name = :n LIMIT 1"), {"n": base_name})
         if r.first():
-            base_name = f"{base_name} ({now.strftime('%H:%M:%S')})"
+            base_name = f"{base_name} ({_sv.strftime('%H:%M:%S')})"
 
         r2 = await s.execute(text("""
             INSERT INTO lv_excel_sheets (name, created_at, created_by, updated_at, updated_by)
@@ -295,6 +299,7 @@ async def excel_save_cell(body: ExcelCellBody, user: dict = Depends(current_user
     _check_excel_access(user)
     sid = _sid(body.sheetId.strip())
     now = _utcnow()
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     v   = str(body.value or "").strip()
     by  = user.get("username", "unknown")
 
@@ -363,6 +368,7 @@ async def excel_save_user(body: ExcelUserBody, user: dict = Depends(current_user
     if not body.name or not body.team:
         raise HTTPException(400, "Faltan campos: name, team")
     now    = _utcnow()
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     name   = body.name.strip().upper()
     team   = body.team.strip()
     role   = (body.role or "").strip()
@@ -452,6 +458,7 @@ async def excel_rename_sheet(sheet_id: str, body: PatchSheetBody, user: dict = D
         raise HTTPException(400, "Formato de fecha inválido. Use MM/DD/YYYY")
 
     now = _utcnow()
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
             UPDATE lv_excel_sheets

@@ -6,6 +6,7 @@ from deps import current_user
 from permissions import resolve_market_restriction
 from datetime import datetime, timezone
 from typing import Optional, List
+from tiempo_sv import ahora_sv
 
 router = APIRouter(prefix="/api/equipos", tags=["Equipos"])
 
@@ -81,8 +82,9 @@ async def _equipo_estadisticas_core(fechaInicio=None, fechaFin=None, scope=None,
     FastAPI Query()), para poder llamarla en proceso desde otros lugares (ej. tools de
     la IA) reutilizando el mismo filtrado por permisos (resolve_market_restriction)."""
     now = _utcnow()
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     if not fechaInicio or not fechaFin:
-        fi = _to_ymd(datetime(now.year, now.month, 1))
+        fi = _to_ymd(datetime(_sv.year, _sv.month, 1))
         ff = _to_ymd(now)
         if scope == "day":
             fi = ff = _to_ymd(now)
@@ -171,8 +173,9 @@ async def equipo_telefonos(
 ):
     """Devuelve todos los teléfonos del mes y detecta duplicados."""
     now = _utcnow()
-    fi = fechaInicio or f"{now.year}-{str(now.month).zfill(2)}-01"
-    ff = fechaFin    or now.strftime("%Y-%m-%d")
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
+    fi = fechaInicio or f"{_sv.year}-{str(_sv.month).zfill(2)}-01"
+    ff = fechaFin    or _sv.strftime("%Y-%m-%d")
     params = {"fi": fi, "ff": ff}
     try:
         async with AsyncSessionLocal() as s:
@@ -234,8 +237,9 @@ async def equipo_comparar_telefonos(
 ):
     """Compara una lista de teléfonos del Excel contra la BD."""
     now = _utcnow()
-    fi = fechaInicio or f"{now.year}-{str(now.month).zfill(2)}-01"
-    ff = fechaFin    or now.strftime("%Y-%m-%d")
+    _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
+    fi = fechaInicio or f"{_sv.year}-{str(_sv.month).zfill(2)}-01"
+    ff = fechaFin    or _sv.strftime("%Y-%m-%d")
 
     def clean_tel(t: str) -> str:
         return str(t or "").strip().replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
