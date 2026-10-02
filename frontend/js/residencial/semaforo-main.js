@@ -446,8 +446,25 @@
   /* ════════════════════════════════════════════════════════════
      DATA FETCHING
   ════════════════════════════════════════════════════════════ */
+  // Cierres de mes cuadrados a mano con las supervisoras: para esos meses la página
+  // muestra estas cifras en vez de calcularlas desde los leads (la BD no se toca).
+  const CIERRES_MANUALES = {
+    '2026-09': [
+      { nombre:'Nuñez',    ventas:189, puntos:155.00 },
+      { nombre:'Johana',   ventas:185, puntos:145.15 },
+      { nombre:'Irania',   ventas:177, puntos:135.30 },
+      { nombre:'Martinez', ventas:161, puntos:122.85 },
+      { nombre:'Marisol',  ventas:146, puntos:113.10 },
+    ],
+  };
+
   async function fetchMonthSalesByTeam(date) {
     const {firstDay, lastDay} = getMonthRange(date);
+    const cierre = CIERRES_MANUALES[firstDay.slice(0,7)];
+    if (cierre) {
+      return cierre.map(t=>({...t}))
+        .sort((a,b)=>(b.ventas-a.ventas)||String(a.nombre).localeCompare(String(b.nombre),'es'));
+    }
     let teamRows = [];
     try {
       const resp = await fetchWithAuth(`/api/equipos/estadisticas?fechaInicio=${firstDay}&fechaFin=${lastDay}`);
