@@ -2659,18 +2659,32 @@ function openRoleModal(userId){
   document.getElementById('r-role').value=_normalizeRoleVal(u.role)||'Agente';
   var supSel=document.getElementById('r-supervisor');
   if(supSel){
-    var userSup=String(u.supervisor||u.supervisorKey||'').toUpperCase();
-    var matched=_supervisors.find(function(s){ return s.key===userSup||userSup.includes(s.key)||s.key.includes(userSup); });
-    supSel.value=matched?matched.key:'';
+    // Coincidencia exacta (clave, usuario o nombre). Antes se buscaba por subcadena y
+    // un supervisor vacío casaba con el primero de la lista (''.includes siempre es true):
+    // el modal mostraba un supervisor que el agente no tenía y Guardar se lo asignaba.
+    var userSup=String(u.supervisor||u.supervisorKey||'').trim().toUpperCase();
+    var matched=userSup?_supervisors.find(function(s){
+      return [s.key,s.username,s.name].some(function(v){ return String(v||'').trim().toUpperCase()===userSup; });
+    }):null;
+    supSel.querySelectorAll('option[data-extra]').forEach(function(o){ o.remove(); });
+    if(matched){ supSel.value=matched.key; }
+    else if(userSup){
+      // Supervisor guardado que ya no está en la lista: se muestra tal cual para no perderlo.
+      var extraSup=document.createElement('option'); extraSup.value=u.supervisor; extraSup.textContent=u.supervisor+' (actual)'; extraSup.dataset.extra='1';
+      supSel.appendChild(extraSup); supSel.value=u.supervisor;
+    } else { supSel.value=''; }
+    var opt0=supSel.querySelector('option[value=""]'); if(opt0) opt0.textContent=userSup?'— Selecciona supervisor —':'— Sin supervisor asignado —';
     onSupervisorChange('r');
     var teamSel=document.getElementById('r-team');
     if(teamSel){
       var currentTeam=u.team||u.equipo||'';
       setTimeout(function(){
+        // Sin team se deja vacío: si no, onSupervisorChange conserva el del último perfil abierto.
+        var t0=teamSel.querySelector('option[value=""]'); if(t0) t0.textContent=currentTeam?'— Selecciona equipo —':'— Sin equipo asignado —';
         if(currentTeam){
-          if(!teamSel.querySelector('option[value="'+currentTeam+'"]')){ var extra=document.createElement('option'); extra.value=currentTeam; extra.textContent=currentTeam; teamSel.appendChild(extra); }
+          if(!Array.from(teamSel.options).some(function(o){ return o.value===currentTeam; })){ var extra=document.createElement('option'); extra.value=currentTeam; extra.textContent=currentTeam; teamSel.appendChild(extra); }
           teamSel.value=currentTeam;
-        }
+        } else { teamSel.value=''; }
       },60);
     }
   }
