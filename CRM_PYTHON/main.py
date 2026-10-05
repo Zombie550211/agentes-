@@ -364,6 +364,11 @@ _MIGRATIONS: list[tuple[str, str]] = [
     ("0063_users_nombre_completo", "ALTER TABLE users ADD COLUMN nombre_completo VARCHAR(160) NULL"),
     # Fecha de ingreso del agente (Horarios; va a Cuadratura como hire_date).
     ("0064_users_fecha_ingreso", "ALTER TABLE users ADD COLUMN fecha_ingreso DATE NULL"),
+    # SPECTRUM BUSINESS pasa al grupo SPECTRUM del select de servicios (estaba en
+    # LINEA BUSINESS y no lo encontraban). La categoría solo agrupa el select:
+    # tipo, sistema y puntaje (1.0) no cambian.
+    ("0065_spectrum_business_grupo_spectrum", """UPDATE productos SET categoria = 'SPECTRUM'
+        WHERE servicio = 'SPECTRUM BUSINESS' AND categoria = 'LINEA BUSINESS'"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración

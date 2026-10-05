@@ -93,7 +93,7 @@ SCORING_SEED = {
     # distinga business de residencial.
     'AT&T CONSUMER INTERNET FIBRA': {'categoria': 'LINEA BUSINESS', 'base': 1.5},
     'AT&T CONSUMER INTERNET AIR':   {'categoria': 'LINEA BUSINESS', 'base': 1.25},
-    'SPECTRUM BUSINESS':            {'categoria': 'LINEA BUSINESS', 'base': 1.0},
+    # SPECTRUM BUSINESS está arriba, en el grupo SPECTRUM (migración 0065).
     'VIASAT BUSINESS':              {'categoria': 'LINEA BUSINESS', 'base': 1.0, 'sistema': 'CHUZO'},
     'OPTIMUM BUSINESS':             {'categoria': 'LINEA BUSINESS', 'base': 1.0},
     'DIRECTV BUSINESS':                      {'categoria': 'DIRECTV BUSINESS', 'base': 1.5},
