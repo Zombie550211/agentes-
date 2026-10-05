@@ -5,7 +5,7 @@
  * como una barra entre 8 a. m. y 9 p. m., con la hora de comida rayada. Arriba, cuántos
  * agentes hay en turno a cada hora (en naranja las horas con menos de MIN_TURNO).
  * Clic en la fila → turnos habituales (8–5, 10–7, 1–9, 9–6 y sus shortday de 4 h),
- * Libre, Vacaciones u otro horario. «Aplicar a Lun–Sáb» copia el turno a la semana.
+ * Libre, Vacaciones, Incapacidad u otro horario. «Aplicar a Lun–Sáb» copia el turno a la semana.
  *
  * Supervisor / admin editan (el supervisor no toca días pasados); el agente solo ve
  * el suyo. Lo guardado se envía solo al Sistema de Cuadratura cada 15 min, o al
@@ -23,7 +23,8 @@
   var H0 = 8, HN = 13;           // la línea de tiempo va de 8:00 a 21:00
   var MIN_TURNO = 4;             // menos agentes que esto en una hora → aviso
   var MAX_HORAS_SEMANA = 44;
-  var VACACIONES = 'Vacaciones'; // se guarda como día libre con esta nota
+  var VACACIONES = 'Vacaciones'; // se guardan como día libre con esta nota
+  var INCAPACIDAD = 'Incapacidad';
 
   // Turnos habituales. sd = su versión shortday (4 h, sin comida).
   var TURNOS = [
@@ -85,7 +86,10 @@
   }
 
   // ── Qué es cada día de un agente ──
-  function esVacaciones(t) { return t && t.rest_day && (t.notes || '').trim().toLowerCase() === VACACIONES.toLowerCase(); }
+  function esAusencia(t, nombre) { return !!(t && t.rest_day && (t.notes || '').trim().toLowerCase() === nombre.toLowerCase()); }
+  function esVacaciones(t) { return esAusencia(t, VACACIONES); }
+  function esIncapacidad(t) { return esAusencia(t, INCAPACIDAD); }
+  function esLibreConNota(t) { return esVacaciones(t) || esIncapacidad(t); }
   function turnoDe(t) {        // → { turno, corto(bool) } o null si es un horario propio
     if (!t || t.rest_day || !t.start) return null;
     for (var i = 0; i < TURNOS.length; i++) {
@@ -105,6 +109,7 @@
   function etiquetaCorta(t) {
     if (!t) return 'Sin horario';
     if (esVacaciones(t)) return VACACIONES;
+    if (esIncapacidad(t)) return INCAPACIDAD;
     if (t.rest_day) return 'Libre';
     var m = turnoDe(t);
     if (m) return m.sd ? m.turno.sdCorto : m.turno.corto;
@@ -113,6 +118,7 @@
   function colorDe(t) {
     if (!t) return '';
     if (esVacaciones(t)) return 'var(--hr-vac)';
+    if (esIncapacidad(t)) return 'var(--hr-inc)';
     if (t.rest_day) return 'var(--hr-libre)';
     var m = turnoDe(t);
     return m ? m.turno.color : 'var(--hr-x)';
@@ -479,7 +485,7 @@
       ? '<div class="hr-pop-group">Shortday · 4 h</div>' + cortos + '<div class="hr-pop-group">Jornada completa</div>' + completos
       : '<div class="hr-pop-group">Jornada completa</div>' + completos + '<div class="hr-pop-group">Shortday · 4 h</div>' + cortos;
     var propio = trabaja(t) && !cur;
-    var libre = t && t.rest_day && !esVacaciones(t);
+    var libre = t && t.rest_day && !esLibreConNota(t);
 
     var pop = $('hr-pop');
     pop.innerHTML =
@@ -488,13 +494,14 @@
       '<div class="hr-pop-group">Otros</div>' +
       opcion('libre', 'Libre', '', 'var(--hr-libre)', libre) +
       opcion('vac', VACACIONES, '', 'var(--hr-vac)', esVacaciones(t)) +
+      opcion('inc', INCAPACIDAD, '', 'var(--hr-inc)', esIncapacidad(t)) +
       opcion('otro', 'Otro horario…', propio ? h12(t.start) + '–' + h12(t.end) : '', 'var(--hr-x)', propio) +
       '<div class="hr-custom" id="hp-custom" hidden>' +
       '<div class="row"><label>Entrada<input class="hr-input" type="time" id="hp-start" value="' + esc(trabaja(t) ? t.start : '09:00') + '"></label>' +
       '<label>Salida<input class="hr-input" type="time" id="hp-end" value="' + esc(trabaja(t) ? t.end : '18:00') + '"></label></div>' +
       '<div class="hint" id="hp-hint"></div>' +
       '<div class="row"><label>Comida (min)<input class="hr-input" type="number" id="hp-break" min="0" max="480" step="5" value="' + (trabaja(t) ? (t.break_minutes || 0) : 60) + '"></label>' +
-      '<label>Nota<input class="hr-input" id="hp-notes" maxlength="500" value="' + esc(t && !esVacaciones(t) ? (t.notes || '') : '') + '"></label></div>' +
+      '<label>Nota<input class="hr-input" id="hp-notes" maxlength="500" value="' + esc(t && !esLibreConNota(t) ? (t.notes || '') : '') + '"></label></div>' +
       '<button type="button" class="hr-btn hr-btn-sm" data-op="otro-ok">Aplicar</button></div>' +
       '<div class="hr-pop-foot">' +
       '<button type="button" class="hr-btn hr-btn-ghost hr-btn-sm" data-op="semana"' + (t ? '' : ' disabled') + '>Aplicar ' + esc(t ? etiquetaCorta(t) : '') + ' a Lun–Sáb</button>' +
@@ -522,7 +529,7 @@
     pop.onclick = function (ev) {
       var b = ev.target.closest('[data-op]');
       if (!b || b.disabled) return;
-      var op = b.dataset.op, nota = t && !esVacaciones(t) ? (t.notes || null) : null;
+      var op = b.dataset.op, nota = t && !esLibreConNota(t) ? (t.notes || null) : null;
       if (op.indexOf('full:') === 0 || op.indexOf('sd:') === 0) {
         var T = TURNOS.find(function (x) { return x.k === op.split(':')[1]; });
         var corto = op.indexOf('sd:') === 0;
@@ -531,6 +538,8 @@
         asignar(a, [f], { rest_day: true, break_minutes: 0, notes: nota });
       } else if (op === 'vac') {
         asignar(a, [f], { rest_day: true, break_minutes: 0, notes: VACACIONES });
+      } else if (op === 'inc') {
+        asignar(a, [f], { rest_day: true, break_minutes: 0, notes: INCAPACIDAD });
       } else if (op === 'otro') {
         $('hp-custom').hidden = false;
         // Al crecer puede salirse por abajo: se sube lo necesario.
