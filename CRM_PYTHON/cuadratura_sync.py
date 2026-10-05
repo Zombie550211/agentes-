@@ -122,13 +122,18 @@ def _hhmm(v) -> str | None:
 
 
 async def armar_paquete(inicio: date) -> dict:
-    """Paquete de la semana: solo los agentes que tienen horario cargado en ella (así no
-    se crean en Cuadratura fichas vacías de quien no tiene horario).
+    """Paquete de la semana: TODO el personal de los teams de venta, cada uno con su team
+    exacto (campaign), tenga o no horario cargado. Así en Cuadratura cada empleado queda
+    en su team aunque esa semana aún no tenga turnos. Quien no tiene team no viaja.
+
+    (Hasta el 05-10-2026 solo iban los que tenían horario, porque Cuadratura creaba fichas
+    vacías. Desde su commit a27cef7 ya no las crea: al agente que no está en Empleados lo
+    rechaza con un aviso para que RRHH lo registre.)
 
     Va con roster_complete=True porque siempre se arma con la semana ENTERA de todos
-    los teams: a quien estaba en un envío anterior y ya no viene (le quitaron el
-    horario), Cuadratura le libera los turnos que vinieron del CRM, respetando los
-    ajustes manuales de RRHH."""
+    los teams: a quien estaba en un envío anterior y ya no viene (salió del team),
+    Cuadratura le libera los turnos que vinieron del CRM, respetando los ajustes
+    manuales de RRHH."""
     fin = inicio + timedelta(days=6)
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
@@ -165,8 +170,6 @@ async def armar_paquete(inicio: date) -> dict:
 
     agentes = []
     for u in sorted(usuarios, key=_orden):
-        if int(u["id"]) not in por_usuario:
-            continue
         nombre, apellido = _separar_nombre(u["nombre_completo"] or u["name"] or u["username"])
         agente = {
             "crm_agent_id": str(u["id"]),
