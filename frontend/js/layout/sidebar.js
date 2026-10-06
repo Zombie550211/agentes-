@@ -30,6 +30,7 @@
     {"href": "/residencial/formulario-registro.html", "label": "Formulario", "color": "#059669", "icon": "<circle cx=\"9\" cy=\"8\" r=\"3\"/><path d=\"M3 20c0-4 3-6 6-6s6 2 6 6\"/><line x1=\"19\" y1=\"8\" x2=\"19\" y2=\"14\"/><line x1=\"16\" y1=\"11\" x2=\"22\" y2=\"11\"/>"},
     {"href": "/residencial/costumer.html", "label": "Lista de Clientes", "color": "#7c3aed", "icon": "<circle cx=\"8\" cy=\"8\" r=\"3\"/><path d=\"M2 20c0-3.5 2.7-6 6-6s6 2.5 6 6\"/><circle cx=\"17\" cy=\"9\" r=\"2.6\"/><path d=\"M15.5 14c2.6.4 4.5 2.6 4.5 6\"/>"},
     {"href": "/residencial/normativas-tipificacion.html", "label": "Tipificación", "color": "#0d9488", "icon": "<path d=\"M3 11l9-8 9 8-9 9-9-9z\"/><circle cx=\"15\" cy=\"8\" r=\"1.3\" fill=\"currentColor\"/>"},
+    {"href": "/residencial/promociones-validas.html", "label": "Promociones activas", "color": "#db2777", "icon": "<path d=\"M3 12V4h8l10 10-8 8L3 12z\"/><circle cx=\"7.5\" cy=\"8.5\" r=\"1.5\" fill=\"currentColor\"/>"},
     {"sec": "ESTADÍSTICAS"},
     {"href": "/residencial/productividad-bo.html", "label": "Productividad B.O", "color": "#d97706", "icon": "<circle cx=\"9\" cy=\"7\" r=\"3\"/><path d=\"M4 20c0-3.5 2.7-6 5-6\"/><path d=\"M13 20l3-4 2 2 3-6\"/>"},
     {"href": "/residencial/estadisticas.html", "label": "Estadísticas", "color": "#ca8a04", "icon": "<line x1=\"4\" y1=\"20\" x2=\"20\" y2=\"20\"/><rect x=\"6\" y=\"12\" width=\"3\" height=\"8\" rx=\"2\"/><rect x=\"11\" y=\"8\" width=\"3\" height=\"12\" rx=\"2\"/><rect x=\"16\" y=\"4\" width=\"3\" height=\"16\" rx=\"2\"/>"},

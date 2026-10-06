@@ -55,6 +55,7 @@ from routers import (
     ai_chat as ai_chat_router,
     casos as casos_router,
     horarios as horarios_router,
+    promociones as promociones_router,
 )
 
 # ── Rutas base ──────────────────────────────────────────────────
@@ -369,6 +370,25 @@ _MIGRATIONS: list[tuple[str, str]] = [
     # tipo, sistema y puntaje (1.0) no cambian.
     ("0065_spectrum_business_grupo_spectrum", """UPDATE productos SET categoria = 'SPECTRUM'
         WHERE servicio = 'SPECTRUM BUSINESS' AND categoria = 'LINEA BUSINESS'"""),
+    # Promociones activas (ver routers/promociones.py). `items` es la lista de
+    # montos de cada promoción: [{"label": "Por giga", "amount": 3}, ...].
+    ("0067_create_promociones", """CREATE TABLE IF NOT EXISTS promociones (
+        id             INT AUTO_INCREMENT PRIMARY KEY,
+        titulo         VARCHAR(120) NOT NULL,
+        items          JSON         NOT NULL,
+        destacada      TINYINT(1)   NOT NULL DEFAULT 0,
+        creado_por     VARCHAR(150) NULL,
+        actualizado_por VARCHAR(150) NULL,
+        created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB"""),
+    # Las cuatro promociones vigentes al crear la sección (06-10-2026).
+    ("0068_seed_promociones", """INSERT INTO promociones (titulo, items, destacada, creado_por) VALUES
+        ('Mejor team y mejor supervisor',
+         '[{"label": "Mejor team", "amount": 200}, {"label": "Mejor supervisor", "amount": 100}]', 1, 'sistema'),
+        ('Todos los gigas menos Xfinity', '[{"label": "Por giga", "amount": 3}]', 0, 'sistema'),
+        ('Bono por 23 puntos activos, o más', '[{"label": "Bono", "amount": 35}]', 0, 'sistema'),
+        ('Transfer a Líneas y venta efectiva', '[{"label": "Por línea", "amount": 1}]', 0, 'sistema')"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración
@@ -772,6 +792,7 @@ app.include_router(permissions_admin_router.router)
 app.include_router(ai_chat_router.router)
 app.include_router(casos_router.router)
 app.include_router(horarios_router.router)
+app.include_router(promociones_router.router)
 
 # ── Archivos estáticos ───────────────────────────────────────────
 class _RevalidateStaticFiles(StaticFiles):
