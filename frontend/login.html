@@ -23,9 +23,13 @@
     <!-- ════════════════ IZQUIERDA — escenario ════════════════ -->
     <section class="stage">
       <!-- Video de temporada (Halloween). muted + playsinline: sin eso el
-           navegador no lo reproduce solo, y en iPhone se abriría a pantalla completa. -->
+           navegador no lo reproduce solo, y en iPhone se abriría a pantalla completa.
+           Primero AV1/WebM (1,2 MB); el navegador que no lo decodifique — Safari
+           anterior a 17, equipos viejos — salta al MP4 H.264 (2,2 MB). El `codecs`
+           es lo que le deja descartarlo sin descargarlo. -->
       <video class="stage-video" autoplay muted loop playsinline preload="auto"
-        poster="images/video/login-halloween-poster.webp" aria-hidden="true" tabindex="-1">
+        poster="images/video/login-halloween-poster.webp?v=2" aria-hidden="true" tabindex="-1">
+        <source src="images/video/login-halloween.webm" type='video/webm; codecs="av01.0.05M.08"'>
         <source src="images/video/login-halloween.mp4" type="video/mp4">
       </video>
       <img class="stage-logo" src="images/logo-mark.webp" alt="Connecting">
