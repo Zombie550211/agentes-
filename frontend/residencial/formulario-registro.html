@@ -195,6 +195,7 @@
 <link rel="stylesheet" href="/css/residencial/formulario-registro.css">
   <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
   <link rel="stylesheet" href="/css/base/form-controls.css?v=20260921">
+  <link rel="stylesheet" href="/css/componentes/transferencia-form.css?v=20261006g">
 </head>
 <body>
   <script src="/js/core/theme-init.js"></script>
@@ -202,11 +203,12 @@
   <script src="/js/layout/sidebar-ui.js" defer></script>
   <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
   <script src="/js/layout/sidebar-user.js" defer></script>
+  <script src="/js/componentes/transferencia-form.js?v=20261006g" defer></script>
 <nav class="sidebar" id="app-sidebar"></nav>
 <div class="main-content">
 
 <!-- ══ HEADER ══ -->
-<div class="flex items-center justify-between bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-10 shadow-sm">
+<div class="flex items-center justify-between flex-wrap gap-4 bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-10 shadow-sm">
   <div class="flex items-center gap-4">
     <div class="w-10 h-10 bg-teal-50 rounded-xl flex items-center justify-center flex-shrink-0">
       <i class="fas fa-clipboard-list text-teal-600 text-sm"></i>
@@ -216,14 +218,18 @@
       <p class="text-[11px] text-slate-400 mt-0.5">Ingresa los detalles del cliente potencial y categorización del servicio</p>
     </div>
   </div>
-  <button id="save-btn" class="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold uppercase tracking-wider px-5 py-2.5 rounded-xl shadow-sm transition-colors duration-150 disabled:opacity-60">
+  <div class="trf-tabs" role="tablist" aria-label="Tipo de registro">
+    <button type="button" class="trf-tab trf-tab-on" role="tab" data-trf-tab="lead" aria-selected="true"><i class="fas fa-clipboard-list"></i> Registro de Lead</button>
+    <button type="button" class="trf-tab" role="tab" data-trf-tab="transferencia" aria-selected="false"><i class="fas fa-phone-volume"></i> Transferir llamada</button>
+  </div>
+  <button id="save-btn" data-trf-panel="lead" data-trf-reserve class="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold uppercase tracking-wider px-5 py-2.5 rounded-xl shadow-sm transition-colors duration-150 disabled:opacity-60">
     <i class="fas fa-save text-xs"></i>
     Guardar Lead
   </button>
 </div>
 
 <!-- ══ GRID PRINCIPAL ══ -->
-<div class="w-full max-w-[1400px] mx-auto grid grid-cols-12 gap-6 p-6">
+<div class="w-full max-w-[1400px] mx-auto grid grid-cols-12 gap-6 p-6" data-trf-panel="lead">
 
   <!-- ── COLUMNA IZQUIERDA (8/12) ── -->
   <div class="col-span-12 xl:col-span-8 flex flex-col gap-6">
@@ -507,6 +513,9 @@
   </div><!-- /col-right -->
 
 </div><!-- /grid -->
+
+<!-- ══ TRANSFERENCIA DE LLAMADA (pestaña) — la pinta transferencia-form.js ══ -->
+<div id="trf-panel" data-trf-panel="transferencia" class="trf-oculto p-6"></div>
 </div><!-- /main-content -->
 
 <script>

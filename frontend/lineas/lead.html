@@ -37,6 +37,7 @@
   <link rel="stylesheet" href="/css/lineas/lead.css?v=20260922">
   <link rel="stylesheet" href="/css/componentes/glass-cards-cream.css?v=20260716a">
   <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
+  <link rel="stylesheet" href="/css/componentes/transferencia-form.css?v=20261006g">
 </head>
 <body>
   <script src="/js/core/theme-init.js"></script>
@@ -44,6 +45,7 @@
   <script src="/js/layout/sidebar-ui.js" defer></script>
   <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
   <script src="/js/layout/sidebar-user.js" defer></script>
+  <script src="/js/componentes/transferencia-form.js?v=20261006g" defer></script>
   <div class="layout">
     <nav class="sidebar" id="app-sidebar"></nav>
     <main class="main-content">
@@ -58,7 +60,12 @@
           </div>
         </div>
 
-        <form id="lineasForm" autocomplete="off">
+        <div class="trf-tabs" role="tablist" aria-label="Tipo de registro" style="margin-bottom:16px">
+          <button type="button" class="trf-tab trf-tab-on" role="tab" data-trf-tab="lead" aria-selected="true"><i class="fas fa-clipboard-list"></i> Nuevo Lead</button>
+          <button type="button" class="trf-tab" role="tab" data-trf-tab="transferencia" aria-selected="false"><i class="fas fa-phone-volume"></i> Transferir llamada</button>
+        </div>
+
+        <form id="lineasForm" autocomplete="off" data-trf-panel="lead">
 
           <!-- Card 1: Datos del cliente -->
           <div class="ll-card">
@@ -215,6 +222,9 @@
           </div>
 
         </form>
+
+        <!-- Transferencia de llamada (pestaña) — la pinta transferencia-form.js -->
+        <div id="trf-panel" data-trf-panel="transferencia" class="trf-oculto"></div>
       </div>
 
     </main>

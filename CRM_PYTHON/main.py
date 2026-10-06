@@ -55,6 +55,7 @@ from routers import (
     ai_chat as ai_chat_router,
     casos as casos_router,
     horarios as horarios_router,
+    transferencias as transferencias_router,
     promociones as promociones_router,
 )
 
@@ -370,6 +371,28 @@ _MIGRATIONS: list[tuple[str, str]] = [
     # tipo, sistema y puntaje (1.0) no cambian.
     ("0065_spectrum_business_grupo_spectrum", """UPDATE productos SET categoria = 'SPECTRUM'
         WHERE servicio = 'SPECTRUM BUSINESS' AND categoria = 'LINEA BUSINESS'"""),
+    # Transferencias de llamadas entre secciones (ver routers/transferencias.py):
+    # residencial → agente de un team de líneas, y líneas → agente de residencial.
+    ("0066_create_transferencias_llamadas", """CREATE TABLE IF NOT EXISTS transferencias_llamadas (
+        id                    INT AUTO_INCREMENT PRIMARY KEY,
+        seccion_origen        VARCHAR(20)  NOT NULL,
+        telefono              VARCHAR(30)  NOT NULL,
+        motivo                TEXT         NOT NULL,
+        nombre_cliente        VARCHAR(150) NOT NULL,
+        direccion             VARCHAR(300) NOT NULL,
+        team_destino          VARCHAR(100) NOT NULL,
+        agente_destino_id     INT UNSIGNED NOT NULL,
+        agente_destino_nombre VARCHAR(150) NULL,
+        created_by            VARCHAR(100) NOT NULL,
+        created_by_nombre     VARCHAR(150) NULL,
+        created_by_team       VARCHAR(100) NULL,
+        created_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_tl_created (created_at),
+        INDEX idx_tl_by (created_by),
+        INDEX idx_tl_by_team (created_by_team),
+        INDEX idx_tl_team_dest (team_destino),
+        INDEX idx_tl_agente_dest (agente_destino_id)
+    ) ENGINE=InnoDB"""),
     # Promociones activas (ver routers/promociones.py). `items` es la lista de
     # montos de cada promoción: [{"label": "Por giga", "amount": 3}, ...].
     ("0067_create_promociones", """CREATE TABLE IF NOT EXISTS promociones (
@@ -792,6 +815,7 @@ app.include_router(permissions_admin_router.router)
 app.include_router(ai_chat_router.router)
 app.include_router(casos_router.router)
 app.include_router(horarios_router.router)
+app.include_router(transferencias_router.router)
 app.include_router(promociones_router.router)
 
 # ── Archivos estáticos ───────────────────────────────────────────
