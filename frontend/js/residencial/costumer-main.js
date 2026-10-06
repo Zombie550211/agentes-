@@ -106,6 +106,8 @@
 
   function isAdminOrBackoffice(role){const r=String(role||'').toLowerCase();return['admin','administrador','administrator','administrativo','backoffice','back office','back_office','bo','b.o','rol_icon','rol-icon','rol_bamo','icon','bamo'].some(function(v){return r===v||r.includes(v);});}
   function isAgent(role){const r=String(role||'').toLowerCase();return['agente','agent','agentes','vendedor','vendedores','seller'].some(function(v){return r===v||r.includes(v);});}
+  // Backoffice trabaja el status de comisión, no el status de la venta (el servidor lo rechaza).
+  function isBackoffice(role){const r=String(role||'').toLowerCase();return r.includes('backoffice')||r.includes('back office')||r.includes('back_office');}
   function isSupervisor(role){const r=String(role||'').toLowerCase();return['supervisor','supervisores','supervisora'].some(function(v){return r===v||r.includes(v);});}
 
   /* ── NORMALIZATION ── */
@@ -926,6 +928,7 @@
     setVal('edit-dia-instalacion',String(pick(['dia_instalacion','installDate'])).slice(0,10));
     setVal('edit-puntaje',lead.puntaje!==''?lead.puntaje:'');
     setSelectSafe('edit-status',lead.status);
+    (function(){const ud=getUserData(),bo=isBackoffice(ud.role||ud.rol),sel=document.getElementById('edit-status');if(sel){sel.disabled=bo;sel.title=bo?'Backoffice no puede cambiar el status (solo el status de comisión)':'';}})();
     setVal('edit-supervisor',pick(['supervisor','team']));
     setVal('edit-motivo',pick(['motivo_llamada','motivo','reason']));
 
@@ -1469,7 +1472,7 @@
       dia_venta:       _v('edit-dia-venta'),
       dia_instalacion: _v('edit-dia-instalacion'),
       puntaje:         _v('edit-puntaje')?parseFloat(_v('edit-puntaje'))||0:undefined,
-      status:          _v('edit-status'),
+      status:          isBackoffice(getUserData().role||getUserData().rol)?'':_v('edit-status'),
       supervisor:      _v('edit-supervisor'),
       motivo_llamada:  _v('edit-motivo'),
       agente:          _v('edit-agente'),
@@ -1516,7 +1519,7 @@
   window.liberarDeReserva=window.liberarDeReservaConAsignacion;
 
   /* ── BULK STATUS ── */
-  function canUseBulkStatus(){const ud=getUserData(),role=String(ud.role||ud.rol||'').toLowerCase();return !isAgent(role)&&!isSupervisor(role);}
+  function canUseBulkStatus(){const ud=getUserData(),role=String(ud.role||ud.rol||'').toLowerCase();return !isAgent(role)&&!isSupervisor(role)&&!isBackoffice(role);}
   var _bulkMode='phone';
   window.openBulkStatusPhoneModal=function(){if(!canUseBulkStatus()){showToast('No tienes permisos para esta herramienta','error');return;}const modal=document.getElementById('bulkStatusPhoneModal');if(modal){modal.style.display='flex';modal.setAttribute('aria-hidden','false');}};
   window.closeBulkStatusPhoneModal=function(){const modal=document.getElementById('bulkStatusPhoneModal');if(modal){modal.style.display='none';modal.setAttribute('aria-hidden','true');}const pr=document.getElementById('bulkStatusPreview');if(pr)pr.style.display='none';const ta1=document.getElementById('bulkPhoneNumbers');if(ta1)ta1.value='';const ta2=document.getElementById('bulkNamesList');if(ta2)ta2.value='';_updateBulkCount();};

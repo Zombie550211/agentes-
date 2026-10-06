@@ -57,6 +57,16 @@ def _is_admin_or_bo(user: dict) -> bool:
     )
 
 
+def _is_backoffice(user: dict) -> bool:
+    r = _normalize(user.get("role", ""))
+    return "backoffice" in r or "back office" in r
+
+
+# Backoffice trabaja el status de COMISIÓN, no el status de la venta (05-10-2026): el
+# servidor no le deja cambiar `status` y lo que intente no se guarda ni se registra.
+_BO_NO_STATUS = "Backoffice no puede cambiar el status del cliente (solo el status de comisión)"
+
+
 def _is_supervisor(user: dict) -> bool:
     return "supervisor" in _normalize(user.get("role", ""))
 
@@ -1436,6 +1446,8 @@ async def update_lead_status(
 ):
     if not (_is_admin_or_bo(user) or _is_supervisor(user)):
         raise HTTPException(403, "No autorizado")
+    if _is_backoffice(user):
+        raise HTTPException(403, _BO_NO_STATUS)
     if not body.status:
         raise HTTPException(400, "status requerido")
     mysql_id, mongo_id = _find_id(lead_id)
@@ -1597,6 +1609,11 @@ async def update_lead(
     data = body.model_dump(exclude_none=True)
     # No sobreescribir con strings vacíos — solo procesar campos con valor real
     data = {k: v for k, v in data.items() if v != "" and v is not None}
+    # Backoffice: el status que mande se descarta (el resto de campos sí se guarda).
+    if _is_backoffice(user) and "status" in data:
+        data.pop("status")
+        if not data:
+            raise HTTPException(403, _BO_NO_STATUS)
     if not data:
         raise HTTPException(400, "Sin campos para actualizar")
 
