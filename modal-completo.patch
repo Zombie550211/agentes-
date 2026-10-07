@@ -1,0 +1,1618 @@
+From 3f7a6152d07a35031029005ccd7e8e128507b4df Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 26 Sep 2026 14:59:08 -0600
+Subject: [PATCH 1/3] style(clientes): modal "Editar cliente" con estilo
+ glassmorphism
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- Fondo de la página difuminado con dos resplandores suaves (marino y
+  dorado) y panel translúcido con borde claro tipo cristal.
+- Secciones como láminas de vidrio; campos, botones y bloques internos
+  semitransparentes con foco discreto. Modo oscuro incluido y respaldo
+  opaco para navegadores sin backdrop-filter.
+- El marcado del modal gana clases em-* como ganchos de estilo; la
+  lógica no cambia.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01FGWnzu4vV3PTFUsccu3rfZ
+---
+ .../css/residencial/costumer-edit-glass.css   | 232 ++++++++++++++++++
+ frontend/js/residencial/costumer-main.js      |  64 ++---
+ frontend/residencial/costumer.html            |   4 +-
+ 3 files changed, 267 insertions(+), 33 deletions(-)
+ create mode 100644 frontend/css/residencial/costumer-edit-glass.css
+
+diff --git a/frontend/css/residencial/costumer-edit-glass.css b/frontend/css/residencial/costumer-edit-glass.css
+new file mode 100644
+index 0000000..7a9844d
+--- /dev/null
++++ b/frontend/css/residencial/costumer-edit-glass.css
+@@ -0,0 +1,232 @@
++/* ═══════════════════════════════════════════════════════════════════════
++   MODAL "EDITAR CLIENTE" — estilo glassmorphism sobrio
++   ═══════════════════════════════════════════════════════════════════════
++   El contenido del modal se genera en costumer-main.js (toggleRowExpand)
++   con estilos en línea; las clases em-* son los ganchos que usa esta hoja.
++   Por eso aquí hay !important: es la única forma de ganarle a un style="".
++
++   Idea: vidrio esmerilado discreto. La página se ve borrosa detrás, el
++   panel es translúcido con un borde claro que simula el filo del cristal,
++   y las secciones son láminas un poco más opacas. Sin colores saturados:
++   la paleta es la corporativa (marino + dorado) con mucha transparencia.
++   ═══════════════════════════════════════════════════════════════════════ */
++
++:root {
++  --gl-overlay:     rgba(15, 27, 45, .28);
++  --gl-glow-1:      rgba(28, 58, 102, .30);
++  --gl-glow-2:      rgba(184, 146, 58, .18);
++  --gl-panel:       rgba(255, 255, 255, .62);
++  --gl-panel-edge:  rgba(255, 255, 255, .75);
++  --gl-sheet:       rgba(255, 255, 255, .55);
++  --gl-sheet-edge:  rgba(255, 255, 255, .80);
++  --gl-line:        rgba(15, 27, 45, .08);
++  --gl-input:       rgba(255, 255, 255, .72);
++  --gl-input-edge:  rgba(15, 27, 45, .12);
++  --gl-input-focus: rgba(255, 255, 255, .95);
++  --gl-ico-bg:      rgba(28, 58, 102, .08);
++  --gl-ico:         #1c3a66;
++  --gl-shadow:      0 30px 80px rgba(15, 27, 45, .22), 0 2px 6px rgba(15, 27, 45, .06);
++  --gl-sheet-shadow: 0 1px 2px rgba(15, 27, 45, .04), inset 0 1px 0 rgba(255, 255, 255, .6);
++}
++
++body.dark-theme {
++  --gl-overlay:     rgba(4, 8, 16, .45);
++  --gl-glow-1:      rgba(59, 100, 170, .28);
++  --gl-glow-2:      rgba(212, 178, 94, .12);
++  --gl-panel:       rgba(20, 29, 46, .62);
++  --gl-panel-edge:  rgba(255, 255, 255, .10);
++  --gl-sheet:       rgba(255, 255, 255, .04);
++  --gl-sheet-edge:  rgba(255, 255, 255, .08);
++  --gl-line:        rgba(255, 255, 255, .07);
++  --gl-input:       rgba(255, 255, 255, .05);
++  --gl-input-edge:  rgba(255, 255, 255, .12);
++  --gl-input-focus: rgba(255, 255, 255, .09);
++  --gl-ico-bg:      rgba(126, 166, 224, .12);
++  --gl-ico:         #9dbbe8;
++  --gl-shadow:      0 30px 80px rgba(0, 0, 0, .55), 0 2px 6px rgba(0, 0, 0, .3);
++  --gl-sheet-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
++}
++
++/* ── Fondo: la página borrosa con dos resplandores muy suaves ─────── */
++#editClienteModal {
++  background:
++    radial-gradient(circle at 18% 22%, var(--gl-glow-1), transparent 42%),
++    radial-gradient(circle at 82% 78%, var(--gl-glow-2), transparent 40%),
++    var(--gl-overlay) !important;
++  backdrop-filter: blur(14px) saturate(120%) !important;
++  -webkit-backdrop-filter: blur(14px) saturate(120%) !important;
++}
++
++/* ── Panel de vidrio ──────────────────────────────────────────────── */
++#editClienteDialog {
++  background: var(--gl-panel) !important;
++  backdrop-filter: blur(28px) saturate(140%);
++  -webkit-backdrop-filter: blur(28px) saturate(140%);
++  border: 1px solid var(--gl-panel-edge);
++  border-radius: 20px !important;
++  box-shadow: var(--gl-shadow) !important;
++  overflow: hidden;
++  position: relative;
++}
++/* Reflejo sutil en el borde superior, como el filo de un cristal */
++#editClienteDialog::before {
++  content: '';
++  position: absolute;
++  inset: 0 0 auto 0;
++  height: 1px;
++  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .9), transparent);
++  pointer-events: none;
++}
++body.dark-theme #editClienteDialog::before { background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .18), transparent); }
++
++/* Navegadores sin backdrop-filter: panel opaco para que se lea igual */
++@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
++  #editClienteDialog { background: var(--sheet) !important; }
++  #editClienteModal  { background: rgba(15, 27, 45, .55) !important; }
++}
++
++/* ── Cabecera ─────────────────────────────────────────────────────── */
++#editClienteContent .em-head {
++  border-bottom: 1px solid var(--gl-line) !important;
++  background: linear-gradient(180deg, rgba(255, 255, 255, .35), transparent);
++}
++body.dark-theme #editClienteContent .em-head { background: linear-gradient(180deg, rgba(255, 255, 255, .03), transparent); }
++#editClienteContent .em-head-ico {
++  width: 46px !important; height: 46px !important;
++  background: var(--gl-sheet) !important;
++  border: 1px solid var(--gl-sheet-edge) !important;
++  border-radius: 14px !important;
++  box-shadow: var(--gl-sheet-shadow);
++}
++#editClienteContent .em-head-ico svg { stroke: var(--gl-ico); }
++#editClienteContent .em-title {
++  font-size: 1.12rem !important;
++  font-weight: 700 !important;
++  letter-spacing: -.01em;
++  color: var(--ink-1) !important;
++}
++#editClienteContent .em-subtitle { color: var(--ink-3) !important; }
++
++/* ── Botones ──────────────────────────────────────────────────────── */
++#editClienteContent .em-btn {
++  border-radius: 10px !important;
++  font-family: var(--f) !important;
++  transition: background .15s, border-color .15s, box-shadow .15s;
++}
++#editClienteContent .em-btn-ghost {
++  background: var(--gl-input) !important;
++  border: 1px solid var(--gl-input-edge) !important;
++  color: var(--ink-2) !important;
++  backdrop-filter: blur(8px);
++}
++#editClienteContent .em-btn-ghost:hover { background: var(--gl-input-focus) !important; color: var(--ink-1) !important; }
++#editClienteContent .em-btn-primary {
++  background: var(--navy, #13294b) !important;
++  color: #fff !important;
++  border: 1px solid rgba(255, 255, 255, .12) !important;
++  box-shadow: 0 6px 18px rgba(19, 41, 75, .25), inset 0 1px 0 rgba(255, 255, 255, .12) !important;
++}
++#editClienteContent .em-btn-primary:hover { background: var(--navy-2, #1c3a66) !important; }
++body.dark-theme #editClienteContent .em-btn-primary { background: #1f3a66 !important; box-shadow: 0 6px 18px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .1) !important; }
++#editClienteContent .em-btn-sm { padding: 6px 14px !important; }
++
++/* ── Columnas ─────────────────────────────────────────────────────── */
++#editClienteContent .em-col-l { border-right: 1px solid var(--gl-line) !important; }
++
++/* ── Secciones: láminas de vidrio más opacas ──────────────────────── */
++#editClienteContent .em-sec {
++  background: var(--gl-sheet) !important;
++  border: 1px solid var(--gl-sheet-edge) !important;
++  border-radius: 16px !important;
++  box-shadow: var(--gl-sheet-shadow);
++  padding-left: 22px !important;   /* anula el padding de la franja lateral */
++}
++#editClienteContent .em-sec-ico {
++  background: var(--gl-ico-bg) !important;
++  border-radius: 9px !important;
++}
++#editClienteContent .em-sec-ico svg { stroke: var(--gl-ico); }
++#editClienteContent .em-sec-title {
++  font-size: .68rem !important;
++  font-weight: 700 !important;
++  letter-spacing: .1em !important;
++  color: var(--ink-2) !important;
++}
++
++/* ── Campos ───────────────────────────────────────────────────────── */
++#editClienteContent .em-lbl {
++  font-size: .6rem !important;
++  font-weight: 600 !important;
++  letter-spacing: .09em !important;
++  color: var(--ink-3) !important;
++}
++#editClienteContent .em-input {
++  background: var(--gl-input) !important;
++  border: 1px solid var(--gl-input-edge) !important;
++  border-radius: 10px !important;
++  color: var(--ink-1) !important;
++  font-family: var(--f);
++  transition: background .15s, border-color .15s, box-shadow .15s;
++}
++#editClienteContent .em-input:hover:not(:disabled) { border-color: rgba(28, 58, 102, .28) !important; }
++body.dark-theme #editClienteContent .em-input:hover:not(:disabled) { border-color: rgba(255, 255, 255, .22) !important; }
++#editClienteContent .em-input:focus {
++  outline: none;
++  background: var(--gl-input-focus) !important;
++  border-color: rgba(28, 58, 102, .45) !important;
++  box-shadow: 0 0 0 4px rgba(28, 58, 102, .10) !important;
++}
++body.dark-theme #editClienteContent .em-input:focus {
++  border-color: rgba(126, 166, 224, .5) !important;
++  box-shadow: 0 0 0 4px rgba(126, 166, 224, .12) !important;
++}
++#editClienteContent select.em-input option { background: var(--sheet); color: var(--ink-1); }
++body.dark-theme #editClienteContent input.em-input[type="date"] { color-scheme: dark; }
++#editClienteContent .em-pts { font-family: var(--f-mono) !important; border-radius: 8px !important; }
++
++/* ── Tabla clave/valor (supervisor, motivo, puntaje) ──────────────── */
++#editClienteContent .em-kv {
++  background: var(--gl-input) !important;
++  border: 1px solid var(--gl-input-edge) !important;
++  border-radius: 12px !important;
++}
++#editClienteContent .em-kv > div { border-color: var(--gl-line) !important; }
++
++/* ── Notas ────────────────────────────────────────────────────────── */
++#editClienteContent .em-count {
++  background: var(--gl-ico-bg) !important;
++  border: 1px solid var(--gl-sheet-edge) !important;
++  color: var(--ink-2) !important;
++}
++#editClienteContent .em-note-wrap {
++  background: var(--gl-input) !important;
++  border: 1px solid var(--gl-input-edge) !important;
++  border-radius: 12px !important;
++}
++
++/* ── Captura / contrato ───────────────────────────────────────────── */
++#editClienteContent .em-file {
++  background: var(--gl-input) !important;
++  border: 1px solid var(--gl-input-edge) !important;
++  border-radius: 12px !important;
++}
++#editClienteContent .em-drop {
++  background: var(--gl-input) !important;
++  border: 1.5px dashed var(--gl-input-edge) !important;
++  border-radius: 12px !important;
++}
++#editClienteContent .em-verified {
++  background: rgba(31, 122, 77, .10) !important;
++  color: var(--go, #1f7a4d) !important;
++  border: 1px solid rgba(31, 122, 77, .25) !important;
++}
++
++/* Scroll interno discreto */
++#editClienteModal::-webkit-scrollbar { width: 8px; }
++#editClienteModal::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .35); border-radius: 8px; }
++
++@media (max-width: 900px) {
++  #editClienteContent .em-body { grid-template-columns: 1fr !important; }
++  #editClienteContent .em-col-l { border-right: none !important; border-bottom: 1px solid var(--gl-line); }
++  #editClienteContent .em-col { padding: 16px !important; }
++}
+diff --git a/frontend/js/residencial/costumer-main.js b/frontend/js/residencial/costumer-main.js
+index 19778d4..ceb6293 100644
+--- a/frontend/js/residencial/costumer-main.js
++++ b/frontend/js/residencial/costumer-main.js
+@@ -1034,7 +1034,7 @@
+ 
+     var imgSrc=_safeImgUrl(lead.imagen_url);
+     var imgZoneHtml=
+-      '<div id="ile-img-zone-'+lid+'" style="border:1.5px dashed var(--line-2);border-radius:10px;background:var(--sheet-2);height:180px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer;" onclick="document.getElementById(\'ile-file-'+lid+'\').click()">'+
++      '<div id="ile-img-zone-'+lid+'" class="em-drop" style="border:1.5px dashed var(--line-2);border-radius:10px;background:var(--sheet-2);height:180px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer;" onclick="document.getElementById(\'ile-file-'+lid+'\').click()">'+
+         (imgSrc
+           ?'<img id="ile-img-preview-'+lid+'" src="'+escHTML(imgSrc)+'" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;" onclick="event.stopPropagation();_openCostumerImgLightbox(\''+escHTML(imgSrc)+'\')" title="Click para ampliar">'+
+            '<div style="position:absolute;bottom:3px;right:5px;background:rgba(0,0,0,.4);color:#fff;font-size:.6rem;padding:1px 5px;border-radius:2px;pointer-events:none;">🔍 Ver</div>'+
+@@ -1055,9 +1055,9 @@
+ 
+     // ── Helpers modal ──
+     var phoneIcon='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.77 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.5a16 16 0 0 0 5.59 5.59l1.06-1.06a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 16.92z"/></svg>';
+-    function _mSec(icon,title,body,accent){return'<div style="background:var(--sheet);border:1px solid var(--line-1);border-radius:12px;padding:18px 22px;'+(accent?'border-left:3px solid '+accent+';padding-left:19px;':'')+'">'+'<div style="display:flex;align-items:center;gap:9px;margin-bottom:16px;"><span style="width:28px;height:28px;background:var(--a-bg);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">'+icon+'</span><span style="font-size:.73rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-1);">'+title+'</span></div>'+body+'</div>';}
+-    function _mField(lbl,id,val,type,lIcon){return'<div><label style="font-size:.65rem;font-weight:600;text-transform:uppercase;color:var(--ink-3);letter-spacing:.05em;display:block;margin-bottom:5px;">'+lbl+'</label><div style="position:relative;">'+(lIcon?'<span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--ink-4);pointer-events:none;display:inline-flex;">'+lIcon+'</span>':'')+'<input type="'+type+'" id="ile-'+id+'-'+lid+'" value="'+escHTML(String(val||''))+'" '+dis+' style="width:100%;padding:9px '+(lIcon?'10px 9px 32px':'12px')+';border:1px solid var(--line-1);border-radius:8px;font-size:.85rem;color:var(--ink-1);background:var(--sheet);box-sizing:border-box;'+opacity+'"></div></div>';}
+-    function _mSel(lbl,id,opts){return'<div><label style="font-size:.65rem;font-weight:600;text-transform:uppercase;color:var(--ink-3);letter-spacing:.05em;display:block;margin-bottom:5px;">'+lbl+'</label><select id="ile-'+id+'-'+lid+'" '+dis+' style="width:100%;padding:9px 12px;border:1px solid var(--line-1);border-radius:8px;font-size:.85rem;color:var(--ink-1);background:var(--sheet);'+opacity+'">'+opts+'</select></div>';}
++    function _mSec(icon,title,body,accent){return'<div class="em-sec" style="background:var(--sheet);border:1px solid var(--line-1);border-radius:12px;padding:18px 22px;'+(accent?'border-left:3px solid '+accent+';padding-left:19px;':'')+'">'+'<div class="em-sec-head" style="display:flex;align-items:center;gap:9px;margin-bottom:16px;"><span class="em-sec-ico" style="width:28px;height:28px;background:var(--a-bg);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">'+icon+'</span><span class="em-sec-title" style="font-size:.73rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-1);">'+title+'</span></div>'+body+'</div>';}
++    function _mField(lbl,id,val,type,lIcon){return'<div class="em-field"><label class="em-lbl" style="font-size:.65rem;font-weight:600;text-transform:uppercase;color:var(--ink-3);letter-spacing:.05em;display:block;margin-bottom:5px;">'+lbl+'</label><div style="position:relative;">'+(lIcon?'<span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--ink-4);pointer-events:none;display:inline-flex;">'+lIcon+'</span>':'')+'<input class="em-input'+(lIcon?' em-has-ico':'')+'" type="'+type+'" id="ile-'+id+'-'+lid+'" value="'+escHTML(String(val||''))+'" '+dis+' style="width:100%;padding:9px '+(lIcon?'10px 9px 32px':'12px')+';border:1px solid var(--line-1);border-radius:8px;font-size:.85rem;color:var(--ink-1);background:var(--sheet);box-sizing:border-box;'+opacity+'"></div></div>';}
++    function _mSel(lbl,id,opts){return'<div class="em-field"><label class="em-lbl" style="font-size:.65rem;font-weight:600;text-transform:uppercase;color:var(--ink-3);letter-spacing:.05em;display:block;margin-bottom:5px;">'+lbl+'</label><select class="em-input" id="ile-'+id+'-'+lid+'" '+dis+' style="width:100%;padding:9px 12px;border:1px solid var(--line-1);border-radius:8px;font-size:.85rem;color:var(--ink-1);background:var(--sheet);'+opacity+'">'+opts+'</select></div>';}
+     function selOpt(vals,cur){return vals.map(function(v){var vv=Array.isArray(v)?v[0]:v,lbl=Array.isArray(v)?v[1]:v;return'<option value="'+escHTML(vv)+'"'+(String(cur||'').toLowerCase()===String(vv).toLowerCase()?' selected':'')+'>'+escHTML(lbl)+'</option>';}).join('');}
+ 
+     // Imagen: thumbnail si existe, zona upload si no
+@@ -1065,7 +1065,7 @@
+     if(imgSrc){
+       var _fn=escHTML(imgSrc.split('/').pop().split('?')[0])||'imagen.png';
+       imgDisplayHtml=
+-        '<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line-1);border-radius:8px;background:var(--sheet-2);">'+
++        '<div class="em-file" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line-1);border-radius:8px;background:var(--sheet-2);">'+
+           '<div style="width:46px;height:46px;border-radius:6px;overflow:hidden;flex-shrink:0;border:1px solid var(--line-1);display:flex;align-items:center;justify-content:center;background:var(--sheet);">'+
+             '<img src="'+escHTML(imgSrc)+'" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;" onclick="event.stopPropagation();_openCostumerImgLightbox(\''+escHTML(imgSrc)+'\')" title="Ver imagen">'+
+           '</div>'+
+@@ -1073,7 +1073,7 @@
+             '<div style="font-size:.82rem;font-weight:600;color:var(--ink-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+_fn+'</div>'+
+             '<div style="font-size:.72rem;color:var(--a);cursor:pointer;margin-top:2px;" onclick="event.stopPropagation();_openCostumerImgLightbox(\''+escHTML(imgSrc)+'\')">Click para ampliar</div>'+
+           '</div>'+
+-          (canEdit?'<button type="button" onclick="document.getElementById(\'ile-file-'+lid+'\').click()" style="padding:6px 14px;border:1px solid var(--line-1);border-radius:6px;background:var(--sheet);font-size:.78rem;font-weight:600;cursor:pointer;color:var(--ink-2);flex-shrink:0;white-space:nowrap;">Cambiar</button>':'')+
++          (canEdit?'<button class="em-btn em-btn-ghost em-btn-sm" type="button" onclick="document.getElementById(\'ile-file-'+lid+'\').click()" style="padding:6px 14px;border:1px solid var(--line-1);border-radius:6px;background:var(--sheet);font-size:.78rem;font-weight:600;cursor:pointer;color:var(--ink-2);flex-shrink:0;white-space:nowrap;">Cambiar</button>':'')+
+         '</div>'+
+         '<input type="file" id="ile-file-'+lid+'" accept="image/*" style="display:none" onchange="_ileFileSelect(event,\''+lid+'\')">';
+     } else {
+@@ -1082,31 +1082,31 @@
+ 
+     var html=
+       // ── Cabecera ──
+-      '<div style="display:flex;align-items:center;justify-content:space-between;padding:20px 28px 18px;border-bottom:1px solid var(--line-1);">'+
++      '<div class="em-head" style="display:flex;align-items:center;justify-content:space-between;padding:20px 28px 18px;border-bottom:1px solid var(--line-1);">'+
+         '<div style="display:flex;align-items:center;gap:14px;">'+
+-          '<div style="width:52px;height:52px;background:var(--a-bg);border:1px solid var(--a-line);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+
++          '<div class="em-head-ico" style="width:52px;height:52px;background:var(--a-bg);border:1px solid var(--a-line);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+
+             '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'+
+           '</div>'+
+           '<div>'+
+-            '<div style="font-size:1.15rem;font-weight:700;color:var(--ink-1);">Editar cliente</div>'+
+-            '<div style="font-size:.76rem;color:var(--ink-4);margin-top:2px;">Modifica la información operativa y comercial del cliente seleccionado</div>'+
++            '<div class="em-title" style="font-size:1.15rem;font-weight:700;color:var(--ink-1);">Editar cliente</div>'+
++            '<div class="em-subtitle" style="font-size:.76rem;color:var(--ink-4);margin-top:2px;">Modifica la información operativa y comercial del cliente seleccionado</div>'+
+           '</div>'+
+         '</div>'+
+         '<div style="display:flex;align-items:center;gap:10px;">'+
+-          '<button type="button" onclick="window.closeEditModal()" style="padding:9px 22px;border:1.5px solid var(--line-1);border-radius:8px;background:var(--sheet);font-size:.85rem;font-weight:600;cursor:pointer;color:var(--ink-2);">Cancelar</button>'+
+-          (canEdit?'<button type="button" onclick="guardarInlineEdit(\''+lid+'\')" id="ile-save-'+lid+'" style="padding:9px 22px;border:none;border-radius:8px;background:var(--a);color:#fff;font-size:.85rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 12px rgba(108,71,255,.3);">'+
++          '<button class="em-btn em-btn-ghost" type="button" onclick="window.closeEditModal()" style="padding:9px 22px;border:1.5px solid var(--line-1);border-radius:8px;background:var(--sheet);font-size:.85rem;font-weight:600;cursor:pointer;color:var(--ink-2);">Cancelar</button>'+
++          (canEdit?'<button class="em-btn em-btn-primary" type="button" onclick="guardarInlineEdit(\''+lid+'\')" id="ile-save-'+lid+'" style="padding:9px 22px;border:none;border-radius:8px;background:var(--a);color:#fff;font-size:.85rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 12px rgba(108,71,255,.3);">'+
+             '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>'+
+             ' Guardar cambios</button>'
+-          :'<button type="button" onclick="_guardarSoloImagen(\''+lid+'\',\'leads\')" id="ile-save-img-'+lid+'" style="padding:9px 22px;border:none;border-radius:8px;background:var(--a);color:#fff;font-size:.85rem;font-weight:700;cursor:pointer;">📷 Subir imagen</button>')+
++          :'<button class="em-btn em-btn-primary" type="button" onclick="_guardarSoloImagen(\''+lid+'\',\'leads\')" id="ile-save-img-'+lid+'" style="padding:9px 22px;border:none;border-radius:8px;background:var(--a);color:#fff;font-size:.85rem;font-weight:700;cursor:pointer;">📷 Subir imagen</button>')+
+         '</div>'+
+       '</div>'+
+       (!canEdit?'<div style="background:var(--warn-bg);border-bottom:1px solid var(--warn-ln);padding:9px 28px;font-size:.76rem;color:var(--warn);font-weight:600;display:flex;align-items:center;gap:8px;">🔒 Solo Administradores y Backoffice pueden editar.</div>':'')+
+ 
+       // ── Cuerpo 2 columnas ──
+-      '<div style="display:grid;grid-template-columns:1fr 390px;align-items:start;">'+
++      '<div class="em-body" style="display:grid;grid-template-columns:1fr 390px;align-items:start;">'+
+ 
+         // Columna izquierda
+-        '<div style="padding:22px 20px 24px 28px;display:flex;flex-direction:column;gap:14px;border-right:1px solid var(--line-1);">'+
++        '<div class="em-col em-col-l" style="padding:22px 20px 24px 28px;display:flex;flex-direction:column;gap:14px;border-right:1px solid var(--line-1);">'+
+           _mSec('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>','Información personal',
+             '<div style="margin-bottom:12px;">'+_mField('Nombre cliente','nombre',lead.nombre_cliente,'text','')+'</div>'+
+             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'+
+@@ -1125,7 +1125,7 @@
+           _mSec('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>','Detalles del servicio',
+             '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;">'+
+               _mSel('Tipo servicio','tipo','<option value="">Elige</option>')/* poblado dinámico: /api/productos */+
+-              '<div><label style="font-size:.65rem;font-weight:600;text-transform:uppercase;color:var(--ink-3);letter-spacing:.05em;display:block;margin-bottom:5px;">Servicio</label><select id="ile-svc-'+lid+'" '+dis+' style="width:100%;padding:9px 12px;border:1px solid var(--line-1);border-radius:8px;font-size:.85rem;color:var(--ink-1);background:var(--sheet);'+opacity+'"></select></div>'+
++              '<div class="em-field"><label class="em-lbl" style="font-size:.65rem;font-weight:600;text-transform:uppercase;color:var(--ink-3);letter-spacing:.05em;display:block;margin-bottom:5px;">Servicio</label><select class="em-input" id="ile-svc-'+lid+'" '+dis+' style="width:100%;padding:9px 12px;border:1px solid var(--line-1);border-radius:8px;font-size:.85rem;color:var(--ink-1);background:var(--sheet);'+opacity+'"></select></div>'+
+               _mSel('Sistema','sistema','<option value="">Elige</option>')/* poblado dinámico: /api/productos */+
+               _mSel('Riesgo','riesgo','<option value="">—</option>'+selOpt([['Alto','Alto'],['Medio','Medio'],['Bajo','Bajo'],['N/A','N/A']],lead.riesgo))+
+             '</div>',
+@@ -1144,13 +1144,13 @@
+         '</div>'+
+ 
+         // Columna derecha
+-        '<div style="padding:22px 28px 24px 20px;display:flex;flex-direction:column;gap:14px;">'+
++        '<div class="em-col em-col-r" style="padding:22px 28px 24px 20px;display:flex;flex-direction:column;gap:14px;">'+
+           _mSec('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>','Logística & Métricas',
+             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">'+
+               _mField('Dia venta','dv',lead.dia_venta,'date','')+
+               _mField('Dia instalación','di',lead.dia_instalacion,'date','')+
+             '</div>'+
+-            '<div style="border:1px solid var(--line-1);border-radius:8px;overflow:hidden;margin-bottom:14px;">'+
++            '<div class="em-kv" style="border:1px solid var(--line-1);border-radius:8px;overflow:hidden;margin-bottom:14px;">'+
+               '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line-1);">'+
+                 '<span style="font-size:.68rem;font-weight:600;color:var(--ink-3);">SUPERVISOR / AGENTE:</span>'+
+                 '<span style="font-size:.85rem;font-weight:700;color:var(--ink-1);">'+escHTML(fmtSupervisor(lead.supervisor)||'—')+(lead.agente?' / '+escHTML(lead.agente):'')+'</span>'+
+@@ -1161,26 +1161,26 @@
+               '</div>'+
+               '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;">'+
+                 '<span style="font-size:.68rem;font-weight:600;color:var(--ink-3);">PUNTAJE AUTOMÁTICO:</span>'+
+-                '<input type="number" id="ile-pts-'+lid+'" value="'+escHTML(String(lead.puntaje||''))+'" '+dis+' style="width:80px;padding:5px 8px;border:1.5px solid var(--line-1);border-radius:6px;font-size:.88rem;font-weight:600;color:var(--ink-1);text-align:right;background:var(--sheet);'+opacity+'">'+
++                '<input class="em-input em-pts" type="number" id="ile-pts-'+lid+'" value="'+escHTML(String(lead.puntaje||''))+'" '+dis+' style="width:80px;padding:5px 8px;border:1.5px solid var(--line-1);border-radius:6px;font-size:.88rem;font-weight:600;color:var(--ink-1);text-align:right;background:var(--sheet);'+opacity+'">'+
+               '</div>'+
+             '</div>',
+             'var(--a)')+
+ 
+           // Notas
+-          '<div style="background:var(--sheet);border:1px solid var(--line-1);border-radius:12px;padding:18px 22px;">'+
++          '<div class="em-sec" style="background:var(--sheet);border:1px solid var(--line-1);border-radius:12px;padding:18px 22px;">'+
+             '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'+
+-              '<div style="display:flex;align-items:center;gap:8px;">'+
+-                '<span style="width:28px;height:28px;background:var(--a-bg);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>'+
+-                '<span style="font-size:.73rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-1);">Notas</span>'+
+-                '<span id="notes-count-badge" style="background:#f1f5f9;color:var(--ink-2);font-size:.7rem;font-weight:700;padding:1px 8px;border-radius:var(--rf);border:1px solid var(--line-1);">0</span>'+
++              '<div class="em-sec-head" style="display:flex;align-items:center;gap:8px;">'+
++                '<span class="em-sec-ico" style="width:28px;height:28px;background:var(--a-bg);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>'+
++                '<span class="em-sec-title" style="font-size:.73rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-1);">Notas</span>'+
++                '<span id="notes-count-badge" class="em-count" style="background:#f1f5f9;color:var(--ink-2);font-size:.7rem;font-weight:700;padding:1px 8px;border-radius:var(--rf);border:1px solid var(--line-1);">0</span>'+
+               '</div>'+
+               '<button type="button" onclick="(function(){var w=document.getElementById(\'ile-note-wrap-'+lid+'\');if(w)w.style.display=w.style.display===\'none\'?\'block\':\'none\';})()" style="font-size:.78rem;font-weight:700;color:var(--a);background:transparent;border:none;cursor:pointer;">+ Agregar nota</button>'+
+             '</div>'+
+-            '<div id="ile-note-wrap-'+lid+'" style="display:none;margin-bottom:12px;border:1px solid var(--a-line);border-radius:8px;padding:10px;background:var(--sheet);">'+
++            '<div id="ile-note-wrap-'+lid+'" class="em-note-wrap" style="display:none;margin-bottom:12px;border:1px solid var(--a-line);border-radius:8px;padding:10px;background:var(--sheet);">'+
+               '<input type="hidden" id="edit-lead-id" value="'+escHTML(String(lid))+'">'+
+-              '<textarea id="new-note-input" rows="3" placeholder="Escribe una nota… (Ctrl+Enter para guardar)" style="width:100%;padding:8px 10px;border:1px solid var(--line-1);border-radius:7px;font-size:.82rem;resize:none;box-sizing:border-box;font-family:var(--f);color:var(--ink-1);background:var(--sheet-2);margin-bottom:8px;display:block;outline:none;"></textarea>'+
++              '<textarea class="em-input" id="new-note-input" rows="3" placeholder="Escribe una nota… (Ctrl+Enter para guardar)" style="width:100%;padding:8px 10px;border:1px solid var(--line-1);border-radius:7px;font-size:.82rem;resize:none;box-sizing:border-box;font-family:var(--f);color:var(--ink-1);background:var(--sheet-2);margin-bottom:8px;display:block;outline:none;"></textarea>'+
+               '<div style="display:flex;align-items:center;gap:7px;">'+
+-                '<select id="note-type-select" style="flex:1;min-width:0;padding:5px 8px;border:1px solid var(--line-1);border-radius:6px;font-size:.74rem;background:var(--sheet);color:var(--ink-1);"><option value="general">💬 General</option><option value="llamada">📞 Llamada</option><option value="visita">🏠 Visita</option><option value="alerta">⚠️ Alerta</option><option value="seguimiento">📌 Seguimiento</option></select>'+
++                '<select class="em-input" id="note-type-select" style="flex:1;min-width:0;padding:5px 8px;border:1px solid var(--line-1);border-radius:6px;font-size:.74rem;background:var(--sheet);color:var(--ink-1);"><option value="general">💬 General</option><option value="llamada">📞 Llamada</option><option value="visita">🏠 Visita</option><option value="alerta">⚠️ Alerta</option><option value="seguimiento">📌 Seguimiento</option></select>'+
+                 '<button id="btn-add-note" type="button" onclick="addNoteToLead()" style="padding:5px 14px;background:var(--a);color:#fff;border:none;border-radius:6px;font-size:.74rem;font-weight:700;cursor:pointer;flex-shrink:0;">Guardar</button>'+
+               '</div>'+
+             '</div>'+
+@@ -1188,13 +1188,13 @@
+           '</div>'+
+ 
+           // Captura o Contrato
+-          '<div style="background:var(--sheet);border:1px solid var(--line-1);border-radius:12px;padding:18px 22px;">'+
++          '<div class="em-sec" style="background:var(--sheet);border:1px solid var(--line-1);border-radius:12px;padding:18px 22px;">'+
+             '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'+
+-              '<div style="display:flex;align-items:center;gap:8px;">'+
+-                '<span style="width:28px;height:28px;background:var(--a-bg);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></span>'+
+-                '<span style="font-size:.73rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-1);">Captura o Contrato</span>'+
++              '<div class="em-sec-head" style="display:flex;align-items:center;gap:8px;">'+
++                '<span class="em-sec-ico" style="width:28px;height:28px;background:var(--a-bg);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></span>'+
++                '<span class="em-sec-title" style="font-size:.73rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-1);">Captura o Contrato</span>'+
+               '</div>'+
+-              (imgSrc?'<span style="font-size:.68rem;font-weight:700;background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;border-radius:var(--rf);padding:3px 10px;">Verificado</span>':'')+
++              (imgSrc?'<span class="em-verified" style="font-size:.68rem;font-weight:700;background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;border-radius:var(--rf);padding:3px 10px;">Verificado</span>':'')+
+             '</div>'+
+             imgDisplayHtml+
+             // Capturas de llamadas de verificación/seguimiento (fila, scroll invisible)
+diff --git a/frontend/residencial/costumer.html b/frontend/residencial/costumer.html
+index 4e7c677..1b4d9f8 100644
+--- a/frontend/residencial/costumer.html
++++ b/frontend/residencial/costumer.html
+@@ -695,6 +695,8 @@
+ <link rel="stylesheet" href="/css/residencial/costumer-2.css">
+ <!-- Rediseño visual de la lista de clientes (se carga al final para prevalecer) -->
+ <link rel="stylesheet" href="/css/residencial/costumer-v2.css?v=20260926">
++<!-- Modal "Editar cliente" con estilo glassmorphism -->
++<link rel="stylesheet" href="/css/residencial/costumer-edit-glass.css?v=20260926">
+ 
+ <!-- DATE RANGE PICKER SCRIPT -->
+ <script src="/js/residencial/costumer-calendar.js" defer></script>
+@@ -707,7 +709,7 @@
+ <!-- Zona de imagen en fila expandida -->
+ 
+ <!-- CRM CORE SCRIPT -->
+-<script src="/js/residencial/costumer-main.js?v=20260926" defer></script>
++<script src="/js/residencial/costumer-main.js?v=20260926b" defer></script>
+ 
+ <script>
+ (function(){
+-- 
+2.43.0
+
+
+From 5997aeb7800f2dc204da2ea4f51c17c1586d0af2 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 26 Sep 2026 15:04:01 -0600
+Subject: [PATCH 2/3] style(clientes): glassmorphism visible en el modal
+ "Editar cliente"
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+El primer intento era demasiado sutil (panel blanco translúcido sobre
+fondo gris = parece sólido). Ahora el fondo del modal es una noche azul
+con manchas de luz difusas y desaturadas, y panel, secciones y campos
+son vidrio esmerilado con texto claro. La paleta del modal se redefine
+por variables locales, así los estilos en línea se repintan solos.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01FGWnzu4vV3PTFUsccu3rfZ
+---
+ .../css/residencial/costumer-edit-glass.css   | 286 ++++++++----------
+ 1 file changed, 126 insertions(+), 160 deletions(-)
+
+diff --git a/frontend/css/residencial/costumer-edit-glass.css b/frontend/css/residencial/costumer-edit-glass.css
+index 7a9844d..4ac431a 100644
+--- a/frontend/css/residencial/costumer-edit-glass.css
++++ b/frontend/css/residencial/costumer-edit-glass.css
+@@ -1,232 +1,198 @@
+ /* ═══════════════════════════════════════════════════════════════════════
+-   MODAL "EDITAR CLIENTE" — estilo glassmorphism sobrio
++   MODAL "EDITAR CLIENTE" — glassmorphism
+    ═══════════════════════════════════════════════════════════════════════
+    El contenido del modal se genera en costumer-main.js (toggleRowExpand)
+    con estilos en línea; las clases em-* son los ganchos que usa esta hoja.
+-   Por eso aquí hay !important: es la única forma de ganarle a un style="".
+ 
+-   Idea: vidrio esmerilado discreto. La página se ve borrosa detrás, el
+-   panel es translúcido con un borde claro que simula el filo del cristal,
+-   y las secciones son láminas un poco más opacas. Sin colores saturados:
+-   la paleta es la corporativa (marino + dorado) con mucha transparencia.
++   Cómo funciona
++   ─────────────
++   El vidrio solo "se ve" si detrás hay profundidad y color. Por eso el
++   fondo del modal es una noche azul con manchas de luz difusas (índigo,
++   azul acero, verde azulado y un toque dorado), todas desaturadas. Encima,
++   el panel y las secciones son vidrio esmerilado: blanco muy translúcido,
++   desenfoque fuerte, borde claro y un brillo en el filo superior.
++
++   Los estilos en línea del modal usan var(--ink-1), var(--sheet), var(--a)…
++   Redefinir esas variables DENTRO del modal repinta todo el texto y los
++   fondos sin tener que pelear cada style="" con !important.
++   El look es el mismo en tema claro y oscuro: el vidrio es el tema.
+    ═══════════════════════════════════════════════════════════════════════ */
+ 
+-:root {
+-  --gl-overlay:     rgba(15, 27, 45, .28);
+-  --gl-glow-1:      rgba(28, 58, 102, .30);
+-  --gl-glow-2:      rgba(184, 146, 58, .18);
+-  --gl-panel:       rgba(255, 255, 255, .62);
+-  --gl-panel-edge:  rgba(255, 255, 255, .75);
+-  --gl-sheet:       rgba(255, 255, 255, .55);
+-  --gl-sheet-edge:  rgba(255, 255, 255, .80);
+-  --gl-line:        rgba(15, 27, 45, .08);
+-  --gl-input:       rgba(255, 255, 255, .72);
+-  --gl-input-edge:  rgba(15, 27, 45, .12);
+-  --gl-input-focus: rgba(255, 255, 255, .95);
+-  --gl-ico-bg:      rgba(28, 58, 102, .08);
+-  --gl-ico:         #1c3a66;
+-  --gl-shadow:      0 30px 80px rgba(15, 27, 45, .22), 0 2px 6px rgba(15, 27, 45, .06);
+-  --gl-sheet-shadow: 0 1px 2px rgba(15, 27, 45, .04), inset 0 1px 0 rgba(255, 255, 255, .6);
+-}
+-
+-body.dark-theme {
+-  --gl-overlay:     rgba(4, 8, 16, .45);
+-  --gl-glow-1:      rgba(59, 100, 170, .28);
+-  --gl-glow-2:      rgba(212, 178, 94, .12);
+-  --gl-panel:       rgba(20, 29, 46, .62);
+-  --gl-panel-edge:  rgba(255, 255, 255, .10);
+-  --gl-sheet:       rgba(255, 255, 255, .04);
+-  --gl-sheet-edge:  rgba(255, 255, 255, .08);
+-  --gl-line:        rgba(255, 255, 255, .07);
+-  --gl-input:       rgba(255, 255, 255, .05);
+-  --gl-input-edge:  rgba(255, 255, 255, .12);
+-  --gl-input-focus: rgba(255, 255, 255, .09);
+-  --gl-ico-bg:      rgba(126, 166, 224, .12);
+-  --gl-ico:         #9dbbe8;
+-  --gl-shadow:      0 30px 80px rgba(0, 0, 0, .55), 0 2px 6px rgba(0, 0, 0, .3);
+-  --gl-sheet-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
+-}
+-
+-/* ── Fondo: la página borrosa con dos resplandores muy suaves ─────── */
+ #editClienteModal {
++  /* Paleta local del modal */
++  --ink-1:   #f5f7fb;
++  --ink-2:   rgba(235, 240, 248, .86);
++  --ink-3:   rgba(220, 228, 240, .62);
++  --ink-4:   rgba(210, 220, 235, .45);
++  --sheet:   rgba(255, 255, 255, .06);
++  --sheet-2: rgba(255, 255, 255, .05);
++  --sheet-3: rgba(255, 255, 255, .08);
++  --line-1:  rgba(255, 255, 255, .14);
++  --line-2:  rgba(255, 255, 255, .22);
++  --a:       #a9c4f5;
++  --a-bg:    rgba(169, 196, 245, .14);
++  --a-line:  rgba(169, 196, 245, .35);
++  --warn:    #f2c879;
++  --warn-bg: rgba(242, 200, 121, .12);
++  --warn-ln: rgba(242, 200, 121, .35);
++
++  --gl-glass:      rgba(255, 255, 255, .08);
++  --gl-glass-2:    rgba(255, 255, 255, .06);
++  --gl-edge:       rgba(255, 255, 255, .18);
++  --gl-edge-top:   rgba(255, 255, 255, .45);
++  --gl-input:      rgba(255, 255, 255, .07);
++  --gl-input-edge: rgba(255, 255, 255, .16);
++  --gl-focus:      rgba(169, 196, 245, .55);
++
+   background:
+-    radial-gradient(circle at 18% 22%, var(--gl-glow-1), transparent 42%),
+-    radial-gradient(circle at 82% 78%, var(--gl-glow-2), transparent 40%),
+-    var(--gl-overlay) !important;
+-  backdrop-filter: blur(14px) saturate(120%) !important;
+-  -webkit-backdrop-filter: blur(14px) saturate(120%) !important;
++    radial-gradient(38% 45% at 15% 20%, rgba(99, 102, 241, .45), transparent 70%),
++    radial-gradient(35% 40% at 85% 15%, rgba(56, 132, 190, .40), transparent 70%),
++    radial-gradient(40% 45% at 75% 85%, rgba(45, 150, 140, .30), transparent 70%),
++    radial-gradient(30% 35% at 25% 90%, rgba(196, 160, 90, .22), transparent 70%),
++    linear-gradient(160deg, rgba(10, 18, 36, .88), rgba(14, 24, 48, .92)) !important;
++  backdrop-filter: blur(6px) !important;
++  -webkit-backdrop-filter: blur(6px) !important;
++  color: var(--ink-1);
+ }
+ 
+-/* ── Panel de vidrio ──────────────────────────────────────────────── */
++/* ── Panel principal ──────────────────────────────────────────────── */
+ #editClienteDialog {
+-  background: var(--gl-panel) !important;
+-  backdrop-filter: blur(28px) saturate(140%);
+-  -webkit-backdrop-filter: blur(28px) saturate(140%);
+-  border: 1px solid var(--gl-panel-edge);
+-  border-radius: 20px !important;
+-  box-shadow: var(--gl-shadow) !important;
+-  overflow: hidden;
+   position: relative;
++  background: linear-gradient(145deg, rgba(255, 255, 255, .13), rgba(255, 255, 255, .05)) !important;
++  backdrop-filter: blur(30px) saturate(150%);
++  -webkit-backdrop-filter: blur(30px) saturate(150%);
++  border: 1px solid var(--gl-edge);
++  border-radius: 24px !important;
++  box-shadow:
++    0 40px 100px rgba(0, 0, 0, .45),
++    inset 0 1px 0 var(--gl-edge-top),
++    inset 0 0 0 1px rgba(255, 255, 255, .03) !important;
++  overflow: hidden;
+ }
+-/* Reflejo sutil en el borde superior, como el filo de un cristal */
++/* Brillo diagonal muy suave sobre el vidrio */
+ #editClienteDialog::before {
+   content: '';
+   position: absolute;
+-  inset: 0 0 auto 0;
+-  height: 1px;
+-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .9), transparent);
++  inset: 0;
++  background: linear-gradient(115deg, rgba(255, 255, 255, .10) 0%, transparent 28%, transparent 70%, rgba(255, 255, 255, .04) 100%);
+   pointer-events: none;
++  z-index: 0;
+ }
+-body.dark-theme #editClienteDialog::before { background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .18), transparent); }
++#editClienteContent { position: relative; z-index: 1; }
+ 
+-/* Navegadores sin backdrop-filter: panel opaco para que se lea igual */
++/* Navegadores sin backdrop-filter: vidrio más opaco para que se lea */
+ @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+-  #editClienteDialog { background: var(--sheet) !important; }
+-  #editClienteModal  { background: rgba(15, 27, 45, .55) !important; }
++  #editClienteDialog { background: rgba(22, 32, 56, .96) !important; }
+ }
+ 
+ /* ── Cabecera ─────────────────────────────────────────────────────── */
+ #editClienteContent .em-head {
+-  border-bottom: 1px solid var(--gl-line) !important;
+-  background: linear-gradient(180deg, rgba(255, 255, 255, .35), transparent);
++  border-bottom: 1px solid rgba(255, 255, 255, .10) !important;
++  padding: 22px 30px 20px !important;
+ }
+-body.dark-theme #editClienteContent .em-head { background: linear-gradient(180deg, rgba(255, 255, 255, .03), transparent); }
+ #editClienteContent .em-head-ico {
+-  width: 46px !important; height: 46px !important;
+-  background: var(--gl-sheet) !important;
+-  border: 1px solid var(--gl-sheet-edge) !important;
+-  border-radius: 14px !important;
+-  box-shadow: var(--gl-sheet-shadow);
+-}
+-#editClienteContent .em-head-ico svg { stroke: var(--gl-ico); }
+-#editClienteContent .em-title {
+-  font-size: 1.12rem !important;
+-  font-weight: 700 !important;
+-  letter-spacing: -.01em;
+-  color: var(--ink-1) !important;
++  width: 48px !important; height: 48px !important;
++  border-radius: 16px !important;
++  background: linear-gradient(145deg, rgba(255, 255, 255, .22), rgba(255, 255, 255, .06)) !important;
++  border: 1px solid rgba(255, 255, 255, .28) !important;
++  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), 0 8px 20px rgba(0, 0, 0, .2);
+ }
++#editClienteContent .em-head-ico svg { stroke: #ffffff; }
++#editClienteContent .em-title { font-size: 1.25rem !important; font-weight: 600 !important; letter-spacing: -.01em; color: #fff !important; }
+ #editClienteContent .em-subtitle { color: var(--ink-3) !important; }
+ 
+ /* ── Botones ──────────────────────────────────────────────────────── */
+ #editClienteContent .em-btn {
+-  border-radius: 10px !important;
++  border-radius: 12px !important;
+   font-family: var(--f) !important;
+-  transition: background .15s, border-color .15s, box-shadow .15s;
++  font-weight: 600 !important;
++  transition: background .18s, border-color .18s, box-shadow .18s, transform .18s;
+ }
+ #editClienteContent .em-btn-ghost {
+-  background: var(--gl-input) !important;
+-  border: 1px solid var(--gl-input-edge) !important;
+-  color: var(--ink-2) !important;
+-  backdrop-filter: blur(8px);
++  background: rgba(255, 255, 255, .08) !important;
++  border: 1px solid rgba(255, 255, 255, .20) !important;
++  color: var(--ink-1) !important;
+ }
+-#editClienteContent .em-btn-ghost:hover { background: var(--gl-input-focus) !important; color: var(--ink-1) !important; }
++#editClienteContent .em-btn-ghost:hover { background: rgba(255, 255, 255, .16) !important; }
+ #editClienteContent .em-btn-primary {
+-  background: var(--navy, #13294b) !important;
+-  color: #fff !important;
+-  border: 1px solid rgba(255, 255, 255, .12) !important;
+-  box-shadow: 0 6px 18px rgba(19, 41, 75, .25), inset 0 1px 0 rgba(255, 255, 255, .12) !important;
++  background: rgba(255, 255, 255, .92) !important;
++  color: #0f1b2d !important;
++  border: 1px solid rgba(255, 255, 255, .9) !important;
++  box-shadow: 0 8px 24px rgba(0, 0, 0, .25), inset 0 -1px 0 rgba(15, 27, 45, .08) !important;
+ }
+-#editClienteContent .em-btn-primary:hover { background: var(--navy-2, #1c3a66) !important; }
+-body.dark-theme #editClienteContent .em-btn-primary { background: #1f3a66 !important; box-shadow: 0 6px 18px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .1) !important; }
++#editClienteContent .em-btn-primary:hover { background: #ffffff !important; transform: translateY(-1px); }
++#editClienteContent .em-btn-primary svg { stroke: #0f1b2d; }
+ #editClienteContent .em-btn-sm { padding: 6px 14px !important; }
+ 
+ /* ── Columnas ─────────────────────────────────────────────────────── */
+-#editClienteContent .em-col-l { border-right: 1px solid var(--gl-line) !important; }
++#editClienteContent .em-col-l { border-right: 1px solid rgba(255, 255, 255, .08) !important; }
+ 
+-/* ── Secciones: láminas de vidrio más opacas ──────────────────────── */
++/* ── Secciones: láminas de vidrio ─────────────────────────────────── */
+ #editClienteContent .em-sec {
+-  background: var(--gl-sheet) !important;
+-  border: 1px solid var(--gl-sheet-edge) !important;
+-  border-radius: 16px !important;
+-  box-shadow: var(--gl-sheet-shadow);
+-  padding-left: 22px !important;   /* anula el padding de la franja lateral */
++  background: var(--gl-glass) !important;
++  border: 1px solid rgba(255, 255, 255, .12) !important;
++  border-radius: 18px !important;
++  padding-left: 22px !important;       /* anula el padding de la franja lateral */
++  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 10px 30px rgba(0, 0, 0, .12);
++  backdrop-filter: blur(12px);
++  -webkit-backdrop-filter: blur(12px);
+ }
+ #editClienteContent .em-sec-ico {
+-  background: var(--gl-ico-bg) !important;
+-  border-radius: 9px !important;
+-}
+-#editClienteContent .em-sec-ico svg { stroke: var(--gl-ico); }
+-#editClienteContent .em-sec-title {
+-  font-size: .68rem !important;
+-  font-weight: 700 !important;
+-  letter-spacing: .1em !important;
+-  color: var(--ink-2) !important;
++  background: rgba(255, 255, 255, .12) !important;
++  border: 1px solid rgba(255, 255, 255, .18);
++  border-radius: 10px !important;
+ }
++#editClienteContent .em-sec-ico svg { stroke: #dfe8f7; }
++#editClienteContent .em-sec-title { font-size: .68rem !important; font-weight: 600 !important; letter-spacing: .12em !important; color: var(--ink-1) !important; }
+ 
+ /* ── Campos ───────────────────────────────────────────────────────── */
+-#editClienteContent .em-lbl {
+-  font-size: .6rem !important;
+-  font-weight: 600 !important;
+-  letter-spacing: .09em !important;
+-  color: var(--ink-3) !important;
+-}
++#editClienteContent .em-lbl { font-size: .6rem !important; font-weight: 500 !important; letter-spacing: .1em !important; color: var(--ink-3) !important; }
+ #editClienteContent .em-input {
+   background: var(--gl-input) !important;
+   border: 1px solid var(--gl-input-edge) !important;
+-  border-radius: 10px !important;
++  border-radius: 12px !important;
+   color: var(--ink-1) !important;
+   font-family: var(--f);
+-  transition: background .15s, border-color .15s, box-shadow .15s;
++  transition: background .18s, border-color .18s, box-shadow .18s;
+ }
+-#editClienteContent .em-input:hover:not(:disabled) { border-color: rgba(28, 58, 102, .28) !important; }
+-body.dark-theme #editClienteContent .em-input:hover:not(:disabled) { border-color: rgba(255, 255, 255, .22) !important; }
++#editClienteContent .em-input::placeholder { color: var(--ink-4); }
++#editClienteContent .em-input:hover:not(:disabled) { background: rgba(255, 255, 255, .10) !important; }
+ #editClienteContent .em-input:focus {
+   outline: none;
+-  background: var(--gl-input-focus) !important;
+-  border-color: rgba(28, 58, 102, .45) !important;
+-  box-shadow: 0 0 0 4px rgba(28, 58, 102, .10) !important;
++  background: rgba(255, 255, 255, .13) !important;
++  border-color: var(--gl-focus) !important;
++  box-shadow: 0 0 0 4px rgba(169, 196, 245, .14) !important;
+ }
+-body.dark-theme #editClienteContent .em-input:focus {
+-  border-color: rgba(126, 166, 224, .5) !important;
+-  box-shadow: 0 0 0 4px rgba(126, 166, 224, .12) !important;
+-}
+-#editClienteContent select.em-input option { background: var(--sheet); color: var(--ink-1); }
+-body.dark-theme #editClienteContent input.em-input[type="date"] { color-scheme: dark; }
+-#editClienteContent .em-pts { font-family: var(--f-mono) !important; border-radius: 8px !important; }
++#editClienteContent select.em-input option { background: #1a2640; color: #f5f7fb; }
++#editClienteContent input.em-input[type="date"] { color-scheme: dark; }
++#editClienteContent .em-pts { font-family: var(--f-mono) !important; border-radius: 10px !important; }
+ 
+-/* ── Tabla clave/valor (supervisor, motivo, puntaje) ──────────────── */
++/* ── Bloque clave/valor ───────────────────────────────────────────── */
+ #editClienteContent .em-kv {
+-  background: var(--gl-input) !important;
+-  border: 1px solid var(--gl-input-edge) !important;
+-  border-radius: 12px !important;
++  background: rgba(255, 255, 255, .05) !important;
++  border: 1px solid rgba(255, 255, 255, .12) !important;
++  border-radius: 14px !important;
+ }
+-#editClienteContent .em-kv > div { border-color: var(--gl-line) !important; }
++#editClienteContent .em-kv > div { border-color: rgba(255, 255, 255, .08) !important; }
+ 
+ /* ── Notas ────────────────────────────────────────────────────────── */
+-#editClienteContent .em-count {
+-  background: var(--gl-ico-bg) !important;
+-  border: 1px solid var(--gl-sheet-edge) !important;
+-  color: var(--ink-2) !important;
+-}
+-#editClienteContent .em-note-wrap {
+-  background: var(--gl-input) !important;
+-  border: 1px solid var(--gl-input-edge) !important;
+-  border-radius: 12px !important;
+-}
++#editClienteContent .em-count { background: rgba(255, 255, 255, .12) !important; border: 1px solid rgba(255, 255, 255, .18) !important; color: var(--ink-1) !important; }
++#editClienteContent .em-note-wrap { background: rgba(255, 255, 255, .05) !important; border: 1px solid rgba(255, 255, 255, .14) !important; border-radius: 14px !important; }
++#editClienteContent #notes-list .note-card { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .12); }
+ 
+ /* ── Captura / contrato ───────────────────────────────────────────── */
+-#editClienteContent .em-file {
+-  background: var(--gl-input) !important;
+-  border: 1px solid var(--gl-input-edge) !important;
+-  border-radius: 12px !important;
+-}
+-#editClienteContent .em-drop {
+-  background: var(--gl-input) !important;
+-  border: 1.5px dashed var(--gl-input-edge) !important;
+-  border-radius: 12px !important;
+-}
+-#editClienteContent .em-verified {
+-  background: rgba(31, 122, 77, .10) !important;
+-  color: var(--go, #1f7a4d) !important;
+-  border: 1px solid rgba(31, 122, 77, .25) !important;
+-}
++#editClienteContent .em-file { background: rgba(255, 255, 255, .06) !important; border: 1px solid rgba(255, 255, 255, .14) !important; border-radius: 14px !important; }
++#editClienteContent .em-drop { background: rgba(255, 255, 255, .04) !important; border: 1.5px dashed rgba(255, 255, 255, .22) !important; border-radius: 14px !important; }
++#editClienteContent .em-drop svg { stroke: #cfe0f7; }
++#editClienteContent .em-drop span { color: var(--ink-3) !important; }
++#editClienteContent .em-verified { background: rgba(110, 220, 170, .14) !important; color: #9ff0c8 !important; border: 1px solid rgba(110, 220, 170, .35) !important; }
+ 
+ /* Scroll interno discreto */
+ #editClienteModal::-webkit-scrollbar { width: 8px; }
+-#editClienteModal::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .35); border-radius: 8px; }
++#editClienteModal::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .25); border-radius: 8px; }
+ 
+ @media (max-width: 900px) {
+   #editClienteContent .em-body { grid-template-columns: 1fr !important; }
+-  #editClienteContent .em-col-l { border-right: none !important; border-bottom: 1px solid var(--gl-line); }
++  #editClienteContent .em-col-l { border-right: none !important; border-bottom: 1px solid rgba(255, 255, 255, .08); }
+   #editClienteContent .em-col { padding: 16px !important; }
+ }
+-- 
+2.43.0
+
+
+From 4ca09e5bedd8b82b98efab1e03f6a17be6c4544a Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 26 Sep 2026 15:08:10 -0600
+Subject: [PATCH 3/3] feat(clientes): modal "Editar cliente" en vista de perfil
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Recompone el modal en dos zonas: a la izquierda la ficha del cliente
+(avatar, nombre, agente, status, puntos, datos clave, fechas, puntaje y
+captura) y a la derecha el formulario en grupos sin caja (Personal,
+Cuenta, Servicio, Gestión, Notas) con scroll propio y barra de acciones
+fija abajo. Mantiene el vidrio esmerilado del modal.
+
+Se conservan todos los id que usa el guardado, las notas y la imagen;
+probado: el PUT envía los campos editados y el modal se cierra.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01FGWnzu4vV3PTFUsccu3rfZ
+---
+ .../css/residencial/costumer-edit-glass.css   | 426 ++++++++++++------
+ frontend/js/residencial/costumer-main.js      | 215 +++++----
+ frontend/residencial/costumer.html            |   4 +-
+ 3 files changed, 391 insertions(+), 254 deletions(-)
+
+diff --git a/frontend/css/residencial/costumer-edit-glass.css b/frontend/css/residencial/costumer-edit-glass.css
+index 4ac431a..d609a56 100644
+--- a/frontend/css/residencial/costumer-edit-glass.css
++++ b/frontend/css/residencial/costumer-edit-glass.css
+@@ -1,198 +1,344 @@
+ /* ═══════════════════════════════════════════════════════════════════════
+-   MODAL "EDITAR CLIENTE" — glassmorphism
++   MODAL "EDITAR CLIENTE" — vista de perfil + glassmorphism
+    ═══════════════════════════════════════════════════════════════════════
+-   El contenido del modal se genera en costumer-main.js (toggleRowExpand)
+-   con estilos en línea; las clases em-* son los ganchos que usa esta hoja.
+-
+-   Cómo funciona
+-   ─────────────
+-   El vidrio solo "se ve" si detrás hay profundidad y color. Por eso el
+-   fondo del modal es una noche azul con manchas de luz difusas (índigo,
+-   azul acero, verde azulado y un toque dorado), todas desaturadas. Encima,
+-   el panel y las secciones son vidrio esmerilado: blanco muy translúcido,
+-   desenfoque fuerte, borde claro y un brillo en el filo superior.
+-
+-   Los estilos en línea del modal usan var(--ink-1), var(--sheet), var(--a)…
+-   Redefinir esas variables DENTRO del modal repinta todo el texto y los
+-   fondos sin tener que pelear cada style="" con !important.
+-   El look es el mismo en tema claro y oscuro: el vidrio es el tema.
++   Marcado: costumer-main.js (toggleRowExpand). Clases:
++     .ep-*  estructura de la vista de perfil
++     .em-*  piezas reutilizadas (campos, botones, notas, captura)
++
++   Composición
++   ───────────
++   ┌──────────────┬──────────────────────────────┐
++   │  PERFIL      │  Ficha del cliente        ✕  │
++   │  avatar      │  PERSONAL ─────────────────  │
++   │  nombre      │  CUENTA ───────────────────  │
++   │  status/pts  │  SERVICIO ─────────────────  │
++   │  datos clave │  GESTIÓN ──────────────────  │
++   │  fechas      │  NOTAS ────────────────────  │
++   │  captura     ├──────────────────────────────┤
++   │              │          Cancelar  Guardar   │
++   └──────────────┴──────────────────────────────┘
++   El perfil queda fijo; solo el formulario hace scroll, y la barra de
++   acciones siempre está visible abajo.
++
++   Estética: fondo noche con manchas de luz difusas y desaturadas; panel
++   de vidrio esmerilado; el perfil es una lámina algo más opaca. Los
++   grupos del formulario NO son tarjetas: título + línea fina, para que
++   respire. La paleta se redefine con variables locales al modal, así los
++   estilos en línea que queden se repintan solos.
+    ═══════════════════════════════════════════════════════════════════════ */
+ 
+ #editClienteModal {
+-  /* Paleta local del modal */
+   --ink-1:   #f5f7fb;
+   --ink-2:   rgba(235, 240, 248, .86);
+   --ink-3:   rgba(220, 228, 240, .62);
+-  --ink-4:   rgba(210, 220, 235, .45);
++  --ink-4:   rgba(210, 220, 235, .42);
+   --sheet:   rgba(255, 255, 255, .06);
+   --sheet-2: rgba(255, 255, 255, .05);
+   --sheet-3: rgba(255, 255, 255, .08);
+-  --line-1:  rgba(255, 255, 255, .14);
+-  --line-2:  rgba(255, 255, 255, .22);
++  --line-1:  rgba(255, 255, 255, .12);
++  --line-2:  rgba(255, 255, 255, .20);
+   --a:       #a9c4f5;
+   --a-bg:    rgba(169, 196, 245, .14);
+   --a-line:  rgba(169, 196, 245, .35);
+-  --warn:    #f2c879;
+-  --warn-bg: rgba(242, 200, 121, .12);
+-  --warn-ln: rgba(242, 200, 121, .35);
+-
+-  --gl-glass:      rgba(255, 255, 255, .08);
+-  --gl-glass-2:    rgba(255, 255, 255, .06);
+-  --gl-edge:       rgba(255, 255, 255, .18);
+-  --gl-edge-top:   rgba(255, 255, 255, .45);
+-  --gl-input:      rgba(255, 255, 255, .07);
+-  --gl-input-edge: rgba(255, 255, 255, .16);
+-  --gl-focus:      rgba(169, 196, 245, .55);
++
++  --ep-glass:      rgba(255, 255, 255, .07);
++  --ep-edge:       rgba(255, 255, 255, .16);
++  --ep-input:      rgba(255, 255, 255, .06);
++  --ep-input-edge: rgba(255, 255, 255, .14);
++  --ep-focus:      rgba(169, 196, 245, .55);
+ 
+   background:
+-    radial-gradient(38% 45% at 15% 20%, rgba(99, 102, 241, .45), transparent 70%),
+-    radial-gradient(35% 40% at 85% 15%, rgba(56, 132, 190, .40), transparent 70%),
+-    radial-gradient(40% 45% at 75% 85%, rgba(45, 150, 140, .30), transparent 70%),
+-    radial-gradient(30% 35% at 25% 90%, rgba(196, 160, 90, .22), transparent 70%),
+-    linear-gradient(160deg, rgba(10, 18, 36, .88), rgba(14, 24, 48, .92)) !important;
++    radial-gradient(38% 45% at 12% 18%, rgba(99, 102, 241, .42), transparent 70%),
++    radial-gradient(35% 40% at 88% 12%, rgba(56, 132, 190, .36), transparent 70%),
++    radial-gradient(40% 45% at 78% 88%, rgba(45, 150, 140, .26), transparent 70%),
++    radial-gradient(30% 35% at 22% 92%, rgba(196, 160, 90, .20), transparent 70%),
++    linear-gradient(160deg, rgba(10, 18, 36, .90), rgba(14, 24, 48, .94)) !important;
+   backdrop-filter: blur(6px) !important;
+   -webkit-backdrop-filter: blur(6px) !important;
+   color: var(--ink-1);
+ }
+ 
+-/* ── Panel principal ──────────────────────────────────────────────── */
++/* ── Panel de vidrio ──────────────────────────────────────────────── */
+ #editClienteDialog {
+   position: relative;
+-  background: linear-gradient(145deg, rgba(255, 255, 255, .13), rgba(255, 255, 255, .05)) !important;
++  max-width: 1040px !important;
++  background: linear-gradient(145deg, rgba(255, 255, 255, .12), rgba(255, 255, 255, .04)) !important;
+   backdrop-filter: blur(30px) saturate(150%);
+   -webkit-backdrop-filter: blur(30px) saturate(150%);
+-  border: 1px solid var(--gl-edge);
++  border: 1px solid var(--ep-edge);
+   border-radius: 24px !important;
+-  box-shadow:
+-    0 40px 100px rgba(0, 0, 0, .45),
+-    inset 0 1px 0 var(--gl-edge-top),
+-    inset 0 0 0 1px rgba(255, 255, 255, .03) !important;
++  box-shadow: 0 40px 100px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .35) !important;
+   overflow: hidden;
+ }
+-/* Brillo diagonal muy suave sobre el vidrio */
+-#editClienteDialog::before {
+-  content: '';
+-  position: absolute;
+-  inset: 0;
+-  background: linear-gradient(115deg, rgba(255, 255, 255, .10) 0%, transparent 28%, transparent 70%, rgba(255, 255, 255, .04) 100%);
+-  pointer-events: none;
+-  z-index: 0;
++@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
++  #editClienteDialog { background: rgba(22, 32, 56, .97) !important; }
+ }
+-#editClienteContent { position: relative; z-index: 1; }
+ 
+-/* Navegadores sin backdrop-filter: vidrio más opaco para que se lea */
+-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+-  #editClienteDialog { background: rgba(22, 32, 56, .96) !important; }
++.ep-shell {
++  display: grid;
++  grid-template-columns: 300px 1fr;
++  height: min(86vh, 780px);
++}
++
++/* ═══ PERFIL (izquierda) ═══════════════════════════════════════════ */
++.ep-profile {
++  position: relative;
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  padding: 34px 24px 24px;
++  background: linear-gradient(180deg, rgba(255, 255, 255, .10), rgba(255, 255, 255, .03));
++  border-right: 1px solid rgba(255, 255, 255, .10);
++  overflow-y: auto;
++  scrollbar-width: none;
++}
++.ep-profile::-webkit-scrollbar { display: none; }
++/* En una columna flex con scroll, los hijos se encogían (avatar aplastado) */
++.ep-profile > * { flex-shrink: 0; }
++
++.ep-avatar {
++  width: 86px; height: 86px;
++  border-radius: 28px;
++  display: flex; align-items: center; justify-content: center;
++  font-family: var(--f-mono);
++  font-size: 1.7rem; font-weight: 600; letter-spacing: .02em;
++  color: #fff;
++  background: linear-gradient(145deg, rgba(255, 255, 255, .28), rgba(255, 255, 255, .06));
++  border: 1px solid rgba(255, 255, 255, .32);
++  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 0 14px 30px rgba(0, 0, 0, .25);
++}
++.ep-name {
++  margin-top: 16px;
++  font-size: 1.2rem; font-weight: 600; letter-spacing: -.01em;
++  color: #fff; text-align: center; line-height: 1.25;
++  word-break: break-word;
++}
++.ep-agent {
++  margin-top: 4px;
++  font-size: .64rem; font-weight: 500; text-transform: uppercase; letter-spacing: .12em;
++  color: var(--ink-3);
++}
++
++.ep-chips { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
++.ep-status, .ep-pts {
++  display: inline-flex; align-items: center; gap: 4px;
++  height: 26px; padding: 0 11px;
++  border-radius: 999px;
++  font-size: .64rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
++  border: 1px solid rgba(255, 255, 255, .18);
++  background: rgba(255, 255, 255, .08);
++  color: #fff;
+ }
++.ep-status::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
++.ep-status.badge-pending   { color: #f4cf86; border-color: rgba(244, 207, 134, .35); background: rgba(244, 207, 134, .10); }
++.ep-status.badge-active    { color: #8fe3bb; border-color: rgba(143, 227, 187, .35); background: rgba(143, 227, 187, .10); }
++.ep-status.badge-cancelled { color: #f5a3a0; border-color: rgba(245, 163, 160, .35); background: rgba(245, 163, 160, .10); }
++.ep-status.badge-hold      { color: #c6cfdd; }
++.ep-pts { font-family: var(--f-mono); letter-spacing: 0; font-size: .74rem; }
++.ep-pts small { font-family: var(--f); font-size: .56rem; opacity: .7; letter-spacing: .08em; }
++.ep-pts.pts-high { color: #8fe3bb; }
++.ep-pts.pts-mid  { color: #f4cf86; }
++.ep-pts.pts-low  { color: #f5a3a0; }
+ 
+-/* ── Cabecera ─────────────────────────────────────────────────────── */
+-#editClienteContent .em-head {
+-  border-bottom: 1px solid rgba(255, 255, 255, .10) !important;
+-  padding: 22px 30px 20px !important;
++.ep-svc {
++  margin-top: 10px;
++  font-family: var(--f-mono); font-size: .68rem; color: var(--ink-3);
++  text-align: center;
+ }
+-#editClienteContent .em-head-ico {
+-  width: 48px !important; height: 48px !important;
++
++.ep-divider { width: 100%; height: 1px; margin: 20px 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .18), transparent); flex-shrink: 0; }
++
++.ep-facts { width: 100%; display: flex; flex-direction: column; gap: 11px; margin: 0; }
++.ep-facts > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
++.ep-facts dt { font-size: .6rem; font-weight: 500; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); flex-shrink: 0; }
++.ep-facts dd { margin: 0; font-size: .78rem; font-weight: 500; color: var(--ink-1); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
++.ep-mono { font-family: var(--f-mono); }
++
++.ep-mini-fields { width: 100%; display: flex; flex-direction: column; gap: 12px; }
++
++.ep-capture { width: 100%; }
++.ep-capture-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
++.ep-label { font-size: .6rem; font-weight: 500; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); }
++.ep-caps-row { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin-top: 10px; }
++
++/* Zona de imagen y archivo dentro del perfil */
++#editClienteContent .em-drop {
++  height: 130px !important; min-height: 130px !important;
++  background: rgba(255, 255, 255, .04) !important;
++  border: 1.5px dashed rgba(255, 255, 255, .22) !important;
+   border-radius: 16px !important;
+-  background: linear-gradient(145deg, rgba(255, 255, 255, .22), rgba(255, 255, 255, .06)) !important;
+-  border: 1px solid rgba(255, 255, 255, .28) !important;
+-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), 0 8px 20px rgba(0, 0, 0, .2);
+ }
+-#editClienteContent .em-head-ico svg { stroke: #ffffff; }
+-#editClienteContent .em-title { font-size: 1.25rem !important; font-weight: 600 !important; letter-spacing: -.01em; color: #fff !important; }
+-#editClienteContent .em-subtitle { color: var(--ink-3) !important; }
++#editClienteContent .em-drop svg { stroke: #cfe0f7; }
++#editClienteContent .em-drop span { color: var(--ink-3) !important; }
++#editClienteContent .em-file {
++  background: rgba(255, 255, 255, .06) !important;
++  border: 1px solid rgba(255, 255, 255, .14) !important;
++  border-radius: 14px !important;
++}
++#editClienteContent .em-verified {
++  font-size: .58rem !important; font-weight: 600 !important; letter-spacing: .06em; text-transform: uppercase;
++  padding: 2px 8px !important; border-radius: 999px !important;
++  background: rgba(143, 227, 187, .12) !important; color: #8fe3bb !important; border: 1px solid rgba(143, 227, 187, .32) !important;
++}
+ 
+-/* ── Botones ──────────────────────────────────────────────────────── */
+-#editClienteContent .em-btn {
+-  border-radius: 12px !important;
+-  font-family: var(--f) !important;
+-  font-weight: 600 !important;
+-  transition: background .18s, border-color .18s, box-shadow .18s, transform .18s;
++/* ═══ FORMULARIO (derecha) ═════════════════════════════════════════ */
++.ep-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
++
++.ep-head {
++  display: flex; align-items: flex-start; justify-content: space-between;
++  padding: 26px 32px 18px;
++  flex-shrink: 0;
+ }
+-#editClienteContent .em-btn-ghost {
+-  background: rgba(255, 255, 255, .08) !important;
+-  border: 1px solid rgba(255, 255, 255, .20) !important;
+-  color: var(--ink-1) !important;
++.ep-eyebrow { font-size: .6rem; font-weight: 500; text-transform: uppercase; letter-spacing: .16em; color: var(--ink-3); }
++.ep-title { margin: 4px 0 0; font-size: 1.4rem; font-weight: 600; letter-spacing: -.02em; color: #fff; }
++.ep-close {
++  width: 36px; height: 36px;
++  display: inline-flex; align-items: center; justify-content: center;
++  border-radius: 12px;
++  border: 1px solid rgba(255, 255, 255, .16);
++  background: rgba(255, 255, 255, .06);
++  color: var(--ink-2);
++  cursor: pointer;
++  transition: background .15s, color .15s;
+ }
+-#editClienteContent .em-btn-ghost:hover { background: rgba(255, 255, 255, .16) !important; }
+-#editClienteContent .em-btn-primary {
+-  background: rgba(255, 255, 255, .92) !important;
+-  color: #0f1b2d !important;
+-  border: 1px solid rgba(255, 255, 255, .9) !important;
+-  box-shadow: 0 8px 24px rgba(0, 0, 0, .25), inset 0 -1px 0 rgba(15, 27, 45, .08) !important;
+-}
+-#editClienteContent .em-btn-primary:hover { background: #ffffff !important; transform: translateY(-1px); }
+-#editClienteContent .em-btn-primary svg { stroke: #0f1b2d; }
+-#editClienteContent .em-btn-sm { padding: 6px 14px !important; }
+-
+-/* ── Columnas ─────────────────────────────────────────────────────── */
+-#editClienteContent .em-col-l { border-right: 1px solid rgba(255, 255, 255, .08) !important; }
+-
+-/* ── Secciones: láminas de vidrio ─────────────────────────────────── */
+-#editClienteContent .em-sec {
+-  background: var(--gl-glass) !important;
+-  border: 1px solid rgba(255, 255, 255, .12) !important;
+-  border-radius: 18px !important;
+-  padding-left: 22px !important;       /* anula el padding de la franja lateral */
+-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 10px 30px rgba(0, 0, 0, .12);
+-  backdrop-filter: blur(12px);
+-  -webkit-backdrop-filter: blur(12px);
+-}
+-#editClienteContent .em-sec-ico {
+-  background: rgba(255, 255, 255, .12) !important;
+-  border: 1px solid rgba(255, 255, 255, .18);
+-  border-radius: 10px !important;
++.ep-close:hover { background: rgba(255, 255, 255, .14); color: #fff; }
++
++.ep-lock {
++  margin: 0 32px 10px;
++  padding: 9px 14px;
++  border-radius: 12px;
++  font-size: .74rem; font-weight: 500;
++  color: #f4cf86;
++  background: rgba(244, 207, 134, .10);
++  border: 1px solid rgba(244, 207, 134, .28);
++}
++
++.ep-form {
++  flex: 1;
++  overflow-y: auto;
++  padding: 4px 32px 24px;
++  display: flex; flex-direction: column; gap: 26px;
++}
++.ep-form::-webkit-scrollbar { width: 8px; }
++.ep-form::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .18); border-radius: 8px; }
++
++/* Grupos: título + línea fina, sin caja */
++.ep-group { display: flex; flex-direction: column; gap: 12px; }
++.ep-group-title {
++  display: flex; align-items: center; gap: 12px;
++  margin: 0;
++  font-size: .64rem; font-weight: 600; text-transform: uppercase; letter-spacing: .16em;
++  color: var(--ink-2);
++}
++.ep-group > .ep-group-title::after {
++  content: '';
++  flex: 1;
++  height: 1px;
++  background: linear-gradient(90deg, rgba(255, 255, 255, .18), transparent);
++}
++.ep-group-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
++.ep-link {
++  background: none; border: none; cursor: pointer;
++  font-family: var(--f); font-size: .74rem; font-weight: 500;
++  color: var(--a);
+ }
+-#editClienteContent .em-sec-ico svg { stroke: #dfe8f7; }
+-#editClienteContent .em-sec-title { font-size: .68rem !important; font-weight: 600 !important; letter-spacing: .12em !important; color: var(--ink-1) !important; }
++.ep-link:hover { color: #fff; }
++
++.ep-row { display: grid; gap: 12px; }
++.ep-cols-1   { grid-template-columns: 1fr; }
++.ep-cols-2   { grid-template-columns: 1fr 1fr; }
++.ep-cols-3-1 { grid-template-columns: 3fr 1fr; }
+ 
+ /* ── Campos ───────────────────────────────────────────────────────── */
+-#editClienteContent .em-lbl { font-size: .6rem !important; font-weight: 500 !important; letter-spacing: .1em !important; color: var(--ink-3) !important; }
++#editClienteContent .em-field { min-width: 0; }
++#editClienteContent .em-lbl {
++  display: block;
++  margin-bottom: 6px !important;
++  font-size: .6rem !important; font-weight: 500 !important;
++  text-transform: uppercase; letter-spacing: .1em !important;
++  color: var(--ink-3) !important;
++}
+ #editClienteContent .em-input {
+-  background: var(--gl-input) !important;
+-  border: 1px solid var(--gl-input-edge) !important;
++  width: 100%;
++  height: 40px;
++  padding: 0 12px !important;
++  box-sizing: border-box;
++  background: var(--ep-input) !important;
++  border: 1px solid var(--ep-input-edge) !important;
+   border-radius: 12px !important;
+   color: var(--ink-1) !important;
+   font-family: var(--f);
++  font-size: .84rem !important;
+   transition: background .18s, border-color .18s, box-shadow .18s;
+ }
++#editClienteContent .em-input.em-has-ico { padding-left: 34px !important; }
++#editClienteContent textarea.em-input { height: auto; min-height: 84px; padding: 10px 12px !important; resize: vertical; margin-bottom: 10px; display: block; }
+ #editClienteContent .em-input::placeholder { color: var(--ink-4); }
+-#editClienteContent .em-input:hover:not(:disabled) { background: rgba(255, 255, 255, .10) !important; }
++#editClienteContent .em-input:hover:not(:disabled) { background: rgba(255, 255, 255, .09) !important; }
+ #editClienteContent .em-input:focus {
+   outline: none;
+-  background: rgba(255, 255, 255, .13) !important;
+-  border-color: var(--gl-focus) !important;
++  background: rgba(255, 255, 255, .12) !important;
++  border-color: var(--ep-focus) !important;
+   box-shadow: 0 0 0 4px rgba(169, 196, 245, .14) !important;
+ }
++#editClienteContent .em-input:disabled { opacity: .55; }
+ #editClienteContent select.em-input option { background: #1a2640; color: #f5f7fb; }
+-#editClienteContent input.em-input[type="date"] { color-scheme: dark; }
+-#editClienteContent .em-pts { font-family: var(--f-mono) !important; border-radius: 10px !important; }
+-
+-/* ── Bloque clave/valor ───────────────────────────────────────────── */
+-#editClienteContent .em-kv {
+-  background: rgba(255, 255, 255, .05) !important;
+-  border: 1px solid rgba(255, 255, 255, .12) !important;
+-  border-radius: 14px !important;
+-}
+-#editClienteContent .em-kv > div { border-color: rgba(255, 255, 255, .08) !important; }
++#editClienteContent input.em-input[type="date"] { color-scheme: dark; font-family: var(--f-mono); font-size: .8rem !important; }
++#editClienteContent .em-pts { font-family: var(--f-mono) !important; }
+ 
+ /* ── Notas ────────────────────────────────────────────────────────── */
+-#editClienteContent .em-count { background: rgba(255, 255, 255, .12) !important; border: 1px solid rgba(255, 255, 255, .18) !important; color: var(--ink-1) !important; }
+-#editClienteContent .em-note-wrap { background: rgba(255, 255, 255, .05) !important; border: 1px solid rgba(255, 255, 255, .14) !important; border-radius: 14px !important; }
+-#editClienteContent #notes-list .note-card { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .12); }
+-
+-/* ── Captura / contrato ───────────────────────────────────────────── */
+-#editClienteContent .em-file { background: rgba(255, 255, 255, .06) !important; border: 1px solid rgba(255, 255, 255, .14) !important; border-radius: 14px !important; }
+-#editClienteContent .em-drop { background: rgba(255, 255, 255, .04) !important; border: 1.5px dashed rgba(255, 255, 255, .22) !important; border-radius: 14px !important; }
+-#editClienteContent .em-drop svg { stroke: #cfe0f7; }
+-#editClienteContent .em-drop span { color: var(--ink-3) !important; }
+-#editClienteContent .em-verified { background: rgba(110, 220, 170, .14) !important; color: #9ff0c8 !important; border: 1px solid rgba(110, 220, 170, .35) !important; }
++#editClienteContent .em-count {
++  display: inline-flex; align-items: center; justify-content: center;
++  min-width: 20px; height: 18px; padding: 0 6px;
++  border-radius: 999px;
++  font-size: .6rem; letter-spacing: 0;
++  background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .18); color: var(--ink-1);
++}
++#editClienteContent .em-note-wrap {
++  padding: 12px;
++  background: rgba(255, 255, 255, .04);
++  border: 1px solid rgba(255, 255, 255, .12);
++  border-radius: 14px;
++}
++.ep-note-actions { display: flex; gap: 8px; align-items: center; }
++.ep-note-actions select { flex: 1; }
++.ep-notes { max-height: 240px; overflow-y: auto; scrollbar-width: thin; }
++#editClienteContent .note-card { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .12); }
++#editClienteContent .notes-empty { color: var(--ink-3); padding: 14px 0; }
+ 
+-/* Scroll interno discreto */
+-#editClienteModal::-webkit-scrollbar { width: 8px; }
+-#editClienteModal::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .25); border-radius: 8px; }
++/* ── Barra de acciones ────────────────────────────────────────────── */
++.ep-foot {
++  display: flex; justify-content: flex-end; gap: 10px;
++  padding: 16px 32px;
++  border-top: 1px solid rgba(255, 255, 255, .10);
++  background: linear-gradient(0deg, rgba(255, 255, 255, .05), transparent);
++  flex-shrink: 0;
++}
++#editClienteContent .em-btn {
++  display: inline-flex; align-items: center; gap: 7px;
++  height: 40px; padding: 0 20px;
++  border-radius: 12px;
++  font-family: var(--f); font-size: .8rem; font-weight: 600;
++  cursor: pointer;
++  transition: background .18s, border-color .18s, transform .18s;
++}
++#editClienteContent .em-btn-ghost { background: rgba(255, 255, 255, .06) !important; border: 1px solid rgba(255, 255, 255, .18) !important; color: var(--ink-1) !important; }
++#editClienteContent .em-btn-ghost:hover { background: rgba(255, 255, 255, .14) !important; }
++#editClienteContent .em-btn-primary {
++  background: rgba(255, 255, 255, .92) !important;
++  color: #0f1b2d !important;
++  border: 1px solid rgba(255, 255, 255, .9) !important;
++  box-shadow: 0 8px 24px rgba(0, 0, 0, .25) !important;
++}
++#editClienteContent .em-btn-primary:hover { background: #fff !important; transform: translateY(-1px); }
++#editClienteContent .em-btn-sm { height: 36px; padding: 0 14px !important; font-size: .74rem; }
+ 
+-@media (max-width: 900px) {
+-  #editClienteContent .em-body { grid-template-columns: 1fr !important; }
+-  #editClienteContent .em-col-l { border-right: none !important; border-bottom: 1px solid rgba(255, 255, 255, .08); }
+-  #editClienteContent .em-col { padding: 16px !important; }
++/* ── Responsive ───────────────────────────────────────────────────── */
++@media (max-width: 860px) {
++  .ep-shell { grid-template-columns: 1fr; height: auto; max-height: none; }
++  .ep-profile { border-right: none; border-bottom: 1px solid rgba(255, 255, 255, .10); padding: 24px 20px; }
++  .ep-form { overflow: visible; padding: 4px 20px 20px; }
++  .ep-head { padding: 20px 20px 14px; }
++  .ep-foot { padding: 14px 20px; position: sticky; bottom: 0; backdrop-filter: blur(20px); }
++  .ep-cols-2, .ep-cols-3-1 { grid-template-columns: 1fr; }
+ }
+diff --git a/frontend/js/residencial/costumer-main.js b/frontend/js/residencial/costumer-main.js
+index ceb6293..4d87fc3 100644
+--- a/frontend/js/residencial/costumer-main.js
++++ b/frontend/js/residencial/costumer-main.js
+@@ -1080,128 +1080,119 @@
+       imgDisplayHtml=imgZoneHtml;
+     }
+ 
++    // ── Vista de perfil: izquierda = ficha del cliente, derecha = formulario ──
++    var _stCfg=STATUS_CFG[lead.status]||{label:lead.status||'—',cls:'badge-hold'};
++    var _ptsNum=lead.puntaje!==''&&lead.puntaje!==null&&lead.puntaje!==undefined?parseFloat(String(lead.puntaje).replace(',','.')):null;
++    var _ptsCls=_ptsNum===null?'pts-none':_ptsNum>=1?'pts-high':_ptsNum>=0.5?'pts-mid':'pts-low';
++    var _nmP=String(lead.nombre_cliente||'').trim();
++    var _iniP=(_nmP.split(/\s+/).filter(Boolean).slice(0,2).map(function(w){return w.charAt(0);}).join('')||'?').toUpperCase();
++    var _svcP=(Array.isArray(lead.servicios)?lead.servicios:[lead.servicios]).filter(Boolean).map(function(x){return escHTML(String(x));}).join(' · ');
++    function _pGroup(title,body){return'<section class="ep-group"><h3 class="ep-group-title">'+title+'</h3>'+body+'</section>';}
++    function _pRow(cols,body){return'<div class="ep-row ep-cols-'+cols+'">'+body+'</div>';}
++
+     var html=
+-      // ── Cabecera ──
+-      '<div class="em-head" style="display:flex;align-items:center;justify-content:space-between;padding:20px 28px 18px;border-bottom:1px solid var(--line-1);">'+
+-        '<div style="display:flex;align-items:center;gap:14px;">'+
+-          '<div class="em-head-ico" style="width:52px;height:52px;background:var(--a-bg);border:1px solid var(--a-line);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+
+-            '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'+
+-          '</div>'+
+-          '<div>'+
+-            '<div class="em-title" style="font-size:1.15rem;font-weight:700;color:var(--ink-1);">Editar cliente</div>'+
+-            '<div class="em-subtitle" style="font-size:.76rem;color:var(--ink-4);margin-top:2px;">Modifica la información operativa y comercial del cliente seleccionado</div>'+
++      '<div class="ep-shell">'+
++
++        // ═══ Columna izquierda: perfil ═══
++        '<aside class="ep-profile">'+
++          '<div class="ep-avatar" aria-hidden="true">'+escHTML(_iniP)+'</div>'+
++          '<div class="ep-name">'+escHTML(lead.nombre_cliente||'Sin nombre')+'</div>'+
++          '<div class="ep-agent">'+escHTML(lead.agente||'Sin agente')+'</div>'+
++          '<div class="ep-chips">'+
++            '<span class="ep-status '+_stCfg.cls+'">'+escHTML(_stCfg.label)+'</span>'+
++            '<span class="ep-pts '+_ptsCls+'">'+(_ptsNum!==null?escHTML(String(lead.puntaje)):'—')+' <small>pts</small></span>'+
+           '</div>'+
+-        '</div>'+
+-        '<div style="display:flex;align-items:center;gap:10px;">'+
+-          '<button class="em-btn em-btn-ghost" type="button" onclick="window.closeEditModal()" style="padding:9px 22px;border:1.5px solid var(--line-1);border-radius:8px;background:var(--sheet);font-size:.85rem;font-weight:600;cursor:pointer;color:var(--ink-2);">Cancelar</button>'+
+-          (canEdit?'<button class="em-btn em-btn-primary" type="button" onclick="guardarInlineEdit(\''+lid+'\')" id="ile-save-'+lid+'" style="padding:9px 22px;border:none;border-radius:8px;background:var(--a);color:#fff;font-size:.85rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 12px rgba(108,71,255,.3);">'+
+-            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>'+
+-            ' Guardar cambios</button>'
+-          :'<button class="em-btn em-btn-primary" type="button" onclick="_guardarSoloImagen(\''+lid+'\',\'leads\')" id="ile-save-img-'+lid+'" style="padding:9px 22px;border:none;border-radius:8px;background:var(--a);color:#fff;font-size:.85rem;font-weight:700;cursor:pointer;">📷 Subir imagen</button>')+
+-        '</div>'+
+-      '</div>'+
+-      (!canEdit?'<div style="background:var(--warn-bg);border-bottom:1px solid var(--warn-ln);padding:9px 28px;font-size:.76rem;color:var(--warn);font-weight:600;display:flex;align-items:center;gap:8px;">🔒 Solo Administradores y Backoffice pueden editar.</div>':'')+
+-
+-      // ── Cuerpo 2 columnas ──
+-      '<div class="em-body" style="display:grid;grid-template-columns:1fr 390px;align-items:start;">'+
+-
+-        // Columna izquierda
+-        '<div class="em-col em-col-l" style="padding:22px 20px 24px 28px;display:flex;flex-direction:column;gap:14px;border-right:1px solid var(--line-1);">'+
+-          _mSec('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>','Información personal',
+-            '<div style="margin-bottom:12px;">'+_mField('Nombre cliente','nombre',lead.nombre_cliente,'text','')+'</div>'+
+-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'+
+-              _mField('Teléfono principal','tel',lead.telefono,'tel',phoneIcon)+
+-              _mField('Teléfono alterno','tel-alt',lead.telefono_alt,'tel',phoneIcon)+
+-            '</div>',
+-            'var(--a)')+
+-          _mSec('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>','Información de cuenta',
+-            '<div style="display:grid;grid-template-columns:1fr 1fr 2fr 1fr;gap:10px;">'+
+-              _mField('No. cuenta','cuenta',lead.numero_cuenta,'text','')+
+-              _mSel('Autopago','autopago','<option value="">—</option>')/* poblado dinámico: /api/catalogos */+
+-              _mField('Dirección','dir',lead.direccion,'text','')+
+-              _mField('ZIP code','zip',lead.zip_code,'text','')+
+-            '</div>',
+-            'var(--a)')+
+-          _mSec('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>','Detalles del servicio',
+-            '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;">'+
+-              _mSel('Tipo servicio','tipo','<option value="">Elige</option>')/* poblado dinámico: /api/productos */+
+-              '<div class="em-field"><label class="em-lbl" style="font-size:.65rem;font-weight:600;text-transform:uppercase;color:var(--ink-3);letter-spacing:.05em;display:block;margin-bottom:5px;">Servicio</label><select class="em-input" id="ile-svc-'+lid+'" '+dis+' style="width:100%;padding:9px 12px;border:1px solid var(--line-1);border-radius:8px;font-size:.85rem;color:var(--ink-1);background:var(--sheet);'+opacity+'"></select></div>'+
+-              _mSel('Sistema','sistema','<option value="">Elige</option>')/* poblado dinámico: /api/productos */+
+-              _mSel('Riesgo','riesgo','<option value="">—</option>'+selOpt([['Alto','Alto'],['Medio','Medio'],['Bajo','Bajo'],['N/A','N/A']],lead.riesgo))+
+-            '</div>',
+-            '#f59e0b')+
+-          _mSec('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>','Estado y Gestión',
+-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">'+
+-              _mSel('Status','status',selOpt([['pending','Pending'],['completed','Active/Completed'],['oficina','Oficina'],['reserva','En Reserva'],['cancelled','Cancelled'],['hold','Hold'],['rescheduled','Rescheduled']],lead.status))+
+-              _mSel('Mercado','mercado','<option value="">Elige</option>')/* poblado dinámico: /api/catalogos */+
+-            '</div>'+
+-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">'+
+-              _mSel('Supervisor','sup','<option value="">—</option>')/* poblado dinámico: /api/teams/supervisors-list */+
+-              _mSel('Agente','agente','<option value="">— Agente —</option>')+
+-            '</div>'+
+-            _mSel('Motivo llamada','motivo','<option value="">—</option>')/* poblado dinámico: /api/catalogos */,
+-            'var(--a)')+
+-        '</div>'+
++          (_svcP?'<div class="ep-svc">'+_svcP+(lead.mercado?' · '+escHTML(lead.mercado):'')+'</div>':'')+
+ 
+-        // Columna derecha
+-        '<div class="em-col em-col-r" style="padding:22px 28px 24px 20px;display:flex;flex-direction:column;gap:14px;">'+
+-          _mSec('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>','Logística & Métricas',
+-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">'+
+-              _mField('Dia venta','dv',lead.dia_venta,'date','')+
+-              _mField('Dia instalación','di',lead.dia_instalacion,'date','')+
+-            '</div>'+
+-            '<div class="em-kv" style="border:1px solid var(--line-1);border-radius:8px;overflow:hidden;margin-bottom:14px;">'+
+-              '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line-1);">'+
+-                '<span style="font-size:.68rem;font-weight:600;color:var(--ink-3);">SUPERVISOR / AGENTE:</span>'+
+-                '<span style="font-size:.85rem;font-weight:700;color:var(--ink-1);">'+escHTML(fmtSupervisor(lead.supervisor)||'—')+(lead.agente?' / '+escHTML(lead.agente):'')+'</span>'+
+-              '</div>'+
+-              '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line-1);">'+
+-                '<span style="font-size:.68rem;font-weight:600;color:var(--ink-3);">MOTIVO LLAMADA:</span>'+
+-                '<span style="font-size:.85rem;font-weight:700;color:var(--ink-1);">'+escHTML(lead.motivo_llamada||'—')+'</span>'+
+-              '</div>'+
+-              '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;">'+
+-                '<span style="font-size:.68rem;font-weight:600;color:var(--ink-3);">PUNTAJE AUTOMÁTICO:</span>'+
+-                '<input class="em-input em-pts" type="number" id="ile-pts-'+lid+'" value="'+escHTML(String(lead.puntaje||''))+'" '+dis+' style="width:80px;padding:5px 8px;border:1.5px solid var(--line-1);border-radius:6px;font-size:.88rem;font-weight:600;color:var(--ink-1);text-align:right;background:var(--sheet);'+opacity+'">'+
+-              '</div>'+
+-            '</div>',
+-            'var(--a)')+
+-
+-          // Notas
+-          '<div class="em-sec" style="background:var(--sheet);border:1px solid var(--line-1);border-radius:12px;padding:18px 22px;">'+
+-            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'+
+-              '<div class="em-sec-head" style="display:flex;align-items:center;gap:8px;">'+
+-                '<span class="em-sec-ico" style="width:28px;height:28px;background:var(--a-bg);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>'+
+-                '<span class="em-sec-title" style="font-size:.73rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-1);">Notas</span>'+
+-                '<span id="notes-count-badge" class="em-count" style="background:#f1f5f9;color:var(--ink-2);font-size:.7rem;font-weight:700;padding:1px 8px;border-radius:var(--rf);border:1px solid var(--line-1);">0</span>'+
+-              '</div>'+
+-              '<button type="button" onclick="(function(){var w=document.getElementById(\'ile-note-wrap-'+lid+'\');if(w)w.style.display=w.style.display===\'none\'?\'block\':\'none\';})()" style="font-size:.78rem;font-weight:700;color:var(--a);background:transparent;border:none;cursor:pointer;">+ Agregar nota</button>'+
+-            '</div>'+
+-            '<div id="ile-note-wrap-'+lid+'" class="em-note-wrap" style="display:none;margin-bottom:12px;border:1px solid var(--a-line);border-radius:8px;padding:10px;background:var(--sheet);">'+
+-              '<input type="hidden" id="edit-lead-id" value="'+escHTML(String(lid))+'">'+
+-              '<textarea class="em-input" id="new-note-input" rows="3" placeholder="Escribe una nota… (Ctrl+Enter para guardar)" style="width:100%;padding:8px 10px;border:1px solid var(--line-1);border-radius:7px;font-size:.82rem;resize:none;box-sizing:border-box;font-family:var(--f);color:var(--ink-1);background:var(--sheet-2);margin-bottom:8px;display:block;outline:none;"></textarea>'+
+-              '<div style="display:flex;align-items:center;gap:7px;">'+
+-                '<select class="em-input" id="note-type-select" style="flex:1;min-width:0;padding:5px 8px;border:1px solid var(--line-1);border-radius:6px;font-size:.74rem;background:var(--sheet);color:var(--ink-1);"><option value="general">💬 General</option><option value="llamada">📞 Llamada</option><option value="visita">🏠 Visita</option><option value="alerta">⚠️ Alerta</option><option value="seguimiento">📌 Seguimiento</option></select>'+
+-                '<button id="btn-add-note" type="button" onclick="addNoteToLead()" style="padding:5px 14px;background:var(--a);color:#fff;border:none;border-radius:6px;font-size:.74rem;font-weight:700;cursor:pointer;flex-shrink:0;">Guardar</button>'+
+-              '</div>'+
++          '<div class="ep-divider"></div>'+
++
++          '<dl class="ep-facts">'+
++            '<div><dt>Teléfono</dt><dd class="ep-mono">'+escHTML(lead.telefono?normalizePhoneNumber(lead.telefono):'—')+'</dd></div>'+
++            '<div><dt>Supervisor</dt><dd>'+escHTML(fmtSupervisor(lead.supervisor)||'—')+'</dd></div>'+
++            '<div><dt>Motivo</dt><dd>'+escHTML(lead.motivo_llamada||'—')+'</dd></div>'+
++          '</dl>'+
++
++          '<div class="ep-divider"></div>'+
++
++          '<div class="ep-mini-fields">'+
++            _mField('Día venta','dv',lead.dia_venta,'date','')+
++            _mField('Día instalación','di',lead.dia_instalacion,'date','')+
++            '<div class="em-field"><label class="em-lbl">Puntaje</label>'+
++              '<input class="em-input em-pts" type="number" step="0.05" id="ile-pts-'+lid+'" value="'+escHTML(String(lead.puntaje||''))+'" '+dis+' style="'+opacity+'">'+
+             '</div>'+
+-            '<div id="notes-list" style="max-height:200px;overflow-y:auto;scrollbar-width:thin;"></div>'+
+           '</div>'+
+ 
+-          // Captura o Contrato
+-          '<div class="em-sec" style="background:var(--sheet);border:1px solid var(--line-1);border-radius:12px;padding:18px 22px;">'+
+-            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'+
+-              '<div class="em-sec-head" style="display:flex;align-items:center;gap:8px;">'+
+-                '<span class="em-sec-ico" style="width:28px;height:28px;background:var(--a-bg);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></span>'+
+-                '<span class="em-sec-title" style="font-size:.73rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-1);">Captura o Contrato</span>'+
+-              '</div>'+
+-              (imgSrc?'<span class="em-verified" style="font-size:.68rem;font-weight:700;background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;border-radius:var(--rf);padding:3px 10px;">Verificado</span>':'')+
++          '<div class="ep-divider"></div>'+
++
++          '<div class="ep-capture">'+
++            '<div class="ep-capture-head"><span class="ep-label">Captura o contrato</span>'+
++              (imgSrc?'<span class="em-verified">Verificado</span>':'')+
+             '</div>'+
+             imgDisplayHtml+
+-            // Capturas de llamadas de verificación/seguimiento (fila, scroll invisible)
+-            '<div id="ile-caps-row-'+lid+'" style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;margin-top:10px;"></div>'+
+-            // Formulario registrar llamada (solo si el lead tiene llamada vencida)
++            '<div id="ile-caps-row-'+lid+'" class="ep-caps-row"></div>'+
+             '<div id="ile-llamada-reg-'+lid+'"></div>'+
+           '</div>'+
++        '</aside>'+
++
++        // ═══ Columna derecha: formulario ═══
++        '<div class="ep-main">'+
++          '<header class="ep-head">'+
++            '<div>'+
++              '<div class="ep-eyebrow">Ficha del cliente</div>'+
++              '<h2 class="ep-title">Editar información</h2>'+
++            '</div>'+
++            '<button type="button" class="ep-close" onclick="window.closeEditModal()" aria-label="Cerrar">'+
++              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>'+
++            '</button>'+
++          '</header>'+
++          (!canEdit?'<div class="ep-lock">🔒 Solo Administradores y Backoffice pueden editar.</div>':'')+
++
++          '<div class="ep-form">'+
++            _pGroup('Personal',
++              _pRow(1,_mField('Nombre cliente','nombre',lead.nombre_cliente,'text',''))+
++              _pRow(2,_mField('Teléfono principal','tel',lead.telefono,'tel',phoneIcon)+_mField('Teléfono alterno','tel-alt',lead.telefono_alt,'tel',phoneIcon))
++            )+
++            _pGroup('Cuenta',
++              _pRow(2,_mField('No. cuenta','cuenta',lead.numero_cuenta,'text','')+_mSel('Autopago','autopago','<option value="">—</option>'))+
++              _pRow('3-1',_mField('Dirección','dir',lead.direccion,'text','')+_mField('ZIP code','zip',lead.zip_code,'text',''))
++            )+
++            _pGroup('Servicio',
++              _pRow(2,_mSel('Tipo servicio','tipo','<option value="">Elige</option>')+
++                '<div class="em-field"><label class="em-lbl">Servicio</label><select class="em-input" id="ile-svc-'+lid+'" '+dis+' style="'+opacity+'"></select></div>')+
++              _pRow(2,_mSel('Sistema','sistema','<option value="">Elige</option>')+
++                _mSel('Riesgo','riesgo','<option value="">—</option>'+selOpt([['Alto','Alto'],['Medio','Medio'],['Bajo','Bajo'],['N/A','N/A']],lead.riesgo)))
++            )+
++            _pGroup('Gestión',
++              _pRow(2,_mSel('Status','status',selOpt([['pending','Pending'],['completed','Active/Completed'],['oficina','Oficina'],['reserva','En Reserva'],['cancelled','Cancelled'],['hold','Hold'],['rescheduled','Rescheduled']],lead.status))+
++                _mSel('Mercado','mercado','<option value="">Elige</option>'))+
++              _pRow(2,_mSel('Supervisor','sup','<option value="">—</option>')+_mSel('Agente','agente','<option value="">— Agente —</option>'))+
++              _pRow(1,_mSel('Motivo llamada','motivo','<option value="">—</option>'))
++            )+
++            // Notas
++            '<section class="ep-group">'+
++              '<div class="ep-group-bar">'+
++                '<h3 class="ep-group-title">Notas <span id="notes-count-badge" class="em-count">0</span></h3>'+
++                '<button type="button" class="ep-link" onclick="(function(){var w=document.getElementById(\'ile-note-wrap-'+lid+'\');if(w)w.style.display=w.style.display===\'none\'?\'block\':\'none\';})()">+ Agregar nota</button>'+
++              '</div>'+
++              '<div id="ile-note-wrap-'+lid+'" class="em-note-wrap" style="display:none;">'+
++                '<input type="hidden" id="edit-lead-id" value="'+escHTML(String(lid))+'">'+
++                '<textarea class="em-input" id="new-note-input" rows="3" placeholder="Escribe una nota… (Ctrl+Enter para guardar)"></textarea>'+
++                '<div class="ep-note-actions">'+
++                  '<select class="em-input" id="note-type-select"><option value="general">💬 General</option><option value="llamada">📞 Llamada</option><option value="visita">🏠 Visita</option><option value="alerta">⚠️ Alerta</option><option value="seguimiento">📌 Seguimiento</option></select>'+
++                  '<button id="btn-add-note" class="em-btn em-btn-primary em-btn-sm" type="button" onclick="addNoteToLead()">Guardar nota</button>'+
++                '</div>'+
++              '</div>'+
++              '<div id="notes-list" class="ep-notes"></div>'+
++            '</section>'+
++          '</div>'+
++
++          '<footer class="ep-foot">'+
++            '<button class="em-btn em-btn-ghost" type="button" onclick="window.closeEditModal()">Cancelar</button>'+
++            (canEdit
++              ?'<button class="em-btn em-btn-primary" type="button" onclick="guardarInlineEdit(\''+lid+'\')" id="ile-save-'+lid+'">'+
++                 '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar cambios</button>'
++              :'<button class="em-btn em-btn-primary" type="button" onclick="_guardarSoloImagen(\''+lid+'\',\'leads\')" id="ile-save-img-'+lid+'">📷 Subir imagen</button>')+
++          '</footer>'+
+         '</div>'+
+       '</div>';
+ 
+diff --git a/frontend/residencial/costumer.html b/frontend/residencial/costumer.html
+index 1b4d9f8..c2a81b4 100644
+--- a/frontend/residencial/costumer.html
++++ b/frontend/residencial/costumer.html
+@@ -696,7 +696,7 @@
+ <!-- Rediseño visual de la lista de clientes (se carga al final para prevalecer) -->
+ <link rel="stylesheet" href="/css/residencial/costumer-v2.css?v=20260926">
+ <!-- Modal "Editar cliente" con estilo glassmorphism -->
+-<link rel="stylesheet" href="/css/residencial/costumer-edit-glass.css?v=20260926">
++<link rel="stylesheet" href="/css/residencial/costumer-edit-glass.css?v=20260926c">
+ 
+ <!-- DATE RANGE PICKER SCRIPT -->
+ <script src="/js/residencial/costumer-calendar.js" defer></script>
+@@ -709,7 +709,7 @@
+ <!-- Zona de imagen en fila expandida -->
+ 
+ <!-- CRM CORE SCRIPT -->
+-<script src="/js/residencial/costumer-main.js?v=20260926b" defer></script>
++<script src="/js/residencial/costumer-main.js?v=20260926c" defer></script>
+ 
+ <script>
+ (function(){
+-- 
+2.43.0
+

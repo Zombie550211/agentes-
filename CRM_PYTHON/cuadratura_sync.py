@@ -122,9 +122,10 @@ def _hhmm(v) -> str | None:
 
 
 async def armar_paquete(inicio: date) -> dict:
-    """Paquete de la semana: TODO el personal de los teams de venta, cada uno con su team
-    exacto (campaign), tenga o no horario cargado. Así en Cuadratura cada empleado queda
-    en su team aunque esa semana aún no tenga turnos. Quien no tiene team no viaja.
+    """Paquete de la semana: TODO el personal activo con equipo (como en /horarios.html), cada
+    uno con su equipo exacto de Permisos (campaign), tenga o no horario cargado. Así en Cuadratura cada
+    empleado queda en su team aunque esa semana aún no tenga turnos. (Hasta el 07-10-2026
+    solo viajaban los teams de venta.)
 
     (Hasta el 05-10-2026 solo iban los que tenían horario, porque Cuadratura creaba fichas
     vacías. Desde su commit a27cef7 ya no las crea: al agente que no está en Empleados lo
@@ -140,7 +141,10 @@ async def armar_paquete(inicio: date) -> dict:
             SELECT id, username, name, nombre_completo, fecha_ingreso, role, team, supervisor, reloj_id
             FROM users WHERE COALESCE(active, 1) = 1
         """))
-        usuarios = agentes_de_equipos(r.mappings().all())
+        # Todo el personal activo CON equipo, igual que /horarios.html (los equipos de
+        # Permisos): Horarios del CRM y de Cuadratura muestran a las mismas personas. Quien
+        # no tiene equipo no viaja.
+        usuarios = [dict(u) for u in r.mappings().all() if str(u["team"] or "").strip()]
         r = await s.execute(text("""
             SELECT user_id, work_date, start_time, end_time, break_minutes, rest_day, notes
             FROM agent_schedules WHERE work_date BETWEEN :i AND :f

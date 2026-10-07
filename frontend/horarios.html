@@ -12,7 +12,7 @@
   <script src="/js/core/fetch-interceptor.js" defer></script>
   <script src="/js/core/logout-handler.js" defer></script>
   <script src="/js/core/user-info.js" defer></script>
-  <link rel="stylesheet" href="/css/paginas/horarios.css?v=20261005a">
+  <link rel="stylesheet" href="/css/paginas/horarios.css?v=20261007f">
   <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
   <link rel="stylesheet" href="/css/base/form-controls.css?v=20260921">
 </head>
@@ -26,30 +26,30 @@
   <main class="main-content">
    <div class="hr-page">
 
-    <div class="hr-eyebrow" id="hr-eyebrow">Supervisión · Horarios de agentes</div>
-    <div class="hr-head">
-      <h1 class="hr-title" id="hr-title">Horarios de agentes</h1>
+    <!-- "Esta semana" vive aquí y no en la barra: al aparecer o desaparecer no mueve nada. -->
+    <div class="hr-top">
+      <div class="hr-eyebrow" id="hr-eyebrow">Supervisión · Horarios de agentes</div>
+      <button class="hr-link" id="hr-today" hidden>Volver a esta semana</button>
+    </div>
+    <!-- KPIs de la semana; las flechas cambian de semana. -->
+    <div class="hr-days-nav">
+      <button class="hr-icon-btn hr-days-arrow" id="hr-prev" aria-label="Semana anterior" title="Semana anterior">‹</button>
+      <div class="hr-days" id="hr-days" role="tablist" aria-label="Día de la semana"></div>
+      <button class="hr-icon-btn hr-days-arrow" id="hr-next" aria-label="Semana siguiente" title="Semana siguiente">›</button>
+    </div>
+
+    <!-- Una sola barra: búsqueda, filtro de equipo, estado del envío y acciones. -->
+    <div class="hr-toolbar" id="hr-toolbar" hidden>
+      <input class="hr-input" id="hr-search" type="search" placeholder="Buscar agente o ID de reloj" aria-label="Buscar agente">
+      <select class="hr-input" id="hr-team" hidden aria-label="Filtrar por equipo"></select>
+      <div class="hr-status" id="hr-status"></div>
+      <div class="hr-spacer"></div>
       <div class="hr-actions" id="hr-actions" hidden>
         <button class="hr-btn hr-btn-ghost" id="hr-copy" title="Copia los horarios de la semana anterior a esta">Copiar semana anterior</button>
         <button class="hr-btn hr-btn-secondary" id="hr-save" disabled>Guardado</button>
         <button class="hr-btn" id="hr-send">Enviar a Cuadratura</button>
       </div>
     </div>
-
-    <div class="hr-toolbar" id="hr-toolbar" hidden>
-      <div class="hr-week">
-        <button class="hr-icon-btn" id="hr-prev" aria-label="Semana anterior">‹</button>
-        <span class="hr-week-label" id="hr-week-label">—</span>
-        <button class="hr-icon-btn" id="hr-next" aria-label="Semana siguiente">›</button>
-        <button class="hr-link" id="hr-today">Esta semana</button>
-      </div>
-      <div class="hr-status" id="hr-status"></div>
-      <div class="hr-spacer"></div>
-      <select class="hr-input" id="hr-team" hidden aria-label="Filtrar por equipo"></select>
-      <input class="hr-input" id="hr-search" type="search" placeholder="Buscar agente o ID de reloj" aria-label="Buscar agente">
-    </div>
-
-    <div class="hr-days" id="hr-days" role="tablist" aria-label="Día de la semana"></div>
 
     <div class="hr-dayopts" id="hr-dayopts" hidden>
       <label class="hr-check" id="hr-short-wrap"><input type="checkbox" id="hr-short"> Este día es shortday (4 h: 8–12, 3–7, 5–9)</label>
@@ -72,6 +72,6 @@
 <div class="hr-pop" id="hr-pop" role="dialog" aria-modal="false" hidden></div>
 <div class="hr-toast" id="hr-toast" role="status" aria-live="polite"></div>
 
-<script src="/js/paginas/horarios.js?v=20261005a" defer></script>
+<script src="/js/paginas/horarios.js?v=20261007c" defer></script>
 </body>
 </html>

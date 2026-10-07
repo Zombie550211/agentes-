@@ -55,6 +55,7 @@ from routers import (
     ai_chat as ai_chat_router,
     casos as casos_router,
     horarios as horarios_router,
+    cuadratura_entrada as cuadratura_entrada_router,
     transferencias as transferencias_router,
     promociones as promociones_router,
 )
@@ -826,6 +827,7 @@ app.include_router(permissions_admin_router.router)
 app.include_router(ai_chat_router.router)
 app.include_router(casos_router.router)
 app.include_router(horarios_router.router)
+app.include_router(cuadratura_entrada_router.router)
 app.include_router(transferencias_router.router)
 app.include_router(promociones_router.router)
 

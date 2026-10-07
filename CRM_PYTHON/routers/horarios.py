@@ -1,9 +1,10 @@
 """Horarios de agentes — los carga el supervisor y se envían al Sistema de Cuadratura.
 
 Quién ve qué:
-- Admin / Back Office: todos los agentes activos (con filtro opcional por equipo). Los
-  agentes activos SIN team también salen, agrupados por su rol ("Sin team · Vendedor",
-  "Sin team · Líneas Agentes"), para poder cargarles el horario igual.
+- Admin / Back Office: todo el personal activo, agrupado por su equipo tal como está en
+  Permisos (users.team), con filtro opcional por equipo. Los equipos de venta van en
+  Residencial / Líneas; los demás (Administración, Backoffice, USA…) en "Administración
+  y apoyo". Quien no tiene equipo no aparece.
 - Supervisor: solo su propio team (users.team); es quien carga el horario de cada agente.
 - Agente: el horario de su propio team, en lectura. De los compañeros no ve el ID de reloj
   ni la fecha de ingreso (solo los suyos).
@@ -68,33 +69,30 @@ def _es_supervisor(user: dict) -> bool:
     return "supervisor" in _rol(user) and not _es_admin_bo(user)
 
 
-_ROL_LABEL = {"vendedor": "Vendedor", "lineas-agentes": "Líneas Agentes", "agente": "Agente",
-              "agentes": "Agentes", "agent": "Agente"}
-
-
-def _sin_team(a: dict) -> bool:
-    return not str(a.get("team") or "").strip()
+# Orden de las secciones en la tabla.
+_ORDEN_SECCION = {"residencial": 0, "lineas": 1, "apoyo": 2}
 
 
 def _grupo(a: dict) -> str:
-    """Clave del grupo de la tabla: el team, o el rol si el agente no tiene team."""
-    if _sin_team(a):
-        return "sinteam-" + _norm(a.get("role"))
+    """Clave del grupo de la tabla: el equipo de Permisos (users.team)."""
     return _norm(a["team"])
 
 
 def _grupo_label(a: dict) -> str:
-    if _sin_team(a):
-        rol = str(a.get("role") or "").strip()
-        return "Sin team · " + _ROL_LABEL.get(rol.lower(), rol or "Sin rol")
     return (a["team"] or "").strip()
 
 
-def _seccion(a: dict) -> str:
-    # Sin team no hay team del que deducir la sección: la da el rol.
-    if _sin_team(a):
-        return "lineas" if "linea" in _norm(a.get("role")) else "residencial"
+def _seccion(a: dict, teams_venta: set[str]) -> str:
+    """residencial / lineas para los equipos de venta (los que tienen supervisor);
+    "apoyo" para el resto (Administración, Backoffice, USA…)."""
+    if cs.clave_equipo(a["team"]) not in teams_venta:
+        return "apoyo"
     return team_seccion(a["team"])
+
+
+def _teams_venta(usuarios) -> set[str]:
+    return {cs.clave_equipo(u["team"]) for u in usuarios
+            if cs._es_supervisor_rol(u["role"]) and cs.clave_equipo(u["team"])}
 
 
 async def _agentes_visibles(s, user: dict, equipo: str = "") -> list[dict]:
@@ -102,12 +100,12 @@ async def _agentes_visibles(s, user: dict, equipo: str = "") -> list[dict]:
         SELECT id, username, name, nombre_completo, fecha_ingreso, role, team, supervisor, reloj_id
         FROM users WHERE COALESCE(active, 1) = 1 ORDER BY name
     """))
+    # Horarios refleja los equipos de Permisos: entra todo el personal activo que tenga
+    # equipo, sea cual sea su rol; quien no tiene equipo no aparece en ningún caso. Los
+    # equipos sin supervisor solo los ve (y edita) administración / back office. A
+    # Cuadratura viaja el mismo personal (cuadratura_sync.armar_paquete).
     todos = [dict(u) for u in r.mappings().all()]
-    agentes = [dict(u) for u in cs.agentes_de_equipos(todos)]
-    # Agentes sin team: no tienen supervisor que les cargue el horario, así que solo los
-    # ve (y edita) administración; el propio agente ve su fila. No viajan a Cuadratura,
-    # que agrupa por team (cuadratura_sync.agentes_de_equipos no cambia).
-    agentes += [u for u in todos if _sin_team(u) and cs.es_agente(u["role"])]
+    agentes = [u for u in todos if str(u.get("team") or "").strip()]
     if _es_admin_bo(user):
         if equipo:
             agentes = [a for a in agentes if _norm(_grupo_label(a)) == _norm(equipo)]
@@ -118,7 +116,7 @@ async def _agentes_visibles(s, user: dict, equipo: str = "") -> list[dict]:
     mi_team = _norm((yo or {}).get("team") or user.get("team"))
     if mi_team:
         return [a for a in agentes if _norm(a["team"]) == mi_team]
-    return [a for a in agentes if str(a["id"]) == str(user.get("id"))]
+    return []  # sin equipo no se muestra nada
 
 
 async def _supervisores_por_equipo(s) -> dict[str, str]:
@@ -298,17 +296,18 @@ async def ver_semana(inicio: Optional[str] = Query(None), equipo: str = Query(""
             """), {"i": lunes})
             ultimo = r.mappings().first()
         sups = await _supervisores_por_equipo(s)
+        r = await s.execute(text("SELECT role, team FROM users WHERE COALESCE(active, 1) = 1"))
+        teams_venta = _teams_venta([dict(u) for u in r.mappings().all()])
 
     # Grupos por equipo (el vínculo agente ↔ supervisor es users.team): Residencial y luego Líneas.
     grupos: dict[str, dict] = {}
     for a in agentes:
         clave = _grupo(a)
         grupos.setdefault(clave, {"clave": clave, "team": _grupo_label(a),
-                                  "seccion": _seccion(a), "supervisor": sups.get(clave),
-                                  "sin_team": _sin_team(a)})
-    # Por sección (Residencial y luego Líneas); dentro, los teams y al final los "Sin team".
+                                  "seccion": _seccion(a, teams_venta), "supervisor": sups.get(clave)})
+    # Residencial, Líneas y Administración y apoyo; dentro, por nombre de equipo.
     grupos_ordenados = sorted(grupos.values(),
-                              key=lambda g: (g["seccion"] != "residencial", g["sin_team"], g["team"].lower()))
+                              key=lambda g: (_ORDEN_SECCION.get(g["seccion"], 9), g["team"].lower()))
 
     dias_por_agente: dict[int, dict] = {}
     for f in filas:

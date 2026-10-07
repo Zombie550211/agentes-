@@ -16,10 +16,12 @@
 (function () {
   'use strict';
 
+  // Secciones de la tabla (las manda el backend en cada grupo: grupos[].seccion).
+  var SECCIONES = { residencial: 'Residencial', lineas: 'Líneas', apoyo: 'Administración y apoyo' };
+
   var DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
   var DIAS_LARGOS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
   var MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  var MESES_LARGOS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   var H0 = 8, HN = 13;           // la línea de tiempo va de 8:00 a 21:00
   var MIN_TURNO = 4;             // menos agentes que esto en una hora → aviso
   var MAX_HORAS_SEMANA = 44;
@@ -205,7 +207,9 @@
       $('hr-short-wrap').hidden = true;
       $('hr-hint').hidden = true;
     }
-    $('hr-week-label').textContent = fmtCorta(d.inicio) + ' – ' + fmtCorta(d.fin) + ' ' + d.fin.slice(0, 4);
+    // Sin rótulo de fechas en pantalla: la semana se lee en las tarjetas de los días.
+    var rango = fmtCorta(d.inicio) + ' – ' + fmtCorta(d.fin) + ' ' + d.fin.slice(0, 4);
+    $('hr-days').setAttribute('aria-label', 'Semana del ' + rango);
     $('hr-today').hidden = d.dias.indexOf(d.hoy) >= 0;
 
     var sel = $('hr-team');
@@ -221,52 +225,51 @@
 
   // Todo lo que depende del día elegido o de las ediciones.
   function renderDia() {
-    var f = fechaSel(), dt = fecha(f);
-    $('hr-title').textContent = DIAS_LARGOS[state.dia] + ' ' + dt.getUTCDate() + ' de ' + MESES_LARGOS[dt.getUTCMonth()];
     renderPestanas();
     renderShortday();
     renderTablero();
     renderGuardar();
   }
 
+  // Estado del envío como etiqueta corta (con punto de color); el texto completo va en
+  // el title, para que la barra de filtros y acciones no se parta en dos líneas.
   function renderEstado() {
     var d = state.data, el = $('hr-status');
     var n = Object.keys(state.dirty).length;
     if (!d.puede_editar) { el.hidden = true; return; }
     el.hidden = false;
+    function etiqueta(tipo, corto, largo) {
+      el.className = 'hr-status' + (tipo ? ' ' + tipo : '');
+      el.title = largo;
+      el.innerHTML = '<span class="hr-status-txt">' + esc(corto) + '</span>';
+    }
     if (n) {
-      el.className = 'hr-status warn';
-      el.textContent = n + (n === 1 ? ' agente con cambios sin guardar' : ' agentes con cambios sin guardar');
+      etiqueta('warn', n + ' sin guardar', n + (n === 1 ? ' agente con cambios sin guardar' : ' agentes con cambios sin guardar'));
       return;
     }
     var u = d.ultimo_envio;
     if (!d.cuadratura_configurada) {
-      el.className = 'hr-status warn';
-      el.textContent = 'La conexión con Cuadratura no está configurada: los horarios se guardan pero no se envían.';
+      etiqueta('warn', 'Cuadratura sin conectar', 'La conexión con Cuadratura no está configurada: los horarios se guardan pero no se envían.');
       return;
     }
     if (!u) {
-      el.className = 'hr-status';
-      el.textContent = 'Esta semana aún no se ha enviado a Cuadratura. Se envía sola al guardar (en unos minutos).';
+      etiqueta('', 'Semana sin enviar', 'Esta semana aún no se ha enviado a Cuadratura. Se envía sola al guardar (en unos minutos).');
       return;
     }
     var r = u.resumen || {}, obs = r.observaciones || [];
     if (u.estado === 'error') {
-      el.className = 'hr-status err';
-      el.textContent = 'Falló el último envío a Cuadratura (' + fmtFechaHora(u.fecha) + '): ' + (u.error || '');
+      etiqueta('err', 'Falló el envío', 'Falló el último envío a Cuadratura (' + fmtFechaHora(u.fecha) + '): ' + (u.error || ''));
       return;
     }
-    el.className = 'hr-status' + (u.estado === 'parcial' ? ' warn' : '');
-    var html = '<span>Enviado a Cuadratura el ' + esc(fmtFechaHora(u.fecha)) +
-      (u.origen === 'auto' ? ' (automático)' : ' por ' + esc(u.enviado_por || '')) + '</span>';
+    etiqueta(u.estado === 'parcial' ? 'warn' : 'ok', 'Enviado ' + fmtFechaHora(u.fecha),
+      'Enviado a Cuadratura el ' + fmtFechaHora(u.fecha) + (u.origen === 'auto' ? ' (automático)' : ' por ' + (u.enviado_por || '')));
     if (obs.length) {
-      html += '<details><summary>' + obs.length + ' con observaciones</summary><ul>' + obs.map(function (o) {
+      el.insertAdjacentHTML('beforeend', '<details><summary>' + obs.length + ' con observaciones</summary><ul>' + obs.map(function (o) {
         var ag = agentePorId(o.crm_agent_id) ? nombreDe(agentePorId(o.crm_agent_id)) : ('ID CRM ' + o.crm_agent_id);
         var extra = (o.conflict_dates || []).length ? ' (' + o.conflict_dates.join(', ') + ')' : '';
         return '<li><b>' + esc(ag) + ':</b> ' + esc(o.message || o.status) + esc(extra) + '</li>';
-      }).join('') + '</ul></details>';
+      }).join('') + '</ul></details>');
     }
-    el.innerHTML = html;
   }
 
   function renderPestanas() {
@@ -368,7 +371,7 @@
       var sep = '';
       if (g.seccion !== seccion) {
         seccion = g.seccion;
-        sep = '<div class="hr-section">' + (g.seccion === 'lineas' ? 'Líneas' : 'Residencial') + '</div>';
+        sep = '<div class="hr-section">' + (SECCIONES[g.seccion] || 'Residencial') + '</div>';
       }
       return sep + '<section class="hr-team"><div class="hr-team-head">' +
         '<button type="button" class="hr-team-tg" data-tg="' + esc(g.clave) + '" aria-expanded="' + abierto + '">' +

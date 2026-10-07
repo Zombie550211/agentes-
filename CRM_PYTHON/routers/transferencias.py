@@ -30,9 +30,10 @@ from deps import current_user, team_seccion
 router = APIRouter(prefix="/api/transferencias", tags=["Transferencias de llamadas"])
 
 _SECCIONES = ("residencial", "lineas")
-# Teams que no atienden llamadas (mismo criterio que Tiempo laboral).
+# Teams que no atienden llamadas (mismo criterio que Tiempo laboral). El filtro es por
+# team y no por rol: quien está en un team de venta recibe transferencias aunque su rol
+# sea otro (p.ej. Edward Ramirez, rol Administrador en TEAM LINEAS JONATHAN).
 _TEAM_EXCLUIDO = re.compile(r"backoffice|back office|icon|usa|administra|monitoreo", re.I)
-_ROL_EXCLUIDO = re.compile(r"admin|backoffice|back office", re.I)
 
 RESULTADOS = {
     "completada": "Venta completada",
@@ -85,8 +86,6 @@ async def _agentes_por_team(s, seccion_destino: str) -> dict[str, list[dict]]:
     for u in r.mappings().all():
         team = u["team"]
         if team_seccion(team) != seccion_destino or _TEAM_EXCLUIDO.search(team):
-            continue
-        if _ROL_EXCLUIDO.search(str(u["role"] or "")):
             continue
         teams.setdefault(team, []).append({
             "id": int(u["id"]),

@@ -37,11 +37,23 @@ body{min-height:100vh;background:var(--sup-2);font-family:'Inter',system-ui,sans
 .hr-link:hover{text-decoration:underline}
 
 /* ── Barra: semana, estado, filtros ── */
-.hr-toolbar{display:flex;align-items:center;gap:16px;margin-top:16px;flex-wrap:wrap;font-size:14px}
+.hr-toolbar{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap;font-size:14px}
 .hr-week{display:flex;align-items:center;gap:4px}
 .hr-week-label{font-size:20px;font-weight:600;min-width:190px;text-align:center;font-variant-numeric:tabular-nums}
 .hr-spacer{flex:1}
 .hr-status{color:var(--texto-2);display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:560px}
+/* En la barra única el estado es una etiqueta corta con punto de color; el texto
+   completo va en el title. Las observaciones del envío se despliegan flotando. */
+.hr-toolbar .hr-status{flex:none;max-width:none;position:relative;gap:6px;padding:5px 11px;border-radius:999px;
+  background:var(--sup-3);color:var(--texto-2);font-size:12.5px;font-weight:600;white-space:nowrap;cursor:default}
+.hr-toolbar .hr-status::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.8;flex:none}
+.hr-toolbar .hr-status.ok{background:#dcfce7;color:#166534}
+.hr-toolbar .hr-status.warn{background:var(--hr-warn-bg);color:var(--hr-warn)}
+.hr-toolbar .hr-status.err{background:#fee2e2;color:#b91c1c}
+.hr-toolbar .hr-status details{font-weight:600}
+.hr-toolbar .hr-status details ul{position:absolute;top:calc(100% + 6px);left:0;z-index:30;width:340px;margin:0;padding:10px 12px 10px 28px;
+  white-space:normal;font-weight:400;border-radius:10px;background:var(--sup-1);border:1px solid var(--linea);box-shadow:0 10px 28px rgba(15,23,42,.16)}
+.hr-toolbar .hr-actions{flex-wrap:nowrap}
 .hr-status.warn,.hr-status.err{color:var(--hr-warn)}
 .hr-status details{font-size:13px}
 .hr-status summary{cursor:pointer;color:var(--hr-accent);font-weight:600}
@@ -50,7 +62,19 @@ body{min-height:100vh;background:var(--sup-2);font-family:'Inter',system-ui,sans
 .hr-input:focus{outline:none;border-color:var(--hr-accent);box-shadow:0 0 0 3px rgba(37,99,235,.15)}
 
 /* ── Pestañas de día ── */
-.hr-days{display:flex;gap:6px;margin-top:24px}
+.hr-days{display:flex;gap:6px;flex:1;min-width:0}
+/* KPIs con las flechas de semana a los lados (ya no hay rótulo de fechas). */
+.hr-days-nav{display:flex;align-items:stretch;gap:6px;margin-top:4px;padding:8px 0;
+  /* Fijos arriba al hacer scroll: los KPIs y las flechas de semana siempre a la vista. */
+  position:sticky;top:0;z-index:20;background:var(--sup-2)}
+.hr-days-arrow{width:36px;height:auto;flex:none;border-radius:10px;background:var(--sup-3);color:var(--texto-2)}
+.hr-days-arrow:hover{background:var(--sup-3);box-shadow:inset 0 0 0 2px var(--hr-accent);color:var(--texto-1)}
+.hr-days-arrow:focus-visible{outline:2px solid var(--hr-accent);outline-offset:2px}
+/* Los filtros ceden ancho antes que mandar los botones a otra línea. */
+#hr-search{flex:0 1 220px;width:auto;min-width:140px}
+#hr-team{flex:0 1 210px;width:auto;min-width:140px}
+.hr-top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;min-height:22px}
+.hr-top .hr-link{margin-left:0}
 .hr-day{flex:1;min-width:0;padding:10px 12px;border:0;border-radius:10px;cursor:pointer;font:inherit;text-align:left;background:var(--sup-3);color:var(--texto-1);display:flex;flex-direction:column;gap:2px}
 .hr-day:hover{box-shadow:inset 0 0 0 2px var(--hr-accent)}
 .hr-day.sel{background:var(--texto-1);color:var(--sup-1)}
@@ -166,7 +190,15 @@ body{min-height:100vh;background:var(--sup-2);font-family:'Inter',system-ui,sans
 @media (max-width:900px){
   .main-content{padding:72px 16px 80px}  /* deja sitio al botón ☰ del menú */
   .hr-title{font-size:32px}
-  .hr-input{width:100%}
+  .hr-input,#hr-search,#hr-team{width:100%;flex:1 1 100%}
+  .hr-days-arrow{width:30px}
+  .hr-toolbar .hr-actions{flex-wrap:wrap}
   .hr-days{overflow-x:auto}
   .hr-day{min-width:108px}
+}
+
+/* Mismo criterio que el botón ☰ del menú (sidebar-static.css): donde aparece, flota
+   arriba a la izquierda y taparía la flecha de los KPIs fijos. */
+@media (max-width:768px),(hover:none){
+  .hr-days-nav{padding-left:52px}
 }
