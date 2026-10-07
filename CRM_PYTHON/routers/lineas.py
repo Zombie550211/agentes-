@@ -125,6 +125,7 @@ async def get_lineas_teams() -> list:
             SELECT username, name, role, team
             FROM users
             WHERE UPPER(COALESCE(team,'')) LIKE 'TEAM LINEAS%'
+              AND COALESCE(acceso_crm, 1) = 1
             ORDER BY team, name
         """))
         rows = r.mappings().all()

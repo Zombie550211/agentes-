@@ -53,6 +53,16 @@ def es_agente(role: str) -> bool:
     return any(x in r for x in ("agente", "vendedor", "agent", "seller"))
 
 
+# Equipos que Permisos (crear-cuenta.html, _HIDDEN_TEAMS) trata como "sin equipo".
+_EQUIPOS_OCULTOS = {"backoffice"}
+
+
+def tiene_equipo(team: str) -> bool:
+    """¿Tiene equipo según Permisos? Quien no lo tiene no sale en Horarios ni viaja a Cuadratura."""
+    t = str(team or "").strip()
+    return bool(t) and t.lower() not in _EQUIPOS_OCULTOS
+
+
 def clave_equipo(team: str) -> str:
     """'TEAM Miguel Nuñez' y 'miguel nunez' → 'miguelnunez' (para comparar equipos)."""
     import re
@@ -144,7 +154,7 @@ async def armar_paquete(inicio: date) -> dict:
         # Todo el personal activo CON equipo, igual que /horarios.html (los equipos de
         # Permisos): Horarios del CRM y de Cuadratura muestran a las mismas personas. Quien
         # no tiene equipo no viaja.
-        usuarios = [dict(u) for u in r.mappings().all() if str(u["team"] or "").strip()]
+        usuarios = [dict(u) for u in r.mappings().all() if tiene_equipo(u["team"])]
         r = await s.execute(text("""
             SELECT user_id, work_date, start_time, end_time, break_minutes, rest_day, notes
             FROM agent_schedules WHERE work_date BETWEEN :i AND :f

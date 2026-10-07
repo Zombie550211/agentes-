@@ -80,6 +80,7 @@ async def _agentes_por_team(s, seccion_destino: str) -> dict[str, list[dict]]:
     r = await s.execute(text("""
         SELECT id, username, name, role, TRIM(team) AS team FROM users
         WHERE COALESCE(active, 1) = 1 AND team IS NOT NULL AND TRIM(team) != ''
+          AND COALESCE(acceso_crm, 1) = 1   -- sin usuario no puede atender la transferencia
         ORDER BY TRIM(team), COALESCE(NULLIF(name, ''), username)
     """))
     teams: dict[str, list[dict]] = {}

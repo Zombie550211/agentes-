@@ -154,7 +154,10 @@ async def _find_user_by_variants(variants: list[str]) -> dict | None:
             v = v.strip()
             if not v:
                 continue
-            q = text("SELECT * FROM users WHERE TRIM(username) = :v OR TRIM(name) = :v LIMIT 1")
+            # Los empleados sin acceso al CRM (acceso_crm = 0, alta desde Horarios) no
+            # existen para el login.
+            q = text("SELECT * FROM users WHERE (TRIM(username) = :v OR TRIM(name) = :v) "
+                     "AND COALESCE(acceso_crm, 1) = 1 LIMIT 1")
             r = await s.execute(q, {"v": v})
             row = r.mappings().first()
             if row:
@@ -163,7 +166,7 @@ async def _find_user_by_variants(variants: list[str]) -> dict | None:
 
 async def _find_user_by_username(username: str) -> dict | None:
     async with AsyncSessionLocal() as s:
-        q = text("SELECT * FROM users WHERE username = :u LIMIT 1")
+        q = text("SELECT * FROM users WHERE username = :u AND COALESCE(acceso_crm, 1) = 1 LIMIT 1")
         r = await s.execute(q, {"u": username})
         row = r.mappings().first()
         return _row_to_user(row) if row else None
@@ -502,7 +505,8 @@ async def forgot_password(request: Request, body: ForgotPasswordBody):
         return {"success": True, "message": "Si el usuario existe, recibirás un código en tu correo."}
 
     async with AsyncSessionLocal() as s:
-        r = await s.execute(text("SELECT id, username, email FROM users WHERE username = :u LIMIT 1"), {"u": username})
+        r = await s.execute(text("SELECT id, username, email FROM users WHERE username = :u "
+                                 "AND COALESCE(acceso_crm, 1) = 1 LIMIT 1"), {"u": username})
         row = r.mappings().first()
 
     if not row or not row.get("email"):

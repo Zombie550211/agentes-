@@ -135,6 +135,7 @@ async def list_agents(supervisor: str = "", user: dict = Depends(current_user)):
             r2 = await s.execute(text(f"""
                 SELECT id, username, name, role FROM users
                 WHERE id != :sup_id
+                  AND COALESCE(acceso_crm, 1) = 1
                   AND LOWER(role) NOT LIKE '%supervisor%'
                   AND (supervisor = :sup_name {team_cond})
             """), params)
@@ -143,6 +144,7 @@ async def list_agents(supervisor: str = "", user: dict = Depends(current_user)):
             r2 = await s.execute(text("""
                 SELECT id, username, name, role FROM users
                 WHERE LOWER(role) NOT LIKE '%supervisor%'
+                  AND COALESCE(acceso_crm, 1) = 1
                   AND (supervisor LIKE :s OR supervisor LIKE :s)
             """), {"s": f"%{supervisor}%"})
             agentes = r2.mappings().all()

@@ -1071,6 +1071,37 @@
 </div>
 
 <!-- ═══ MODAL: EDITAR ROL ═══ -->
+<!-- Dar acceso al CRM a un empleado dado de alta desde Horarios (acceso_crm = 0). -->
+<div class="modal-overlay" id="modal-activar">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-head">
+      <div class="modal-title"><i class="fas fa-user-check" style="color:#059669;margin-right:8px"></i>Activar acceso al CRM</div>
+      <button class="modal-close" onclick="closeModal('modal-activar')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p style="margin:0 0 12px;font-size:.8rem;color:var(--ink3)"><b id="act-nombre"></b> se dio de alta desde Horarios y aún no puede entrar al CRM. Al activarlo conserva sus horarios y su ficha de Cuadratura.</p>
+      <div class="form-group">
+        <label class="form-label" for="act-username">Usuario</label>
+        <input class="form-input" id="act-username" autocomplete="off" maxlength="100" placeholder="Nombre de usuario para entrar al CRM"/>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="margin:0">
+          <label class="form-label" for="act-pwd">Contraseña</label>
+          <input class="form-input" id="act-pwd" type="password" autocomplete="new-password" placeholder="Mínimo 6 caracteres"/>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label" for="act-pwd2">Confirmar contraseña</label>
+          <input class="form-input" id="act-pwd2" type="password" autocomplete="new-password" placeholder="Repite la contraseña"/>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-activar')">Cancelar</button>
+      <button class="btn btn-primary" id="act-btn" onclick="guardarActivacion()"><i class="fas fa-user-check"></i> Activar acceso</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-role">
   <div class="modal">
     <div class="modal-head">
@@ -1560,6 +1591,9 @@ async function loadUsers(){
   }
   const data=await res.json();
   _users=Array.isArray(data)?data:(data.users||data.data||[]);
+  // Empleados dados de alta desde Horarios (acceso_crm = 0): su username es un relleno
+  // técnico ("sin-usuario-…"); en toda la pantalla se muestra su nombre.
+  _users.forEach(function(u){ if(Number(u.acceso_crm)===0){ u.sinUsuario=true; u.username=u.name||u.username; } });
   renderTeams();
   if(_currentView==='list') renderTable(_users);
 }
@@ -2252,12 +2286,16 @@ function buildMdAgentRow(a, teamName){
       +'</div>'
       +'<div class="md-agent-info">'
         +'<div class="md-agent-name">'+capFirst(aName)+'</div>'
-        +'<div class="md-agent-role">'+getRoleLabel(a.role)+' · @'+(a.username||'—')+'</div>'
+        +'<div class="md-agent-role">'+getRoleLabel(a.role)+' · '+(a.sinUsuario?'Sin acceso al CRM':'@'+(a.username||'—'))+'</div>'
       +'</div>'
-      +'<span class="md-agent-status activo">Activo</span>'
+      +(a.sinUsuario
+        ? '<span class="md-agent-status" style="background:#fef3c7;color:#92400e">Sin usuario</span>'
+        : '<span class="md-agent-status activo">Activo</span>')
       +'<div class="md-agent-acts">'
         +'<button class="md-btn-reset" onclick="openRoleModal(\''+aId+'\')"><i class="fas fa-id-badge"></i> Perfil</button>'
-        +'<button class="md-btn-reset" onclick="openPwdModal(\''+aId+'\')"><i class="fas fa-redo-alt"></i> Reset</button>'
+        +(a.sinUsuario
+          ? '<button class="md-btn-reset" style="color:#059669" onclick="openActivarModal(\''+aId+'\')"><i class="fas fa-user-check"></i> Activar acceso</button>'
+          : '<button class="md-btn-reset" onclick="openPwdModal(\''+aId+'\')"><i class="fas fa-redo-alt"></i> Reset</button>')
         +'<button class="md-btn-quit" onclick="removeFromTeam(\''+aId+'\')"><i class="fas fa-times"></i> Quitar</button>'
       +'</div>'
       +'<div class="md-tooltip">'
@@ -2494,12 +2532,14 @@ function renderTable(users){ renderCards(users); }
 function renderCards(users){
   if(!users.length){ document.getElementById('table-container').innerHTML='<div class="empty"><div class="empty-icon">👥</div><span>Sin usuarios para mostrar</span></div>'; return; }
   const cards=users.map(function(u){
-    const displayName=u.username||u.name||'—';
+    // acceso_crm = 0: empleado dado de alta desde Horarios; su "username" es de relleno.
+    const noUser=Number(u.acceso_crm)===0;
+    const displayName=noUser?(u.name||'—'):(u.username||u.name||'—');
     const team=u.team||'—';
     const uid=u.id||u._id;
     const isSusp=u.active===0||u.active==='0'||u.active===false;
     const avBg=isSusp?'var(--ink4,#9ca3af)':roleAvatarBg(u.role);
-    const suspBadge=isSusp?'<span class="susp-badge">Suspendido</span>':'';
+    const suspBadge=(isSusp?'<span class="susp-badge">Suspendido</span>':'')+(noUser?' <span class="susp-badge" style="background:#d97706">Sin usuario</span>':'');
     const menuId='ucm_'+uid;
     return `<div class="ucard" data-id="${uid}" data-search="${String(displayName+' '+(u.username||'')+' '+team+' '+(u.role||'')).toLowerCase()}"${isSusp?' style="opacity:.6"':''}>
       <div class="ucard-head">
@@ -2507,6 +2547,7 @@ function renderCards(users){
         <div style="position:relative">
           <button class="ucard-menu-btn" onclick="_toggleUCardMenu(event,'${menuId}')"><i class="fas fa-ellipsis-v"></i></button>
           <div class="ucard-dropdown" id="${menuId}">
+            ${noUser?`<button class="ucard-dd-item" style="color:#059669" onclick="_closeUCardMenus();openActivarModal('${uid}')"><i class="fas fa-user-check" style="width:13px"></i> Activar acceso</button>`:''}
             <button class="ucard-dd-item" onclick="_closeUCardMenus();openRoleModal('${uid}')"><i class="fas fa-id-badge" style="width:13px"></i> Editar perfil</button>
             <button class="ucard-dd-item" onclick="_closeUCardMenus();openPermsModal('${uid}')"><i class="fas fa-key" style="width:13px"></i> Editar permisos</button>
             <button class="ucard-dd-item" style="color:#7c3aed" onclick="_closeUCardMenus();openMergeModal('${uid}')"><i class="fas fa-code-merge" style="width:13px"></i> Unificar usuario</button>
@@ -2516,7 +2557,8 @@ function renderCards(users){
         </div>
       </div>
       <div class="ucard-name">${capFirst(displayName)}${suspBadge}</div>
-      <div class="ucard-username">@${u.username||'—'}</div>
+      <div class="ucard-username">${noUser?'Sin acceso al CRM':'@'+(u.username||'—')}</div>
+      ${noUser?`<button class="btn" style="margin-top:8px;padding:5px 10px;font-size:.7rem;background:#059669;color:#fff;border:none" onclick="openActivarModal('${uid}')"><i class="fas fa-user-check"></i> Activar acceso</button>`:''}
       <span class="role-badge ${getRoleClass(u.role)}" style="margin-top:9px">${getRoleLabel(u.role)}</span>
       <div class="ucard-team">${team}</div>
       <div class="ucard-time">${timeAgo(u.created_at||u.createdAt)}</div>
@@ -2525,6 +2567,36 @@ function renderCards(users){
   document.getElementById('table-container').innerHTML=`<div class="user-cards-grid">${cards}</div>`;
   // Cerrar menús al hacer click fuera
   document.addEventListener('click',_closeUCardMenus,{once:false});
+}
+
+var _activarId=null;
+function openActivarModal(uid){
+  var u=_users.find(function(x){ return String(x.id||x._id)===String(uid); });
+  if(!u) return;
+  _activarId=uid;
+  document.getElementById('act-nombre').textContent=u.name||'Este empleado';
+  document.getElementById('act-username').value='';
+  document.getElementById('act-pwd').value='';
+  document.getElementById('act-pwd2').value='';
+  openModal('modal-activar');
+  setTimeout(function(){ document.getElementById('act-username').focus(); },50);
+}
+async function guardarActivacion(){
+  var username=document.getElementById('act-username').value.trim();
+  var pwd=document.getElementById('act-pwd').value, pwd2=document.getElementById('act-pwd2').value;
+  if(username.length<3){ toast('El usuario debe tener al menos 3 caracteres','err'); return; }
+  if(pwd.length<6){ toast('La contraseña debe tener al menos 6 caracteres','err'); return; }
+  if(pwd!==pwd2){ toast('Las contraseñas no coinciden','err'); return; }
+  var btn=document.getElementById('act-btn'); btn.disabled=true;
+  try{
+    var res=await AUTH.sf('/api/users/'+_activarId+'/activar-acceso',{ method:'PUT', body:JSON.stringify({ username:username, password:pwd }) });
+    if(!res){ toast('Error de conexión','err'); return; }
+    var data=await res.json().catch(function(){ return {}; });
+    if(!res.ok||data.success===false){ toast((typeof data.detail==='string'?data.detail:data.message)||'No se pudo activar','err'); return; }
+    closeModal('modal-activar');
+    toast('✓ Acceso activado: ya puede entrar como '+username,'ok');
+    loadUsers();
+  } finally { btn.disabled=false; }
 }
 
 function _toggleUCardMenu(e,id){

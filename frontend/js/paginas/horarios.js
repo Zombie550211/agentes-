@@ -378,7 +378,9 @@
         '<small>' + (abierto ? '▾' : '▸') + '</small><span>' + esc(g.team || 'Sin equipo') + '</span></button>' +
         '<span class="hr-team-meta">' + miembros.length + (miembros.length === 1 ? ' agente' : ' agentes') + ' · ' + fmtHoras(horasEq) + ' semana' +
         (g.supervisor ? ' · Sup. ' + esc(g.supervisor) : '') + '</span>' +
-        '<span class="hr-team-warn">' + esc(avisos.join(' · ')) + '</span></div>' +
+        '<span class="hr-team-warn">' + esc(avisos.join(' · ')) + '</span>' +
+        (g.puede_alta ? '<button type="button" class="hr-add-emp" data-alta="' + esc(g.team) + '" title="Empleado nuevo que aún no tiene usuario del CRM">+ Nuevo empleado</button>' : '') +
+        '</div>' +
         (abierto ? miembros.map(function (a) { return filaAgente(a, f); }).join('') : '') + '</section>';
     }).join('');
 
@@ -432,8 +434,9 @@
     return '<div class="hr-row3 hr-agent' + (!d.puede_editar && String(a.id) === String(d.yo) ? ' yo' : '') + '">' +
       '<div class="hr-who"><div class="hr-name-row"><div class="hr-name' + (a.nombre_completo ? '' : ' sin-completo') + '" title="' + esc(nombre) +
       (a.nombre_completo ? '' : ' (sin nombre completo)') + '">' + esc(nombre) + (a.es_supervisor ? '<em> · Supervisor</em>' : '') + '</div>' +
+      (a.sin_usuario ? '<span class="hr-tag-nouser" title="Aún no tiene usuario del CRM: se le da acceso desde Permisos">Sin usuario</span>' : '') +
       (d.puede_editar ? '<button type="button" class="hr-edit-nombre" data-nombre="' + a.id + '" title="Nombre completo" aria-label="Editar el nombre completo de ' + esc(nombre) + '">✎</button>' : '') + '</div>' +
-      '<div class="hr-mark">' + ['<span class="hr-user" title="Usuario del CRM">' + esc(a.username || '') + '</span>', reloj, ingresoHtml]
+      '<div class="hr-mark">' + [a.sin_usuario ? '' : '<span class="hr-user" title="Usuario del CRM">' + esc(a.username || '') + '</span>', reloj, ingresoHtml]
         .filter(Boolean).join(' · ') + '</div></div>' +
       '<button type="button" class="hr-line' + (a._dirtyDays && a._dirtyDays[f] ? ' dirty' : '') + '" data-u="' + a.id + '"' +
       (ed && d.puede_editar ? '' : ' disabled') + ' title="' + (d.puede_editar && !ed ? 'Día pasado: lo corrige RRHH en Cuadratura' : '') +
@@ -632,6 +635,37 @@
     }
   }
 
+  // Empleado nuevo sin usuario del CRM: queda en el equipo del botón, listo para cargarle
+  // turnos. El acceso al CRM se le da después desde Permisos (mismo registro).
+  var altaTeam = null;
+  function altaEmpleado(team) {
+    if (Object.keys(state.dirty).length && !confirm('Hay cambios sin guardar en esta semana. Guárdelos antes, o se descartarán al recargar. ¿Continuar?')) return;
+    altaTeam = team;
+    $('hr-alta-team').textContent = team;
+    $('hr-alta-nombre').value = '';
+    $('hr-alta-err').hidden = true;
+    $('hr-alta').hidden = false;
+    $('hr-alta-nombre').focus();
+  }
+  function cerrarAlta() { $('hr-alta').hidden = true; altaTeam = null; }
+  async function guardarAlta(ev) {
+    ev.preventDefault();
+    var val = $('hr-alta-nombre').value.trim().replace(/\s+/g, ' ');
+    var err = $('hr-alta-err');
+    if (val.split(' ').length < 2) { err.textContent = 'Escribe nombre y apellido.'; err.hidden = false; return; }
+    var btn = $('hr-alta-ok');
+    btn.disabled = true;
+    try {
+      var r = await api('POST', '/api/horarios/empleados', { nombre: val, team: altaTeam });
+      cerrarAlta();
+      state.dirty = {};
+      await cargar();
+      toast(r.nombre + ' agregado a ' + r.team + '. Ya puede asignarle su horario.');
+    } catch (e) {
+      err.textContent = e.message; err.hidden = false;
+    } finally { btn.disabled = false; }
+  }
+
   async function editarNombre(id) {
     var a = agentePorId(id);
     var val = prompt('Nombre completo de ' + (a.name || a.username) + ' (usuario CRM: ' + a.username + '):', a.nombre_completo || '');
@@ -728,6 +762,11 @@
       $('hr-days').querySelector('.sel').focus();
     };
 
+    $('hr-alta-form').addEventListener('submit', guardarAlta);
+    $('hr-alta-cancel').onclick = cerrarAlta;
+    $('hr-alta').addEventListener('click', function (e) { if (e.target === e.currentTarget) cerrarAlta(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('hr-alta').hidden) cerrarAlta(); });
+
     var board = $('hr-board');
     board.addEventListener('click', function (e) {
       var tg = e.target.closest('[data-tg]');
@@ -737,6 +776,8 @@
         renderTablero();
         return;
       }
+      var alta = e.target.closest('[data-alta]');
+      if (alta) { altaEmpleado(alta.dataset.alta); return; }
       var ed = e.target.closest('[data-nombre]');
       if (ed) { editarNombre(ed.dataset.nombre); return; }
       var ing = e.target.closest('[data-ingreso]');

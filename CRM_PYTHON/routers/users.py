@@ -86,6 +86,8 @@ def _serialize(u: dict) -> dict:
         "active":      int(u.get("active", 1)),
         "created_at":  str(u.get("created_at") or ""),
         "fecha_ingreso": str(u.get("fecha_ingreso") or ""),
+        # 0 = empleado dado de alta desde Horarios, aún sin usuario (no puede entrar).
+        "acceso_crm":  int(u.get("acceso_crm", 1) if u.get("acceso_crm") is not None else 1),
     }
 
 
@@ -205,7 +207,8 @@ async def admin_list(user: dict = Depends(current_user)):
     if not _is_admin_or_bo(user):
         raise HTTPException(403, "No autorizado para listar usuarios")
     async with AsyncSessionLocal() as s:
-        r = await s.execute(text("SELECT id, username, name, email, role, team, supervisor, avatar_url, permissions, active, created_at, fecha_ingreso FROM users ORDER BY username"))
+        r = await s.execute(text("SELECT id, username, name, email, role, team, supervisor, avatar_url, permissions, "
+                                 "active, created_at, fecha_ingreso, acceso_crm FROM users ORDER BY username"))
         users = [_row_to_user(row) for row in r.mappings().all()]
     sanitized = [_serialize(u) for u in users]
     return {"success": True, "users": sanitized, "agents": sanitized}
@@ -214,7 +217,8 @@ async def admin_list(user: dict = Depends(current_user)):
 @router.get("/agents")
 async def agents_list(seccion: str = "", user: dict = Depends(current_user)):
     async with AsyncSessionLocal() as s:
-        r = await s.execute(text("SELECT id, username, name, email, role, team, supervisor, avatar_url, permissions FROM users ORDER BY name"))
+        r = await s.execute(text("SELECT id, username, name, email, role, team, supervisor, avatar_url, permissions "
+                                 "FROM users WHERE COALESCE(acceso_crm, 1) = 1 ORDER BY name"))
         users = [_row_to_user(row) for row in r.mappings().all()]
     sec = (seccion or "").strip().lower()
     if sec:
@@ -342,6 +346,53 @@ async def update_credentials(user_id: str, body: UpdateCredentialsBody, user: di
         updated = _row_to_user(r2.mappings().first())
 
     return {"success": True, "user": _serialize(updated), "message": "Credenciales actualizadas"}
+
+
+class ActivarAccesoBody(BaseModel):
+    username: str
+    password: str
+
+
+@router.put("/{user_id}/activar-acceso")
+async def activar_acceso(user_id: str, body: ActivarAccesoBody, user: dict = Depends(current_user)):
+    """Da acceso al CRM a un empleado dado de alta desde Horarios (acceso_crm = 0): le
+    pone usuario y contraseña al MISMO registro, así conserva sus horarios y su enlace
+    con Cuadratura (crm_agent_id = users.id) en vez de duplicarse."""
+    if _norm_role(user.get("role","")) not in ADMIN_ROLES:
+        raise HTTPException(403, "Solo administración puede dar acceso al CRM")
+    try:
+        uid = int(user_id)
+    except ValueError:
+        raise HTTPException(404, "Usuario no encontrado")
+    username = (body.username or "").strip()
+    if len(username) < 3 or len(username) > 100:
+        raise HTTPException(400, "El usuario debe tener entre 3 y 100 caracteres")
+    if len(body.password or "") < 6:
+        raise HTTPException(400, "La contraseña debe tener al menos 6 caracteres")
+
+    import bcrypt as _bcrypt
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("SELECT id, acceso_crm FROM users WHERE id = :id LIMIT 1"), {"id": uid})
+        row = r.mappings().first()
+        if not row:
+            raise HTTPException(404, "Usuario no encontrado")
+        if int(row["acceso_crm"] if row["acceso_crm"] is not None else 1) == 1:
+            raise HTTPException(400, "Este usuario ya tiene acceso al CRM")
+        dup = await s.execute(text("SELECT id FROM users WHERE username = :u AND id != :id LIMIT 1"),
+                              {"u": username, "id": uid})
+        if dup.first():
+            raise HTTPException(409, "El nombre de usuario ya está en uso")
+        hashed = _bcrypt.hashpw(body.password[:72].encode(), _bcrypt.gensalt(rounds=10)).decode()
+        await s.execute(text("""
+            UPDATE users SET username = :u, password_hash = :p, acceso_crm = 1, updated_at = :now
+            WHERE id = :id AND acceso_crm = 0
+        """), {"u": username, "p": hashed, "now": _utcnow(), "id": uid})
+        await s.commit()
+        r2 = await s.execute(text("SELECT id, username, name, email, role, team, supervisor, avatar_url, "
+                                  "permissions, active, created_at, fecha_ingreso, acceso_crm FROM users WHERE id = :id"),
+                             {"id": uid})
+        activado = _row_to_user(r2.mappings().first())
+    return {"success": True, "user": _serialize(activado), "message": "Acceso al CRM activado"}
 
 
 @router.put("/{user_id}/permissions")

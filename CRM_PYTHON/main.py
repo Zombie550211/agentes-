@@ -424,6 +424,10 @@ _MIGRATIONS: list[tuple[str, str]] = [
         ADD COLUMN resultado_at    DATETIME     NULL,
         ADD INDEX idx_tl_resultado (resultado),
         ADD INDEX idx_tl_captura (captura_file_id)"""),
+    # Empleado sin acceso al CRM (acceso_crm = 0): se da de alta desde Horarios para
+    # cargarle turnos antes de tener usuario (los agentes nuevos no entran al CRM hasta
+    # sus primeras ventas). No puede iniciar sesión; se activa desde Permisos.
+    ("0070_users_acceso_crm", "ALTER TABLE users ADD COLUMN acceso_crm TINYINT(1) NOT NULL DEFAULT 1"),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración

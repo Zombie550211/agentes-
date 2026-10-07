@@ -298,7 +298,8 @@ async def _leads_bootstrap_core(
 
     async def _get_agents():
         async with AsyncSessionLocal() as s:
-            r = await s.execute(text("SELECT id, username, name, role, team, supervisor FROM users ORDER BY name"))
+            r = await s.execute(text("SELECT id, username, name, role, team, supervisor FROM users "
+                                     "WHERE COALESCE(acceso_crm, 1) = 1 ORDER BY name"))
             return [dict(row) for row in r.mappings().all()]
 
     async def _get_months():
