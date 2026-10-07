@@ -304,8 +304,13 @@
 .fc-line .fc-row { min-height: 48px; }
 .fc-line .fc-row + .fc-row::before { left: 18px; }
 
-/* Edición de la línea: el formulario que ya existía, con el aspecto de la ficha. */
-.fc-line-edit { border-top: 1px solid var(--fc-hair); }
+/* Edición de la línea: el formulario que ya existía, con el aspecto de la ficha.
+   Mientras está abierto se ocultan las filas de solo lectura (Servicio / Edición),
+   y el separador es el mismo filete con sangría que el resto de filas. */
+.line-card.fc-editando .fc-line-view { display: none; }
+.fc-line-edit > .fc-row:first-child::before {
+  content: ""; position: absolute; top: 0; left: 18px; right: 0; height: 1px; background: var(--fc-hair);
+}
 .fc-line-edit-acciones { display: flex; gap: 8px; align-items: center; padding: 12px 18px; }
 .fc-line-edit-acciones .fc-btn { font-size: 13px; padding: 7px 16px; }
 .fc-line-edit .line-edit-msg { font-size: 12px; color: var(--fc-text-2); }
@@ -368,7 +373,8 @@
 }
 
 
-/* Los campos de la línea también pierden el fondo que impone la hoja global. */
+/* Los campos de la línea también pierden el fondo que impone la hoja global.
+   El valor va en gris como en las demás filas de la ficha; al escribir, en negro. */
 .fc .fc-line .fc-row .fc-val input:not([type="checkbox"]),
 .fc .fc-line-notes .fc-compose .note-textarea {
   background: transparent !important;
@@ -376,6 +382,8 @@
   box-shadow: none !important;
   color: var(--fc-text) !important;
 }
+.fc .fc-line .fc-row .fc-val input:not([type="checkbox"]) { color: var(--fc-text-2) !important; }
+.fc .fc-line .fc-row .fc-val input:not([type="checkbox"]):focus { color: var(--fc-text) !important; }
 .fc .fc-line-status select {
   position: absolute; inset: 0; opacity: 0; cursor: pointer;
   background: transparent !important; border: 0 !important;

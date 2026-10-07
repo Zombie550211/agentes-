@@ -45,7 +45,7 @@
        Ya no se cargan glass-cards-cream ni las de la tabla antigua: eran las
        que imponían fondos y bordes a todo input/select de la página. -->
   <link rel="stylesheet" href="/css/lineas/costumer-lista.css?v=20260922">
-  <link rel="stylesheet" href="/css/lineas/ficha-cliente.css?v=20260922">
+  <link rel="stylesheet" href="/css/lineas/ficha-cliente.css?v=20261007">
   <link rel="stylesheet" href="/css/componentes/costumer-table-comments.css" />
   <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
   </head>
@@ -451,6 +451,15 @@
       // Configuración de actualización de STATUS
       const STATUS_ENDPOINT = '/api/lineas-team/status'; // Ajustar si tu ruta es distinta
       const STATUS_METHOD = 'PUT';
+      // Servicios de una línea: los mismos del formulario Nuevo Lead (lineas/lead.html,
+      // buildSvcOptions). Un valor antiguo que no esté en la lista se conserva como opción.
+      const LINE_SVC_OPTIONS = ['SIM WIRELES', 'WIRELESS', 'TABLET', 'SMART WATCH'];
+      function lineSvcOptions(actual) {
+        const sel = String(actual || '').trim().toUpperCase() || 'SIM WIRELES';
+        const opts = LINE_SVC_OPTIONS.slice();
+        if (!opts.includes(sel)) opts.push(sel);
+        return opts.map(o => `<option value="${escH(o)}"${o === sel ? ' selected' : ''}>${escH(o)}</option>`).join('');
+      }
       const STATUS_OPTIONS = [
         { val: 'active', label: 'Active' },
         { val: 'pending', label: 'Pending' },
@@ -1242,11 +1251,11 @@
                     </label>
                   </div>
 
-                  <div class="fc-row">
+                  <div class="fc-row fc-line-view">
                     <label>Servicio</label>
                     <div class="fc-val"><span class="fc-fijo line-serv-display">${escH(servicio || 'N/A')}</span></div>
                   </div>
-                  ${editable ? `<div class="fc-row">
+                  ${editable ? `<div class="fc-row fc-line-view">
                     <label>Edición</label>
                     <div class="fc-val">
                       <button type="button" class="fc-icon-btn btn-edit-line" data-client-id="${docId}" data-line-index="${i}">Editar</button>
@@ -1254,12 +1263,15 @@
                   </div>
                   <div class="line-edit-form fc-line-edit" data-client-id="${docId}" data-line-index="${i}" style="display:none;">
                     <div class="fc-row">
-                      <label>Teléfono</label>
-                      <div class="fc-val"><input type="tel" class="line-edit-tel" value="${escH(telefono)}"></div>
+                      <label for="fc-ltel-${docId}-${i}">Teléfono</label>
+                      <div class="fc-val"><input type="tel" inputmode="tel" maxlength="20" placeholder="Número de la línea" id="fc-ltel-${docId}-${i}" class="line-edit-tel" value="${escH(telefono)}"></div>
                     </div>
                     <div class="fc-row">
-                      <label>Servicio</label>
-                      <div class="fc-val"><input type="text" class="line-edit-serv" value="${escH(servicio)}"></div>
+                      <label for="fc-lsvc-${docId}-${i}">Servicio</label>
+                      <div class="fc-val">
+                        <select id="fc-lsvc-${docId}-${i}" class="line-edit-serv fc-plain">${lineSvcOptions(servicio)}</select>
+                        <svg class="fc-chev" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2"><path d="M1.5 1.5l5 5-5 5"/></svg>
+                      </div>
                     </div>
                     <div class="fc-line-edit-acciones">
                       <button type="button" class="fc-btn fc-btn-primary btn-save-line">Guardar</button>
@@ -1702,9 +1714,14 @@
             const form = card.querySelector('.line-edit-form');
             if (!form) return;
             // Ocultar otros formularios abiertos
-            document.querySelectorAll('.line-edit-form').forEach(f => { if (f !== form) f.style.display = 'none'; });
-            form.style.display = form.style.display === 'none' ? 'block' : 'none';
-            if (form.style.display === 'block') form.querySelector('.line-edit-tel')?.focus();
+            document.querySelectorAll('.line-edit-form').forEach(f => {
+              if (f !== form) { f.style.display = 'none'; f.closest('.line-card')?.classList.remove('fc-editando'); }
+            });
+            const abrir = form.style.display === 'none';
+            form.style.display = abrir ? 'block' : 'none';
+            // Mientras se edita, fuera las filas de solo lectura (si no, "Servicio" sale dos veces).
+            card.classList.toggle('fc-editando', abrir);
+            if (abrir) form.querySelector('.line-edit-tel')?.focus();
           });
         });
 
@@ -1712,6 +1729,7 @@
           btn.addEventListener('click', function(e) {
             e.stopPropagation();
             this.closest('.line-edit-form').style.display = 'none';
+            this.closest('.line-card')?.classList.remove('fc-editando');
           });
         });
 
@@ -1754,8 +1772,14 @@
               if (card) {
                 const telDisplay = card.querySelector('.line-tel-display');
                 if (telDisplay) telDisplay.textContent = telInput.value.trim() || 'Sin teléfono';
+                const servDisplay = card.querySelector('.line-serv-display');
+                if (servDisplay) servDisplay.textContent = servInput.value.trim() || 'N/A';
               }
-              setTimeout(() => { form.style.display = 'none'; if(msgEl) msgEl.textContent=''; }, 1200);
+              setTimeout(() => {
+                form.style.display = 'none';
+                form.closest('.line-card')?.classList.remove('fc-editando');
+                if (msgEl) msgEl.textContent = '';
+              }, 1200);
               showNotification('Línea actualizada correctamente', 'success');
             } catch(err) {
               if (msgEl) { msgEl.textContent = 'Error: '+err.message; msgEl.style.color = '#dc2626'; }
