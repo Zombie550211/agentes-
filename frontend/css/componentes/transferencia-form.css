@@ -77,6 +77,51 @@
 .trf-chip.rec{background:#dcfce7;color:#166534}
 .trf-vacio{padding:28px;text-align:center;font-size:.82rem;color:var(--texto-3,#64748b)}
 
+/* ── Resultado de la transferencia ── */
+.trf-res-cel{min-width:150px}
+.trf-res{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:.68rem;font-weight:700;white-space:nowrap}
+.trf-res.pend{background:var(--sup-3,#f1f5f9);color:var(--texto-3,#64748b)}
+.trf-res.ok{background:#dcfce7;color:#166534}
+.trf-res.seg{background:#fef3c7;color:#92400e}
+.trf-res.no{background:#fee2e2;color:#991b1b}
+.trf-res-cap{display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-size:.72rem;font-weight:700;color:#0f766e;text-decoration:none}
+.trf-res-cap:hover{text-decoration:underline}
+.trf-res-cel .trf-res-cap{display:flex;width:max-content}
+.trf-res-btn{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:6px 10px;border:1px solid #99f6e4;border-radius:9px;background:#f0fdfa;color:#0f766e;
+  font:inherit;font-size:.7rem;font-weight:800;cursor:pointer;white-space:nowrap}
+.trf-res-btn:hover{background:#ccfbf1}
+.trf-res-btn:focus-visible{outline:2px solid #0d9488;outline-offset:2px}
+
+/* Diálogo */
+.trf-dlg-fondo{position:fixed;inset:0;z-index:1400;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(15,23,42,.55)}
+.trf-dlg{width:min(100%,500px);max-height:calc(100vh - 32px);overflow:auto;display:flex;flex-direction:column;gap:16px;padding:22px;
+  border-radius:16px;background:var(--sup-1,#fff);color:var(--texto-1,#0f172a);box-shadow:0 20px 50px rgba(15,23,42,.3);text-align:left}
+.trf-dlg-t{margin:0;font-size:1rem;font-weight:800;color:var(--texto-1,#0f172a)}
+.trf-dlg-sub{margin:-10px 0 0;font-size:.78rem;color:var(--texto-3,#64748b)}
+.trf-dlg-ops{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0;padding:0;border:none;min-width:0}
+.trf-dlg-ops legend{margin-bottom:6px;padding:0;font-size:.68rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--texto-3,#64748b)}
+.trf-op{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 8px;border:2px solid var(--linea,#e2e8f0);border-radius:12px;
+  font-size:.74rem;font-weight:700;text-align:center;color:var(--texto-2,#334155);cursor:pointer;transition:border-color .15s,background .15s}
+.trf-op input{position:absolute;opacity:0;pointer-events:none}
+.trf-op i{font-size:1.25rem}
+.trf-op.ok i{color:#16a34a}.trf-op.seg i{color:#d97706}.trf-op.no i{color:#dc2626}
+.trf-op:has(input:focus-visible){outline:2px solid #0d9488;outline-offset:2px}
+.trf-op.ok:has(input:checked){border-color:#16a34a;background:#f0fdf4}
+.trf-op.seg:has(input:checked){border-color:#d97706;background:#fffbeb}
+.trf-op.no:has(input:checked){border-color:#dc2626;background:#fef2f2}
+.trf-drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:96px;padding:14px;border:2px dashed var(--linea-fuerte,#cbd5e1);
+  border-radius:12px;background:var(--sup-2,#f8fafc);cursor:pointer;text-align:center}
+.trf-drop:hover,.trf-drop:focus-visible{border-color:#14b8a6;outline:none}
+.trf-drop-txt{font-size:.78rem;font-weight:600;color:var(--texto-3,#64748b)}
+.trf-drop-img{max-width:100%;max-height:220px;border-radius:8px;object-fit:contain}
+.trf-dlg-ayuda{font-size:.7rem;color:var(--texto-4,#94a3b8)}
+.trf-dlg .trf-field label.trf-drop{font-size:inherit;font-weight:inherit;letter-spacing:0;text-transform:none}
+.trf-dlg-acc{display:flex;justify-content:flex-end;gap:10px}
+.trf-dlg-acc .trf-btn{align-self:auto}
+.trf-btn-sec{padding:11px 18px;border:1px solid var(--linea-fuerte,#cbd5e1);border-radius:12px;background:var(--sup-1,#fff);color:var(--texto-2,#334155);
+  font:inherit;font-size:.78rem;font-weight:700;cursor:pointer}
+.trf-btn-sec:hover{background:var(--sup-3,#f1f5f9)}
+
 @media (prefers-reduced-motion:reduce){
   .trf-sale,.trf-entra{animation:none}
   .trf-pill.trf-pill-anim,.trf-tab{transition:none}
@@ -85,4 +130,6 @@
   .trf-grid{grid-template-columns:1fr}
   .trf-head{flex-wrap:wrap}
   .trf-btn{align-self:stretch;justify-content:center}
+  .trf-dlg-ops{grid-template-columns:1fr}
+  .trf-op{flex-direction:row;justify-content:flex-start}
 }

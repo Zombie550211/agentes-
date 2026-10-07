@@ -35,13 +35,15 @@ def _vision_global(user: dict) -> bool:
     return _is_admin_or_bo(user) or _is_supervisor(user)
 
 
-async def _puede_ver_archivo(user: dict, row) -> bool:
+async def _puede_ver_archivo(user: dict, row, file_id: Optional[int] = None) -> bool:
     """Frontera de acceso a un note_files. Antes NO existía: cualquier usuario
     autenticado bajaba cualquier archivo iterando /api/files/{id} (IDOR sobre
     grabaciones de llamadas, capturas de verificación, etc.).
 
-    Regla: lo ve quien tiene visión global, quien lo subió, o el agente dueño del
-    lead al que está adjunto — la misma frontera de propiedad que en los leads."""
+    Regla: lo ve quien tiene visión global, quien lo subió, el agente dueño del
+    lead al que está adjunto — la misma frontera de propiedad que en los leads —
+    o, si es la captura del resultado de una transferencia de llamada, los dos
+    agentes de esa transferencia (quien la envió y quien la recibió)."""
     if _vision_global(user):
         return True
     username = str(user.get("username") or "").strip()
@@ -49,6 +51,19 @@ async def _puede_ver_archivo(user: dict, row) -> bool:
         return False
     if str((row.get("uploaded_by") if hasattr(row, "get") else None) or "").strip() == username:
         return True
+    if file_id is not None:
+        try:
+            uid = int(user.get("id") or 0)
+        except (TypeError, ValueError):
+            uid = 0
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(text("""
+                SELECT 1 FROM transferencias_llamadas
+                WHERE captura_file_id = :fid AND (created_by = :u OR agente_destino_id = :uid)
+                LIMIT 1
+            """), {"fid": file_id, "u": username, "uid": uid})
+            if r.first():
+                return True
     lead_id = row.get("lead_id") if hasattr(row, "get") else None
     if not lead_id:
         return False
@@ -246,7 +261,7 @@ async def serve_image(file_id: str, user: dict = Depends(current_user)):
     if not row:
         raise HTTPException(404, "Imagen no encontrada")
 
-    if not await _puede_ver_archivo(user, row):
+    if not await _puede_ver_archivo(user, row, fid):
         raise HTTPException(403, "No autorizado para ver este archivo")
 
     # Imagen guardada en BD (nuevo sistema)
@@ -307,7 +322,7 @@ async def serve_file(file_id: str, request: Request, user: dict = Depends(curren
     if not row:
         raise HTTPException(404, "Archivo no encontrado")
 
-    if not await _puede_ver_archivo(user, row):
+    if not await _puede_ver_archivo(user, row, fid):
         raise HTTPException(403, "No autorizado para ver este archivo")
 
     # Si es imagen con content en BD → redirigir al endpoint correcto
@@ -386,7 +401,7 @@ async def download_file(file_id: str, user: dict = Depends(current_user)):
     if not row:
         raise HTTPException(404, "Archivo no encontrado")
 
-    if not await _puede_ver_archivo(user, row):
+    if not await _puede_ver_archivo(user, row, fid):
         raise HTTPException(403, "No autorizado para ver este archivo")
 
     content_type = row["content_type"] or "application/octet-stream"

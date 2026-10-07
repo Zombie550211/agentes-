@@ -5,6 +5,11 @@ agente de un team de Residencial. La sección de cada team sale de
 deps.team_seccion (fuente única), así que el destino es siempre la sección
 contraria a la de origen.
 
+Resultado: el agente que RECIBIÓ la transferencia la cierra con uno de tres
+estados y una captura (obligatoria para "Venta completada"). Una vez completada
+solo admin / back office pueden cambiarla, porque es lo que cuenta para la
+promoción de transferencias.
+
 Visibilidad del historial:
   - admin / back office → todas las transferencias de la sección.
   - supervisor          → las que hizo o recibió su team.
@@ -12,6 +17,8 @@ Visibilidad del historial:
 """
 from datetime import datetime, timezone
 import re
+
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -26,6 +33,14 @@ _SECCIONES = ("residencial", "lineas")
 # Teams que no atienden llamadas (mismo criterio que Tiempo laboral).
 _TEAM_EXCLUIDO = re.compile(r"backoffice|back office|icon|usa|administra|monitoreo", re.I)
 _ROL_EXCLUIDO = re.compile(r"admin|backoffice|back office", re.I)
+
+RESULTADOS = {
+    "completada": "Venta completada",
+    "seguimiento": "Cliente en seguimiento",
+    "no_realizada": "Venta no realizada",
+}
+# Solo capturas subidas al propio CRM como imagen (/api/files/upload las guarda en BD).
+_URL_CAPTURA = re.compile(r"^/api/files/(\d+)/image$")
 
 
 def _utcnow() -> datetime:
@@ -188,7 +203,9 @@ async def listar(seccion: str, desde: str = "", hasta: str = "",
             SELECT t.id, t.seccion_origen, t.telefono, t.motivo, t.nombre_cliente,
                    t.direccion, t.team_destino, t.agente_destino_id,
                    t.agente_destino_nombre, t.created_by, t.created_by_nombre,
-                   t.created_by_team,
+                   t.created_by_team, t.resultado, t.resultado_nota,
+                   t.captura_file_id, t.resultado_por,
+                   DATE_FORMAT(t.resultado_at, '%Y-%m-%dT%H:%i:%sZ') AS resultado_at,
                    DATE_FORMAT(t.created_at, '%Y-%m-%dT%H:%i:%sZ') AS created_at
             FROM transferencias_llamadas t
             WHERE {' AND '.join(where)}
@@ -197,6 +214,72 @@ async def listar(seccion: str, desde: str = "", hasta: str = "",
         """), params)
         filas = [dict(x) for x in r.mappings().all()]
 
+    gestion = _es_admin_bo(role)
+    yo_id = _uid(user)
     for f in filas:
         f["direccion_tipo"] = "enviada" if f["seccion_origen"] == seccion else "recibida"
+        fid = f.pop("captura_file_id", None)
+        f["captura_url"] = f"/api/files/{fid}/image" if fid else None
+        f["puede_registrar"] = gestion or (
+            f["agente_destino_id"] == yo_id and f["resultado"] != "completada")
     return {"success": True, "transferencias": filas}
+
+
+class ResultadoIn(BaseModel):
+    resultado: str
+    captura_url: Optional[str] = Field(None, max_length=200)
+    nota: Optional[str] = Field(None, max_length=500)
+
+
+# ── PUT /api/transferencias/{id}/resultado ──────────────────────────
+@router.put("/{tid}/resultado")
+async def registrar_resultado(tid: int, body: ResultadoIn, user: dict = Depends(current_user)):
+    resultado = str(body.resultado or "").strip().lower()
+    if resultado not in RESULTADOS:
+        raise HTTPException(400, "Resultado inválido")
+    gestion = _es_admin_bo(user.get("role", ""))
+    username = str(user.get("username") or "")
+
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            SELECT agente_destino_id, resultado, captura_file_id
+            FROM transferencias_llamadas WHERE id = :id
+        """), {"id": tid})
+        row = r.mappings().first()
+        if not row:
+            raise HTTPException(404, "Transferencia no encontrada")
+        if not gestion and row["agente_destino_id"] != _uid(user):
+            raise HTTPException(403, "Solo el agente que recibió la transferencia puede registrar el resultado")
+        if not gestion and row["resultado"] == "completada":
+            raise HTTPException(403, "Ya está registrada como venta completada; solo administración o back office pueden cambiarla")
+
+        captura_id = row["captura_file_id"]
+        url = (body.captura_url or "").strip()
+        if url:
+            m = _URL_CAPTURA.match(url)
+            if not m:
+                raise HTTPException(400, "La captura debe subirse al CRM como imagen")
+            fid = int(m.group(1))
+            r = await s.execute(text("""
+                SELECT uploaded_by, content_type FROM note_files WHERE id = :id
+            """), {"id": fid})
+            arch = r.mappings().first()
+            # Solo una imagen que haya subido el propio usuario: no se puede
+            # adjuntar el archivo de otro adivinando su id.
+            if (not arch or str(arch["uploaded_by"] or "") != username
+                    or not str(arch["content_type"] or "").startswith("image/")):
+                raise HTTPException(400, "Captura no válida")
+            captura_id = fid
+        if resultado == "completada" and not captura_id:
+            raise HTTPException(400, "Para registrar la venta completada sube la captura de la venta cerrada")
+
+        nota = (body.nota or "").strip() or None
+        await s.execute(text("""
+            UPDATE transferencias_llamadas
+               SET resultado = :res, resultado_nota = :nota, captura_file_id = :cap,
+                   resultado_por = :por, resultado_at = :now
+             WHERE id = :id
+        """), {"res": resultado, "nota": nota, "cap": captura_id,
+               "por": (user.get("name") or username).strip(), "now": _utcnow(), "id": tid})
+        await s.commit()
+    return {"success": True, "message": RESULTADOS[resultado]}

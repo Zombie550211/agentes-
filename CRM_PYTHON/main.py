@@ -412,6 +412,17 @@ _MIGRATIONS: list[tuple[str, str]] = [
         ('Todos los gigas menos Xfinity', '[{"label": "Por giga", "amount": 3}]', 0, 'sistema'),
         ('Bono por 23 puntos activos, o más', '[{"label": "Bono", "amount": 35}]', 0, 'sistema'),
         ('Transfer a Líneas y venta efectiva', '[{"label": "Por línea", "amount": 1}]', 0, 'sistema')"""),
+    # Resultado de una transferencia, que registra el agente que la recibió:
+    # completada | seguimiento | no_realizada (NULL = pendiente). La captura es
+    # un note_files (imagen subida por /api/files/upload).
+    ("0069_transferencias_resultado", """ALTER TABLE transferencias_llamadas
+        ADD COLUMN resultado       VARCHAR(20)  NULL,
+        ADD COLUMN resultado_nota  VARCHAR(500) NULL,
+        ADD COLUMN captura_file_id INT UNSIGNED NULL,
+        ADD COLUMN resultado_por   VARCHAR(150) NULL,
+        ADD COLUMN resultado_at    DATETIME     NULL,
+        ADD INDEX idx_tl_resultado (resultado),
+        ADD INDEX idx_tl_captura (captura_file_id)"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración

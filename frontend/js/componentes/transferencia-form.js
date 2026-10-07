@@ -15,6 +15,11 @@
  * (agente → las suyas, supervisor → su team, admin/BO → todas), así cada agente
  * consulta lo que envió y lo que recibió sin salir del formulario.
  *
+ * Resultado: quien RECIBIÓ la transferencia la cierra desde su fila de "Mis
+ * transferencias" con Venta completada / Cliente en seguimiento / Venta no
+ * realizada y la captura de la venta (obligatoria para "completada"). La captura
+ * se sube primero a /api/files/upload y luego se envía su URL con el resultado.
+ *
  * Un panel con data-trf-reserve (el botón "Guardar Lead" de la cabecera) se
  * vuelve invisible en vez de desaparecer, para que las pestañas no salten.
  */
@@ -29,6 +34,12 @@
   let panel = null;
   let historial = [];    // última carga de "Mis transferencias"
   let filtroTipo = '';   // '' | 'enviada' | 'recibida'
+
+  const RESULTADOS = {
+    completada:   { label: 'Venta completada',       ic: 'fa-circle-check',   cls: 'ok' },
+    seguimiento:  { label: 'Cliente en seguimiento', ic: 'fa-clock',          cls: 'seg' },
+    no_realizada: { label: 'Venta no realizada',     ic: 'fa-circle-xmark',   cls: 'no' },
+  };
 
   function esc(s) {
     const d = document.createElement('div');
@@ -162,7 +173,7 @@
       return;
     }
     box.innerHTML = '<div class="trf-tabla-wrap"><table class="trf-tabla"><thead><tr>' +
-      '<th>Fecha</th><th>Tipo</th><th>Cliente</th><th>Teléfono</th><th>Motivo</th><th>De</th><th>Para</th>' +
+      '<th>Fecha</th><th>Tipo</th><th>Cliente</th><th>Teléfono</th><th>Motivo</th><th>De</th><th>Para</th><th>Resultado</th>' +
       '</tr></thead><tbody>' +
       filas.map((f) => {
         const env = f.direccion_tipo === 'enviada';
@@ -174,9 +185,198 @@
           '<td class="trf-motivo">' + esc(f.motivo) + '</td>' +
           '<td>' + esc(f.created_by_nombre || f.created_by) + '<small>' + esc(f.created_by_team || '') + '</small></td>' +
           '<td>' + esc(f.agente_destino_nombre) + '<small>' + esc(f.team_destino) + '</small></td>' +
+          '<td class="trf-res-cel">' + celdaResultado(f) + '</td>' +
         '</tr>';
       }).join('') +
       '</tbody></table></div>';
+    box.querySelectorAll('[data-trf-res]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        const f = historial.find((x) => String(x.id) === b.getAttribute('data-trf-res'));
+        if (f) abrirResultado(f);
+      });
+    });
+  }
+
+  function celdaResultado(f) {
+    const r = RESULTADOS[f.resultado];
+    let html = r
+      ? '<span class="trf-res ' + r.cls + '"><i class="fas ' + r.ic + '"></i> ' + esc(r.label) + '</span>'
+      : '<span class="trf-res pend"><i class="fas fa-hourglass-half"></i> Pendiente</span>';
+    if (f.captura_url) {
+      html += '<a class="trf-res-cap" href="' + esc(f.captura_url) + '" target="_blank" rel="noopener">' +
+        '<i class="fas fa-image"></i> Ver captura</a>';
+    }
+    if (f.resultado_nota) html += '<small>' + esc(f.resultado_nota) + '</small>';
+    if (f.resultado_por) html += '<small>' + esc(f.resultado_por) + ' · ' + esc(fmtFecha(f.resultado_at)) + '</small>';
+    if (f.puede_registrar) {
+      html += '<button type="button" class="trf-res-btn" data-trf-res="' + esc(f.id) + '" title="Registrar el resultado de la transferencia">' +
+        '<i class="fas fa-pen-to-square"></i> ' + (f.resultado ? 'Actualizar' : 'Registrar') + '</button>';
+    }
+    return html;
+  }
+
+  // ── Diálogo de resultado ───────────────────────────────────────
+  let dlg = null;          // <div class="trf-dlg-fondo">
+  let dlgFila = null;      // transferencia que se está cerrando
+  let dlgArchivo = null;   // File de la captura elegida o pegada
+  let dlgPreview = null;   // object URL de la vista previa
+
+  function crearDialogo() {
+    dlg = document.createElement('div');
+    dlg.className = 'trf-dlg-fondo trf-oculto';
+    dlg.innerHTML =
+      '<form class="trf-dlg" role="dialog" aria-modal="true" aria-labelledby="trf-dlg-t" novalidate>' +
+        '<h3 class="trf-dlg-t" id="trf-dlg-t">Resultado de la transferencia</h3>' +
+        '<p class="trf-dlg-sub" id="trf-dlg-sub"></p>' +
+        '<fieldset class="trf-dlg-ops"><legend>Status <span class="trf-req">*</span></legend>' +
+          Object.keys(RESULTADOS).map(function (k) {
+            const r = RESULTADOS[k];
+            return '<label class="trf-op ' + r.cls + '"><input type="radio" name="trf-res" value="' + k + '">' +
+              '<i class="fas ' + r.ic + '"></i><span>' + esc(r.label) + '</span></label>';
+          }).join('') +
+        '</fieldset>' +
+        '<div class="trf-field">' +
+          '<label>Captura de la venta <span class="trf-req" id="trf-cap-req">*</span></label>' +
+          '<label class="trf-drop" tabindex="0">' +
+            '<input type="file" accept="image/*" id="trf-cap-in" hidden>' +
+            '<span class="trf-drop-txt"><i class="fas fa-cloud-arrow-up"></i> Elige la imagen o pégala aquí con Ctrl+V</span>' +
+            '<img class="trf-drop-img trf-oculto" alt="Vista previa de la captura">' +
+          '</label>' +
+          '<small class="trf-dlg-ayuda" id="trf-cap-ayuda"></small>' +
+        '</div>' +
+        '<div class="trf-field">' +
+          '<label for="trf-res-nota">Nota (opcional)</label>' +
+          '<textarea id="trf-res-nota" maxlength="500" placeholder="Ej. el cliente pidió que le llamen el viernes"></textarea>' +
+        '</div>' +
+        '<div class="trf-msg" role="status" aria-live="polite"></div>' +
+        '<div class="trf-dlg-acc">' +
+          '<button type="button" class="trf-btn-sec" data-trf-cerrar>Cancelar</button>' +
+          '<button type="submit" class="trf-btn"><i class="fas fa-floppy-disk"></i> Guardar resultado</button>' +
+        '</div>' +
+      '</form>';
+    document.body.appendChild(dlg);
+
+    const d = (sel) => dlg.querySelector(sel);
+    d('form').addEventListener('submit', guardarResultado);
+    d('[data-trf-cerrar]').addEventListener('click', cerrarResultado);
+    dlg.addEventListener('click', function (e) { if (e.target === dlg) cerrarResultado(); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && dlg && !dlg.classList.contains('trf-oculto')) cerrarResultado();
+    });
+    dlg.querySelectorAll('input[name="trf-res"]').forEach(function (r) {
+      r.addEventListener('change', pintarRequisitoCaptura);
+    });
+    d('#trf-cap-in').addEventListener('change', function (e) { elegirCaptura(e.target.files[0]); });
+    d('.trf-drop').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); d('#trf-cap-in').click(); }
+    });
+    dlg.addEventListener('paste', function (e) {
+      const it = Array.prototype.find.call((e.clipboardData || {}).items || [], (x) => x.type.indexOf('image/') === 0);
+      if (it) { e.preventDefault(); elegirCaptura(it.getAsFile()); }
+    });
+  }
+
+  function msgDlg(tipo, texto) {
+    const el = dlg.querySelector('.trf-msg');
+    el.className = 'trf-msg ' + tipo;
+    el.textContent = texto;
+  }
+
+  function elegirCaptura(file) {
+    if (!file) return;
+    if (file.type.indexOf('image/') !== 0) { msgDlg('err', 'La captura debe ser una imagen'); return; }
+    if (file.size > 10 * 1024 * 1024) { msgDlg('err', 'La imagen supera 10 MB'); return; }
+    dlgArchivo = file;
+    if (dlgPreview) URL.revokeObjectURL(dlgPreview);
+    dlgPreview = URL.createObjectURL(file);
+    const img = dlg.querySelector('.trf-drop-img');
+    img.src = dlgPreview;
+    img.classList.remove('trf-oculto');
+    dlg.querySelector('.trf-drop-txt').innerHTML = '<i class="fas fa-rotate"></i> Cambiar imagen';
+    msgDlg('', '');
+  }
+
+  function resultadoElegido() {
+    const r = dlg.querySelector('input[name="trf-res"]:checked');
+    return r ? r.value : '';
+  }
+
+  function pintarRequisitoCaptura() {
+    const obligatoria = resultadoElegido() === 'completada' && !(dlgFila && dlgFila.captura_url);
+    dlg.querySelector('#trf-cap-req').style.visibility = obligatoria ? 'visible' : 'hidden';
+    dlg.querySelector('#trf-cap-ayuda').textContent = dlgFila && dlgFila.captura_url
+      ? 'Ya hay una captura guardada; sube otra solo si quieres reemplazarla.'
+      : 'Obligatoria para "Venta completada".';
+  }
+
+  function abrirResultado(f) {
+    if (!dlg) crearDialogo();
+    dlgFila = f;
+    dlgArchivo = null;
+    if (dlgPreview) { URL.revokeObjectURL(dlgPreview); dlgPreview = null; }
+    dlg.querySelector('form').reset();
+    dlg.querySelector('.trf-drop-img').classList.add('trf-oculto');
+    dlg.querySelector('.trf-drop-txt').innerHTML = '<i class="fas fa-cloud-arrow-up"></i> Elige la imagen o pégala aquí con Ctrl+V';
+    dlg.querySelector('#trf-dlg-sub').textContent = f.nombre_cliente + ' · ' + fmtTel(f.telefono);
+    if (f.resultado) {
+      const r = dlg.querySelector('input[name="trf-res"][value="' + f.resultado + '"]');
+      if (r) r.checked = true;
+    }
+    dlg.querySelector('#trf-res-nota').value = f.resultado_nota || '';
+    msgDlg('', '');
+    pintarRequisitoCaptura();
+    dlg.classList.remove('trf-oculto');
+    const primero = dlg.querySelector('input[name="trf-res"]:checked') || dlg.querySelector('input[name="trf-res"]');
+    primero.focus();
+  }
+
+  function cerrarResultado() {
+    if (!dlg) return;
+    dlg.classList.add('trf-oculto');
+    if (dlgPreview) { URL.revokeObjectURL(dlgPreview); dlgPreview = null; }
+    dlgFila = null;
+    dlgArchivo = null;
+  }
+
+  async function guardarResultado(ev) {
+    ev.preventDefault();
+    const resultado = resultadoElegido();
+    if (!resultado) { msgDlg('err', 'Elige el status'); return; }
+    if (resultado === 'completada' && !dlgArchivo && !dlgFila.captura_url) {
+      msgDlg('err', 'Sube la captura donde se ve la venta cerrada');
+      return;
+    }
+    const btn = dlg.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    try {
+      let capturaUrl = null;
+      if (dlgArchivo) {
+        msgDlg('', '');
+        const fd = new FormData();
+        fd.append('file', dlgArchivo, dlgArchivo.name || 'captura.png');
+        const up = await fetch('/api/files/upload', { method: 'POST', body: fd });
+        const uj = await up.json().catch(() => ({}));
+        if (!up.ok || !uj.data) throw new Error(typeof uj.detail === 'string' ? uj.detail : 'No se pudo subir la captura');
+        capturaUrl = uj.data.url;
+      }
+      const r = await fetch('/api/transferencias/' + encodeURIComponent(dlgFila.id) + '/resultado', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resultado: resultado,
+          captura_url: capturaUrl,
+          nota: dlg.querySelector('#trf-res-nota').value.trim(),
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(typeof j.detail === 'string' ? j.detail : 'No se pudo guardar el resultado');
+      cerrarResultado();
+      cargarHistorial();
+    } catch (e) {
+      msgDlg('err', e.message);
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   function mensaje(tipo, texto) {
