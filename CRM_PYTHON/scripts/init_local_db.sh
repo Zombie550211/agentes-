@@ -58,9 +58,12 @@ docker run -d --name "$CONTENEDOR" \
   --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci \
   --max-allowed-packet=1G --innodb-log-file-size=512M >/dev/null
 
+# Se espera a un login real y no a `mysqladmin ping`: el ping responde "vivo"
+# ya durante el servidor temporal de la inicialización, antes de que exista la
+# contraseña de root, y la carga del dump fallaba con "Access denied".
 echo -n "Esperando a MySQL"
-for _ in $(seq 1 90); do
-  docker exec "$CONTENEDOR" mysqladmin ping -uroot -pdevlocal --silent >/dev/null 2>&1 && break
+for _ in $(seq 1 120); do
+  docker exec "$CONTENEDOR" mysql -uroot -pdevlocal -e "SELECT 1" crm_connecting >/dev/null 2>&1 && break
   echo -n "."; sleep 1
 done
 echo " — listo."
