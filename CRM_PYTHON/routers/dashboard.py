@@ -95,6 +95,28 @@ async def dashboard_home(user: dict = Depends(current_user)):
             """), {"ys": year_start, "e": end})
             chart_rows = r2.mappings().all()
 
+            # ── 2b. Gráfica diaria — ventas por día del mes en curso ─────
+            r2b = await s.execute(text("""
+                SELECT DAY(dia_venta) AS dia, COUNT(*) AS ventas
+                FROM leads
+                WHERE dia_venta >= :s AND dia_venta < :ex
+                  AND UPPER(TRIM(COALESCE(status,''))) NOT IN ('CANCELLED','CANCELADO','CANCELADA','CANCEL','HOLD','RESERVA','RESCHEDULED','REAGENDADO')
+                GROUP BY DAY(dia_venta)
+            """), {"s": start, "ex": end_excl})
+            diario_rows = r2b.mappings().all()
+
+            # ── 2c. Últimos 7 días (hasta hoy) ──
+            _hoy = _sv.date()
+            _desde7 = _hoy - _dt.timedelta(days=6)
+            r2c = await s.execute(text("""
+                SELECT DATE(dia_venta) AS fecha, COUNT(*) AS ventas
+                FROM leads
+                WHERE dia_venta >= :d AND dia_venta < :h
+                  AND UPPER(TRIM(COALESCE(status,''))) NOT IN ('CANCELLED','CANCELADO','CANCELADA','CANCEL','HOLD','RESERVA','RESCHEDULED','REAGENDADO')
+                GROUP BY DATE(dia_venta)
+            """), {"d": _desde7.isoformat(), "h": (_hoy + _dt.timedelta(days=1)).isoformat()})
+            semana_rows = {str(r["fecha"]): r for r in r2c.mappings().all()}
+
             # ── 3. Semáforo — ventas por team ────────────────────────────
             r3 = await s.execute(text("""
                 SELECT
@@ -219,6 +241,10 @@ async def dashboard_home(user: dict = Depends(current_user)):
     # ── Gráfica mensual ────────────────────────────────────────────────────
     chart_map = {int(r["mes"]): int(r["ventas"] or 0) for r in chart_rows if r["mes"] is not None}
     chart = [{"mes": _MES[m-1], "ventas": chart_map.get(m, 0)} for m in range(1, 13)]
+    # ── Gráfica diaria (del 1 al último día del mes; los días futuros van en 0) ──
+    diario_map = {int(r["dia"]): int(r["ventas"] or 0) for r in diario_rows if r["dia"] is not None}
+    chart_diario = [{"dia": d, "ventas": diario_map.get(d, 0)}
+                    for d in range(1, calendar.monthrange(_sv.year, _sv.month)[1] + 1)]
 
     # ── Ranking ────────────────────────────────────────────────────────────
     ranking = [
@@ -386,6 +412,13 @@ async def dashboard_home(user: dict = Depends(current_user)):
             "team":     user.get("team") or "—",
         },
         "chart_ventas_mensuales": chart,
+        "chart_ventas_diarias":   chart_diario,
+        "chart_ventas_7dias": [
+            {"fecha": f.isoformat(), "dia": f.day, "mes": f.month,
+             "ventas": int((semana_rows.get(f.isoformat()) or {}).get("ventas") or 0)}
+            for f in (_desde7 + _dt.timedelta(days=i) for i in range(7))
+        ],
+        "hoy":                    {"anio": _sv.year, "mes": _sv.month, "dia": _sv.day},
         "ranking_mes":            ranking,
         "semaforo":               semaforo,
         "top_productos":          top_productos,

@@ -1,894 +1,156 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CRM — Inicio</title>
-<link rel="icon" type="image/png" href="/images/favicon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
-<link rel="stylesheet" href="/css/base/responsive-components.css">
-<link rel="stylesheet" href="/vendor/leaflet/leaflet.min.css">
-<script src="/vendor/leaflet/leaflet.min.js"></script>
-<script src="/vendor/apexcharts/apexcharts.min.js"></script>
-<script src="/js/core/fetch-interceptor.js" defer></script>
-<script src="/js/core/logout-handler.js" defer></script>
-<script src="/js/core/user-info.js" defer></script>
-<script src="/js/core/crm-config.js" defer></script>
-<script src="/js/core/inactivity-manager.js?v=20260611a" defer></script>
-<script src="/js/core/crm-init.js" defer></script>
-<script src="/js/core/dashboard-init.js" defer></script>
-<script src="/js/core/realtime.js" defer></script>
-<link rel="stylesheet" href="/css/residencial/inicio.css">
-
-<script>
-(function detectSidebar() {
-  function measure() {
-    const selectors = ['#sidebar','.sidebar','#app-sidebar','.app-sidebar','[class*="sidebar"]:not(.topnav)','aside','nav.side','.side-nav','.sidenav','.left-panel','#left-panel'];
-    let sidebarEl = null;
-    for (const sel of selectors) {
-      const el = document.querySelector(sel);
-      if (el && el.offsetWidth > 20 && el.offsetWidth < 300) { sidebarEl = el; break; }
-    }
-    const w = sidebarEl ? sidebarEl.offsetWidth : 0;
-    document.documentElement.style.setProperty('--real-sidebar-w', w + 'px');
-  }
-  measure();
-  document.addEventListener('DOMContentLoaded', () => {
-    measure();
-    setTimeout(measure, 200); setTimeout(measure, 600); setTimeout(measure, 1200);
-    const obs = new MutationObserver(() => measure());
-    obs.observe(document.body, { childList: true, subtree: false, attributes: true, attributeFilter: ['style','class'] });
-  });
-})();
-</script>
-  <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
-  <link rel="stylesheet" href="/css/base/form-controls.css?v=20260921">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inicio · Residencial</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <!-- Sin sesión no se ve: el login redirige aquí. -->
+  <script>
+    window.__sesion = fetch('/api/auth/verify-server', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : { authenticated: false }; })
+      .then(function (d) { if (!d.authenticated) { location.replace('/login.html'); } return d; })
+      .catch(function () { location.replace('/login.html'); return {}; });
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/phosphor-duotone-inicio.css?v=20261008b">
+  <link rel="stylesheet" href="/css/paginas/inicio.css?v=20261008f">
 </head>
 <body>
-  <script src="/js/core/theme-init.js"></script>
-  <script src="/js/layout/sidebar.js" defer></script>
-  <script src="/js/layout/sidebar-ui.js" defer></script>
-  <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
-  <script src="/js/layout/sidebar-user.js" defer></script>
-<nav class="sidebar" id="app-sidebar"></nav>
+<div class="in-marco">
+<div class="in-hoja">
 
-<!-- ══ WELCOME TRANSITION ══ -->
-<div id="wt" style="position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#0a1628 0%,#112244 45%,#1a1035 100%);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0;transition:opacity .55s cubic-bezier(.4,0,.2,1),transform .55s cubic-bezier(.4,0,.2,1);">
-  <link rel="stylesheet" href="/css/residencial/inicio-2.css">
-  <div id="wt-inner">
-    <div id="wt-logo"><i class="fas fa-shield-halved"></i></div>
-    <div id="wt-label">Bienvenido de vuelta</div>
-    <div id="wt-name">—</div>
-    <div id="wt-brand">CRM · Connecting</div>
-    <div id="wt-track"><div id="wt-fill"></div></div>
+  <header class="in-head">
+    <nav id="topnav" class="tn" aria-label="Menú principal"></nav>
+    <div class="in-iconos">
+      <i class="ph-duotone ph-gear-six" style="font-size:20px"></i>
+      <a href="/chat.html" title="Chat" style="color:inherit;display:flex;text-decoration:none"><i class="ph-duotone ph-chat-circle-dots" style="font-size:20px"></i></a>
+      <span style="position:relative;display:flex"><i class="ph-duotone ph-bell" style="font-size:20px"></i><span style="position:absolute;top:0;right:1px;width:7px;height:7px;border-radius:50%;background:var(--color-accent-2)"></span></span>
+      <div style="display:flex;align-items:center;gap:4px"><span id="in-avatar" style="width:30px;height:30px;border-radius:50%;background:var(--color-accent-2-200);color:var(--color-accent-2-800);display:grid;place-items:center;font-weight:700;font-size:12px">M</span><i class="ph-duotone ph-caret-down"></i></div>
+    </div>
+  </header>
+
+  <div class="in-grid">
+
+    <section id="in-hero" class="in-a-hero">
+      <div style="display:flex;flex-direction:column;justify-content:space-between;padding:var(--space-1)">
+        <div id="in-fecha" style="font-size:11px;color:var(--color-accent-900)"></div>
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:26px;font-weight:700"><span id="in-hola">¡Hola!</span><i class="ph-duotone ph-hand-waving" style="color:var(--color-process-yellow)"></i></div>
+          <div style="font-size:11px;color:var(--color-accent-900);margin-top:4px">Sigue y gestiona el progreso de tu equipo</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="in-a-promo" style="background:var(--color-accent-100);border-radius:var(--radius-lg);display:grid;grid-template-columns:70px minmax(0,1fr);overflow:hidden">
+      <div style="background:repeating-linear-gradient(115deg,var(--color-accent-200) 0 4px,var(--color-accent-300) 4px 6px,var(--color-accent-100) 6px 10px)"></div>
+      <!-- Promoción destacada de Promociones activas (GET /api/promociones). -->
+      <div style="padding:var(--space-3);display:flex;flex-direction:column;gap:6px;min-width:0">
+        <div style="display:flex;align-items:center;gap:5px;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-accent-2-700)"><i class="ph-duotone ph-trophy"></i>Promoción destacada</div>
+        <div id="in-promo-titulo" style="font-size:15px;font-weight:700;line-height:1.25">Cargando…</div>
+        <div id="in-promo-montos" style="display:flex;flex-direction:column;gap:2px"></div>
+        <div><a href="/residencial/promociones-validas.html" class="btn in-upgrade" style="background:var(--color-accent-2-500);color:var(--color-neutral-100);font-size:11px;padding:6px 12px;margin-top:6px;text-decoration:none">Ver promociones</a></div>
+      </div>
+    </section>
+
+    <section class="in-a-kpi" style="background:var(--color-neutral-100);border-radius:var(--radius-lg);padding:var(--space-3);display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:13px;font-weight:600">Ventas mensuales</span>
+        <span id="in-kpi-anio" style="display:flex;align-items:center;gap:4px;font-size:10px;background:var(--color-neutral-200);padding:3px 8px;border-radius:var(--radius-md)"></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px"><span id="in-kpi-valor" style="font-size:22px;font-weight:700">—</span><span id="in-kpi-var" class="tag tag-accent" style="font-size:9px;padding:1px 6px" hidden></span></div>
+      <div id="in-kpi-ant" style="font-size:9px;color:var(--color-neutral-600);margin-top:-6px"></div>
+      <div style="position:relative;margin-top:var(--space-2)">
+        <svg id="in-kpi" viewBox="0 0 560 170" style="width:100%;height:auto;display:block;overflow:visible"></svg>
+        <div id="in-kpi-tip" style="position:absolute;transform:translate(-50%,-140%);background:var(--color-text);color:var(--color-neutral-100);font-size:9px;padding:3px 8px;border-radius:var(--radius-lg);white-space:nowrap;pointer-events:none"></div>
+      </div>
+    </section>
+
+    <section class="in-a-asis" style="background:var(--color-neutral-100);border-radius:var(--radius-lg);padding:var(--space-3);display:flex;flex-direction:column;gap:var(--space-2)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:13px;font-weight:600">Ventas diarias</span>
+        <span style="display:flex;align-items:center;gap:4px;font-size:10px;background:var(--color-neutral-200);padding:3px 8px;border-radius:var(--radius-md)"><i class="ph-duotone ph-calendar-blank"></i><span id="in-diario-mes"></span></span>
+      </div>
+      <div style="display:flex;gap:var(--space-3);font-size:9px;color:var(--color-neutral-600)">
+        <span id="in-diario-res"></span>
+      </div>
+      <div id="in-asist" style="display:flex;gap:var(--space-2);flex:1;min-height:150px"></div>
+    </section>
+
+    <section class="in-a-agenda" style="background:var(--color-neutral-100);border-radius:var(--radius-lg);padding:var(--space-3);display:flex;flex-direction:column;gap:var(--space-2)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:13px;font-weight:600">Agenda</span><a href="/horarios.html" style="font-size:10px;color:var(--color-neutral-700);text-decoration:none">Ver todo</a>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:var(--space-1)">
+        <button type="button" id="in-mes-ant" aria-label="Mes anterior" style="border:0;background:var(--color-neutral-200);width:22px;height:22px;border-radius:50%;cursor:pointer;display:grid;place-items:center"><i class="ph-duotone ph-caret-left"></i></button>
+        <span id="in-mes" style="font-size:13px"></span>
+        <button type="button" id="in-mes-sig" aria-label="Mes siguiente" style="border:0;background:var(--color-neutral-200);width:22px;height:22px;border-radius:50%;cursor:pointer;display:grid;place-items:center"><i class="ph-duotone ph-caret-right"></i></button>
+      </div>
+      <div id="in-cal" style="display:grid;grid-template-columns:repeat(7,1fr);row-gap:2px;text-align:center"></div>
+      <div style="height:1px;background:var(--color-neutral-200);margin:var(--space-2) 0"></div>
+      <div id="in-dia" style="font-size:11px"></div>
+      <div id="in-eventos" style="display:flex;flex-direction:column;gap:var(--space-3);margin-top:var(--space-1)"></div>
+    </section>
+
+    <section id="in-tareas" class="in-a-tareas" style="background:var(--color-neutral-100);border-radius:var(--radius-lg);padding:var(--space-3);display:flex;flex-direction:column;gap:var(--space-2)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-1)"><span style="font-size:13px;font-weight:600">Tareas</span><i class="ph-duotone ph-dots-three" style="font-size:16px;color:var(--color-neutral-600)"></i></div>
+    </section>
+
+    <section class="in-a-satis" style="background:var(--color-neutral-100);border-radius:var(--radius-lg);padding:var(--space-3);display:flex;flex-direction:column;gap:var(--space-2)">
+      <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:600">Satisfacción del personal</span><i class="ph-duotone ph-dots-three" style="font-size:16px;color:var(--color-neutral-600)"></i></div>
+      <div style="position:relative;width:170px;align-self:center;margin-top:var(--space-2)">
+        <svg id="in-gauge" viewBox="0 0 180 100" style="width:100%;display:block;overflow:visible">
+          <path d="M 25 90 A 65 65 0 0 1 155 90" fill="none" stroke="var(--color-accent-2-100)" stroke-width="16"></path>
+          <path d="M 25 90 A 65 65 0 0 1 155 90" fill="none" stroke="var(--color-accent-2-500)" stroke-width="16" stroke-dasharray="171.5 300"></path>
+        </svg>
+        <div style="position:absolute;left:0;right:0;bottom:-4px;text-align:center">
+          <div style="font-size:22px;font-weight:700;line-height:1">84</div>
+          <div style="font-size:8px;color:var(--color-neutral-700)">Puntuación NPS</div>
+          <div style="font-size:6px;color:var(--color-neutral-500)">2.546 respuestas</div>
+        </div>
+      </div>
+      <div id="in-satis" style="display:flex;flex-direction:column;gap:var(--space-2);margin-top:var(--space-3)"></div>
+    </section>
+
+    <section class="in-a-sit" style="background:var(--color-neutral-100);border-radius:var(--radius-lg);padding:var(--space-3);display:flex;flex-direction:column;gap:var(--space-2)">
+      <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:600">Situación laboral</span><i class="ph-duotone ph-dots-three" style="font-size:16px;color:var(--color-neutral-600)"></i></div>
+      <div style="position:relative;width:130px;align-self:center;margin:var(--space-3) 0">
+        <svg id="in-donut" viewBox="0 0 180 180" style="width:100%;display:block;transform:rotate(-90deg)"></svg>
+        <div style="position:absolute;inset:0;display:grid;place-items:center;text-align:center"><div><div style="font-size:20px;font-weight:700;line-height:1">1,242</div><div style="font-size:7px;color:var(--color-neutral-700);margin-top:2px">Total de empleados</div></div></div>
+      </div>
+      <div style="height:1px;background:var(--color-neutral-200)"></div>
+      <div id="in-donut-ley" style="display:flex;flex-direction:column;gap:var(--space-2);margin-top:var(--space-1)"></div>
+    </section>
+
+    <section class="in-a-emp" style="background:var(--color-neutral-100);border-radius:var(--radius-lg);padding:var(--space-3);display:flex;flex-direction:column;gap:var(--space-2)">
+      <div class="in-emp-head">
+        <span style="font-size:13px;font-weight:600;margin-right:auto">Empleados <span style="font-weight:400;font-size:10px;color:var(--color-neutral-600)">(1,242)</span></span>
+        <label class="in-buscar" style="display:flex;align-items:center;gap:4px;border:1px solid var(--color-neutral-200);border-radius:var(--radius-lg);padding:4px 8px;color:var(--color-neutral-600)"><i class="ph-duotone ph-magnifying-glass"></i><input id="in-q" placeholder="Buscar empleado, departamento…" aria-label="Buscar empleado" style="border:0;outline:0;background:transparent;font:inherit;font-size:9px;width:100%"></label>
+        <select id="in-dept" aria-label="Departamento" style="font:inherit;font-size:9px;border:0;background:var(--color-neutral-200);border-radius:var(--radius-md);padding:5px 8px"></select>
+      </div>
+      <div class="in-tabla-wrap"><table style="width:100%;border-collapse:collapse;font-size:10px">
+        <thead><tr id="in-cols" style="background:var(--color-neutral-200);color:var(--color-neutral-600);text-align:left"></tr></thead>
+        <tbody id="in-emps"></tbody>
+      </table></div>
+      <div id="in-vacio" hidden style="padding:10px;font-style:italic;color:var(--color-neutral-600)">Ningún empleado coincide.</div>
+    </section>
+
+    <section id="in-actividad" class="in-a-act" style="background:var(--color-neutral-100);border-radius:var(--radius-lg);padding:var(--space-3);display:flex;flex-direction:column;gap:var(--space-3)">
+      <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:600">Actividad reciente</span><i class="ph-duotone ph-dots-three" style="font-size:16px;color:var(--color-neutral-600)"></i></div>
+      <div style="font-size:11px;margin-bottom:-4px">Hoy</div>
+    </section>
   </div>
+
+  <footer style="display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3);padding:var(--space-4) var(--space-1) 0;font-size:9px;color:var(--color-neutral-500)">
+    <span style="color:var(--color-neutral-700)">Copyright © 2027 HRMate</span><span>Política de privacidad</span><span>Términos y condiciones</span><span>Contacto</span>
+    <div style="margin-left:auto;display:flex;gap:var(--space-2);font-size:14px"><i class="ph-duotone ph-facebook-logo"></i><i class="ph-duotone ph-x-logo"></i><i class="ph-duotone ph-instagram-logo"></i><i class="ph-duotone ph-youtube-logo"></i><i class="ph-duotone ph-linkedin-logo"></i></div>
+  </footer>
 </div>
-<script>
-  (function(){
-    var wt = document.getElementById('wt');
-    if(!wt) return;
-    if(!sessionStorage.getItem('show_welcome')){ wt.style.display='none'; return; }
-    sessionStorage.removeItem('show_welcome');
-    try{
-      var u=JSON.parse(sessionStorage.getItem('user')||localStorage.getItem('user')||'{}');
-      var n=u.name||u.username||'';
-      if(n){ var parts=n.trim().split(/\s+/); document.getElementById('wt-name').textContent=parts[0]; }
-    }catch(_){}
-    setTimeout(function(){ wt.style.opacity='0'; wt.style.transform='scale(1.03)'; setTimeout(function(){ wt.style.display='none'; },580); },1900);
-  })();
-</script>
+</div>
 
-<!-- ══ PAGE ══ -->
-<div class="main-content">
-<div class="page">
-
-
-  <!-- ROW TOP: Ventas Mensuales + Mapa de Clientes -->
-  <div class="row-top">
-
-    <!-- Ventas Mensuales -->
-    <div class="gpanel fsu" style="overflow:visible">
-      <div class="ph">
-        <i class="fas fa-chart-area" style="color:#818cf8"></i>
-        <span class="ph-title">VENTAS MENSUALES</span>
-        <a href="/residencial/estadisticas.html" class="ph-link">Ver detalle →</a>
-      </div>
-      <div class="pb" style="padding:4px 4px 8px;flex:1;min-height:0;display:flex;flex-direction:column">
-        <div id="apex-monthly-sales" style="flex:1;min-height:0;width:100%"></div>
-      </div>
-    </div>
-
-    <!-- Mapa de Clientes -->
-    <div class="gpanel fsu">
-      <div class="ph">
-        <span style="font-size:13px">🌍</span>
-        <span class="ph-title">MAPA DE CLIENTES</span>
-        <select class="map-select"><option>Todos los países</option></select>
-      </div>
-      <div class="pb" style="padding:6px 8px 8px;flex:1;min-height:0">
-        <div class="map-wrap" style="position:relative">
-          <div id="mapa-leaflet"></div>
-          <div id="mapa-empty" style="display:none"><i class="fas fa-map-marker-alt" style="font-size:1.8rem;opacity:.25"></i><span>Sin clientes geocodificados aún.<br>Se pobla al guardar leads con dirección.</span></div>
-          <!-- SVG fallback (oculto, se muestra solo si Leaflet falla) -->
-          <svg class="map-svg" viewBox="0 0 960 480" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" style="display:none">
-            <rect width="960" height="480" fill="#eef2ff" rx="8"/>
-            <!-- North America -->
-            <path d="M 55,48 C 80,38 140,32 165,45 C 180,55 195,48 215,52 C 228,58 232,70 228,84 C 222,102 235,115 228,132 C 218,155 195,168 175,175 C 152,183 128,178 108,165 C 84,150 65,128 58,104 C 50,80 50,58 55,48 Z" fill="#c7d2fe" stroke="#a5b4fc" stroke-width="1.2"/>
-            <!-- Greenland -->
-            <path d="M 225,18 C 255,12 295,14 308,28 C 318,40 310,55 292,60 C 272,65 248,58 238,46 C 228,35 225,24 225,18 Z" fill="#c7d2fe" stroke="#a5b4fc" stroke-width="1"/>
-            <!-- Mexico/Central America -->
-            <path d="M 128,178 C 148,172 168,178 175,190 C 180,200 172,215 160,218 C 148,221 132,210 126,198 C 120,186 124,180 128,178 Z" fill="#c7d2fe" stroke="#a5b4fc" stroke-width="1"/>
-            <!-- South America -->
-            <path d="M 170,222 C 200,210 240,215 258,232 C 272,248 270,278 258,310 C 246,340 225,370 200,378 C 175,385 152,368 142,342 C 130,312 132,275 142,252 C 152,230 160,225 170,222 Z" fill="#c7d2fe" stroke="#a5b4fc" stroke-width="1.2"/>
-            <!-- Europe -->
-            <path d="M 420,35 C 448,28 498,30 518,45 C 530,55 528,70 515,80 C 500,91 475,95 455,88 C 434,80 420,65 418,52 C 416,42 418,37 420,35 Z" fill="#c7d2fe" stroke="#a5b4fc" stroke-width="1.2"/>
-            <!-- Iberian Peninsula -->
-            <path d="M 415,82 C 432,78 448,85 450,98 C 452,110 438,118 424,115 C 410,112 402,102 405,92 C 407,85 411,83 415,82 Z" fill="#c7d2fe" stroke="#a5b4fc" stroke-width="1"/>
-            <!-- Scandinavia -->
-            <path d="M 462,22 C 478,15 500,18 510,30 C 516,38 512,50 500,55 C 488,60 470,55 462,46 C 455,38 455,28 462,22 Z" fill="#c7d2fe" stroke="#a5b4fc" stroke-width="1"/>
-            <!-- UK/Ireland -->
-            <path d="M 400,38 C 412,32 424,36 426,46 C 428,56 418,62 408,58 C 398,54 393,44 400,38 Z" fill="#c7d2fe" stroke="#a5b4fc" stroke-width="1"/>
-            <!-- Africa -->
-            <path d="M 440,110 C 470,100 515,105 535,122 C 552,138 555,168 548,205 C 540,242 525,278 505,305 C 483,332 455,342 432,332 C 408,322 390,292 386,258 C 380,218 390,175 408,150 C 422,130 430,116 440,110 Z" fill="#c7d2fe" stroke="#a5b4fc" stroke-width="1.2"/>
-            <!-- Madagascar -->
-            <path d="M 558,258 C 568,248 580,252 582,265 C 584,278 574,288 562,285 C 550,282 546,272 552,263 C 554,260 556,259 558,258 Z" fill="#c7d2fe" stroke="#a5b4fc" stroke-width="1"/>
-            <!-- Middle East -->
-            <path d="M 540,95 C 558,88 590,90 602,102 C 612,112 608,130 594,138 C 578,146 555,142 543,130 C 532,118 530,102 540,95 Z" fill="#c7d2fe" stroke="#a5b4fc" stroke-width="1"/>
-            <!-- Asia (main) -->
-            <path d="M 538,32 C 590,20 680,18 745,28 C 798,36 840,52 858,72 C 872,88 865,112 840,128 C 812,146 770,155 720,158 C 668,162 610,155 568,138 C 530,122 520,98 524,72 C 528,52 532,38 538,32 Z" fill="#c7d2fe" stroke="#a5b4fc" stroke-width="1.2"/>
-            <!-- India -->
-            <path d="M 640,158 C 665,152 695,158 708,175 C 720,192 718,220 702,245 C 685,270 658,278 638,268 C 618,258 608,232 614,208 C 620,182 628,162 640,158 Z" fill="#c7d2fe" stroke="#a5b4fc" stroke-width="1.2"/>
-            <!-- SE Asia -->
-            <path d="M 725,155 C 760,148 798,155 812,170 C 822,182 815,198 798,205 C 778,212 750,208 732,195 C 716,182 712,162 725,155 Z" fill="#c7d2fe" stroke="#a5b4fc" stroke-width="1"/>
-            <!-- China/Korea extra -->
-            <path d="M 748,118 C 778,108 820,112 835,128 C 845,140 838,158 818,165 C 795,172 762,165 748,150 C 736,136 734,125 748,118 Z" fill="#c7d2fe" stroke="#a5b4fc" stroke-width="1"/>
-            <!-- Japan -->
-            <path d="M 848,75 C 862,68 878,72 882,82 C 886,92 876,102 862,102 C 848,102 838,92 840,82 C 841,77 844,76 848,75 Z" fill="#c7d2fe" stroke="#a5b4fc" stroke-width="1"/>
-            <!-- Philippines/Indonesia -->
-            <path d="M 780,195 C 808,188 840,192 855,205 C 862,212 858,224 844,228 C 825,232 798,226 782,214 C 768,204 768,198 780,195 Z" fill="#c7d2fe" stroke="#a5b4fc" stroke-width="1"/>
-            <!-- Australia -->
-            <path d="M 748,288 C 790,272 848,275 882,295 C 908,310 912,342 895,368 C 875,398 832,412 785,408 C 738,404 705,378 700,348 C 694,318 710,300 748,288 Z" fill="#c7d2fe" stroke="#a5b4fc" stroke-width="1.2"/>
-            <!-- New Zealand -->
-            <path d="M 900,368 C 912,358 928,362 932,374 C 936,386 924,396 912,393 C 900,390 892,380 900,368 Z" fill="#c7d2fe" stroke="#a5b4fc" stroke-width="1"/>
-            <!-- Grid lines (latitude/longitude) -->
-            <line x1="0" y1="120" x2="960" y2="120" stroke="#a5b4fc" stroke-width=".4" stroke-dasharray="4,6" opacity=".4"/>
-            <line x1="0" y1="240" x2="960" y2="240" stroke="#a5b4fc" stroke-width=".4" stroke-dasharray="4,6" opacity=".4"/>
-            <line x1="0" y1="360" x2="960" y2="360" stroke="#a5b4fc" stroke-width=".4" stroke-dasharray="4,6" opacity=".4"/>
-            <line x1="192" y1="0" x2="192" y2="480" stroke="#a5b4fc" stroke-width=".4" stroke-dasharray="4,6" opacity=".4"/>
-            <line x1="384" y1="0" x2="384" y2="480" stroke="#a5b4fc" stroke-width=".4" stroke-dasharray="4,6" opacity=".4"/>
-            <line x1="576" y1="0" x2="576" y2="480" stroke="#a5b4fc" stroke-width=".4" stroke-dasharray="4,6" opacity=".4"/>
-            <line x1="768" y1="0" x2="768" y2="480" stroke="#a5b4fc" stroke-width=".4" stroke-dasharray="4,6" opacity=".4"/>
-          </svg>
-          <!-- Pines de clientes -->
-          <div class="map-pin" style="left:17%;top:36%"></div>
-          <div class="map-pin" style="left:27%;top:62%;animation-delay:.4s"></div>
-          <div class="map-pin" style="left:48%;top:22%;animation-delay:.8s"></div>
-          <div class="map-pin" style="left:55%;top:55%;animation-delay:.3s"></div>
-          <div class="map-pin" style="left:72%;top:30%;animation-delay:1s"></div>
-          <div class="map-pin" style="left:83%;top:66%;animation-delay:.6s"></div>
-          <!-- Tooltip -->
-          <div class="map-tooltip" style="left:18%;top:22%">
-            <strong>ACME Corp</strong>
-            <span>Estados Unidos</span>
-            <span>Oportunidades: 3 &nbsp;·&nbsp; Valor: $125,000</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-  </div><!-- /row-top -->
-
-  <!-- ROW MID: Métricas + Ranking + Actividades -->
-  <div class="row-mid">
-
-    <!-- Mis Métricas del Mes -->
-    <div class="gpanel fsu">
-      <div class="ph">
-        <i class="fas fa-chart-bar"></i>
-        <span class="ph-title">MIS MÉTRICAS DEL MES</span>
-      </div>
-      <div class="pb">
-        <div class="metrics-grid">
-          <div class="mgrid-item">
-            <div class="mgrid-lbl">Ventas totales</div>
-            <div class="mgrid-val" id="kpi-ventas">0</div>
-            <span class="badge b-up"><i class="fas fa-arrow-up" style="font-size:8px"></i> 12%</span>
-          </div>
-          <div class="mgrid-item">
-            <div class="mgrid-lbl">Puntos totales</div>
-            <div class="mgrid-val" id="kpi-puntos">0</div>
-            <span class="badge b-up"><i class="fas fa-arrow-up" style="font-size:8px"></i> 0%</span>
-          </div>
-          <div class="mgrid-item">
-            <div class="mgrid-lbl">Mejor vendedor</div>
-            <div class="mgrid-val sm" id="kpi-seller">—</div>
-          </div>
-          <div class="mgrid-item" style="position:relative;overflow:hidden;padding:0;">
-            <img src="/images/mejor-requipo.webp" alt="Mejor Team"
-              style="position:absolute;right:-4px;bottom:0;height:85%;width:auto;opacity:0.45;pointer-events:none;">
-            <div style="position:relative;z-index:1;padding:10px 12px;display:flex;flex-direction:column;gap:3px;height:100%;">
-              <div class="mgrid-lbl">Mejor team</div>
-              <div class="mgrid-val sm" id="kpi-team">—</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Ranking del Mes -->
-    <div class="gpanel fsu">
-      <div class="ph">
-        <i class="fas fa-trophy" style="color:#d97706"></i>
-        <span class="ph-title">RANKING DEL MES</span>
-        <a href="/residencial/ranking.html" class="ph-link">Ver completo →</a>
-      </div>
-      <div class="ranking-inner" id="ranking-container" style="overflow:hidden;"></div>
-      <div style="text-align:center;padding:5px 0 7px;font-size:.60rem;color:var(--t3)">Datos en tiempo real</div>
-    </div>
-
-    <!-- Llamadas Pendientes -->
-    <div class="gpanel fsu">
-      <div class="ph">
-        <i class="fas fa-phone-volume" style="color:#dc2626"></i>
-        <span class="ph-title">LLAMADAS PENDIENTES</span>
-        <a href="/residencial/costumer.html" class="ph-link">Ver todas →</a>
-      </div>
-      <div class="pb" style="padding:6px 8px;overflow:hidden;display:block;">
-        <div class="lp-list" id="llamadas-pendientes-container" style="height:100%;"></div>
-      </div>
-    </div>
-
-  </div><!-- /row-mid -->
-
-  <!-- ROW BOT: Semáforo + Top Productos -->
-  <div class="row-bot">
-
-    <!-- Semáforo del Mes -->
-    <div class="gpanel fsu">
-      <div class="ph">
-        <span style="font-size:12px">🌈</span>
-        <span class="ph-title">SEMÁFORO DEL MES</span>
-        <a href="/residencial/semaforo.html" class="ph-link">Ver completo →</a>
-      </div>
-      <div class="pb" style="padding-top:0">
-        <div class="sem-wrap" id="semaforo-items"></div>
-        <div class="sem-note">
-          <i class="fas fa-info-circle"></i>
-          <span>Actualizado hoy <strong id="update-time">—</strong>. Próxima actualización en 4h.</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Top Productos Más Vendidos -->
-    <div class="gpanel fsu">
-      <div class="ph">
-        <i class="fas fa-medal" style="color:#d97706"></i>
-        <span class="ph-title">TOP PRODUCTOS MÁS VENDIDOS</span>
-        <span class="ph-badge">Este mes</span>
-      </div>
-      <div class="pb" style="overflow:hidden;display:block;">
-        <div class="tp-list" id="top-productos-container" style="height:100%;"></div>
-      </div>
-      <div style="flex-shrink:0;padding:4px 12px 8px;display:flex;align-items:center;gap:5px">
-        <i class="fas fa-chart-bar" style="font-size:9px;color:var(--t3)"></i>
-        <span style="font-size:.60rem;color:var(--t3)">Datos actualizados en tiempo real</span>
-      </div>
-    </div>
-
-  </div><!-- /row-bot -->
-
-</div><!-- /page -->
-</div><!-- /main-content -->
-
-<!-- Hidden elements para compatibilidad con scripts externos -->
-<span id="nav-name"           style="display:none"></span>
-<span id="nav-role"           style="display:none"></span>
-<span id="welcome-user-name"  style="display:none"></span>
-<span id="welcome-user-role"  style="display:none"></span>
-<span id="month-sales-count"  style="display:none"></span>
-<span id="user-sales-count"   style="display:none"></span>
-<span id="month-points-total" style="display:none"></span>
-<span id="user-points-total"  style="display:none"></span>
-<span id="best-seller-name"   style="display:none"></span>
-<span id="best-team-name"     style="display:none"></span>
-<span id="user-team-name"     style="display:none"></span>
-<span id="user-ranking"       style="display:none"></span>
-<span id="user-name"          style="display:none"></span>
-<span id="user-role"          style="display:none"></span>
-<span id="hkpi-ventas"        style="display:none"></span>
-<span id="hkpi-puntos"        style="display:none"></span>
-<span id="hkpi-pos"           style="display:none"></span>
-<span id="hkpi-eq"            style="display:none"></span>
-<span id="cancelled-count"    style="display:none"></span>
-<span id="pending-count"      style="display:none"></span>
-<span id="sidebar-user-sales"  style="display:none"></span>
-<span id="sidebar-user-points" style="display:none"></span>
-<span id="sidebar-user-team"   style="display:none"></span>
-<canvas id="productsChart"  style="display:none"></canvas>
-<canvas id="teamsChart"     style="display:none"></canvas>
-<canvas id="chartsDetails"  style="display:none"></canvas>
-
-<script>
-// Prefetch inmediato — compartido con crm-init.js, sidebar-loader.js?v=20260720d, user-info.js
-window.__homeDataPromise = fetch('/api/dashboard/home', { credentials: 'include' })
-  .then(r => {
-    if (r.status === 401) { window.location.replace('/login.html'); throw new Error('401'); }
-    if (!r.ok) return { success: true, user: {}, kpis: {}, user_stats: {}, ranking_mes: [], chart_ventas_mensuales: [], semaforo: [], top_productos: [], actividades_recientes: [], mapa_clientes: [] };
-    return r.json();
-  })
-  .then(d => { window.__homeData = d; return d; })
-  .catch(e => { if (!String(e).includes('401')) console.error('[inicio] prefetch error:', e); return null; });
-</script>
-
-<script>
-// (El saludo y la fecha se pintaban en la barra de bienvenida, que ya no existe.)
-
-// ── INIT: awaita la Promise que ya se inició arriba ───────────────────────
-document.addEventListener('DOMContentLoaded', async function() {
-
-  // 1. Reusar el prefetch (ya disparado, sin nueva llamada de red)
-  let dash;
-  try {
-    dash = await window.__homeDataPromise;
-    // Si dash es null (fallo de red), usar datos vacíos para mostrar las cards igualmente
-    if (!dash) {
-      dash = { success: true, user: {}, kpis: {}, user_stats: {}, ranking_mes: [], chart_ventas_mensuales: [], semaforo: [], top_productos: [], actividades_recientes: [], mapa_clientes: [] };
-    }
-    if (!dash.success && !dash.user) { window.location.replace('/login.html'); return; }
-  } catch (err) {
-    console.error('[inicio] error cargando dashboard:', err);
-    dash = { success: true, user: {}, kpis: {}, user_stats: {}, ranking_mes: [], chart_ventas_mensuales: [], semaforo: [], top_productos: [], actividades_recientes: [], mapa_clientes: [] };
-  }
-
-  // 2. Publicar globalmente
-  window.__homeData = dash;
-
-  // 3. Info del usuario
-  const user        = dash.user || {};
-  const roleLC      = (user.role || '').toLowerCase();
-  const displayName = user.name || user.username || 'Usuario';
-  const _set        = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  _set('nav-name',          displayName);
-  _set('nav-role',          user.role || 'Rol');
-  _set('welcome-user-name', displayName);
-  _set('welcome-user-role', user.role || '');
-  _set('user-name',         displayName);
-  _set('user-role',         user.role || '');
-
-  // 4. Widgets — cada uno aislado
-  try { _renderKpis(dash, user);              } catch (e) { console.warn('[inicio] kpis:', e); }
-  try { _renderGraficaMensual(dash);          } catch (e) { console.warn('[inicio] grafica:', e); }
-  try { _renderRankingSection(dash);          } catch (e) { console.warn('[inicio] ranking:', e); }
-  try { _renderSemaforoSection(dash);         } catch (e) { console.warn('[inicio] semaforo:', e); }
-  try { _renderTopProductos(dash);            } catch (e) { console.warn('[inicio] productos:', e); }
-  try { _renderLlamadasPendientes(dash);      } catch (e) { console.warn('[inicio] llamadas:', e); }
-  try { _renderMapaClientes(dash);            } catch (e) { console.warn('[inicio] mapa:', e); }
-
-  // 5. Horario del semáforo
-  const ut = document.getElementById('update-time');
-  if (ut) ut.textContent = new Date().toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit' });
-
-  window.__dashboardLoaded = true;
-  document.dispatchEvent(new CustomEvent('crm:data-ready'));
-  document.dispatchEvent(new CustomEvent('crm:semaforo-ready'));
-
-  // Auto-refresh de llamadas pendientes cada 5 minutos (reusa el endpoint /home)
-  setInterval(async () => {
-    try {
-      const r = await fetch('/api/dashboard/home', { credentials: 'include' });
-      if (!r.ok) return;
-      const d = await r.json();
-      _renderLlamadasPendientes(d);
-    } catch (_) {}
-  }, 5 * 60 * 1000);
-});
-
-// ── Widgets ───────────────────────────────────────────────────────────────
-
-function _countUp(id, target, decimals, duration) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.classList.add('kpi-pop');
-  const start = performance.now();
-  const step = (now) => {
-    const p = Math.min((now - start) / duration, 1);
-    const ease = 1 - Math.pow(1 - p, 3);
-    el.textContent = (target * ease).toFixed(decimals);
-    if (p < 1) requestAnimationFrame(step);
-    else el.textContent = target.toFixed(decimals);
-  };
-  requestAnimationFrame(step);
-}
-
-function _renderKpis(dash, user) {
-  const kpis  = dash.kpis       || {};
-  const us    = dash.user_stats || {};
-  const roleLC  = (user.role || '').toLowerCase();
-  const isAdmBo = ['admin','administrador','backoffice','bo','administrativo'].some(r => roleLC.includes(r));
-  // Supervisores ven los totales GLOBALES del mes (no tienen ventas a su propio nombre).
-  const isSupervisor = roleLC.includes('supervisor');
-  const showGlobal = isAdmBo || isSupervisor;
-  const _set    = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  const _fmt    = v => Number(v) > 0 ? Math.round(Number(v)) : 0;
-  const _fmtPts = v => { const n = Number(v) || 0; return n.toFixed(2); };
-
-  const ventasVal = showGlobal ? (kpis.ventas_totales ?? 0) : (us.ventas ?? 0);
-  const puntosVal = showGlobal ? (Number(kpis.puntos_totales) || 0) : (Number(us.puntos) || 0);
-  _countUp('kpi-ventas', ventasVal, 0, 900);
-  _countUp('kpi-puntos', puntosVal, 2, 900);
-  _set('kpi-seller', kpis.mejor_vendedor || '—');
-  _set('kpi-team',   kpis.mejor_team     || '—');
-  // compat
-  _set('hkpi-ventas',        us.ventas   ?? 0);
-  _set('hkpi-puntos',        _fmtPts(us.puntos));
-  _set('hkpi-pos',           us.posicion || '—');
-  _set('hkpi-eq',            kpis.mejor_team || '—');
-  _set('month-sales-count',  kpis.ventas_totales  ?? 0);
-  _set('user-sales-count',   us.ventas            ?? 0);
-  _set('month-points-total', kpis.puntos_totales  ?? 0);
-  _set('user-points-total',  us.puntos            ?? 0);
-  _set('best-seller-name',   kpis.mejor_vendedor  || '—');
-  _set('best-team-name',     kpis.mejor_team      || '—');
-  _set('user-team-name',     us.team              || '—');
-  _set('user-ranking',       us.posicion          || '—');
-}
-
-function _renderGraficaMensual(dash) {
-  const chart = dash.chart_ventas_mensuales || [];
-  renderMonthlySalesChart(
-    chart.map(m => m.ventas),
-    chart.map(m => m.mes.substring(0, 3))
-  );
-}
-
-function _renderRankingSection(dash) {
-  const rankFmt = (dash.ranking_mes || []).map(r => ({
-    nombre: r.nombre, name: r.nombre, count: r.ventas, puntos: r.puntos,
-  }));
-  renderRanking(rankFmt);
-}
-
-function _renderSemaforoSection(dash) {
-  const semFmt = (dash.semaforo || []).map(t => ({
-    nombre: t.team,
-    estado: t.puntos > 100 ? 'verde' : t.puntos >= 50 ? 'amarillo' : 'rojo',
-    ventas: t.ventas, puntos: t.puntos,
-  }));
-  renderSemaforoFromTeams(semFmt);
-}
-
-function _renderTopProductos(dash) {
-  const container = document.getElementById('top-productos-container');
-  if (!container) return;
-  const productos = dash.top_productos || [];
-  if (productos.length === 0) {
-    container.innerHTML = '<div style="text-align:center;color:var(--t3);font-size:.8rem;padding:20px 0">Sin datos este mes</div>';
-    return;
-  }
-  const GRADIENTS = [
-    'linear-gradient(90deg,#7c3aed,#2563eb)',
-    'linear-gradient(90deg,#0ea5e9,#06b6d4)',
-    'linear-gradient(90deg,#059669,#10b981)',
-    'linear-gradient(90deg,#d97706,#f59e0b)',
-    'linear-gradient(90deg,#dc2626,#ef4444)',
-  ];
-  const total = productos.reduce((s, p) => s + (p.count || 0), 0);
-  const max   = productos[0].count || 1;
-  container.innerHTML = productos.map((p, i) => {
-    const pct  = total > 0 ? Math.round((p.count / total) * 100) : 0;
-    const barW = Math.round((p.count / max) * 100);
-    return `
-      <div class="tp-item">
-        <div class="tp-hd">
-          <div class="tp-name">${(p.servicio || '—').toUpperCase()}</div>
-          <div class="tp-count">${p.count}</div>
-        </div>
-        <div class="tp-bar-wrap">
-          <div class="tp-bar" style="width:${barW}%;background:${GRADIENTS[i % GRADIENTS.length]}"></div>
-        </div>
-        <div class="tp-pct">${pct}% del total</div>
-      </div>`;
-  }).join('');
-}
-
-// Escape para evitar XSS al interpolar datos del servidor en innerHTML
-function _esc(s) {
-  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
-  });
-}
-
-function _renderLlamadasPendientes(dash) {
-  const container = document.getElementById('llamadas-pendientes-container');
-  if (!container) return;
-  const items = dash.llamadas_pendientes || [];
-  if (items.length === 0) {
-    container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--t3);font-size:.8rem">Sin llamadas pendientes 🎉</div>';
-    return;
-  }
-  container.className = 'lp-list';
-  container.innerHTML = items.map(function (it) {
-    const dias = Number(it.dias) || 0;
-    let icBg, tagCls, icon, tagTxt;
-    if (it.estado === 'vencida') {
-      icBg = '#dc2626'; tagCls = 'venc'; icon = 'fa-phone';
-      const atraso = Math.abs(dias);
-      tagTxt = atraso <= 0 ? 'Hoy' : ('Vencida ' + atraso + 'd');
-    } else if (it.estado === 'proxima') {
-      icBg = '#d97706'; tagCls = 'prox'; icon = 'fa-phone';
-      tagTxt = dias === 1 ? 'Mañana' : ('En ' + dias + 'd');
-    } else {
-      icBg = '#2563eb'; tagCls = 'espera'; icon = 'fa-hourglass-half';
-      tagTxt = 'Faltan ' + dias + 'd';
-    }
-    const tel  = it.telefono ? (' · ' + _esc(it.telefono)) : '';
-    const tipo = it.tipo_llamada === 'verificacion'
-      ? 'Verificación'
-      : ('Seguimiento ' + _esc(it.numero_llamada) + '/2');
-    return ''
-      + '<div class="lp-item">'
-      +   '<div class="lp-ic" style="background:' + icBg + ';color:#fff">'
-      +     '<i class="fas ' + icon + '"></i>'
-      +   '</div>'
-      +   '<div class="lp-info">'
-      +     '<div class="lp-name">' + _esc(it.nombre_cliente) + '</div>'
-      +     '<div class="lp-sub">' + _esc(it.agente_nombre) + tel + '</div>'
-      +   '</div>'
-      +   '<div class="lp-right">'
-      +     '<span class="lp-tag ' + tagCls + '">' + tagTxt + '</span>'
-      +     '<span class="lp-num">' + tipo + '</span>'
-      +   '</div>'
-      + '</div>';
-  }).join('');
-}
-
-// ── Mapa de clientes (Leaflet) ────────────────────────────────────────────
-let _leafletMap  = null;
-let _leafletTile = null;
-
-const _TILE_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-const _TILE_DARK  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-const _TILE_LINES = 'https://tiles.stadiamaps.com/tiles/stamen_toner_lines/{z}/{x}/{y}{r}.png';
-
-function _mapaSetTheme(dark) {
-  if (!_leafletMap || !_leafletTile) return;
-  const url = dark ? _TILE_DARK : _TILE_LIGHT;
-  _leafletTile.setUrl(url);
-}
-
-// Escuchar cambios de tema
-document.addEventListener('themeChanged', () => {
-  _mapaSetTheme(document.body.classList.contains('dark-theme'));
-});
-
-function _renderMapaClientes(dash) {
-  if (typeof L === 'undefined') return;
-
-  const pins     = dash.mapa_clientes || [];
-  const emptyEl  = document.getElementById('mapa-empty');
-
-  // Inicializar el mapa con pequeño delay para que el flex layout tenga altura
-  function _init() {
-    const container = document.getElementById('mapa-leaflet');
-    if (!container) return;
-
-    const isDark = document.body.classList.contains('dark-theme');
-
-    if (!_leafletMap) {
-      try {
-        _leafletMap = L.map('mapa-leaflet', { zoomControl: false, attributionControl: false })
-          .setView([20, -30], 2);
-        _leafletTile = L.tileLayer(_TILE_LIGHT, {
-          subdomains: 'abcd', maxZoom: 18,
-        }).addTo(_leafletMap);
-      } catch (e) {
-        console.warn('[mapa] init error:', e);
-        return;
-      }
-    }
-
-    // Recalcular tamaño (por si el contenedor cambió)
-    _leafletMap.invalidateSize();
-
-    // Limpiar marcadores anteriores
-    _leafletMap.eachLayer(l => { if (l instanceof L.Marker) _leafletMap.removeLayer(l); });
-
-    // Estado vacío — overlay encima del mapa, NO reemplaza el contenedor
-    if (emptyEl) emptyEl.style.display = pins.length === 0 ? 'flex' : 'none';
-    if (pins.length === 0) return;
-
-    const neonIcon = L.divIcon({
-      className: '', html: '<div class="lf-pin"></div>',
-      iconSize: [12, 12], iconAnchor: [6, 6],
-    });
-
-    pins.forEach(p => {
-      const { lat, lng } = p.coordenadas;
-      L.marker([lat, lng], { icon: neonIcon })
-        .addTo(_leafletMap)
-        .bindPopup(
-          `<div class="lf-popup-title">${p.empresa}</div>
-           <div class="lf-popup-sub">
-             ${p.direccion ? p.direccion + '<br>' : ''}
-             <span class="lf-popup-svc">${p.servicio}</span><br>
-             Agente: ${p.agente}
-           </div>`,
-          { maxWidth: 220 }
-        );
-    });
-
-    try {
-      const bounds = L.latLngBounds(pins.map(p => [p.coordenadas.lat, p.coordenadas.lng]));
-      _leafletMap.fitBounds(bounds.pad(0.2), { maxZoom: 4 });
-    } catch (_) {}
-  }
-
-  // Esperar a que el DOM esté pintado antes de inicializar
-  requestAnimationFrame(() => setTimeout(_init, 50));
-}
-
-// ── Ranking renderer ──────────────────────────────────────────────────────
-function renderRanking(chartTeams) {
-  try {
-    const container = document.getElementById('ranking-container');
-    if (!container) return;
-    if (!Array.isArray(chartTeams) || chartTeams.length === 0) {
-      container.innerHTML = '<div style="padding:32px 14px;text-align:center;color:var(--t3);font-size:.85rem"><i class="fas fa-trophy" style="font-size:2rem;opacity:.2;display:block;margin-bottom:10px"></i>Sin ventas completadas este mes aún</div>';
-      return;
-    }
-    const podiumColors = [
-      { bg:'linear-gradient(135deg,#b45309,#d97706)', glow:'rgba(217,119,6,.40)', ped:'rgba(217,119,6,.18)', badge:'#b45309' },
-      { bg:'linear-gradient(135deg,#475569,#64748b)', glow:'rgba(100,116,139,.30)', ped:'rgba(100,116,139,.12)', badge:'#64748b' },
-      { bg:'linear-gradient(135deg,#b45309,#92400e)', glow:'rgba(146,64,14,.30)',  ped:'rgba(146,64,14,.10)',  badge:'#92400e' },
-    ];
-    const top3 = chartTeams.slice(0, 3);
-    const rest = chartTeams.slice(3, 20);
-    container.className = 'ranking-inner';
-
-    const _col = (item, rank, c, avSize, pedH, first) => {
-      const ini = ((item.nombre || item.name || '').substring(0, 2) || '??').toUpperCase();
-      const nm  = item.nombre || item.name || '—';
-      return `
-        <div class="p-col">
-          ${first ? '<div style="font-size:14px;margin-bottom:3px;animation:bounce 2.2s ease-in-out infinite">👑</div>' : '<div style="height:17px"></div>'}
-          <div class="p-av ${first?'first':'rest'}" style="width:${avSize}px;height:${avSize}px;font-size:${first?14:11}px;background:${c.bg};box-shadow:0 0 18px ${c.glow},0 4px 12px rgba(0,0,0,.20);${first?'border:2.5px solid #f59e0b;':''}">
-            ${ini}
-          </div>
-          <div class="p-pedestal" style="height:${pedH}px;background:linear-gradient(180deg,${c.ped},transparent)"></div>
-          <div class="p-badge" style="background:${c.badge};font-size:.55rem;padding:2px 7px;border-radius:10px;font-weight:900;color:#fff">${rank}°</div>
-          <div class="p-name" style="${first?'font-weight:800;color:var(--amber)':''}">${nm.split(' ')[0]} ${(nm.split(' ')[1]||'')[0]||''}.</div>
-          <div class="p-pts" style="${first?'color:var(--amber);font-weight:700':''}">${item.count || 0} v</div>
-        </div>`;
-    };
-
-    let html = '<div class="podium" style="align-items:flex-end;padding:4px 6px 0">';
-    if (top3[1]) html += _col(top3[1], 2, podiumColors[1], 34, 22, false);
-    if (top3[0]) html += _col(top3[0], 1, podiumColors[0], 44, 38, true);
-    if (top3[2]) html += _col(top3[2], 3, podiumColors[2], 34, 14, false);
-    html += '</div><div class="rank-rows">';
-    rest.forEach((item, idx) => {
-      const pos   = idx + 4;
-      const color = ['#4338ca','#0f766e','#9d174d','#1e40af'][idx] || '#2563eb';
-      const ini   = ((item.nombre || item.name || '').substring(0, 2) || '??').toUpperCase();
-      html += `<div class="rrow"><div class="rpos">${pos}</div><div class="rav" style="background:linear-gradient(135deg,${color}dd,${color}77)">${ini}</div><div class="rinfo"><div class="rnm">${item.nombre || item.name || '—'}</div></div><div class="rpts">${item.count || 0} v</div></div>`;
-    });
-    html += '</div>';
-    container.innerHTML = html;
-  } catch (e) { console.warn('[inicio] ranking render:', e); }
-}
-
-// ── ApexCharts ────────────────────────────────────────────────────────────
-let _apexMonthlySalesChart = null;
-
-function _buildApexOptions(categories, seriesData) {
-  const isDark    = document.body.classList.contains('dark-theme');
-  const textColor = isDark ? '#94a3b8' : '#64748b';
-  const gridColor = isDark ? 'rgba(148,163,184,.10)' : 'rgba(100,116,139,.08)';
-  const tooltipBg = isDark ? '#1e293b' : '#ffffff';
-  const tooltipTxt= isDark ? '#e2e8f0' : '#1e293b';
-  const lineColor = isDark ? '#818cf8' : '#6366f1';
-  const dotColor  = isDark ? '#c7d2fe' : '#4f46e5';
-  const gradHex   = isDark ? '#818cf8' : '#6366f1';
-  return {
-    series: [{ name: 'Ventas', data: seriesData }],
-    chart: { type: 'area', height: '100%', background: 'transparent', toolbar: { show: false },
-      animations: { enabled: false }
-    },
-    stroke: { curve: 'smooth', width: 3, colors: [lineColor] },
-    fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.55, opacityTo: 0.02, stops: [0, 95] } },
-    colors: [gradHex],
-    markers: { size: 4, colors: [dotColor], strokeColors: tooltipBg, strokeWidth: 2, hover: { size: 7 } },
-    xaxis: { categories, labels: { style: { colors: textColor, fontSize: '10px' } }, axisBorder: { show: false }, axisTicks: { show: false } },
-    yaxis: { min: 0, forceNiceScale: true, labels: { style: { colors: textColor, fontSize: '10px' }, formatter: v => Math.round(v) } },
-    grid: { borderColor: gridColor, strokeDashArray: 4, xaxis: { lines: { show: false } }, yaxis: { lines: { show: true } }, padding: { top: 0, right: 8, bottom: 0, left: 4 } },
-    tooltip: {
-      theme: isDark ? 'dark' : 'light', style: { fontSize: '12px' },
-      custom({ series, seriesIndex, dataPointIndex, w }) {
-        const val = series[seriesIndex][dataPointIndex];
-        const cat = w.globals.labels[dataPointIndex];
-        return `<div style="background:${tooltipBg};color:${tooltipTxt};padding:8px 13px;border-radius:10px;border:1px solid rgba(99,102,241,.25);box-shadow:0 8px 24px rgba(0,0,0,.18);font-size:12px"><div style="font-size:10px;font-weight:600;color:${lineColor};margin-bottom:2px">${cat}</div><div style="font-size:16px;font-weight:800">${val} <span style="font-size:10px;opacity:.7">ventas</span></div></div>`;
-      }
-    },
-    dataLabels: { enabled: false }, legend: { show: false }
-  };
-}
-
-function renderMonthlySalesChart(seriesData, categories) {
-  const el = document.getElementById('apex-monthly-sales');
-  if (!el || typeof ApexCharts === 'undefined') return;
-  if (!document.getElementById('apex-glow-style')) {
-    const s = document.createElement('style'); s.id = 'apex-glow-style';
-    s.textContent = '#apex-monthly-sales .apexcharts-area-series .apexcharts-series path{filter:drop-shadow(0 0 6px rgba(99,102,241,.60))} #apex-monthly-sales .apexcharts-marker{filter:drop-shadow(0 0 4px rgba(99,102,241,.80))}';
-    document.head.appendChild(s);
-  }
-  if (_apexMonthlySalesChart) {
-    _apexMonthlySalesChart.updateOptions(_buildApexOptions(categories, seriesData), true, true); return;
-  }
-  _apexMonthlySalesChart = new ApexCharts(el, _buildApexOptions(categories, seriesData));
-  _apexMonthlySalesChart.render().then(function(){
-    _animateChartDraw(el);
-  });
-}
-
-function _animateChartDraw(el) {
-  // Buscar el path del trazo (la línea, no el fill)
-  var svg = el.querySelector('svg');
-  if (!svg) return;
-
-  // El trazo principal está en .apexcharts-line o .apexcharts-area-series path con stroke
-  var paths = svg.querySelectorAll('.apexcharts-line, .apexcharts-area path[stroke]:not([stroke="none"])');
-  if (!paths.length) {
-    // fallback: todos los paths con stroke visible
-    paths = svg.querySelectorAll('path[stroke]:not([stroke="none"]):not([stroke="transparent"])');
-  }
-
-  paths.forEach(function(path) {
-    var len = path.getTotalLength ? path.getTotalLength() : 0;
-    if (!len) return;
-    // Esconder el trazo
-    path.style.strokeDasharray  = len;
-    path.style.strokeDashoffset = len;
-    path.style.transition = 'none';
-    // Forzar reflow
-    path.getBoundingClientRect();
-    // Animar de izquierda a derecha en 2.5s
-    path.style.transition = 'stroke-dashoffset 5s cubic-bezier(.4,0,.2,1)';
-    path.style.strokeDashoffset = '0';
-  });
-
-  // El área rellena aparece con fade después de un pequeño delay
-  var fills = svg.querySelectorAll('.apexcharts-area');
-  fills.forEach(function(fill) {
-    fill.style.opacity = '0';
-    fill.style.transition = 'opacity 2s ease 1.5s';
-    fill.getBoundingClientRect();
-    fill.style.opacity = '1';
-  });
-}
-
-document.addEventListener('themeChanged', () => {
-  if (_apexMonthlySalesChart) {
-    const cfg = _apexMonthlySalesChart.w.config;
-    _apexMonthlySalesChart.updateOptions(_buildApexOptions(cfg.xaxis.categories, cfg.series[0].data), true, true);
-  }
-});
-
-// ── Semáforo ──────────────────────────────────────────────────────────────
-function renderSemaforoFromTeams(teams) {
-  try {
-    const container = document.getElementById('semaforo-items');
-    if (!container) return;
-    if (!Array.isArray(teams) || teams.length === 0) {
-      container.innerHTML = '<div style="padding:24px 14px;text-align:center;color:var(--t3);font-size:.82rem"><i class="fas fa-traffic-light" style="font-size:1.8rem;opacity:.2;display:block;margin-bottom:8px"></i>Sin ventas de equipo este mes aún</div>';
-      return;
-    }
-    const fillColors = { verde:'#10b981', amarillo:'#f59e0b', rojo:'#ef4444' };
-    const maxVentas  = Math.max(...teams.map(t => t.ventas || 0), 1);
-    container.className = 'sem-wrap';
-    container.innerHTML = teams.map(team => {
-      const status   = (team.estado || 'rojo').toLowerCase();
-      const fill     = fillColors[status] || '#6366f1';
-      const barWidth = Math.round(((team.ventas || 0) / maxVentas) * 100);
-      const pcts     = barWidth;
-      return `
-        <div class="sitem">
-          <div class="sitem-left">
-            <div class="sitem-hd">
-              <div class="sdot" style="background:${fill};box-shadow:0 0 7px ${fill}88"></div>
-              <div class="sname">${(team.nombre || '—').toUpperCase()}</div>
-            </div>
-            <div class="sbar-row">
-              <div class="sbar"><div class="sfill" style="width:${barWidth}%;background:linear-gradient(90deg,${fill},${fill}99)"></div></div>
-              <div class="spct" style="color:${fill}">${pcts}%</div>
-            </div>
-          </div>
-          <div class="sitem-right">
-            <div class="sstat">
-              <div class="sstat-lbl">VENTAS</div>
-              <div class="sstat-val" style="color:${fill}">${team.ventas || 0} v</div>
-            </div>
-            <div class="sstat">
-              <div class="sstat-lbl">PUNTOS</div>
-              <div class="sstat-val" style="color:${fill}">${team.puntos ? team.puntos.toFixed(1) : 0} pts</div>
-            </div>
-          </div>
-        </div>`;
-    }).join('');
-  } catch (e) { console.warn('[inicio] semaforo render:', e); }
-}
-
-</script>
-
-<script>
-/* ── Stagger entrance ───────────────────────────────────────────────────── */
-(function(){
-  var _goFired = false;
-
-  function go(el, delay){
-    if(!el) return;
-    setTimeout(function(){ el.classList.add('go'); }, delay || 0);
-  }
-
-  function showAllPanels() {
-    if (_goFired) return;
-    _goFired = true;
-    var rows = ['.row-top', '.row-mid', '.row-bot'];
-    rows.forEach(function(rowSel, rowIdx){
-      var row = document.querySelector(rowSel);
-      if(!row) return;
-      var panels = row.querySelectorAll('.gpanel.fsu');
-      panels.forEach(function(el, colIdx){
-        go(el, rowIdx * 150 + colIdx * 80);
-      });
-    });
-  }
-
-  // Paneles aparecen cuando los datos están listos
-  document.addEventListener('crm:data-ready', function(){
-    showAllPanels();
-  }, { once: true });
-
-  // Fallback 1: si el DOM ya cargó y no hay datos en 1.2s
-  document.addEventListener('DOMContentLoaded', function(){
-    setTimeout(showAllPanels, 1200);
-  });
-
-  // Fallback 2: absoluto en 2.5s por si DOMContentLoaded ya pasó
-  setTimeout(function(){
-    document.querySelectorAll('.fsu:not(.go)').forEach(function(el){ el.classList.add('go'); });
-  }, 2500);
-})();
-</script>
-
-<!-- ── Tiempo real (SSE): refresca el dashboard sin recargar ───────────────── -->
-<script>
-(function () {
-  // Re-consulta /api/dashboard/home y re-renderiza los widgets (todos los
-  // _render* son idempotentes: usan updateOptions / guardas, no duplican).
-  async function reloadHome() {
-    try {
-      const r = await fetch('/api/dashboard/home', { credentials: 'include' });
-      if (!r.ok) return;
-      const dash = await r.json();
-      window.__homeData = dash;
-      const user = dash.user || {};
-      try { _renderKpis(dash, user);         } catch (e) {}
-      try { _renderGraficaMensual(dash);     } catch (e) {}
-      try { _renderRankingSection(dash);     } catch (e) {}
-      try { _renderSemaforoSection(dash);    } catch (e) {}
-      try { _renderTopProductos(dash);       } catch (e) {}
-      try { _renderLlamadasPendientes(dash); } catch (e) {}
-      try { _renderMapaClientes(dash);       } catch (e) {}
-    } catch (_) {}
-  }
-  document.addEventListener('DOMContentLoaded', function () {
-    if (window.CRMRealtime) window.__rt = CRMRealtime.connect('residencial', reloadHome);
-  });
-})();
-</script>
+<script src="/js/layout/topnav.js?v=20261008b" defer></script>
+<script src="/js/paginas/inicio.js?v=20261008j" defer></script>
 </body>
 </html>
