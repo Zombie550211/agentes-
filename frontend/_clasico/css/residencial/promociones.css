@@ -1,0 +1,224 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Promociones activas (residencial/promociones-validas.html)
+
+   Estética de periódico impreso: titular serif enorme, doble filete y los
+   montos como cifras "mal registradas" — tres planchas C/M/Y desplazadas
+   un pelo que, al multiplicarse, dan el negro del centro.
+
+   Los neutros salen de tokens.css (--sup-*, --texto-*, --linea) para que el
+   modo oscuro funcione solo. Los tres colores de tinta (cian, magenta,
+   amarillo) son acentos y no cambian; lo que cambia en oscuro es la mezcla:
+   sobre papel se MULTIPLICAN (centro negro), sobre fondo oscuro se SUMAN
+   con `screen` (centro blanco).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --pa-cian:     #0088b0;
+  --pa-cian-700: #006786;
+  --pa-magenta:  #d6006c;
+  --pa-mag-700:  #aa0b56;
+  --pa-amarillo: #edbb00;
+  --pa-cian-100: #e9f8ff;
+  --pa-serif: "Source Serif 4", Georgia, serif;
+  --pa-mezcla: multiply;
+}
+html.dark-theme, body.dark-theme {
+  --pa-cian-700: #62c5ee;
+  --pa-mag-700:  #ff90b1;
+  --pa-cian-100: #0a303e;
+  --pa-mezcla:   screen;
+}
+
+.layout { display: flex; min-height: 100vh; }
+body { margin: 0; background: var(--sup-2); color: var(--texto-1); font-family: 'Outfit', system-ui, sans-serif; }
+
+.pa-page {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 30px;
+  padding: 30px 40px 40px;
+  box-sizing: border-box;
+}
+.pa-page *, .pa-backdrop * { box-sizing: border-box; }
+
+/* ── Cabecera ──────────────────────────────────────────────────────── */
+.pa-head { display: flex; flex-direction: column; gap: 15px; }
+.pa-head-top {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 20px;
+}
+.pa-title {
+  margin: 0; font-family: var(--pa-serif); font-weight: 600;
+  font-size: clamp(44px, 7vw, 112px); line-height: .92; letter-spacing: -.025em;
+  color: var(--texto-1);
+}
+.pa-head-side { display: flex; align-items: flex-end; gap: 30px; flex-wrap: wrap; }
+.pa-dateline {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+  font-size: 13px; letter-spacing: .1em; text-transform: uppercase; text-align: right; color: var(--texto-2);
+}
+.pa-dateline-sec { color: var(--pa-cian-700); }
+.pa-admin { display: flex; gap: 10px; }
+.pa-admin[hidden] { display: none; }
+
+.pa-rule-double { display: flex; flex-direction: column; gap: 3px; }
+.pa-rule-double span:first-child { height: 5px; background: var(--texto-1); }
+.pa-rule-double span:last-child,
+.pa-rule { height: 1px; background: var(--texto-1); }
+
+.pa-index {
+  display: flex; flex-wrap: wrap; gap: 10px 30px;
+  font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--texto-2);
+}
+.pa-index-item { display: flex; gap: 10px; }
+.pa-index-n { color: var(--pa-cian-700); font-variant-numeric: tabular-nums; }
+.pa-index-amt { font-weight: 600; color: var(--texto-1); }
+
+.pa-estado { margin: 0; color: var(--texto-3); font-size: 15px; }
+
+/* ── Cuerpo: destacada + tarjetas ──────────────────────────────────── */
+.pa-main { display: flex; flex-wrap: wrap; gap: 40px; }
+
+.pa-lead {
+  flex: 1.35 1 480px; min-width: 0;
+  display: flex; flex-direction: column; justify-content: space-between; gap: 30px;
+}
+.pa-lead-top { display: flex; flex-direction: column; gap: 15px; }
+.pa-kicker {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--pa-cian-700);
+}
+.pa-kicker-lead { color: var(--pa-mag-700); }
+.pa-lead-title {
+  margin: 0; font-family: var(--pa-serif); font-weight: 600;
+  font-size: clamp(30px, 3.6vw, 56px); line-height: 1.02; max-width: 16ch; text-wrap: balance;
+  color: var(--texto-1);
+}
+.pa-lead-amounts { display: flex; flex-direction: column; gap: 30px; }
+.pa-lead-first { display: flex; flex-direction: column; gap: 20px; }
+.pa-lead-row { display: flex; align-items: flex-end; gap: 30px; flex-wrap: wrap; }
+.pa-amt-label {
+  font-size: clamp(16px, 1.6vw, 24px); letter-spacing: .12em; text-transform: uppercase; color: var(--texto-2);
+}
+.pa-lead-row .pa-amt-label { padding-bottom: .3em; }
+.pa-num-xl { font-size: clamp(96px, 15vw, 260px); }
+.pa-num-lg { font-size: clamp(64px, 8.5vw, 150px); }
+.pa-num-md { font-size: clamp(56px, 6vw, 104px); }
+
+.pa-side {
+  flex: 1 1 380px; min-width: 0;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  grid-auto-rows: minmax(0, 1fr); gap: 20px; align-content: start;
+}
+.pa-card {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 15px 30px;
+  padding: 30px; background: var(--sup-3);
+  --pa-suelo: var(--sup-3);
+}
+.pa-card.pa-card-alt { background: var(--pa-cian-100); --pa-suelo: var(--pa-cian-100); }
+.pa-card-top {
+  grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.pa-card-title {
+  margin: 0; font-family: var(--pa-serif); font-weight: 600;
+  font-size: clamp(21px, 1.9vw, 30px); line-height: 1.12; text-wrap: balance; color: var(--texto-1);
+}
+.pa-card-amt { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.pa-card-amt .pa-amt-label { font-size: 13px; letter-spacing: .1em; color: var(--texto-3); }
+.pa-card-row {
+  grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 15px; font-size: 15px; color: var(--texto-2);
+}
+.pa-card-row strong { color: var(--texto-1); }
+
+.pa-tools { display: flex; gap: 4px; }
+
+.pa-vacio { display: flex; flex-direction: column; gap: 20px; max-width: 36ch; padding-top: 40px; }
+.pa-vacio h2 { margin: 0; font-family: var(--pa-serif); font-weight: 600; font-size: 40px; line-height: 1.05; color: var(--texto-1); }
+
+/* ── Cifra en tres planchas ────────────────────────────────────────── */
+.pa-cmyk {
+  --pa-suelo: var(--sup-2);
+  position: relative; width: fit-content; line-height: .9;
+  font-family: var(--pa-serif); font-weight: 700; font-feature-settings: "pnum" 1;
+  padding: .12em; margin: -.12em;
+  isolation: isolate; background: var(--pa-suelo);
+}
+.pa-card .pa-cmyk { --pa-suelo: inherit; background: transparent; }
+.pa-cmyk .pa-papel {
+  color: var(--pa-suelo, var(--sup-2));
+  text-shadow: .036em .025em 0 var(--pa-suelo, var(--sup-2)), -.031em -.023em 0 var(--pa-suelo, var(--sup-2));
+}
+.pa-cmyk .pa-plancha {
+  position: absolute; inset: .12em; mix-blend-mode: var(--pa-mezcla);
+  pointer-events: none; user-select: none;
+}
+.pa-cmyk .pa-c { color: var(--pa-cian); }
+.pa-cmyk .pa-m { color: var(--pa-magenta); translate: .036em .025em; }
+.pa-cmyk .pa-y { color: var(--pa-amarillo); translate: -.031em -.023em; }
+
+/* ── Botones ───────────────────────────────────────────────────────── */
+.pa-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 38px; padding: 8px 16px; border-radius: 2px; border: 1px solid transparent;
+  font: 600 14px/1.2 var(--pa-serif); cursor: pointer;
+  background: transparent; color: var(--texto-1);
+}
+.pa-btn:disabled { opacity: .45; cursor: not-allowed; }
+.pa-btn:focus-visible { outline: 2px solid var(--pa-cian); outline-offset: 2px; }
+.pa-btn-primary { background: var(--pa-cian); color: #fff; }
+.pa-btn-primary:hover:not(:disabled) { background: #1186ac; }
+.pa-btn-secondary { border-color: var(--linea-fuerte); }
+.pa-btn-secondary:hover:not(:disabled) { background: var(--sup-3); }
+.pa-btn-secondary[aria-pressed="true"] { background: var(--texto-1); color: var(--sup-1); border-color: var(--texto-1); }
+.pa-btn-ghost { color: var(--pa-cian-700); padding-inline: 6px; }
+.pa-btn-ghost:hover:not(:disabled) { background: rgba(0, 136, 176, .10); }
+.pa-btn-icon { width: 36px; min-height: 36px; padding: 0; }
+.pa-btn-danger { color: var(--pa-mag-700); }
+.pa-self-start { align-self: flex-start; }
+
+/* ── Diálogo ───────────────────────────────────────────────────────── */
+.pa-backdrop {
+  position: fixed; inset: 0; z-index: 1300;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  background: rgba(15, 23, 42, .55);
+}
+.pa-backdrop[hidden] { display: none; }
+.pa-dialog {
+  width: min(100%, 540px); max-height: calc(100vh - 40px); overflow: auto;
+  display: flex; flex-direction: column; gap: 20px;
+  padding: 24px; border-radius: 4px; background: var(--sup-1); color: var(--texto-1);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .25);
+}
+.pa-dialog-title { margin: 0; font-family: var(--pa-serif); font-weight: 600; font-size: 24px; }
+.pa-field { display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--texto-2); }
+.pa-input {
+  width: 100%; min-height: 38px; padding: 6px 10px;
+  font: 15px 'Outfit', system-ui, sans-serif; color: var(--texto-1);
+  background: var(--sup-2); border: 1px solid var(--linea-fuerte); border-radius: 2px;
+}
+.pa-input:focus-visible { outline: none; border-color: var(--pa-cian); box-shadow: 0 0 0 2px rgba(0, 136, 176, .25); }
+.pa-items-head, .pa-item {
+  display: grid; grid-template-columns: minmax(0, 1fr) 120px 36px; gap: 10px; align-items: center;
+}
+.pa-items-head { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--texto-3); }
+#paItems { display: flex; flex-direction: column; gap: 8px; }
+.pa-check { display: flex; align-items: center; gap: 10px; font-size: 15px; cursor: pointer; }
+.pa-check input { width: 18px; height: 18px; accent-color: var(--pa-cian); }
+.pa-error { font-size: 12.5px; color: var(--pa-mag-700); }
+.pa-error[hidden] { display: none; }
+.pa-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; }
+
+/* ── Móvil ─────────────────────────────────────────────────────────── */
+/* Sin ratón (tablet) el sidebar se vuelve deslizante y su botón flota arriba a
+   la izquierda: se deja sitio para que no tape el titular. */
+@media (hover: none) {
+  .pa-page { padding-top: 72px; }
+}
+@media (max-width: 768px) {
+  .pa-page { padding: 72px 16px 32px; gap: 24px; }
+  .pa-head-side { width: 100%; justify-content: space-between; }
+  .pa-dateline { align-items: flex-start; text-align: left; }
+  .pa-lead, .pa-side { flex-basis: 100%; }
+  .pa-card { padding: 20px; gap: 12px 16px; }
+}
+@media (max-width: 420px) {
+  .pa-items-head, .pa-item { grid-template-columns: minmax(0, 1fr) 90px 36px; }
+}

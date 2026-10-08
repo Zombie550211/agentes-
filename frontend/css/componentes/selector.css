@@ -1,0 +1,51 @@
+/* Listas desplegables con estilo propio (js/componentes/selector.js).
+   Usa los tokens del sistema (css/paginas/inicio.css) con respaldo, para poder cargarse
+   en cualquier página. Esquinas rectas, paleta del logo, sin iconos de fuente: la flecha
+   y la marca de elegido se dibujan con CSS. */
+
+.sel{position:relative;display:block;width:100%}
+/* El <select> real sigue ahí (valor, validación, name) pero no se ve ni se toca. */
+.sel .sel-nativo{position:absolute !important;inset:0 !important;width:100% !important;height:100% !important;
+  opacity:0 !important;pointer-events:none !important;margin:0 !important}
+
+.sel-btn{position:relative;display:flex;align-items:center;width:100%;height:38px;margin:0;padding:0 32px 0 12px;
+  font:inherit;font-size:13px;text-align:left;cursor:pointer;color:var(--color-text,#14212a);
+  background:rgb(255 255 255 / .78);border:1px solid rgb(0 112 152 / .18);border-radius:0;
+  transition:border-color .15s,box-shadow .15s,background .15s}
+.sel-con-icono .sel-btn{padding-left:34px}
+.sel-txt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sel-vacio .sel-txt{color:var(--color-neutral-400,#9aa6ae)}
+.sel-btn:hover{border-color:rgb(0 112 152 / .32)}
+.sel-btn:focus-visible,.sel-abierto .sel-btn{outline:none;border-color:var(--color-accent-2-500,#007098);background:#fff;
+  box-shadow:0 0 0 3px rgb(0 112 152 / .12)}
+.sel-btn:disabled{opacity:.55;cursor:not-allowed}
+/* Flecha: chevron fino que gira al abrir. */
+.sel-flecha{position:absolute;right:13px;top:50%;width:7px;height:7px;margin-top:-5px;
+  border-right:1.5px solid var(--color-neutral-500,#8f9ca6);border-bottom:1.5px solid var(--color-neutral-500,#8f9ca6);
+  transform:rotate(45deg);transition:transform .15s,margin-top .15s}
+.sel-abierto .sel-flecha{transform:rotate(-135deg);margin-top:-1px;border-color:var(--color-accent-2-500,#007098)}
+/* La flecha de fuente que algunas plantillas ponían sobre el <select> ya no hace falta. */
+.fr-sel::after{content:none !important}
+
+.sel-lista{position:fixed;z-index:9000;max-width:min(420px,calc(100vw - 16px));display:flex;flex-direction:column;
+  background:rgb(255 255 255 / .96);-webkit-backdrop-filter:blur(18px) saturate(150%);backdrop-filter:blur(18px) saturate(150%);
+  border:1px solid rgb(0 112 152 / .16);box-shadow:0 14px 36px rgb(0 112 152 / .18), 0 2px 6px rgb(20 33 42 / .06);
+  font-family:var(--font-body,inherit);animation:selEntra .12s ease-out}
+.sel-lista.sel-arriba{animation-name:selEntraArriba}
+@keyframes selEntra{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@keyframes selEntraArriba{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.sel-buscar{padding:6px;border-bottom:1px solid rgb(0 112 152 / .1)}
+.sel-buscar input{width:100%;box-sizing:border-box;height:32px;padding:0 10px;font:inherit;font-size:12px;
+  border:1px solid rgb(0 112 152 / .18);border-radius:0;background:#fff;outline:none}
+.sel-buscar input:focus{border-color:var(--color-accent-2-500,#007098)}
+.sel-opciones{max-height:280px;overflow-y:auto;padding:4px;outline:none}
+.sel-op{position:relative;padding:8px 30px 8px 10px;font-size:13px;line-height:1.3;cursor:pointer;color:var(--color-text,#14212a)}
+.sel-op-vacia{color:var(--color-neutral-500,#8f9ca6)}
+.sel-op-activa{background:rgb(0 112 152 / .07)}
+.sel-op[aria-selected="true"]{color:var(--color-accent-2-600,#005f82);font-weight:600;box-shadow:inset 2px 0 0 var(--color-accent-2-500,#007098)}
+/* Marca de elegido: un check dibujado con bordes. */
+.sel-op[aria-selected="true"]::after{content:"";position:absolute;right:12px;top:50%;width:4px;height:8px;margin-top:-6px;
+  border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg)}
+.sel-op[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
+.sel-nada{padding:10px;font-size:12px;font-style:italic;color:var(--color-neutral-500,#8f9ca6)}
+@media (prefers-reduced-motion:reduce){ .sel-lista{animation:none} .sel-btn,.sel-flecha{transition:none} }

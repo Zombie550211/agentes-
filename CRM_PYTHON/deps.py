@@ -25,7 +25,18 @@ IS_PROD     = os.getenv("NODE_ENV") == "production"
 # alguna vez el frontend hace fetch cross-origin directo a la API.
 COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax").lower()
 
-ADMIN_ROLES  = ("Administrador", "admin", "administrador", "Administrativo")
+ADMIN_ROLES  = ("Administrador", "admin", "administrador", "Administrativo", "administrador general")
+
+
+def _normalize_role(value: str | None) -> str:
+    """Normaliza roles para comparar sin depender de mayúsculas, espacios o variantes."""
+    if value is None:
+        return ""
+    value = str(value).strip().lower()
+    value = value.replace("_", " ").replace("-", " ")
+    while "  " in value:
+        value = value.replace("  ", " ")
+    return value
 
 
 def team_seccion(team: str = "", role: str = "") -> str:
@@ -156,8 +167,10 @@ async def current_user(request: Request, response: Response) -> dict:
 
 
 def require_roles(*roles):
+    allowed = {_normalize_role(r) for r in roles}
+
     async def checker(user: dict = Depends(current_user)):
-        if user.get("role") not in roles:
+        if _normalize_role(user.get("role")) not in allowed:
             raise HTTPException(status_code=403, detail="Sin permiso")
         return user
     return checker

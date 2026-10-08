@@ -1,10 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Registro de lead · Residencial</title>
-<link rel="icon" type="image/png" href="/images/favicon.png">
+<title>Formulario de Registro de Lead Corporativo</title>
 
 <!-- Scripts críticos de redirección -->
 <script>
@@ -84,36 +83,53 @@
   }
 </script>
 
-<!-- Sesión: la cabecera (menú e iconos) la reutiliza; sin sesión, al login. -->
+<!-- Interceptor de API -->
 <script>
-  window.__sesion = fetch('/api/auth/verify-server', { credentials: 'include' })
-    .then(function (r) { return r.ok ? r.json() : { authenticated: false }; })
-    .then(function (d) { if (!d.authenticated) { location.replace('/login.html'); } return d; })
-    .catch(function () { location.replace('/login.html'); return {}; });
+  (function(){
+    try {
+      var ENABLE_REMOTE=false;
+      if (ENABLE_REMOTE) {
+        // espacio reservado
+      } else {
+        window.__API_INTERCEPTOR_LOADED__ = false;
+      }
+    } catch(_){}
+  })();
 </script>
 
-<!-- Estilo: el mismo sistema que la página de inicio (paleta del logo, vidrio, esquinas rectas). -->
-<link rel="stylesheet" href="/css/base/scroll.css?v=20261008a">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008c">
-<link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
-<link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
-<!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
-<script src="/js/layout/transicion.js?v=20261008b"></script>
-<!-- Font Awesome: sólo para el formulario de transferencia (js/componentes/transferencia-form.js). -->
-<link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
-<link rel="stylesheet" href="/css/componentes/transferencia-form.css?v=20261007a">
-<link rel="stylesheet" href="/css/componentes/selector.css?v=20261008a">
-<link rel="stylesheet" href="/css/residencial/formulario-registro.css?v=20261008d">
+<!-- Tailwind CSS -->
+<script src="/vendor/tailwind/tailwind-cdn.js"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          teal: { 50:'#f0fdfa',100:'#ccfbf1',200:'#99f6e4',300:'#5eead4',400:'#2dd4bf',500:'#14b8a6',600:'#0d9488',700:'#0f766e',800:'#115e59',900:'#134e4a',950:'#042f2e' }
+        }
+      }
+    }
+  }
+</script>
 
+<!-- Font Awesome -->
+<link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
+<link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
+
+<!-- Sidebar CSS (obligatorio para el sidebar) -->
+
+<!-- Scripts -->
 <script src="/js/core/fetch-interceptor.js"></script>
 <script src="/js/core/logout-handler.js"></script>
 <script src="/js/core/user-info.js"></script>
 <script src="/js/core/crm-config.js"></script>
 <script src="/js/core/inactivity-manager.js?v=20260611a"></script>
 <script src="/js/core/crm-init.js"></script>
+
+<!-- Chart.js -->
+<script src="/vendor/chartjs/chart.umd.min.js"></script>
+<script src="/vendor/chartjs-plugin/chartjs-plugin-datalabels.min.js"></script>
+<script src="/vendor/jquery/jquery-3.6.0.min.js"></script>
+<script src="/vendor/jquery-modal/jquery.modal.min.js"></script>
 
 <script>
   window.authChecked = true;
@@ -132,13 +148,21 @@
   })();
 </script>
 
+<script src="/js/core/logout-handler.js?v=20250905-163930"></script>
+<script src="/js/core/user-info.js?v=20250905-163930"></script>
+
 <script>
   (function(){
     try {
-      window.FORM_CONFIG = window.FORM_CONFIG || {};
-      window.FORM_CONFIG.endpoints = window.FORM_CONFIG.endpoints || {};
-      window.FORM_CONFIG.features = window.FORM_CONFIG.features || {};
-      window.__FORM_CONFIG_OK__ = false;
+      var ENABLE_REMOTE=false;
+      if (ENABLE_REMOTE) {
+        // espacio reservado
+      } else {
+        window.FORM_CONFIG = window.FORM_CONFIG || {};
+        window.FORM_CONFIG.endpoints = window.FORM_CONFIG.endpoints || {};
+        window.FORM_CONFIG.features = window.FORM_CONFIG.features || {};
+        window.__FORM_CONFIG_OK__ = false;
+      }
     } catch(_){}
   })();
 </script>
@@ -167,241 +191,332 @@
     } catch {}
   })();
 </script>
+
+<link rel="stylesheet" href="/css/residencial/formulario-registro.css">
+  <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
+  <link rel="stylesheet" href="/css/base/form-controls.css?v=20260921">
+  <link rel="stylesheet" href="/css/componentes/transferencia-form.css?v=20261007a">
 </head>
 <body>
-<div class="in-marco">
-<div class="in-hoja">
+  <script src="/js/core/theme-init.js"></script>
+  <script src="/js/layout/sidebar.js" defer></script>
+  <script src="/js/layout/sidebar-ui.js" defer></script>
+  <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
+  <script src="/js/layout/sidebar-user.js" defer></script>
+  <script src="/js/componentes/transferencia-form.js?v=20261007a" defer></script>
+<nav class="sidebar" id="app-sidebar"></nav>
+<div class="main-content">
 
-  <header class="in-head">
-    <nav id="topnav" class="tn" aria-label="Menú principal"></nav>
-    <!-- Ajustes, chat, notificaciones y usuario: js/layout/topbar-acciones.js -->
-    <div id="topbar-acciones" class="in-iconos"></div>
-  </header>
-
-  <!-- ══ Pestañas (lead / transferencia) y guardar ══ -->
-  <section class="fr-titulo in-glass" aria-label="Registro de lead">
-    <div class="trf-tabs" role="tablist" aria-label="Tipo de registro">
-      <button type="button" class="trf-tab trf-tab-on" role="tab" data-trf-tab="lead" aria-selected="true"><i class="ph ph-clipboard-text" aria-hidden="true"></i> Registro de lead</button>
-      <button type="button" class="trf-tab" role="tab" data-trf-tab="transferencia" aria-selected="false"><i class="ph ph-phone-outgoing" aria-hidden="true"></i> Transferir llamada</button>
+<!-- ══ HEADER ══ -->
+<div class="flex items-center justify-between flex-wrap gap-4 bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-10 shadow-sm">
+  <div class="flex items-center gap-4">
+    <div class="w-10 h-10 bg-teal-50 rounded-xl flex items-center justify-center flex-shrink-0">
+      <i class="fas fa-clipboard-list text-teal-600 text-sm"></i>
     </div>
-    <button id="save-btn" type="button" data-trf-panel="lead" data-trf-reserve class="fr-guardar">
-      <i class="ph ph-floppy-disk" aria-hidden="true"></i>
-      <span>Guardar lead</span>
-    </button>
-  </section>
-
-  <!-- ══ Formulario de lead ══ -->
-  <div class="fr-grid" data-trf-panel="lead">
-
-    <!-- ── Columna principal ── -->
-    <div class="fr-col">
-
-      <!-- ① Datos de contacto -->
-      <section class="fr-card in-glass">
-        <div class="fr-card-head">
-          <span class="fr-card-ico" aria-hidden="true"><i class="ph ph-user"></i></span>
-          <h2>Datos de contacto</h2>
-        </div>
-        <div class="fr-campos">
-          <div class="fr-campo fr-c6">
-            <label for="nombre-cliente">Nombre del cliente</label>
-            <div class="fr-input"><i class="ph ph-user" aria-hidden="true"></i>
-              <input type="text" id="nombre-cliente" name="nombre_cliente" placeholder="Ej: Mirna Najera Ruiz" required></div>
-          </div>
-          <div class="fr-campo fr-c3">
-            <label for="telefono-principal">Teléfono principal</label>
-            <div class="fr-input"><i class="ph ph-phone" aria-hidden="true"></i>
-              <input type="text" id="telefono-principal" name="telefono_principal" placeholder="(305) 555-1234" required></div>
-          </div>
-          <div class="fr-campo fr-c3">
-            <label for="telefono_2">Teléfono alterno</label>
-            <div class="fr-input"><i class="ph ph-phone" aria-hidden="true"></i>
-              <input type="text" id="telefono_2" name="telefono_2" placeholder="(305) 555-5678"></div>
-          </div>
-          <div class="fr-campo fr-c4">
-            <label for="direccion">Dirección completa</label>
-            <div class="fr-input"><i class="ph ph-map-pin" aria-hidden="true"></i>
-              <input type="text" id="direccion" name="direccion" placeholder="Ej: 1234 SW 8th St, Miami, FL" required></div>
-          </div>
-          <div class="fr-campo fr-c2">
-            <label for="zip-code">Zip code</label>
-            <div class="fr-input"><i class="ph ph-hash" aria-hidden="true"></i>
-              <input type="text" id="zip-code" name="zip-code" placeholder="33030" required></div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ② Servicio y cuenta -->
-      <section class="fr-card in-glass">
-        <div class="fr-card-head">
-          <span class="fr-card-ico" aria-hidden="true"><i class="ph ph-stack"></i></span>
-          <h2>Servicio y cuenta</h2>
-        </div>
-        <div class="fr-campos fr-campos-3">
-          <div class="fr-campo">
-            <label for="servicios">Servicio</label>
-            <div class="fr-input fr-sel"><i class="ph ph-stack" aria-hidden="true"></i>
-              <select id="servicios" name="servicios" required><!-- desde /api/productos --></select></div>
-          </div>
-          <div class="fr-campo">
-            <label for="tipo-servicio">Tipo de servicio</label>
-            <div class="fr-input fr-sel"><i class="ph ph-tag" aria-hidden="true"></i>
-              <select id="tipo-servicio" name="tipo_servicio" required></select></div>
-          </div>
-          <div class="fr-campo">
-            <label for="numero-cuenta">Número de cuenta</label>
-            <div class="fr-input"><i class="ph ph-credit-card" aria-hidden="true"></i>
-              <input type="text" id="numero-cuenta" name="numero_cuenta" placeholder="Número de cuenta" required></div>
-          </div>
-          <div class="fr-campo">
-            <label for="mercado">Mercado</label>
-            <div class="fr-input fr-sel"><i class="ph ph-globe" aria-hidden="true"></i>
-              <select id="mercado" name="mercado" required><option value="">Elige</option></select></div>
-          </div>
-          <div class="fr-campo">
-            <label for="autopago">Autopago</label>
-            <div class="fr-input fr-sel"><i class="ph ph-credit-card" aria-hidden="true"></i>
-              <select id="autopago" name="autopay" required><option value="">Seleccionar</option></select></div>
-          </div>
-          <div class="fr-campo">
-            <label for="sistema">Sistema</label>
-            <div class="fr-input fr-sel"><i class="ph ph-monitor" aria-hidden="true"></i>
-              <select id="sistema" name="sistema" required></select></div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ③ Motivo de la llamada, status y riesgo -->
-      <section class="fr-card in-glass">
-        <div class="fr-card-head">
-          <span class="fr-card-ico" aria-hidden="true"><i class="ph ph-chat-text"></i></span>
-          <h2>¿Por qué llamó el cliente?</h2>
-        </div>
-        <div class="chips-wrap fr-chips" id="chips-motivo"><!-- motivos desde /api/catalogos --></div>
-        <div class="fr-campos fr-campos-2 fr-sep">
-          <div class="fr-campo">
-            <span class="fr-lbl">Status</span>
-            <div class="radio-group fr-radios" id="radios-status"><!-- status desde /api/catalogos --></div>
-          </div>
-          <div class="fr-campo">
-            <label for="riesgo">Riesgo</label>
-            <div class="fr-input fr-sel"><i class="ph ph-gauge" aria-hidden="true"></i>
-              <select id="riesgo" name="riesgo" required><option value="">Seleccionar riesgo</option></select></div>
-          </div>
-        </div>
-      </section>
-
+    <div>
+      <h1 class="text-base font-bold text-slate-800 leading-tight">Registro de Lead Corporativo</h1>
+      <p class="text-[11px] text-slate-400 mt-0.5">Ingresa los detalles del cliente potencial y categorización del servicio</p>
     </div>
+  </div>
+  <div class="trf-tabs" role="tablist" aria-label="Tipo de registro">
+    <button type="button" class="trf-tab trf-tab-on" role="tab" data-trf-tab="lead" aria-selected="true"><i class="fas fa-clipboard-list"></i> Registro de Lead</button>
+    <button type="button" class="trf-tab" role="tab" data-trf-tab="transferencia" aria-selected="false"><i class="fas fa-phone-volume"></i> Transferir llamada</button>
+  </div>
+  <button id="save-btn" data-trf-panel="lead" data-trf-reserve class="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold uppercase tracking-wider px-5 py-2.5 rounded-xl shadow-sm transition-colors duration-150 disabled:opacity-60">
+    <i class="fas fa-save text-xs"></i>
+    Guardar Lead
+  </button>
+</div>
 
-    <!-- ── Columna lateral ── -->
-    <div class="fr-col">
+<!-- ══ GRID PRINCIPAL ══ -->
+<div class="w-full max-w-[1400px] mx-auto grid grid-cols-12 gap-6 p-6" data-trf-panel="lead">
 
-      <!-- Puntaje automático -->
-      <section class="fr-card fr-puntaje in-glass">
+  <!-- ── COLUMNA IZQUIERDA (8/12) ── -->
+  <div class="col-span-12 xl:col-span-8 flex flex-col gap-6">
+
+    <!-- ① DATOS DE CONTACTO -->
+    <div class="fsu bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+        <div class="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
+          <i class="fas fa-user text-purple-600 text-sm"></i>
+        </div>
         <div>
-          <div class="fr-puntaje-lbl">Puntaje automático</div>
-          <div class="fr-puntaje-num"><span id="score-num">--</span></div>
-          <p>Según el servicio y el nivel de riesgo seleccionados.</p>
+          <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide">Datos de Contacto</h2>
+          <p class="text-[11px] text-slate-400">Información personal y de contacto del cliente potencial</p>
         </div>
-        <div class="gauge-ring" aria-hidden="true"><span class="gauge-label">--</span></div>
-      </section>
+      </div>
+      <div class="p-6 grid grid-cols-1 md:grid-cols-6 gap-4">
+        <div class="md:col-span-6">
+          <label class="text-[11px] font-bold text-slate-500 uppercase">Nombre del Cliente</label>
+          <div class="relative mt-1">
+            <i class="fas fa-user absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+            <input type="text" id="nombre-cliente" name="nombre_cliente" placeholder="Ej: Mirna Najera Ruiz" required
+              class="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition">
+          </div>
+        </div>
+        <div class="md:col-span-3">
+          <label class="text-[11px] font-bold text-slate-500 uppercase">Teléfono Principal</label>
+          <div class="relative mt-1">
+            <i class="fas fa-phone absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+            <input type="text" id="telefono-principal" name="telefono_principal" placeholder="(305) 555-1234" required
+              class="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition">
+          </div>
+        </div>
+        <div class="md:col-span-3">
+          <label class="text-[11px] font-bold text-slate-500 uppercase">Teléfono Alterno</label>
+          <div class="relative mt-1">
+            <i class="fas fa-phone absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+            <input type="text" id="telefono_2" name="telefono_2" placeholder="(305) 555-5678"
+              class="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition">
+          </div>
+        </div>
+        <div class="md:col-span-4">
+          <label class="text-[11px] font-bold text-slate-500 uppercase">Dirección Completa</label>
+          <div class="relative mt-1">
+            <i class="fas fa-location-dot absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+            <input type="text" id="direccion" name="direccion" placeholder="Ej: 1234 SW 8th St, Miami, FL" required
+              class="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition">
+          </div>
+        </div>
+        <div class="md:col-span-2">
+          <label class="text-[11px] font-bold text-slate-500 uppercase">Zip Code</label>
+          <div class="relative mt-1">
+            <i class="fas fa-hashtag absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+            <input type="text" id="zip-code" name="zip-code" placeholder="33030" required
+              class="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition">
+          </div>
+        </div>
+      </div>
+    </div>
 
-      <!-- Logística y asignación -->
-      <section class="fr-card in-glass">
-        <div class="fr-card-head">
-          <span class="fr-card-ico" aria-hidden="true"><i class="ph ph-truck"></i></span>
-          <h2>Logística y asignación</h2>
+    <!-- ② DETALLES DE SERVICIO Y CUENTAS -->
+    <div class="fsu bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+        <div class="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+          <i class="fas fa-bolt text-amber-500 text-sm"></i>
         </div>
-        <div class="fr-campos fr-campos-2">
-          <div class="fr-campo">
-            <label for="dia-venta">Día de venta</label>
-            <div class="fr-input"><i class="ph ph-calendar-blank" aria-hidden="true"></i>
-              <input type="date" id="dia-venta" name="dia_venta" required></div>
+        <div>
+          <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide">Detalles de Servicio y Cuentas</h2>
+          <p class="text-[11px] text-slate-400">Información sobre servicios contratados y cuentas asociadas</p>
+        </div>
+      </div>
+      <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+
+        <div>
+          <label class="text-[11px] font-bold text-slate-500 uppercase">Servicios</label>
+          <div class="relative mt-1">
+            <i class="fas fa-layer-group absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+            <select id="servicios" name="servicios" required class="w-full pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition appearance-none cursor-pointer"><!-- desde /api/productos --></select>
           </div>
-          <div class="fr-campo">
-            <label for="dia-instalacion">Día de instalación</label>
-            <div class="fr-input"><i class="ph ph-calendar-blank" aria-hidden="true"></i>
-              <input type="date" id="dia-instalacion" name="dia_instalacion" required></div>
+        </div>
+
+        <div>
+          <label class="text-[11px] font-bold text-slate-500 uppercase">Tipo de Servicios</label>
+          <div class="relative mt-1">
+            <i class="fas fa-tag absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+            <select id="tipo-servicio" name="tipo_servicio" required class="w-full pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition appearance-none cursor-pointer"></select>
           </div>
-          <div class="fr-campo fr-full">
-            <label for="supervisor">Supervisor</label>
-            <div class="fr-input fr-sel"><i class="ph ph-user-circle" aria-hidden="true"></i>
-              <select id="supervisor" name="supervisor">
-                <option value="">Seleccionar supervisor</option>
-                <!-- supervisores cargados desde /api/teams/supervisors-list -->
-              </select></div>
+        </div>
+
+        <div>
+          <label class="text-[11px] font-bold text-slate-500 uppercase">Número de Cuenta</label>
+          <div class="relative mt-1">
+            <i class="fas fa-credit-card absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+            <input type="text" id="numero-cuenta" name="numero_cuenta" placeholder="Ingrese número de cuenta" required
+              class="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition">
           </div>
-          <div class="fr-campo fr-full" id="agent-assign-field">
-            <label for="agentAssign" class="fr-lbl-doble"><span>Asignación de agente</span><span id="agents-count-label">Cargando…</span></label>
-            <div class="fr-input fr-sel"><i class="ph ph-users" aria-hidden="true"></i>
-              <select id="agentAssign" name="agentAssign" required>
-                <option value="">Asignar a agente</option>
-              </select></div>
-            <p class="agents-note">Si la lista no aparece, el nombre del agente se enviará como asignación.</p>
+        </div>
+
+        <div>
+          <label class="text-[11px] font-bold text-slate-500 uppercase">Mercado</label>
+          <div class="relative mt-1">
+            <i class="fas fa-globe absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+            <select id="mercado" name="mercado" required class="w-full pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-teal-500 transition appearance-none cursor-pointer"><option value="">Elige</option></select>
           </div>
+        </div>
+
+        <div>
+          <label class="text-[11px] font-bold text-slate-500 uppercase">Autopago</label>
+          <div class="relative mt-1">
+            <i class="fas fa-credit-card absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+            <select id="autopago" name="autopay" required class="w-full pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-teal-500 transition appearance-none cursor-pointer"><option value="">Seleccionar</option></select>
+          </div>
+        </div>
+
+        <div>
+          <label class="text-[11px] font-bold text-slate-500 uppercase">Sistema</label>
+          <div class="relative mt-1">
+            <i class="fas fa-display absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+            <select id="sistema" name="sistema" required class="w-full pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-teal-500 transition appearance-none cursor-pointer"></select>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ③ BANNER INFO -->
+    <div class="fsu rounded-2xl p-5 flex items-center justify-between gap-4" style="background:rgba(255,255,255,0.20)!important;border:1px solid rgba(255,255,255,0.12)!important;backdrop-filter:blur(8px);">
+      <div class="flex items-start gap-3">
+        <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+          <i class="fas fa-circle-info text-blue-600 text-xs"></i>
+        </div>
+        <div>
+          <h3 class="text-sm font-bold text-blue-700">Completa todos los campos requeridos</h3>
+          <p class="text-[11px] text-blue-500 mt-0.5">Esta información nos ayuda a procesar tu lead de manera más eficiente.</p>
+        </div>
+      </div>
+      <i class="fas fa-clipboard-check text-blue-200 text-4xl flex-shrink-0"></i>
+    </div>
+
+  </div><!-- /col-left -->
+
+  <!-- ── COLUMNA DERECHA (4/12) ── -->
+  <div class="col-span-12 xl:col-span-4 flex flex-col gap-5">
+
+    <!-- PUNTAJE AUTOMÁTICO -->
+    <div class="fsu bg-[#004d40] text-white p-5 rounded-2xl shadow-sm flex justify-between items-center gap-4">
+      <div>
+        <h3 class="text-xs font-bold uppercase tracking-wider text-teal-200">Puntaje Automático</h3>
+        <p class="text-[10px] text-teal-100/70 mt-0.5 leading-relaxed">Calculado según el servicio y nivel de riesgo seleccionado</p>
+        <p class="text-sm font-bold text-teal-300 mt-2">Puntaje: <span id="score-num">--</span></p>
+      </div>
+      <div class="gauge-ring w-16 h-16 flex-shrink-0">
+        <span class="gauge-label">--</span>
+      </div>
+    </div>
+
+    <!-- ¿POR QUÉ LLAMÓ? + STATUS + RIESGO -->
+    <div class="fsu bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
+        <div class="w-8 h-8 bg-teal-50 rounded-lg flex items-center justify-center flex-shrink-0">
+          <i class="fas fa-phone text-teal-600 text-xs"></i>
+        </div>
+        <h2 class="text-xs font-bold text-slate-600 uppercase tracking-wide">¿Por qué llamó el cliente?</h2>
+      </div>
+      <div class="p-5">
+        <div class="chips-wrap grid grid-cols-2 gap-2 mb-4" id="chips-motivo"><!-- motivos desde /api/catalogos --></div>
+        <div class="grid grid-cols-2 gap-3 pt-4 border-t border-slate-100">
+          <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase">Status</label>
+            <div class="mt-1.5 flex gap-1.5 radio-group" id="radios-status"><!-- status desde /api/catalogos --></div>
+          </div>
+          <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase">Riesgo</label>
+            <select id="riesgo" name="riesgo" required class="w-full mt-1.5 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-teal-500 transition appearance-none cursor-pointer"><option value="">Seleccionar riesgo</option></select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOGÍSTICA Y ASIGNACIÓN -->
+    <div class="fsu bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
+        <div class="w-8 h-8 bg-teal-50 rounded-lg flex items-center justify-center flex-shrink-0">
+          <i class="fas fa-truck text-teal-600 text-xs"></i>
+        </div>
+        <h2 class="text-xs font-bold text-slate-600 uppercase tracking-wide">Logística y Asignación</h2>
+      </div>
+      <div class="p-5 flex flex-col gap-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-[10px] font-bold text-slate-500 uppercase">Día de Venta</label>
+            <div class="relative mt-1">
+              <i class="fas fa-calendar-days absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+              <input type="date" id="dia-venta" name="dia_venta" required
+                class="w-full pl-8 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 outline-none focus:border-teal-500 transition">
+            </div>
+          </div>
+          <div>
+            <label class="text-[10px] font-bold text-slate-500 uppercase">Día de Instalación</label>
+            <div class="relative mt-1">
+              <i class="fas fa-calendar-days absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+              <input type="date" id="dia-instalacion" name="dia_instalacion" required
+                class="w-full pl-8 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 outline-none focus:border-teal-500 transition">
+            </div>
+          </div>
+        </div>
+        <div>
+          <label class="text-[10px] font-bold text-slate-500 uppercase">Supervisor</label>
+          <div class="relative mt-1">
+            <i class="fas fa-user absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+            <select id="supervisor" name="supervisor" class="w-full pl-8 pr-6 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 outline-none focus:border-teal-500 transition appearance-none cursor-pointer">
+              <option value="">Seleccionar supervisor</option>
+              <!-- supervisores cargados desde /api/teams/supervisors-list -->
+            </select>
+          </div>
+        </div>
+        <div id="agent-assign-field">
+          <label class="text-[10px] font-bold text-slate-500 uppercase flex justify-between items-center">
+            <span>Asignación de Agente</span>
+            <span class="text-[9px] font-normal text-slate-400 normal-case" id="agents-count-label">Cargando...</span>
+          </label>
+          <div class="flex gap-1.5 mt-1">
+            <select id="agentAssign" name="agentAssign" required class="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 outline-none focus:border-teal-500 transition appearance-none cursor-pointer">
+              <option value="">Asignar a agente</option>
+            </select>
+            <button type="button" class="px-3 py-2 bg-teal-50 border border-teal-200 rounded-xl text-teal-600 hover:bg-teal-100 transition flex items-center">
+              <i class="fas fa-magnifying-glass text-xs"></i>
+            </button>
+          </div>
+          <p class="agents-note mt-1">Si la lista no aparece, el nombre del agente se enviará como asignación.</p>
         </div>
         <!-- Caso a solventar: alimenta el Semáforo de clientes. Cuando la venta
              pasa a completed el agente tiene 3 días (verde), +2 (amarillo) y +1
              (rojo) para solventarlo subiendo el comprobante en Editar cliente. -->
-        <div id="caso-field" class="fr-campo fr-sep">
-          <label for="caso-solventar" class="fr-lbl-doble">
-            <span>Caso a solventar <span class="fr-req" aria-hidden="true">*</span></span>
-            <span id="caso-count">0 / 2000</span>
+        <div id="caso-field" class="pt-3 border-t border-slate-100">
+          <label for="caso-solventar" class="text-[10px] font-bold text-slate-500 uppercase flex justify-between items-center">
+            <span>Caso a solventar <span class="text-red-500" aria-hidden="true">*</span></span>
+            <span class="text-[9px] font-normal text-slate-400 normal-case" id="caso-count">0 / 2000</span>
           </label>
-          <textarea id="caso-solventar" name="caso_solventar" rows="3" maxlength="2000" class="fr-area"
+          <textarea id="caso-solventar" name="caso_solventar" rows="3" maxlength="2000"
             placeholder="Ej: desconectar el servicio en la dirección anterior, cancelar el servicio anterior, reducir el precio…"
-            aria-describedby="caso-ayuda"></textarea>
-          <label class="fr-check">
-            <input type="checkbox" id="sin-caso">
+            aria-describedby="caso-ayuda"
+            class="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 outline-none focus:border-teal-500 transition resize-y"></textarea>
+          <label class="mt-2 flex items-center gap-2 text-xs text-slate-600 cursor-pointer select-none">
+            <input type="checkbox" id="sin-caso" class="w-4 h-4 accent-teal-600 cursor-pointer">
             Sin caso pendiente
           </label>
-          <p id="caso-ayuda" class="fr-ayuda">Al completarse la venta tendrás 6 días para solventarlo y subir el comprobante (captura o audio) en Editar cliente.</p>
+          <p id="caso-ayuda" class="text-[10px] text-slate-400 mt-1">Al completarse la venta tendrás 6 días para solventarlo y subir el comprobante (captura o audio) en Editar cliente.</p>
         </div>
-      </section>
+      </div>
+    </div>
 
-      <!-- Imagen del lead -->
-      <section class="fr-card in-glass">
-        <div class="fr-card-head">
-          <span class="fr-card-ico" aria-hidden="true"><i class="ph ph-camera"></i></span>
-          <h2>Imagen del lead</h2>
+    <!-- IMAGEN DEL LEAD -->
+    <div class="fsu bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
+        <div class="w-8 h-8 bg-teal-50 rounded-lg flex items-center justify-center flex-shrink-0">
+          <i class="fas fa-camera text-teal-600 text-xs"></i>
         </div>
-        <div id="img-upload-zone" class="fr-subida"
+        <h2 class="text-xs font-bold text-slate-600 uppercase tracking-wide">Imagen del Lead</h2>
+      </div>
+      <div class="p-4">
+        <div id="img-upload-zone"
+             class="border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center bg-slate-50 cursor-pointer relative overflow-hidden min-h-[110px] transition hover:border-teal-400 hover:bg-teal-50"
              onclick="document.getElementById('img-file-input').click()"
-             ondragover="event.preventDefault();this.classList.add('fr-arrastre')"
-             ondragleave="this.classList.remove('fr-arrastre')"
+             ondragover="event.preventDefault();this.className=this.className.replace('border-slate-200','border-teal-400')"
+             ondragleave="this.className=this.className.replace('border-teal-400','border-slate-200')"
              ondrop="handleImgDrop(event)">
-          <div id="img-placeholder" class="fr-subida-txt">
-            <i class="ph ph-cloud-arrow-up" aria-hidden="true"></i>
-            <p>Haz clic o arrastra un archivo aquí</p>
-            <p class="fr-ayuda">JPG, PNG o PDF · máx. 5 MB</p>
+          <div id="img-placeholder" style="display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;padding:16px;">
+            <i class="fas fa-cloud-arrow-up text-teal-400 text-2xl"></i>
+            <p class="text-[11px] text-slate-500 font-medium">Click o arrastra un archivo aquí</p>
+            <p class="text-[10px] text-slate-400">Formatos: JPG, PNG, PDF (Máx. 5MB)</p>
           </div>
-          <img id="img-preview" src="/" alt="Vista previa de la imagen del lead" style="display:none" onclick="event.stopPropagation();openImgLightbox()" title="Clic para ampliar"/>
-          <div id="img-expand-hint" class="fr-subida-hint" style="display:none">Clic para ampliar</div>
-          <button id="img-remove-btn" type="button" class="fr-subida-quitar" onclick="event.stopPropagation();removeImg()" style="display:none"><i class="ph ph-x" aria-hidden="true"></i> Quitar</button>
+          <img id="img-preview" src="/" alt="preview" style="display:none;width:100%;height:100%;object-fit:cover;position:absolute;inset:0;" onclick="event.stopPropagation();openImgLightbox()" title="Click para ampliar"/>
+          <div id="img-expand-hint" style="display:none;position:absolute;bottom:6px;right:8px;background:rgba(0,0,0,0.45);color:#fff;font-size:0.60rem;padding:2px 7px;border-radius:4px;pointer-events:none;">🔍 Click para ver</div>
+          <button id="img-remove-btn" type="button" onclick="event.stopPropagation();removeImg()" style="display:none;position:absolute;top:6px;right:7px;background:rgba(239,68,68,0.85);border:none;border-radius:6px;color:#fff;font-size:0.65rem;padding:3px 8px;cursor:pointer;font-weight:700;">✕ Quitar</button>
         </div>
         <input type="file" id="img-file-input" accept="image/*,.pdf" style="display:none" onchange="handleImgSelect(event)">
         <input type="hidden" id="imagen-url-hidden" name="imagen_url">
-      </section>
-
+      </div>
     </div>
-  </div>
 
-  <!-- ══ Transferencia de llamada (pestaña) — la pinta transferencia-form.js ══ -->
-  <div id="trf-panel" data-trf-panel="transferencia" class="trf-oculto fr-trf"></div>
+  </div><!-- /col-right -->
 
-</div>
-</div>
+</div><!-- /grid -->
 
-<script src="/js/layout/topnav.js?v=20261008c" defer></script>
-<script src="/js/layout/topbar-acciones.js?v=20261008b" defer></script>
-<script src="/js/componentes/llamadas-bloqueo.js" defer></script>
-<script src="/js/componentes/transferencia-form.js?v=20261007a" defer></script>
-<script src="/js/componentes/selector.js?v=20261008a" defer></script>
-<script>
-  // Listas desplegables con estilo propio en toda la página (también las que pinta
-  // después el formulario de transferencia y sus diálogos).
-  document.addEventListener('DOMContentLoaded', function () { if (window.Selector) Selector.auto(document.body); });
-</script>
+<!-- ══ TRANSFERENCIA DE LLAMADA (pestaña) — la pinta transferencia-form.js ══ -->
+<div id="trf-panel" data-trf-panel="transferencia" class="trf-oculto p-6"></div>
+</div><!-- /main-content -->
 
 <script>
   // Mapeo de Servicios a Tipo y Sistema
@@ -445,14 +560,14 @@
     const puntajeFijo = !!meta && meta.score_base != null;
     if (!svc || (!riesgo && !puntajeFijo)) {
       gaugeLabel.textContent = '--'; scoreNum.textContent = '--';
-      gaugeRing.style.background = 'conic-gradient(rgb(0 112 152 / .12) 100%)'; return;
+      gaugeRing.style.background = 'conic-gradient(rgba(13,148,136,0.12) 100%)'; return;
     }
     const score = window.Productos ? await window.Productos.scoreFor(svc, riesgo, tipoServicio) : 0;
     gaugeLabel.textContent = score; scoreNum.textContent = score;
     // El tope sale del catálogo, no de un 1.5 fijo: los servicios business
     // (Starlink 4/10/20 TB) llegan a 3.5 y dejaban la rueda clavada al 100%.
     const normalized = Math.round((score / maxScore()) * 100);
-    gaugeRing.style.background = `conic-gradient(var(--color-accent-2-500) ${Math.min(normalized, 100)}%, rgb(0 112 152 / .12) 0%)`;
+    gaugeRing.style.background = `conic-gradient(#0d9488 ${Math.min(normalized, 100)}%, rgba(13,148,136,0.12) 0%)`;
   }
 
   // Llenar tipo de servicio y sistema automáticamente
@@ -491,7 +606,7 @@
     const items = window.Catalogos.items('motivo');
     if (!items.length) return;
     box.innerHTML = items.map(function(it, i) {
-      const cls = 'chip' + (i === 0 ? ' active' : '');
+      const cls = 'chip p-2.5 text-left text-xs border rounded-xl cursor-pointer select-none transition' + (i === 0 ? ' active' : '');
       return '<div class="' + cls + '" data-value="' + it.valor + '" onclick="toggleChip(this)">' + (it.label || it.valor) + '</div>';
     }).join('');
   }
@@ -502,7 +617,7 @@
     if (!items.length) return;
     box.innerHTML = items.map(function(it, i) {
       const v = it.valor, low = v.toLowerCase();
-      const cls = 'radio-btn' + (i === 0 ? ' checked' : '');
+      const cls = 'radio-btn flex-1 py-2 text-xs border rounded-xl text-center cursor-pointer transition' + (i === 0 ? ' checked font-bold' : ' border-slate-200 text-slate-500 font-medium');
       return '<label class="' + cls + '" id="rb-' + low + '" onclick="selectRadio(\'' + low + '\')"><input type="radio" name="status" value="' + v + '"' + (i === 0 ? ' required' : '') + '><span class="radio-dot"></span>' + (it.label || v) + '</label>';
     }).join('');
   }
@@ -518,7 +633,7 @@
   function handleImgDrop(e) {
     e.preventDefault();
     const zone = document.getElementById('img-upload-zone');
-    if (zone) { zone.style.borderColor = ''; zone.classList.remove('fr-arrastre'); }
+    if (zone) zone.style.borderColor = '';
     const file = e.dataTransfer.files[0];
     if (file && (file.type.startsWith('image/') || file.type === 'application/pdf')) _setImgPreview(file);
   }
@@ -552,12 +667,8 @@
     const src = document.getElementById('img-preview').src;
     if (!src) return;
     const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(20,33,42,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px;';
-    const big = document.createElement('img');
-    big.src = src;
-    big.alt = 'Imagen del lead';
-    big.style.cssText = 'max-width:100%;max-height:100%;box-shadow:0 8px 40px rgba(0,0,0,0.5);';
-    overlay.appendChild(big);
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px;';
+    overlay.innerHTML = '<img src="/'+src+'" style="max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,0.5);">';
     overlay.onclick = function() { document.body.removeChild(overlay); };
     document.body.appendChild(overlay);
   }
@@ -585,21 +696,20 @@
   // Toast notification system
   function showToast(message, type = 'info') {
     const toast = document.createElement('div');
-    const bg = type === 'error' ? 'rgba(220, 38, 38, 0.92)' : type === 'ok' ? 'rgba(22, 163, 74, 0.92)' : 'rgba(0, 112, 152, 0.92)';
+    const bg = type === 'error' ? 'rgba(239, 68, 68, 0.75)' : type === 'ok' ? 'rgba(16, 185, 129, 0.75)' : 'rgba(59, 130, 246, 0.75)';
     toast.style.cssText = `
       position: fixed;
       bottom: 20px;
       right: 20px;
       padding: 12px 20px;
-      border-radius: 0;
-      font-family: var(--font-body);
+      border-radius: 12px;
       font-weight: 600;
-      font-size: 0.85rem;
+      font-size: 0.9rem;
       z-index: 9999;
       animation: slideIn 0.3s ease;
       background: ${bg};
       color: white;
-      box-shadow: 0 8px 28px rgba(0,112,152,0.25);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
       border: 1px solid rgba(255,255,255,0.15);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
@@ -798,13 +908,13 @@
 
     // ── Deshabilitar botón ──
     btn.disabled = true;
-    const originalText = btn.innerHTML;
-    btn.textContent = 'Guardando…';
+    const originalText = btn.textContent;
+    btn.textContent = '⏳ Guardando...';
 
     try {
       // Subir imagen
       if (_imgFile) {
-        btn.textContent = 'Subiendo imagen…';
+        btn.textContent = '⏳ Subiendo imagen...';
         const imgUrl = await _uploadImgIfNeeded();
         data.imagen_url = imgUrl;
         document.getElementById('imagen-url-hidden').value = imgUrl;
@@ -842,7 +952,7 @@
       if (rbPending) rbPending.classList.add('checked');
       document.getElementById('score-num').textContent = '--';
       gaugeLabel.textContent = '--';
-      gaugeRing.style.background = 'conic-gradient(rgb(0 112 152 / .12) 100%)';
+      gaugeRing.style.background = 'conic-gradient(rgba(13,148,136,0.12) 100%)';
       removeImg();
       const _cta = document.getElementById('caso-solventar'), _csc = document.getElementById('sin-caso');
       if (_cta) { _cta.value = ''; _cta.disabled = false; _cta.style.opacity = ''; }
@@ -856,7 +966,7 @@
       showToast('❌ Error: ' + error.message, 'error');
     } finally {
       btn.disabled = false;
-      btn.innerHTML = originalText;
+      btn.textContent = originalText;
     }
   });
 
@@ -875,6 +985,27 @@
     }
     setTimeout(cleanup, 300);
   })();
+</script>
+
+<script>
+/* ── Stagger de entrada — igual que inicio.html ── */
+(function(){
+  function go(el, delay){
+    if (!el) return;
+    setTimeout(function(){ el.classList.add('go'); }, delay || 0);
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    var cards = document.querySelectorAll('.fsu');
+    cards.forEach(function(el, i){ go(el, i * 260); });
+  });
+
+  // Fallback si DOMContentLoaded ya pasó
+  if (document.readyState !== 'loading') {
+    var cards = document.querySelectorAll('.fsu');
+    cards.forEach(function(el, i){ go(el, i * 260); });
+  }
+})();
 </script>
 
 <script>

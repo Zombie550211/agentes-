@@ -1,0 +1,584 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Team Líneas</title>
+<link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
+<script src="/vendor/apexcharts/apexcharts.min.js"></script>
+<script src="/js/core/fetch-interceptor.js" defer></script>
+<script src="/js/core/logout-handler.js" defer></script>
+<script src="/js/core/realtime.js" defer></script>
+<link rel="stylesheet" href="/css/lineas/inicio.css?v=20260828">
+<link rel="stylesheet" href="/css/componentes/glass-cards-cream.css?v=20260716a">
+  <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
+</head>
+<body>
+  <script src="/js/core/theme-init.js"></script>
+  <script src="/js/layout/sidebar.js" defer></script>
+  <script src="/js/layout/sidebar-ui.js" defer></script>
+  <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
+  <script src="/js/layout/sidebar-user.js" defer></script>
+
+<!-- Sidebar: sidebar-loader.js?v=20260717c lo inyecta en position:fixed automáticamente -->
+<nav class="sidebar" id="app-sidebar"></nav>
+
+<div class="main-content">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="topbar-brand">
+        <div class="tb-logo"><i class="fas fa-bolt"></i></div>
+        <div>
+          <div class="tb-title" id="tb-team-title">Team Líneas</div>
+          <div class="tb-sub">CRM · Servicios Móviles</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="tb-date" id="tb-date"></div>
+        <div class="tb-user">
+          <div class="tb-av" id="tb-av">??</div>
+          <div>
+            <div class="tb-uname" id="tb-uname">—</div>
+            <div class="tb-urole" id="tb-urole">Team Líneas</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE -->
+    <div class="page">
+
+
+      <!-- ROW 2 -->
+      <div class="row2">
+
+        <!-- Welcome / Top Líneas -->
+        <div class="welcome-card">
+          <div class="wc-bg"></div>
+          <div class="wc-body">
+            <div>
+              <div class="wc-tag" id="wc-greet">BIENVENIDO</div>
+              <div class="wc-name" id="wc-name">—</div>
+              <div class="wc-role" id="wc-role">Team Líneas</div>
+            </div>
+            <div class="wc-divider"></div>
+            <!-- Top por Líneas -->
+            <div style="font-size:.58rem;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--neon);opacity:.8;margin-bottom:6px">
+              <i class="fas fa-signal" style="margin-right:4px"></i>Top por Líneas · mes actual
+            </div>
+            <div id="wc-top-lineas" style="display:flex;flex-direction:column;gap:5px;flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:rgba(129,140,248,.35) transparent;padding-right:2px">
+              <div class="skel" style="height:28px;border-radius:8px"></div>
+              <div class="skel" style="height:28px;border-radius:8px"></div>
+              <div class="skel" style="height:28px;border-radius:8px"></div>
+            </div>
+            <a href="/lineas/costumer.html" class="wc-pill" style="margin-top:8px">
+              <i class="fas fa-arrow-right"></i> Ver clientes
+            </a>
+          </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="chart-panel">
+          <div class="cp-header">
+            <div class="cp-left">
+              <div class="cp-title">Ventas mensuales</div>
+              <div class="cp-val" id="cp-total">—</div>
+              <div class="cp-delta" id="cp-delta">ventas totales este año</div>
+            </div>
+            <div class="cp-legend">
+              <div class="cp-leg-item">
+                <div class="cp-leg-dot" style="background:#818cf8;box-shadow:0 0 6px #818cf8"></div>
+                <span>Ventas</span>
+              </div>
+            </div>
+          </div>
+          <div class="cp-chart" id="apex-monthly-sales"></div>
+        </div>
+
+        <!-- Mini stats -->
+        <div class="mini-panel">
+          <div class="mp-title">Top Semanal</div>
+          <div class="mp-big" id="mp-total-agents">—</div>
+          <div class="mp-sub" id="mp-week-label">ventas esta semana</div>
+          <div class="mp-divider"></div>
+          <div id="mp-agents-list" style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:rgba(129,140,248,.35) transparent;padding-right:2px">
+            <div class="skel" style="height:32px;margin-top:6px;border-radius:10px"></div>
+            <div class="skel" style="height:32px;margin-top:6px;border-radius:10px"></div>
+            <div class="skel" style="height:32px;margin-top:6px;border-radius:10px"></div>
+            <div class="skel" style="height:32px;margin-top:6px;border-radius:10px"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ROW 3 -->
+      <div class="row3">
+
+        <!-- Ranking -->
+        <div class="table-panel">
+          <div class="tp-header">
+            <span class="tp-title">Ranking del mes</span>
+            <a href="/lineas/ranking.html" class="tp-link">Ver completo →</a>
+          </div>
+          <div class="tp-body" id="ranking-list">
+            <div class="skel" style="height:36px;margin:8px 0;border-radius:10px"></div>
+            <div class="skel" style="height:36px;margin:6px 0;border-radius:10px"></div>
+            <div class="skel" style="height:36px;margin:6px 0;border-radius:10px"></div>
+          </div>
+        </div>
+
+        <!-- Recientes -->
+        <div class="table-panel">
+          <div class="tp-header">
+            <span class="tp-title">Registros recientes</span>
+            <a href="/lineas/costumer.html" class="tp-link">Ver todos →</a>
+          </div>
+          <div class="act-list" id="recent-list">
+            <div class="skel" style="height:36px;margin:8px 0;border-radius:10px"></div>
+            <div class="skel" style="height:36px;margin:6px 0;border-radius:10px"></div>
+            <div class="skel" style="height:36px;margin:6px 0;border-radius:10px"></div>
+          </div>
+        </div>
+
+      </div>
+
+    </div><!-- /.page -->
+</div><!-- /.main-content -->
+
+<script src="/js/core/fetch-interceptor.js"></script>
+<script src="/js/core/logout-handler.js"></script>
+<script>
+'use strict';
+/* ═══════════════════════════════════════
+   DASHBOARD — Team Líneas  (dark neon)
+═══════════════════════════════════════ */
+
+const $ = id => document.getElementById(id);
+const fmt = d => { const p = n => String(n).padStart(2,'0'); const dd=new Date(d); return `${dd.getFullYear()}-${p(dd.getMonth()+1)}-${p(dd.getDate())}`; };
+const initials = s => String(s||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?';
+const capFirst = s => String(s||'').split(/\s+/).map(w=>w?w[0].toUpperCase()+w.slice(1):'').join(' ');
+/* Escapa HTML para interpolar datos del servidor en innerHTML sin riesgo de XSS.
+   (No usar con textContent — ahí el escape lo hace el navegador.) */
+const escH = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+const PALETTE  = ['#0e7490','#0369a1','#4f46e5','#b45309','#047857','#be185d','#7c3aed','#c2410c'];
+const colorFor = s => { let h=0; for(const c of String(s||'')) h=(h*31+c.charCodeAt(0))&0xffff; return PALETTE[h%PALETTE.length]; };
+const MONTHS   = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+/* ── Usuario ── */
+let _user = null;
+try{ _user = JSON.parse(localStorage.getItem('user')||sessionStorage.getItem('user')||'null'); }catch(_){}
+const _role    = String(_user?.role||'').toLowerCase();
+const _isSup   = _role.includes('supervisor');
+/* Admin/Backoffice ven datos globales — el backend ya limita por rol,
+   este filtro extra solo aplica a agentes (sus propias ventas) */
+const _seesAll = _isSup || /admin|administra|backoffice|back_office/.test(_role);
+const _myUname = String(_user?.username||'').toLowerCase();
+
+/* ── Topbar ── */
+(function(){
+  const now = new Date();
+  const days=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  const months=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const h = now.getHours();
+  const greet = h<12?'BUENOS DÍAS ☀️':h<18?'BUENAS TARDES':'BUENAS NOCHES 🌙';
+  $('tb-date').textContent = `${days[now.getDay()]}, ${now.getDate()} de ${months[now.getMonth()]}`;
+  const name = _user?.username || _user?.name || 'Usuario';
+  const av   = initials(name);
+  $('tb-av').textContent    = av;
+  $('tb-uname').textContent = capFirst(name);
+  $('tb-urole').textContent = _user?.role || 'Team Líneas';
+  // Topbar: muestra el team del usuario
+  const teamName = _user?.team || 'Team Líneas';
+  const ttEl = $('tb-team-title');
+  if (ttEl) ttEl.textContent = teamName;
+  $('wc-greet').textContent = greet;
+  $('wc-name').textContent  = capFirst(name);
+  $('wc-role').textContent  = (_user?.role||'Team Líneas')+' · '+(_user?.team||'');
+})();
+
+/* ── Fecha local ──
+   new Date('2026-06-01') se interpreta como medianoche UTC y en zona UTC-6
+   cae en el 31 de mayo — las ventas del día 1 se contaban en el mes anterior.
+   Parsear Y/M/D a mano crea la fecha en hora local, sin desfase. */
+function parseLocalDate(raw){
+  if(!raw) return null;
+  const m=String(raw).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return new Date(+m[1],+m[2]-1,+m[3]);
+  const d=new Date(raw);
+  return isNaN(d)?null:d;
+}
+
+/* ── Fetch ── */
+async function fetchLineas(url){
+  try{
+    const r = await fetch(url,{credentials:'include'});
+    if(!r.ok) return [];
+    const j = await r.json();
+    return Array.isArray(j)?j:(j.data||j.leads||j.clientes||[]);
+  }catch(_){ return []; }
+}
+
+/* ── Filtro rol ── */
+function filterForUser(leads){
+  if(_seesAll) return leads;
+  const disp = _myUname.replace(/\./g,' ').replace(/_/g,' ').toUpperCase();
+  return leads.filter(l=>{
+    const ag = String(l.agente||l.agenteNombre||'').toLowerCase();
+    return ag===_myUname||ag.toUpperCase()===disp;
+  });
+}
+
+/* ── Fetch inmediato ── */
+const now      = new Date();
+const yrStart  = new Date(now.getFullYear(),0,1);
+const yrEnd    = new Date(now.getFullYear(),11,31);
+const msStart  = new Date(now.getFullYear(),now.getMonth(),1);
+const msEnd    = new Date(now.getFullYear(),now.getMonth()+1,0);
+const _allFetch = fetchLineas('/api/lineas-stats');
+/* Registros recientes de agentes: SOLO los suyos, historial completo
+   (/api/lineas-team ya viene restringido por agente y sin filtro de fecha) */
+const _recentFetch = _seesAll ? null : fetchLineas('/api/lineas-team');
+
+/* ═══════ APEX CHART ══════ */
+let _apexChart = null;
+
+/* Mismo estilo que la gráfica de Ventas Mensuales de inicio residencial
+   (paleta de su modo oscuro — esta página es oscura fija) */
+function _apexOpts(cats,data){
+  const textColor='#334155', gridColor='rgba(13,20,32,.10)';
+  const tooltipBg='#ffffff', tooltipTxt='#0f172a';
+  const lineColor='#4f46e5', dotColor='#4f46e5', gradHex='#4f46e5';
+  return{
+    series:[{name:'Ventas',data}],
+    chart:{type:'area',height:'100%',background:'transparent',toolbar:{show:false},animations:{enabled:false}},
+    stroke:{curve:'smooth',width:3,colors:[lineColor]},
+    fill:{type:'gradient',gradient:{shadeIntensity:1,opacityFrom:0.55,opacityTo:0.02,stops:[0,95]}},
+    colors:[gradHex],
+    markers:{size:4,colors:[dotColor],strokeColors:tooltipBg,strokeWidth:2,hover:{size:7}},
+    xaxis:{
+      categories:cats,
+      labels:{style:{colors:textColor,fontSize:'11px',fontFamily:'Outfit,sans-serif',fontWeight:600}},
+      axisBorder:{show:false},axisTicks:{show:false}
+    },
+    yaxis:{
+      min:0,forceNiceScale:true,
+      labels:{style:{colors:textColor,fontSize:'11px',fontFamily:'Outfit,sans-serif',fontWeight:600},formatter:v=>Math.round(v)}
+    },
+    grid:{
+      borderColor:gridColor,strokeDashArray:4,
+      xaxis:{lines:{show:false}},yaxis:{lines:{show:true}},
+      padding:{top:0,right:8,bottom:0,left:4}
+    },
+    tooltip:{
+      theme:'light',style:{fontSize:'12px'},
+      custom({series,seriesIndex,dataPointIndex,w}){
+        const val=series[seriesIndex][dataPointIndex];
+        const cat=w.globals.labels[dataPointIndex];
+        return '<div style="background:'+tooltipBg+';color:'+tooltipTxt+';padding:8px 13px;border-radius:10px;'
+          +'border:1px solid rgba(99,102,241,.25);box-shadow:0 8px 24px rgba(0,0,0,.18);font-family:Outfit,sans-serif;font-size:12px">'
+          +'<div style="font-size:10px;font-weight:600;color:'+lineColor+';margin-bottom:2px">'+cat+'</div>'
+          +'<div style="font-size:16px;font-weight:800">'+val+' <span style="font-size:10px;opacity:.7">ventas</span></div>'
+          +'</div>';
+      }
+    },
+    dataLabels:{enabled:false},legend:{show:false}
+  };
+}
+
+/* Animación de dibujo del trazo — portada de inicio residencial */
+function _animateChartDraw(container){
+  const svg=container.querySelector('svg');
+  if(!svg) return;
+
+  /* El trazo principal está en .apexcharts-line o .apexcharts-area-series path con stroke */
+  let paths=svg.querySelectorAll('.apexcharts-line, .apexcharts-area path[stroke]:not([stroke="none"])');
+  if(!paths.length){
+    paths=svg.querySelectorAll('path[stroke]:not([stroke="none"]):not([stroke="transparent"])');
+  }
+
+  paths.forEach(function(path){
+    const len=path.getTotalLength?path.getTotalLength():0;
+    if(!len) return;
+    path.style.strokeDasharray=len;
+    path.style.strokeDashoffset=len;
+    path.style.transition='none';
+    path.getBoundingClientRect();
+    path.style.transition='stroke-dashoffset 5s cubic-bezier(.4,0,.2,1)';
+    path.style.strokeDashoffset='0';
+  });
+
+  /* El área rellena aparece con fade después de un pequeño delay */
+  svg.querySelectorAll('.apexcharts-area').forEach(function(fill){
+    fill.style.opacity='0';
+    fill.style.transition='opacity 2s ease 1.5s';
+    fill.getBoundingClientRect();
+    fill.style.opacity='1';
+  });
+}
+
+/* El contenedor vive dentro de un layout fixed (.main-content{position:fixed})
+   sin scroll: si algo se asienta tarde (fuentes web, inyección del sidebar)
+   el alto que ApexCharts midió al renderizar queda desactualizado y el SVG
+   se recorta contra el alto real más chico. Un ResizeObserver fuerza un
+   recálculo cada vez que el contenedor realmente cambia de tamaño. */
+let _apexChartResizeObs = null;
+
+function renderChart(data,cats){
+  const el=$('apex-monthly-sales');
+  if(!el||typeof ApexCharts==='undefined') return;
+  if(!document.getElementById('apex-glow-style')){
+    const s=document.createElement('style'); s.id='apex-glow-style';
+    s.textContent='#apex-monthly-sales .apexcharts-area-series .apexcharts-series path{filter:drop-shadow(0 0 6px rgba(99,102,241,.60))} #apex-monthly-sales .apexcharts-marker{filter:drop-shadow(0 0 4px rgba(99,102,241,.80))}';
+    document.head.appendChild(s);
+  }
+  if(_apexChart){
+    _apexChart.updateOptions(_apexOpts(cats,data),true,true);
+    return;
+  }
+  _apexChart=new ApexCharts(el,_apexOpts(cats,data));
+  _apexChart.render().then(()=>{
+    _animateChartDraw(el);
+    if(window.ResizeObserver && !_apexChartResizeObs){
+      let raf=null;
+      _apexChartResizeObs=new ResizeObserver(()=>{
+        if(raf) cancelAnimationFrame(raf);
+        raf=requestAnimationFrame(()=>{ if(_apexChart) _apexChart.updateOptions({},false,true); });
+      });
+      _apexChartResizeObs.observe(el);
+    }
+  });
+}
+
+/* ═══════ RENDER HELPERS ══════ */
+/* ── Top por Líneas (welcome card) ── */
+function renderTopLineas(leads){
+  const el = $('wc-top-lineas');
+  if (!el) return;
+
+  /* Agrupar por agente sumando cantidad_lineas */
+  const agMap = {};
+  leads.forEach(l => {
+    const ag = l.agente || l.agente_nombre || l.agenteNombre || 'Sin agente';
+    const lineas = parseInt(l.cantidad_lineas || l.lineas || 0, 10) || 1; // default 1 si no hay dato
+    if (!agMap[ag]) agMap[ag] = { name: ag, lineas: 0, ventas: 0 };
+    agMap[ag].lineas += lineas;
+    agMap[ag].ventas++;
+  });
+
+  const sorted = Object.values(agMap).sort((a, b) => b.lineas - a.lineas);
+  if (!sorted.length) {
+    el.innerHTML = '<div style="padding:10px 0;text-align:center;color:#475569;font-size:.70rem">Sin datos este mes</div>';
+    return;
+  }
+
+  const medals = ['🥇','🥈','🥉'];
+  const max = sorted[0].lineas;
+  /* Todos los usuarios con ventas en el mes (con scroll si no caben) */
+  el.innerHTML = sorted.map((ag, i) => {
+    const col = colorFor(ag.name);
+    const pct = Math.round((ag.lineas / max) * 100);
+    return `<div class="tl-row">
+      <span class="tl-pos">${medals[i] || (i+1)}</span>
+      <div class="tl-av" style="background:${col};box-shadow:0 0 8px ${col}44">${escH(initials(ag.name))}</div>
+      <div style="flex:1;min-width:0">
+        <div class="tl-name">${escH(capFirst(ag.name))}</div>
+        <div style="height:2px;background:rgba(13,20,32,.10);border-radius:4px;margin-top:3px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:${col};border-radius:4px"></div>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div class="tl-val" style="color:${col}">${ag.lineas}<span style="font-size:.52rem;opacity:.7;margin-left:2px">líneas</span></div>
+        <div class="tl-sub">${ag.ventas} ventas</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderWeeklyAgents(sorted, weekTotal){
+  const list=$('mp-agents-list');
+  if(!list) return;
+  const totalEl=$('mp-total-agents');
+  if(totalEl) totalEl.textContent=weekTotal;
+  const max=sorted.length?sorted[0].ventas:1;
+  if(!sorted.length){
+    list.innerHTML='<div style="padding:14px 0;text-align:center;color:#475569;font-size:.72rem">Sin ventas esta semana</div>';
+    return;
+  }
+  /* Todos los agentes con ventas en la semana (el contenedor hace scroll) */
+  list.innerHTML=sorted.map((ag,i)=>{
+    const col=colorFor(ag.name);
+    const pct=Math.round((ag.ventas/max)*100);
+    const medals=['🥇','🥈','🥉'];
+    return `<div class="mp-agent">
+      <div class="mp-ag-av" style="background:${col};box-shadow:0 0 10px ${col}55;font-size:.65rem">
+        ${medals[i]||escH(initials(ag.name))}
+      </div>
+      <div class="mp-ag-info">
+        <div class="mp-ag-name">${escH(capFirst(ag.name))}</div>
+        <div class="mp-bar-row"><div class="mp-bar"><div class="mp-bar-fill" style="width:${pct}%;background:${col}"></div></div></div>
+      </div>
+      <div class="mp-ag-val" style="color:${col}">${ag.ventas}v</div>
+    </div>`;
+  }).join('');
+}
+
+function renderRankingList(sorted){
+  const list=$('ranking-list');
+  if(!list) return;
+  const max=sorted.length?sorted[0].ventas:1;
+  const medals=['🥇','🥈','🥉'];
+  /* Todos los agentes con ventas del mes, de mayor a menor (scroll en .tp-body) */
+  list.innerHTML=sorted.map((ag,i)=>{
+    const col=colorFor(ag.name);
+    const pct=Math.round((ag.ventas/max)*100);
+    return `<div class="tp-row">
+      <span class="tp-num">${medals[i]||i+1}</span>
+      <div class="tp-av" style="background:${col};box-shadow:0 0 8px ${col}44">${escH(initials(ag.name))}</div>
+      <div class="tp-info">
+        <div class="tp-name">${escH(capFirst(ag.name))}</div>
+        <div class="tp-team">Team Líneas</div>
+      </div>
+      <div class="tp-bar-wrap"><div class="tp-bar"><div class="tp-bar-fill" style="width:${pct}%;background:${col}"></div></div></div>
+      <div class="tp-pts">${ag.ventas}v</div>
+    </div>`;
+  }).join('');
+}
+
+function renderRecent(leads,showAll){
+  const list=$('recent-list');
+  if(!list) return;
+  /* showAll (agentes): todos sus registros sin límite de fecha.
+     Si no: registros de los últimos 30 días, del más nuevo al más viejo
+     (la API ya los entrega ordenados por created_at DESC; la lista hace scroll) */
+  const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-30); cutoff.setHours(0,0,0,0);
+  let recent=showAll?leads.slice():leads.filter(l=>{
+    const d=parseLocalDate(l.created_at||l.creadoEn||l.dia_venta);
+    return d&&d>=cutoff;
+  });
+  if(!recent.length) recent=leads.slice(0,20);
+  const statusTag=s=>{
+    const sl=(s||'').toLowerCase();
+    if(sl==='cali'||sl==='instalado'||sl==='completado') return 'tag-ok';
+    if(sl==='pending'||sl==='pendiente') return 'tag-pen';
+    return 'tag-can';
+  };
+  list.innerHTML=recent.map(l=>{
+    const name=l.nombre_cliente||l.nombre||'—';
+    const agente=l.agente||l.agenteNombre||'Sin agente';
+    const status=l.status||'—';
+    const tag=statusTag(status);
+    const col=colorFor(agente);
+    return `<div class="act-row">
+      <div class="act-icon" style="background:${col}22;color:${col}"><i class="fas fa-user"></i></div>
+      <div class="act-info">
+        <div class="act-name">${escH(capFirst(name))}</div>
+        <div class="act-meta">${escH(capFirst(agente))} · ${escH(l.mercado||'—')}</div>
+      </div>
+      <span class="act-tag ${tag}">${escH(status)}</span>
+    </div>`;
+  }).join('');
+}
+
+/* ═══════ LOAD DASHBOARD ══════ */
+let _firstLoad=true;
+async function loadDashboard(){
+  // 1ª carga: reusa el prefetch (_allFetch). Recargas posteriores (tiempo real):
+  // vuelve a consultar para traer los datos frescos.
+  const allData=_firstLoad ? await _allFetch : await fetchLineas('/api/lineas-stats');
+  const myRecent=_seesAll ? null : (_firstLoad ? await _recentFetch : await fetchLineas('/api/lineas-team'));
+  _firstLoad=false;
+
+  /* Mes actual */
+  const allMonth=allData.filter(l=>{
+    const d=parseLocalDate(l.dia_venta||l.created_at||l.creadoEn);
+    return d&&d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth();
+  });
+  const myMonth=filterForUser(allMonth);
+
+  const myVentas=myMonth.length;
+  const myPuntos=myMonth.reduce((s,l)=>s+parseFloat(l.puntaje||l.puntos||0),0);
+
+  /* Top por Líneas en welcome card (mes actual) — global para todos */
+  renderTopLineas(allMonth);
+
+  /* Ranking mensual */
+  const agMap={};
+  allMonth.forEach(l=>{
+    const ag=l.agente||l.agente_nombre||l.agenteNombre||'Sin agente';
+    if(!agMap[ag]) agMap[ag]={name:ag,ventas:0,puntos:0};
+    agMap[ag].ventas++;
+    agMap[ag].puntos+=parseFloat(l.puntaje||l.puntos||0);
+  });
+  const sorted=Object.values(agMap).sort((a,b)=>b.ventas-a.ventas);
+
+  renderRankingList(sorted);
+  /* Agentes: solo sus propios registros, sin límite de fecha.
+     Admin/supervisor: flujo global (últimos 30 días). */
+  renderRecent(_seesAll ? allData : myRecent, !_seesAll);
+
+  /* ── Top semanal ── */
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay()); // domingo
+  weekStart.setHours(0,0,0,0);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  weekEnd.setHours(23,59,59,999);
+
+  const weekLeads = allData.filter(l => {
+    const d = parseLocalDate(l.dia_venta || l.created_at || l.creadoEn);
+    return d && d >= weekStart && d <= weekEnd;
+  });
+
+  const weekMap = {};
+  weekLeads.forEach(l => {
+    const ag = l.agente || l.agente_nombre || l.agenteNombre || 'Sin agente';
+    if (!weekMap[ag]) weekMap[ag] = { name: ag, ventas: 0 };
+    weekMap[ag].ventas++;
+  });
+  const weekSorted = Object.values(weekMap).sort((a,b) => b.ventas - a.ventas);
+
+  // Etiqueta con rango de la semana
+  const fmtD = d => `${d.getDate()}/${d.getMonth()+1}`;
+  const lbl = $('mp-week-label');
+  if (lbl) lbl.textContent = `${fmtD(weekStart)} – ${fmtD(weekEnd)}`;
+
+  renderWeeklyAgents(weekSorted, weekLeads.length);
+
+  /* Gráfico anual */
+  const allYear=allData.filter(l=>{
+    const d=parseLocalDate(l.dia_venta||l.created_at||l.creadoEn);
+    return d&&d.getFullYear()===now.getFullYear();
+  });
+  const myYear=filterForUser(allYear);
+  const counts=new Array(12).fill(0);
+  myYear.forEach(l=>{
+    const d=parseLocalDate(l.dia_venta||l.created_at||l.creadoEn);
+    if(d) counts[d.getMonth()]++;
+  });
+
+  const totalYear=myYear.length;
+  $('cp-total').textContent=totalYear;
+  $('cp-delta').textContent=`ventas en ${now.getFullYear()}`;
+
+  if(counts.every(v=>v===0)){
+    const el=$('apex-monthly-sales');
+    if(el) el.innerHTML='<div style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:#475569"><i class="fas fa-chart-area" style="font-size:2rem;opacity:.3"></i><span style="font-size:.75rem">Sin ventas este año</span></div>';
+  } else {
+    /* Año completo (Ene-Dic), igual que la gráfica de inicio residencial */
+    renderChart(counts,MONTHS);
+  }
+}
+
+/* ═══════ INIT ══════ */
+document.addEventListener('DOMContentLoaded',function(){
+  if(window.loadSidebar) window.loadSidebar();
+  loadDashboard();
+  // Tiempo real: cuando entra/cambia una venta de líneas, recarga sin refrescar.
+  if(window.CRMRealtime) CRMRealtime.connect('lineas', loadDashboard);
+});
+</script>
+</body>
+</html>

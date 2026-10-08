@@ -1,0 +1,229 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Normativas de Tipificación</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
+  <script src="/agentes/js/auth-check.js"></script>
+  <script src="/js/core/logout-handler.js"></script>
+  <script src="/js/core/user-info.js"></script>
+  <link rel="stylesheet" href="/css/residencial/normativas-tipificacion.css">
+  <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
+  <link rel="stylesheet" href="/css/base/form-controls.css?v=20260921">
+</head>
+<body>
+  <script src="/js/core/theme-init.js"></script>
+  <script src="/js/layout/sidebar.js" defer></script>
+  <script src="/js/layout/sidebar-ui.js" defer></script>
+  <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
+  <script src="/js/layout/sidebar-user.js" defer></script>
+<nav class="sidebar" id="app-sidebar"></nav>
+
+<!-- ══ WELCOME TRANSITION ══ -->
+<div id="wt" style="position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#0a1628 0%,#112244 45%,#1a1035 100%);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0;transition:opacity .55s cubic-bezier(.4,0,.2,1),transform .55s cubic-bezier(.4,0,.2,1);">
+  <link rel="stylesheet" href="/css/residencial/normativas-tipificacion-2.css">
+  <div id="wt-inner">
+    <div id="wt-logo"><i class="fas fa-clipboard-list"></i></div>
+    <div id="wt-label">Bienvenido de vuelta</div>
+    <div id="wt-name">—</div>
+    <div id="wt-brand">CRM · Tipificación</div>
+    <div id="wt-track"><div id="wt-fill"></div></div>
+  </div>
+</div>
+<script>
+  (function(){
+    var wt = document.getElementById('wt');
+    if(!wt) return;
+    if(!sessionStorage.getItem('show_welcome')){ wt.style.display='none'; return; }
+    sessionStorage.removeItem('show_welcome');
+    try{
+      var u=JSON.parse(sessionStorage.getItem('user')||localStorage.getItem('user')||'{}');
+      var n=u.name||u.username||'';
+      if(n){ var parts=n.trim().split(/\s+/); document.getElementById('wt-name').textContent=parts[0]; }
+    }catch(_){}
+    setTimeout(function(){ wt.style.opacity='0'; wt.style.transform='scale(1.03)'; setTimeout(function(){ wt.style.display='none'; },580); },1900);
+  })();
+</script>
+
+  <div id="app-container">
+    <div id="sidebar-container"></div>
+
+    <div class="tipo-page">
+
+      <div class="norma-wrap">
+
+        <!-- COLUMNA 1: CRITERIOS -->
+        <div class="col-criterios">
+
+          <div class="col-header">
+            <div class="col-num">1</div>
+            <div class="col-title">CRITERIOS DE TIPIFICACIÓN<br>Y LLENADO DE FICHAS</div>
+          </div>
+
+          <div class="warn-banner">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>Si no se cumplen ninguna de estas reglas el agente quedará <span class="warn-red">1 día fuera de Inbound.</span></span>
+          </div>
+
+          <div class="crit-list">
+
+            <div class="crit-item">
+              <div class="crit-icon ic-green"><i class="fas fa-clipboard-check"></i></div>
+              <div class="crit-text">El agente debe registrar correctamente la información en la ficha sin alterar datos como direcciones, números telefónicos, compañías actuales del cliente o cualquier otro dato importante proporcionado durante la llamada.</div>
+            </div>
+
+            <div class="crit-item">
+              <div class="crit-icon ic-green"><i class="fas fa-check-circle"></i></div>
+              <div class="crit-text">El Agente debe Tipificar las llamadas de inbound: casos que se omiten como clientes que ya son venta no se deben tipificar.</div>
+            </div>
+
+            <div class="crit-item">
+              <div class="crit-icon ic-yellow"><i class="fas fa-chart-bar"></i></div>
+              <div class="crit-text">Si no existe cobertura principal, pero hay cobertura de proveedores misceláneos como Zypli Fiber, AltaFiber, WOW, EarthLink o Consolidated, estos deben colocarse al final de la tipificación en el apartado <strong>"Cobertura Disponible"</strong>. Ejemplo: WOW.</div>
+            </div>
+
+            <div class="crit-item">
+              <div class="crit-icon ic-red"><i class="fas fa-phone-slash"></i></div>
+              <div class="crit-text">Si la llamada finaliza normalmente con el cliente y el agente la tipifica como Call Back, la llamada será considerada como mal tipificada.</div>
+            </div>
+
+            <div class="crit-item">
+              <div class="crit-icon ic-red"><i class="fas fa-volume-mute"></i></div>
+              <div class="crit-text">Si el agente no realiza una oferta al cliente, debe seleccionar la opción <strong>"No realizó labor de venta"</strong>. Si se registra que se ofreció un servicio cuando en realidad no se realizó ninguna oferta, la llamada se considerará mal tipificada.</div>
+            </div>
+
+            <div class="crit-item">
+              <div class="crit-icon ic-green"><i class="fas fa-check-double"></i></div>
+              <div class="crit-text">Cuando exista cobertura disponible de AT&amp;T Fiber, Xfinity, AT&amp;T Air o Frontier, estas deben tipificarse de manera correcta según corresponda.</div>
+            </div>
+
+            <div class="crit-item">
+              <div class="crit-icon ic-blue"><i class="fas fa-user-check"></i></div>
+              <div class="crit-text">Si existe una ficha previa porque el cliente llamó anteriormente, el agente debe confirmar si continúa residiendo en la misma dirección y realizar preguntas de descubrimiento. <strong>Copiar la información de una ficha anterior sin validarla con el cliente será considerado una mala tipificación.</strong></div>
+            </div>
+
+            <div class="crit-item">
+              <div class="crit-icon ic-orange"><i class="fas fa-exclamation-triangle"></i></div>
+              <div class="crit-text">Todo agente que acumule tres advertencias por registrar llamadas como <strong>"Cobertura No Aceptó"</strong> sin haber realizado una oferta de servicio al cliente durante la llamada se dejará fuera de INBOUND.</div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- COLUMNA 2: REGLAS INBOUND -->
+        <div class="col-inbound">
+
+          <div class="col-header">
+            <div class="col-num">2</div>
+            <div class="col-title">REGLAS DE INBOUND</div>
+          </div>
+
+          <div class="inb-list-wrap">
+
+            <!-- 1: Llamadas no logueadas -->
+            <div class="inb-section inb-blue">
+              <div class="inb-header">
+                <div class="inb-num">1</div>
+                <div class="inb-icon-wrap"><i class="fas fa-phone"></i></div>
+                <div class="inb-title">LLAMADAS NO LOGUEADAS</div>
+              </div>
+              <div class="inb-body">
+                <ul class="inb-bullets">
+                  <li>Toda llamada no logueada será motivo para permanecer 1 día fuera de Inbound.</li>
+                  <li>Si el agente permanece más de 10 minutos sin registrar la gestión después de finalizar la llamada, también quedará 1 día fuera de Inbound.</li>
+                  <li>Esta regla aplica incluso para llamadas nuevas que hayan sonado únicamente 4 segundos y se registren como llamadas perdidas.</li>
+                  <li>Si el cliente llama varias veces el mismo día y otro agente atiende una de las llamadas posteriores, la gestión debe registrarse correctamente, aunque la llamada haya durado solo unos segundos. De lo contrario, aplicará la misma sanción.</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- 2: Motivo y dirección -->
+            <div class="inb-section inb-yellow">
+              <div class="inb-header">
+                <div class="inb-num">2</div>
+                <div class="inb-icon-wrap"><i class="fas fa-clipboard-list"></i></div>
+                <div class="inb-title">MOTIVO Y DIRECCIÓN DEL CLIENTE</div>
+              </div>
+              <div class="inb-body">
+                <ul class="inb-bullets">
+                  <li>Si la llamada será transferida a otro agente del mismo equipo, se debe dejar toda la información correspondiente en las notas.</li>
+                  <li>Toda llamada debe incluir el motivo de contacto; de lo contrario, se considerará incumplimiento y el agente quedará fuera de Inbound.</li>
+                  <li>Esta regla aplica tanto para clientes nuevos como para clientes existentes.</li>
+                  <li>En llamadas de seguimiento (callback), es obligatorio registrar el motivo de la llamada y toda la información relevante, incluida la dirección del cliente.</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- 3: Cliente no aceptó -->
+            <div class="inb-section inb-red">
+              <div class="inb-header">
+                <div class="inb-num">3</div>
+                <div class="inb-icon-wrap"><i class="fas fa-wifi"></i></div>
+                <div class="inb-title">CLIENTE NO ACEPTÓ AIR O FIBRA</div>
+              </div>
+              <div class="inb-body">
+                <ul class="inb-bullets">
+                  <li>Si un cliente tiene disponibilidad de Fibra AT&amp;T y no acepta el servicio, pero la llamada se tipifica como "Cober no aceptó AT&amp;T Air", el agente quedará 1 día fuera de Inbound por falsedad en la tipificación.</li>
+                  <li>Toda tipificación incorrecta relacionada con cobertura o aceptación del servicio será motivo de suspensión de 1 día fuera de Inbound.</li>
+                  <li>Esta medida se implementa para medir con precisión las llamadas que realmente no cuentan con cobertura de fibra.</li>
+                  <li>Si el cliente sí tiene cobertura y la llamada se tipifica como:
+                    <ul class="inb-sub-list">
+                      <li>"CX no contesta"</li>
+                      <li>"Ninguna cobertura"</li>
+                    </ul>
+                    El agente quedará 1 día fuera de Inbound.
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- 4: Convenios -->
+            <div class="inb-section inb-green">
+              <div class="inb-header">
+                <div class="inb-num">4</div>
+                <div class="inb-icon-wrap"><i class="fas fa-handshake"></i></div>
+                <div class="inb-title">CONVENIOS Y JUSTIFICACIONES</div>
+              </div>
+              <div class="inb-body">
+                <ul class="inb-bullets">
+                  <li>Que un cliente tenga convenio no exime (obliga) al agente de registrar y tipificar correctamente la llamada.</li>
+                  <li>En estos casos, la llamada debe registrarse como "Cober no aceptó".</li>
+                  <li>Problemas como cortes de energía eléctrica o de internet no justifican la falta de registro de llamadas o información incompleta. La única excepción válida es cuando no exista acceso al sistema.</li>
+                  <li>Si el cliente llama, proporciona la dirección y luego cuelga, pero si cuenta con cobertura, la llamada debe tipificarse como: "Cobertura no aceptó [nombre de la compañía]".</li>
+                  <li>Tipificar este escenario como "No contesta" será motivo para permanecer 1 día fuera de Inbound.</li>
+                  <li>Si el cliente cuelga antes de recibir la respuesta de procesamiento, el agente debe esperar el resultado y tipificar la llamada como "No aceptó", ya que la acción de colgar se considera un rechazo del servicio.</li>
+                  <li>Únicamente cuando no exista cobertura en ambos mercados se debe tipificar como "Ninguna cobertura".</li>
+                </ul>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div><!-- /norma-wrap -->
+
+      <!-- BARRA INFERIOR -->
+      <div class="norma-bottom">
+        <div class="nb-left">
+          <div class="nb-icon-info">i</div>
+          <div class="nb-left-text">Tipificar correctamente no es solo seguir reglas, es brindar información precisa y de calidad para nuestros clientes.</div>
+        </div>
+        <div class="nb-right">
+          <div class="nb-icon-warn"><i class="fas fa-exclamation-triangle" style="color:#fff!important"></i></div>
+          <div class="nb-right-text">¡La calidad es responsabilidad de todos!</div>
+        </div>
+      </div>
+
+    </div><!-- /tipo-page -->
+  </div>
+
+  <script src="/js/core/crm-config.js" defer></script>
+  <script src="/js/core/inactivity-manager.js?v=20260611a" defer></script>
+  <script src="/js/core/crm-init.js" defer></script>
+</body>
+</html>

@@ -58,6 +58,7 @@ from routers import (
     cuadratura_entrada as cuadratura_entrada_router,
     transferencias as transferencias_router,
     promociones as promociones_router,
+    promo_video as promo_video_router,
 )
 
 # ── Rutas base ──────────────────────────────────────────────────
@@ -834,6 +835,7 @@ app.include_router(horarios_router.router)
 app.include_router(cuadratura_entrada_router.router)
 app.include_router(transferencias_router.router)
 app.include_router(promociones_router.router)
+app.include_router(promo_video_router.router)
 
 # ── Archivos estáticos ───────────────────────────────────────────
 class _RevalidateStaticFiles(StaticFiles):
@@ -874,11 +876,40 @@ class _CacheableStaticFiles(StaticFiles):
 # css/js se revalidan siempre (evita la pelea de la caché); images/vendor se cachean.
 _static_dirs = {"images": "images", "css": "css", "js": "js", "vendor": "vendor"}
 _revalidate_dirs = {"css", "js"}
+
+# Rediseño sólo para administración: los demás reciben la versión clásica de los archivos
+# que el rediseño cambió (frontend/_clasico/, ver clasico.py). Sin esa carpeta no hace nada.
+from clasico import Clasico, SIN_CACHE as _SIN_CACHE_ROL
+_clasico = Clasico(FRONTEND_DIR)
+
+
+class _RevalidatePorRol(_RevalidateStaticFiles):
+    """css/js: como _RevalidateStaticFiles, pero con la versión clásica para quien no es
+    administrador en los archivos que el rediseño cambió."""
+    def __init__(self, *a, prefijo: str, **kw):
+        super().__init__(*a, **kw)
+        self.prefijo = prefijo
+
+    async def get_response(self, path, scope):
+        rel = f"{self.prefijo}/{path}".replace("\\", "/")   # en Windows StaticFiles da la ruta con «\»
+        if _clasico.afecta(rel):
+            f = _clasico.archivo(Request(scope), FRONTEND_DIR / rel, rel)
+            if f is not None:
+                return FileResponse(str(f), headers=_SIN_CACHE_ROL)
+            resp = await super().get_response(path, scope)
+            for k, v in _SIN_CACHE_ROL.items():
+                resp.headers[k] = v
+            return resp
+        return await super().get_response(path, scope)
+
+
 for _name, _rel in _static_dirs.items():
     _d = FRONTEND_DIR / _rel
     if _d.exists():
-        _cls = _RevalidateStaticFiles if _name in _revalidate_dirs else _CacheableStaticFiles
-        app.mount(f"/{_name}", _cls(directory=str(_d)), name=_name)
+        if _name in _revalidate_dirs:
+            app.mount(f"/{_name}", _RevalidatePorRol(directory=str(_d), prefijo=_rel), name=_name)
+        else:
+            app.mount(f"/{_name}", _CacheableStaticFiles(directory=str(_d)), name=_name)
 
 class _UploadsStaticFiles(StaticFiles):
     """Sirve /uploads SOLO a usuarios con sesión válida.
@@ -985,11 +1016,19 @@ async def root_head():
 
 _NO_CACHE = {"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache"}
 
+
+def _pagina(request: Request, f: Path, **kw) -> FileResponse:
+    """FileResponse de una página HTML, con la versión clásica si toca (ver clasico.py)."""
+    alt = _clasico.respuesta(request, f)
+    if alt is not None:
+        return alt
+    return FileResponse(str(f), headers=dict(_NO_CACHE, Vary="Cookie"), **kw)
+
 @app.get("/inicio")
-async def inicio():
+async def inicio(request: Request):
     f = find_html("residencial/inicio")
     if f:
-        return FileResponse(str(f), headers=_NO_CACHE)
+        return _pagina(request, f)
     return RedirectResponse(url="/login.html")
 
 # ── Mapa de rutas antiguas → nuevas (redirects 301) ─────────────
@@ -1028,7 +1067,7 @@ _LEGACY_REDIRECTS: dict[str, str] = {
 }
 
 @app.get("/{page:path}")
-async def serve_page(page: str):
+async def serve_page(page: str, request: Request):
     # 0. Revisar mapa de redirects legacy (case-insensitive)
     page_lower = page.lower()
     for old, new in _LEGACY_REDIRECTS.items():
@@ -1039,12 +1078,12 @@ async def serve_page(page: str):
     for d in HTML_DIRS:
         candidate = _resolve_within(d, page)
         if candidate and candidate.is_file():
-            return FileResponse(str(candidate), headers=_NO_CACHE)
+            return _pagina(request, candidate)
 
     # 2. Intentar añadiendo .html
     f = find_html(page)
     if f:
-        return FileResponse(str(f), headers=_NO_CACHE)
+        return _pagina(request, f)
 
     # 3. Fallback — 404
     not_found = FRONTEND_DIR / "public" / "404.html"

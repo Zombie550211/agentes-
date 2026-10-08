@@ -1,118 +1,158 @@
-/* Estilos de formulario-registro.html
-   Extraídos del HTML: este archivo debe cargarse en la misma posición
-   en la que estaba el <style> original — hay reglas que dependen de
-   aplicarse después de dark-mode.css. */
-  /* Sidebar offset */
-  html { overflow-x: hidden; }
-  .main-content { min-height: 100vh; overflow-x: hidden; }
-  /* sidebar-shared.css ya aplica margin-left al main-content automáticamente */
+/* Formulario de registro de lead (residencial/formulario-registro.html).
+   Mismo sistema que la página de inicio: tokens, vidrio (.in-glass), cabecera y esquinas
+   rectas vienen de css/paginas/inicio.css; aquí sólo lo propio del formulario (prefijo fr-)
+   y el ajuste del componente de transferencia a esta paleta. */
 
-  /* Gauge — JS controla background vía conic-gradient */
-  .gauge-ring {
-    width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
-    background: conic-gradient(rgba(200,200,200,.3) 0%, rgba(200,200,200,.1) 0%);
-    border: 2px solid rgba(200,200,200,.5);
-    display: flex; align-items: center; justify-content: center;
-  }
-  .gauge-label { color:#1a1a1a; font-weight:800; font-size:.9rem; }
-  .score-num   { display:none; }
+/* ═══ Pestañas y guardar (sin bloque de título: regla del CRM) ═══════════════════════════════════════════ */
+.fr-titulo{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3) var(--space-4);padding:var(--space-3) var(--space-4);
+  background:linear-gradient(135deg, rgb(48 160 200 / .14), rgb(255 255 255 / .7)) !important}
+.fr-titulo-txt{flex:1 1 260px;min-width:0}
+.fr-titulo h1{margin:0;font-size:22px;font-weight:700;line-height:1.15;letter-spacing:-.01em}
+.fr-titulo p{margin:4px 0 0;font-size:11px;color:var(--color-neutral-600)}
+.fr-guardar{display:inline-flex;align-items:center;gap:8px;border:0;cursor:pointer;font:inherit;font-size:12px;font-weight:600;
+  padding:10px 18px;background:var(--color-accent-2-500);color:#fff;transition:background .15s}
+.fr-guardar i{font-size:16px}
+.fr-guardar:hover{background:var(--color-accent-2-600)}
+.fr-guardar:disabled{opacity:.6;cursor:wait}
+.fr-guardar:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:2px}
 
-  /* Chip activo */
-  .chip.active { border-color:#0d9488 !important; background:rgba(13,148,136,0.25) !important; color:#5eead4 !important; font-weight:700; }
+/* ═══ Distribución ═════════════════════════════════════════════════════════ */
+.fr-grid{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(300px,1fr);gap:var(--space-3);margin-top:var(--space-3);align-items:start}
+.fr-col{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
+.fr-trf{margin-top:var(--space-3)}
+@media (max-width:1100px){ .fr-grid{grid-template-columns:minmax(0,1fr)} }
 
-  /* Radio-btn checked */
-  .radio-btn.checked { background:#0d9488 !important; border-color:#0d9488 !important; color:#fff !important; }
-  .radio-btn input, .radio-dot { display:none; }
+/* ═══ Tarjetas ═════════════════════════════════════════════════════════════ */
+.fr-card{padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-4);min-width:0}
+.fr-card-head{display:flex;align-items:center;gap:var(--space-3)}
+.fr-card-ico{flex:none;width:30px;height:30px;display:grid;place-items:center;font-size:16px;
+  color:var(--color-accent-2-500);border:1px solid rgb(0 112 152 / .22)}
+.fr-card-head h2{margin:0;font-size:14px;font-weight:600;line-height:1.2}
+.fr-card-head p{margin:2px 0 0;font-size:10px;color:var(--color-neutral-600)}
 
-  /* Upload hover */
-  #img-upload-zone:hover { border-color:#0d9488; background:#e0f2f1; }
+/* ═══ Campos ═══════════════════════════════════════════════════════════════ */
+.fr-campos{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:var(--space-3)}
+.fr-campos-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.fr-campos-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.fr-c6,.fr-full{grid-column:1 / -1}.fr-c4{grid-column:span 4}.fr-c3{grid-column:span 3}.fr-c2{grid-column:span 2}
+@media (max-width:760px){
+  .fr-campos,.fr-campos-3{grid-template-columns:minmax(0,1fr)}
+  .fr-c4,.fr-c3,.fr-c2{grid-column:1 / -1}
+}
+@media (max-width:420px){ .fr-campos-2{grid-template-columns:minmax(0,1fr)} }
+.fr-sep{padding-top:var(--space-3);border-top:1px solid var(--color-neutral-200)}
 
-  /* Agent note */
-  .agents-note { font-size:.6rem; color:var(--texto-4); font-style:italic; margin-top:2px; }
+.fr-campo{display:flex;flex-direction:column;gap:5px;min-width:0}
+.fr-campo > label,.fr-lbl{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--color-neutral-600)}
+.fr-lbl-doble{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-2)}
+.fr-lbl-doble span + span{font-weight:400;text-transform:none;letter-spacing:0;color:var(--color-neutral-500)}
+.fr-req{color:var(--color-sem-rojo)}
 
-  @keyframes slideIn  { from{transform:translateX(400px);opacity:0} to{transform:translateX(0);opacity:1} }
-  @keyframes slideOut { from{transform:translateX(0);opacity:1}   to{transform:translateX(400px);opacity:0} }
+.fr-input{position:relative}
+.fr-input > i{position:absolute;left:10px;top:50%;transform:translateY(-50%);z-index:1;font-size:15px;color:var(--color-neutral-500);pointer-events:none}
+.fr-input input,.fr-input select,.fr-area{width:100%;box-sizing:border-box;margin:0;font:inherit;font-size:13px;color:var(--color-text);
+  background:rgb(255 255 255 / .78);border:1px solid rgb(0 112 152 / .18);border-radius:0;outline:none;
+  transition:border-color .15s,box-shadow .15s,background .15s}
+.fr-input input,.fr-input select{height:38px;padding:0 10px 0 34px}
+.fr-input select{appearance:none;-webkit-appearance:none;padding-right:30px;cursor:pointer}
+.fr-input input::placeholder,.fr-area::placeholder{color:var(--color-neutral-400)}
+.fr-input input:hover,.fr-input select:hover,.fr-area:hover{border-color:rgb(0 112 152 / .32)}
+.fr-input input:focus,.fr-input select:focus,.fr-area:focus{border-color:var(--color-accent-2-500);background:#fff;box-shadow:0 0 0 3px rgb(0 112 152 / .12)}
+.fr-input select:disabled{opacity:.55;cursor:not-allowed}
+/* Flecha de los desplegables: el mismo icono de la cabecera (Phosphor «caret-down»). */
+.fr-sel::after{content:"\e136";font-family:"Phosphor";position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  font-size:12px;color:var(--color-neutral-500);pointer-events:none}
+.fr-area{display:block;padding:9px 10px;line-height:1.45;resize:vertical;min-height:84px}
+.fr-area:disabled{opacity:.5}
+.fr-check{display:flex;align-items:center;gap:8px;margin-top:4px;font-size:12px;cursor:pointer;user-select:none}
+.fr-check input{width:15px;height:15px;margin:0;accent-color:var(--color-accent-2-500);cursor:pointer}
+.fr-ayuda{margin:0;font-size:10px;line-height:1.4;color:var(--color-neutral-600)}
+.agents-note{margin:2px 0 0;font-size:10px;font-style:italic;color:var(--color-neutral-500)}
 
-  /* ── Animación de entrada (igual que inicio.html) ── */
-  @keyframes fsu { from{opacity:0;transform:translateY(44px)} to{opacity:1;transform:translateY(0)} }
-  .fsu     { opacity:0; animation:fsu 1.8s cubic-bezier(.16,1,.3,1) forwards; animation-play-state:paused; }
-  .fsu.go  { animation-play-state:running; }
+/* ═══ Motivo (chips) y status (botones) ═══════════════════════════════════ */
+.fr-chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:var(--space-2)}
+.chip{padding:9px 11px;font-size:12px;line-height:1.3;border:1px solid rgb(0 112 152 / .18);background:rgb(255 255 255 / .6);
+  cursor:pointer;user-select:none;transition:border-color .15s,background .15s,color .15s}
+.chip:hover{border-color:rgb(0 112 152 / .4)}
+.chip.active{border-color:var(--color-accent-2-500);background:rgb(0 112 152 / .08);color:var(--color-accent-2-700);font-weight:600;
+  box-shadow:inset 3px 0 0 var(--color-accent-2-500)}
+.fr-radios{display:flex;gap:6px}
+.radio-btn{flex:1;display:flex;align-items:center;justify-content:center;height:38px;padding:0 8px;font-size:12px;
+  border:1px solid rgb(0 112 152 / .18);background:rgb(255 255 255 / .6);color:var(--color-neutral-700);cursor:pointer;transition:all .15s}
+.radio-btn:hover{border-color:rgb(0 112 152 / .4)}
+.radio-btn.checked{background:var(--color-accent-2-500);border-color:var(--color-accent-2-500);color:#fff;font-weight:600}
+.radio-btn input,.radio-dot{display:none}
 
-  /* ── DARK MODE — overrides para clases Tailwind ── */
-  body.dark-theme { background:#0d1420 !important; }
+/* ═══ Puntaje automático ═══════════════════════════════════════════════════ */
+.fr-puntaje{flex-direction:row;align-items:center;justify-content:space-between;gap:var(--space-3)}
+.fr-puntaje-lbl{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--color-neutral-600)}
+.fr-puntaje-num{margin-top:6px;font-size:30px;font-weight:700;line-height:1;letter-spacing:-.01em;color:var(--color-accent-2-600)}
+.fr-puntaje p{margin:6px 0 0;font-size:10px;color:var(--color-neutral-600)}
+/* Anillo: el JS pinta el conic-gradient; el disco interior lo convierte en aro. */
+.gauge-ring{position:relative;flex:none;width:64px;height:64px;border-radius:50%;display:grid;place-items:center;
+  background:conic-gradient(rgb(0 112 152 / .12) 100%)}
+.gauge-ring::before{content:"";position:absolute;inset:7px;border-radius:50%;background:#fff}
+.gauge-label{position:relative;font-size:13px;font-weight:700;color:var(--color-text)}
 
-  /* Header sticky */
-  body.dark-theme .sticky.bg-white { background-color:#1e293b !important; border-color:#334155 !important; }
+/* ═══ Imagen del lead ══════════════════════════════════════════════════════ */
+.fr-subida{position:relative;overflow:hidden;min-height:130px;display:flex;align-items:center;justify-content:center;cursor:pointer;
+  border:1px dashed rgb(0 112 152 / .35);background:rgb(255 255 255 / .55);transition:border-color .15s,background .15s}
+.fr-subida:hover,.fr-subida.fr-arrastre{border-color:var(--color-accent-2-500);background:rgb(0 112 152 / .05)}
+.fr-subida-txt{display:flex;flex-direction:column;align-items:center;gap:4px;padding:var(--space-4);text-align:center;pointer-events:none}
+.fr-subida-txt i{font-size:26px;color:var(--color-accent-2-500)}
+.fr-subida-txt p{margin:0;font-size:12px}
+.fr-subida img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.fr-subida-hint{position:absolute;left:8px;bottom:8px;padding:3px 8px;font-size:10px;color:#fff;background:rgb(20 33 42 / .6);pointer-events:none}
+.fr-subida-quitar{position:absolute;top:8px;right:8px;display:inline-flex;align-items:center;gap:4px;border:0;cursor:pointer;
+  font:inherit;font-size:11px;font-weight:600;padding:4px 9px;color:#fff;background:var(--color-sem-rojo)}
 
-  /* Cards */
-  body.dark-theme .bg-white { background-color:#1e293b !important; }
-  body.dark-theme .border-slate-200 { border-color:#334155 !important; }
-  body.dark-theme .border-slate-100 { border-color:#1e3a5f !important; }
+/* ═══ Componente de transferencia (js/componentes/transferencia-form.js) ═══
+   Sólo en esta página: sus colores de respaldo (teal, bordes redondeados) pasan a la
+   paleta del logo y al vidrio. Líneas (lead.html) no carga esta hoja y no cambia. */
+.in-hoja{--sup-1:rgb(255 255 255 / .74);--sup-2:rgb(255 255 255 / .78);--sup-3:rgb(0 112 152 / .06);--linea:rgb(0 112 152 / .14);
+  --linea-fuerte:rgb(0 112 152 / .18);--texto-1:var(--color-text);--texto-2:var(--color-neutral-800);--texto-3:var(--color-neutral-600);
+  --sombra-1:0 8px 28px rgb(0 112 152 / .07)}
+.trf-tabs{border-radius:0;background:rgb(0 112 152 / .06);border-color:rgb(0 112 152 / .14)}
+.trf-tab{border-radius:0;font-size:12px;font-weight:600}
+.trf-tab.trf-tab-on{color:var(--color-accent-2-600)}
+.trf-tab:focus-visible{outline-color:var(--color-accent-2-500)}
+.trf-tab i{font-size:15px}
+.trf-pill{border-radius:0;background:#fff;box-shadow:0 1px 3px rgb(0 112 152 / .15)}
+.trf-card{border-radius:0;max-width:none;background:var(--glass-fondo);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-borde);box-shadow:var(--glass-sombra)}
+.trf-ic{border-radius:0;background:transparent;color:var(--color-accent-2-500);border:1px solid rgb(0 112 152 / .22)}
+.trf-title{font-size:14px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--color-text)}
+.trf-field input,.trf-field select,.trf-field textarea{border-radius:0;font-size:13px}
+.trf-field input:focus,.trf-field textarea:focus,.trf-field select:focus{border-color:var(--color-accent-2-500);box-shadow:0 0 0 3px rgb(0 112 152 / .12)}
+.trf-btn{border-radius:0;background:var(--color-accent-2-500);font-size:12px;font-weight:600;letter-spacing:.02em;text-transform:none}
+.trf-btn:hover{background:var(--color-accent-2-600)}
+.trf-msg{border-radius:0}
+/* El resto de piezas del componente (historial, diálogos, chips…) también con esquinas rectas. */
+.in-hoja [class*="trf-"]{border-radius:0}
 
-  /* Textos */
-  body.dark-theme .text-slate-800 { color:#e2e8f0 !important; }
-  body.dark-theme .text-slate-700 { color:#cbd5e1 !important; }
-  body.dark-theme .text-slate-600 { color:#94a3b8 !important; }
-  body.dark-theme .text-slate-500 { color:#64748b !important; }
-  body.dark-theme .text-slate-400 { color:#475569 !important; }
+@keyframes slideIn  { from{transform:translateX(400px);opacity:0} to{transform:translateX(0);opacity:1} }
+@keyframes slideOut { from{transform:translateX(0);opacity:1}   to{transform:translateX(400px);opacity:0} }
+@media (prefers-reduced-motion:reduce){ .fr-guardar,.chip,.radio-btn,.fr-subida{transition:none} }
 
-  /* Inputs y selects */
-  body.dark-theme .bg-slate-50,
-  body.dark-theme input[class*="bg-slate"],
-  body.dark-theme select[class*="bg-slate"] { background-color:#0f172a !important; }
-  body.dark-theme input, body.dark-theme select {
-    background-color:#0f172a !important;
-    border-color:#334155 !important;
-    color:#e2e8f0 !important;
-  }
-  body.dark-theme input::placeholder { color:#475569 !important; }
-  body.dark-theme select option { background:#0f172a !important; color:#e2e8f0 !important; }
+/* ═══ Fechas: el icono del calendario del navegador, discreto y en la paleta ═══ */
+.fr-input input[type="date"]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.45;transition:opacity .15s}
+.fr-input input[type="date"]:hover::-webkit-calendar-picker-indicator{opacity:.8}
 
-  /* Iconos en inputs */
-  body.dark-theme .fa-user, body.dark-theme .fa-phone, body.dark-theme .fa-location-dot,
-  body.dark-theme .fa-hashtag, body.dark-theme .fa-layer-group, body.dark-theme .fa-tag,
-  body.dark-theme .fa-credit-card, body.dark-theme .fa-globe, body.dark-theme .fa-display,
-  body.dark-theme .fa-calendar-days, body.dark-theme .fa-magnifying-glass {
-    color:#475569 !important;
-  }
-
-  /* Cajas de iconos de sección */
-  body.dark-theme .bg-purple-100 { background-color:rgba(139,92,246,.18) !important; }
-  body.dark-theme .bg-amber-100  { background-color:rgba(245,158,11,.18) !important; }
-  body.dark-theme .bg-teal-50    { background-color:rgba(13,148,136,.15) !important; }
-  body.dark-theme .bg-blue-50    { background-color:rgba(59,130,246,.10) !important; }
-  body.dark-theme .text-blue-700 { color:#60a5fa !important; }
-  body.dark-theme .text-blue-500 { color:#93c5fd !important; }
-  body.dark-theme .fa-circle-info { color:#60a5fa !important; }
-  body.dark-theme .fa-clipboard-check { color:rgba(59,130,246,.25) !important; }
-
-  /* Chips inactivos */
-  body.dark-theme .chip:not(.active) {
-    background-color:#0f172a !important;
-    border-color:#334155 !important;
-    color:#64748b !important;
-  }
-
-  /* Radio btn inactivo */
-  body.dark-theme .radio-btn:not(.checked) {
-    background-color:#0f172a !important;
-    border-color:#334155 !important;
-    color:#64748b !important;
-  }
-
-  /* Botón buscar agente */
-  body.dark-theme .bg-teal-50.border-teal-200 {
-    background-color:rgba(13,148,136,.12) !important;
-    border-color:rgba(13,148,136,.30) !important;
-  }
-
-  /* Upload zone */
-  body.dark-theme #img-upload-zone {
-    background-color:#0f172a !important;
-    border-color:#334155 !important;
-  }
-  body.dark-theme #img-upload-zone .text-slate-500 { color:#475569 !important; }
-  body.dark-theme #img-upload-zone .text-slate-400 { color:#334155 !important; }
-
-  /* Separadores */
-  body.dark-theme .border-t.border-slate-100 { border-color:#334155 !important; }
+/* ═══ Iconos del componente de transferencia: los mismos de línea fina (Phosphor) ═══
+   transferencia-form.js usa Font Awesome (lo comparte con Líneas). Aquí, sin tocarlo, sus
+   iconos pasan a Phosphor: Font Awesome 7 dibuja content:var(--fa), así que basta con
+   cambiar la fuente y esa variable. Sólo dentro del componente (clases trf-). */
+[class*="trf-"] i.fas,[class*="trf-"] i.fa-solid,[class*="trf-"] i.far,[class*="trf-"] i.fa-regular{
+  font-family:"Phosphor" !important;font-weight:400 !important;font-style:normal}
+[class*="trf-"] .fa-circle-check{--fa:"\e184"}
+[class*="trf-"] .fa-circle-xmark{--fa:"\e4f8"}
+[class*="trf-"] .fa-clock{--fa:"\e19a"}
+[class*="trf-"] .fa-clock-rotate-left{--fa:"\e1a0"}
+[class*="trf-"] .fa-cloud-arrow-up{--fa:"\e1ae"}
+[class*="trf-"] .fa-floppy-disk{--fa:"\e248"}
+[class*="trf-"] .fa-hourglass-half{--fa:"\e2b2"}
+[class*="trf-"] .fa-image{--fa:"\e2ca"}
+[class*="trf-"] .fa-pen-to-square{--fa:"\e34c"}
+[class*="trf-"] .fa-phone-volume{--fa:"\e3c0"}
+[class*="trf-"] .fa-rotate{--fa:"\e094"}
+[class*="trf-"] .fa-share{--fa:"\e026"}

@@ -1,8 +1,8 @@
 /**
  * Promociones activas — residencial/promociones-validas.html
  *
- * Lee /api/promociones y la pinta: la destacada en grande y el resto en
- * tarjetas. Si la API dice `puede_editar` (admin), aparecen "Editar" y
+ * Lee /api/promociones y la pinta: arriba un resumen de todos los montos, la
+ * destacada en grande y el resto en un carrusel de tarjetas. Si la API dice `puede_editar` (admin), aparecen "Editar" y
  * "Nueva promoción"; el permiso real lo comprueba el backend en cada escritura.
  *
  * Todo el texto entra por textContent: el título y los conceptos los escribe
@@ -49,18 +49,6 @@
     return json;
   }
 
-  // ── Cifra en tres planchas (C/M/Y) ────────────────────────────────
-  function cifra(texto, tam) {
-    const box = el('div', 'pa-cmyk ' + tam);
-    box.appendChild(el('span', 'pa-papel', texto));
-    ['pa-c', 'pa-m', 'pa-y'].forEach(function (p) {
-      const s = el('span', 'pa-plancha ' + p, texto);
-      s.setAttribute('aria-hidden', 'true');
-      box.appendChild(s);
-    });
-    return box;
-  }
-
   function boton(cls, iconCls, texto, titulo, onClick) {
     const b = el('button', 'pa-btn ' + cls);
     b.type = 'button';
@@ -71,85 +59,230 @@
     return b;
   }
 
+  // Icono de línea por promoción (por posición) — sólo decoración.
+  const ICONOS = ['ph-megaphone-simple', 'ph-coins', 'ph-trend-up', 'ph-gift', 'ph-percent', 'ph-target', 'ph-star'];
+  // Icono del resumen según el concepto del monto.
+  function iconoConcepto(txt) {
+    const t = String(txt || '').toLowerCase();
+    if (t.indexOf('team') >= 0 || t.indexOf('equipo') >= 0) return 'ph-users-three';
+    if (t.indexOf('supervisor') >= 0) return 'ph-user-circle-gear';
+    if (t.indexOf('giga') >= 0) return 'ph-wifi-high';
+    if (t.indexOf('bono') >= 0) return 'ph-target';
+    if (t.indexOf('línea') >= 0 || t.indexOf('linea') >= 0) return 'ph-trend-up';
+    return 'ph-tag';
+  }
+
   // ── Render ────────────────────────────────────────────────────────
   function ordenadas() {
     const lead = promos.find((p) => p.destacada) || promos[0];
     return lead ? [lead].concat(promos.filter((p) => p !== lead)) : [];
   }
 
+  // Franja superior: un ítem por monto de cada promoción (01 · Mejor team · $200 …)
   function renderIndice(lista) {
     const nav = $('paIndex');
     nav.replaceChildren();
     lista.forEach(function (p, i) {
       p.items.forEach(function (it) {
-        const s = el('span', 'pa-index-item');
-        s.appendChild(el('span', 'pa-index-n', num2(i)));
-        s.appendChild(el('span', null, it.label || p.titulo));
-        s.appendChild(el('span', 'pa-index-amt', monto(it.amount)));
+        const s = el('span', 'pa-indice-item');
+        s.appendChild(icono('ph ' + iconoConcepto(it.label || p.titulo)));
+        s.appendChild(el('span', 'pa-indice-n', num2(i)));
+        s.appendChild(el('span', 'pa-indice-txt', it.label || p.titulo));
+        s.appendChild(el('span', 'pa-indice-monto', monto(it.amount)));
         nav.appendChild(s);
       });
     });
   }
 
+  // Destacada: fondo azul profundo del logo, cifra grande y el resto de montos debajo.
   function renderLead(p) {
     const art = el('article', 'pa-lead');
-    const top = el('div', 'pa-lead-top');
-    const k = el('div', 'pa-kicker pa-kicker-lead');
-    k.appendChild(icono('fas fa-trophy'));
-    k.appendChild(el('span', null, '01 · Promoción destacada'));
-    top.appendChild(k);
-    top.appendChild(el('h2', 'pa-lead-title', p.titulo));
-    if (editando) {
-      const t = el('div', 'pa-tools');
-      t.appendChild(boton('pa-btn-secondary', 'fas fa-pen', 'Editar', null, () => abrir(p)));
-      t.appendChild(boton('pa-btn-ghost pa-btn-danger', 'fas fa-trash', 'Quitar', null, () => quitar(p)));
-      top.appendChild(t);
-    }
-    art.appendChild(top);
+    art.appendChild(renderMedia());     // sin video: arcos del logo (+ «Subir video» si es admin)
 
-    const amts = el('div', 'pa-lead-amounts');
-    p.items.forEach(function (it, i) {
-      const fila = el('div', i === 0 ? 'pa-lead-first' : 'pa-lead-row');
-      fila.appendChild(cifra(monto(it.amount), i === 0 ? 'pa-num-xl' : 'pa-num-lg'));
-      fila.appendChild(el('span', 'pa-amt-label', it.label));
-      amts.appendChild(fila);
-    });
-    art.appendChild(amts);
+    const cuerpo = el('div', 'pa-lead-cuerpo');
+    const k = el('div', 'pa-kicker');
+    k.appendChild(icono('ph ph-trophy'));
+    k.appendChild(el('span', null, 'Promoción destacada'));
+    cuerpo.appendChild(k);
+    cuerpo.appendChild(el('h2', 'pa-lead-titulo', p.titulo));
+
+    const first = p.items[0];
+    const grande = el('div', 'pa-lead-monto');
+    grande.appendChild(el('span', 'pa-lead-cifra', monto(first.amount)));
+    if (first.label) grande.appendChild(el('span', 'pa-lead-concepto', first.label));
+    cuerpo.appendChild(grande);
+
+    if (p.items.length > 1) {
+      const resto = el('div', 'pa-lead-resto');
+      p.items.slice(1).forEach(function (it) {
+        const r = el('div', 'pa-lead-item');
+        r.appendChild(icono('ph ' + iconoConcepto(it.label)));
+        const t = el('div');
+        t.appendChild(el('span', 'pa-lead-item-lbl', it.label));
+        t.appendChild(el('strong', 'pa-lead-item-monto', monto(it.amount)));
+        r.appendChild(t);
+        resto.appendChild(r);
+      });
+      cuerpo.appendChild(resto);
+    }
+    if (editando) {
+      const tl = el('div', 'pa-tools');
+      tl.appendChild(boton('pa-btn-sec', 'ph ph-pencil-simple', 'Editar', null, () => abrir(p)));
+      tl.appendChild(boton('pa-btn-sec pa-btn-peligro', 'ph ph-trash', 'Quitar', null, () => quitar(p)));
+      cuerpo.appendChild(tl);
+    }
+    art.appendChild(cuerpo);
     return art;
   }
 
-  // i = posición dentro de la columna lateral (0 = primera tarjeta); la
-  // destacada es la 01, así que la tarjeta i lleva el número i + 2.
-  function renderCard(p, i) {
-    const card = el('article', 'pa-card' + (i % 3 === 1 ? ' pa-card-alt' : ''));
+  // Tarjeta del carrusel. i = posición tras la destacada (que es la 01): lleva el número i + 2.
+  function renderCard(p, i, numero) {
+    const card = el('article', 'pa-card in-glass pa-tono-' + (i % 3) + (p.destacada ? ' pa-card-destacada' : ''));
     const top = el('div', 'pa-card-top');
-    const k = el('span', 'pa-kicker');
-    k.appendChild(icono('fas fa-tag'));
-    k.appendChild(el('span', null, num2(i + 1) + ' · Promoción activa'));
-    top.appendChild(k);
+    const n = el('span', 'pa-card-n', num2(numero));
+    if (p.destacada) { n.appendChild(icono('ph ph-trophy')); n.appendChild(el('span', null, 'Destacada')); }
+    top.appendChild(n);
     if (editando) {
       const t = el('span', 'pa-tools');
-      t.appendChild(boton('pa-btn-ghost pa-btn-icon', 'fas fa-star', null, 'Destacar', () => destacar(p)));
-      t.appendChild(boton('pa-btn-ghost pa-btn-icon', 'fas fa-pen', null, 'Editar', () => abrir(p)));
-      t.appendChild(boton('pa-btn-ghost pa-btn-icon pa-btn-danger', 'fas fa-trash', null, 'Quitar', () => quitar(p)));
+      if (!p.destacada) t.appendChild(boton('pa-btn-icono', 'ph ph-star', null, 'Destacar', () => destacar(p)));
+      t.appendChild(boton('pa-btn-icono', 'ph ph-pencil-simple', null, 'Editar', () => abrir(p)));
+      t.appendChild(boton('pa-btn-icono pa-btn-peligro', 'ph ph-trash', null, 'Quitar', () => quitar(p)));
       top.appendChild(t);
     }
     card.appendChild(top);
-    card.appendChild(el('h3', 'pa-card-title', p.titulo));
 
-    const first = p.items[0];
-    const amt = el('div', 'pa-card-amt');
-    amt.appendChild(cifra(monto(first.amount), 'pa-num-md'));
-    amt.appendChild(el('span', 'pa-amt-label', first.label));
-    card.appendChild(amt);
+    const ico = el('span', 'pa-card-ico');
+    ico.appendChild(icono('ph ' + ICONOS[i % ICONOS.length]));
+    card.appendChild(ico);
+    card.appendChild(el('h3', 'pa-card-kicker', 'Promoción activa'));
+    card.appendChild(el('span', 'pa-card-linea'));
+    card.appendChild(el('p', 'pa-card-titulo', p.titulo));
 
-    p.items.slice(1).forEach(function (it) {
-      const r = el('div', 'pa-card-row');
-      r.appendChild(el('span', null, it.label));
-      r.appendChild(el('strong', null, monto(it.amount)));
-      card.appendChild(r);
+    const montos = el('div', 'pa-card-montos');
+    p.items.forEach(function (it) {
+      const m = el('div', 'pa-card-monto');
+      m.appendChild(el('strong', null, monto(it.amount)));
+      if (it.label) m.appendChild(el('span', null, it.label));
+      montos.appendChild(m);
     });
+    card.appendChild(montos);
     return card;
+  }
+
+  // Carrusel: fila con desplazamiento horizontal y flechas que avanzan una tarjeta.
+  function renderCarrusel(lista, desde) {
+    const wrap = el('section', 'pa-carrusel');
+    wrap.setAttribute('aria-label', 'Promociones activas');
+    const pista = el('div', 'pa-pista');
+    lista.forEach((p, i) => pista.appendChild(renderCard(p, i, desde + i)));
+    wrap.appendChild(pista);
+    const prev = boton('pa-flecha pa-flecha-izq', 'ph ph-caret-left', null, 'Promoción anterior', () => mover(-1));
+    const next = boton('pa-flecha pa-flecha-der', 'ph ph-caret-right', null, 'Promoción siguiente', () => mover(1));
+    wrap.append(prev, next);
+    function paso() { const c = pista.querySelector('.pa-card'); return c ? c.getBoundingClientRect().width + 12 : 260; }
+    function mover(d) { pista.scrollBy({ left: d * paso(), behavior: 'smooth' }); }
+    function flechas() {
+      prev.disabled = pista.scrollLeft <= 2;
+      next.disabled = pista.scrollLeft + pista.clientWidth >= pista.scrollWidth - 2;
+    }
+    pista.addEventListener('scroll', flechas, { passive: true });
+    requestAnimationFrame(flechas);
+    window.addEventListener('resize', flechas);
+    return wrap;
+  }
+
+  // ── Video promocional (el mismo del cuadro pequeño de la página de inicio) ──
+  // Se ve a la derecha del cuadro grande, fundido con él. Los administradores lo suben,
+  // cambian o quitan desde aquí; el servidor lo recomprime (routers/promo_video.py).
+  let video = { url: null, procesando: false, error: null, puede_editar: false };
+  let videoEspera = null;
+  let videoMsg = '';
+
+  function renderMedia() {
+    const media = el('div', 'pa-lead-media');
+    if (video.url) {
+      const v = el('video');
+      v.src = video.url; v.muted = true; v.loop = true; v.autoplay = true; v.playsInline = true;
+      v.setAttribute('playsinline', ''); v.setAttribute('aria-hidden', 'true'); v.tabIndex = -1;
+      media.appendChild(v);
+      v.play().catch(function () {});
+    } else {
+      const deco = el('div', 'pa-lead-deco');
+      deco.setAttribute('aria-hidden', 'true');
+      media.appendChild(deco);
+    }
+    if (video.puede_editar) {
+      const ctl = el('div', 'pa-video-ctl');
+      const msg = videoMsg || (video.procesando ? 'Comprimiendo el video…' : video.error || (video.url ? '' : 'Sin video: sube uno para la página de inicio'));
+      if (msg) ctl.appendChild(el('span', 'pa-video-msg', msg));
+      const subir = el('label', 'pa-btn pa-btn-video' + (video.procesando ? ' pa-ocupado' : ''));
+      subir.appendChild(icono('ph ph-upload-simple'));
+      subir.appendChild(el('span', null, video.url ? 'Cambiar video' : 'Subir video'));
+      const input = el('input');
+      input.type = 'file'; input.hidden = true;
+      input.accept = 'video/mp4,video/quicktime,video/webm,video/x-matroska,video/x-msvideo,.mp4,.m4v,.mov,.webm,.mkv,.avi,.3gp';
+      input.addEventListener('change', function () { subirVideo(input.files[0]); input.value = ''; });
+      subir.appendChild(input);
+      ctl.appendChild(subir);
+      if (video.url && !video.procesando) ctl.appendChild(boton('pa-btn-video pa-btn-icono-video', 'ph ph-trash', null, 'Quitar video', quitarVideo));
+      media.appendChild(ctl);
+    }
+    return media;
+  }
+
+  // Cuadro grande con el video completo (el mismo de inicio), sin nada encima salvo los
+  // controles del administrador.
+  function renderVideoCard() {
+    const art = el('article', 'pa-lead pa-lead-video');
+    art.setAttribute('aria-label', 'Video promocional');
+    art.appendChild(renderMedia());
+    return art;
+  }
+
+  async function cargarVideo() {
+    try {
+      const r = await fetch('/api/promo-video', { credentials: 'include' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      const cambio = j.url !== video.url || j.procesando !== video.procesando || j.error !== video.error || j.puede_editar !== video.puede_editar;
+      video = j; videoMsg = '';
+      if (cambio && promos.length) render();
+    } catch (e) { console.warn('[PROMOCIONES] video:', e); }
+    clearTimeout(videoEspera);
+    if (video.procesando) videoEspera = setTimeout(cargarVideo, 4000);
+  }
+
+  function subirVideo(archivo) {
+    if (!archivo) return;
+    if (archivo.size > 300 * 1024 * 1024) { videoMsg = 'El video pesa más de 300 MB.'; render(); return; }
+    const fd = new FormData();
+    fd.append('file', archivo);
+    const xhr = new XMLHttpRequest();          // XHR: fetch no informa del progreso de subida
+    xhr.open('POST', '/api/promo-video');
+    xhr.withCredentials = true;
+    xhr.upload.onprogress = function (e) {
+      if (!e.lengthComputable) return;
+      videoMsg = 'Subiendo el video… ' + Math.round(e.loaded / e.total * 100) + ' %';
+      const m = document.querySelector('.pa-video-msg');
+      if (m) m.textContent = videoMsg; else render();
+    };
+    xhr.onload = function () {
+      if (xhr.status === 202 || xhr.status === 200) { videoMsg = ''; cargarVideo(); return; }
+      let d = ''; try { d = JSON.parse(xhr.responseText).detail || ''; } catch (_) { }
+      videoMsg = d || ('No se pudo subir el video (HTTP ' + xhr.status + ').'); render();
+    };
+    xhr.onerror = function () { videoMsg = 'Se cortó la subida. Inténtalo de nuevo.'; render(); };
+    videoMsg = 'Subiendo el video… 0 %'; render();
+    xhr.send(fd);
+  }
+
+  async function quitarVideo() {
+    if (!window.confirm('¿Quitar el video promocional? Dejará de verse también en la página de inicio.')) return;
+    try {
+      const r = await fetch('/api/promo-video', { method: 'DELETE', credentials: 'include' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      await cargarVideo(); render();
+    } catch (e) { videoMsg = 'No se pudo quitar el video.'; render(); }
   }
 
   function render() {
@@ -159,19 +292,23 @@
     cont.replaceChildren();
 
     if (!lista.length) {
-      const v = el('div', 'pa-vacio');
-      v.appendChild(el('h2', null, 'No hay promociones activas.'));
-      if (puedeEditar) v.appendChild(boton('pa-btn-primary pa-self-start', 'fas fa-plus', 'Agregar la primera', null, () => abrir(null)));
+      const v = el('div', 'pa-vacio in-glass');
+      v.appendChild(icono('ph ph-megaphone-simple'));
+      v.appendChild(el('p', null, 'No hay promociones activas.'));
+      if (puedeEditar) v.appendChild(boton('pa-btn-pri', 'ph ph-plus', 'Agregar la primera', null, () => abrir(null)));
       cont.appendChild(v);
       return;
     }
 
     const main = el('div', 'pa-main');
-    main.appendChild(renderLead(lista[0]));
-    if (lista.length > 1) {
-      const side = el('div', 'pa-side');
-      lista.slice(1).forEach((p, i) => side.appendChild(renderCard(p, i)));
-      main.appendChild(side);
+    if (video.url) {
+      main.appendChild(renderVideoCard());
+      main.appendChild(renderCarrusel(lista, 0));
+    } else {
+      // Sin video: la destacada en grande (como antes) y el resto en el carrusel.
+      main.appendChild(renderLead(lista[0]));
+      if (lista.length > 1) main.appendChild(renderCarrusel(lista.slice(1), 1));
+      else main.classList.add('pa-main-sola');
     }
     cont.appendChild(main);
   }
@@ -179,7 +316,7 @@
   function pintarBotonEditar() {
     const b = $('paToggleEdit');
     b.setAttribute('aria-pressed', String(editando));
-    b.querySelector('i').className = editando ? 'fas fa-check' : 'fas fa-pen';
+    b.querySelector('i').className = editando ? 'ph ph-check-circle' : 'ph ph-pencil-simple';
     b.querySelector('span').textContent = editando ? 'Listo' : 'Editar';
   }
 
@@ -238,7 +375,7 @@
       amt.value = it.amount;
       amt.setAttribute('aria-label', 'Monto ' + (i + 1));
       amt.addEventListener('input', () => { it.amount = amt.value; });
-      const del = boton('pa-btn-ghost pa-btn-icon', 'fas fa-xmark', null, 'Quitar monto', function () {
+      const del = boton('pa-btn-icono', 'ph ph-x', null, 'Quitar monto', function () {
         borrador.items.splice(i, 1);
         renderItems();
       });
@@ -298,7 +435,7 @@
 
   // ── Arranque ──────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', function () {
-    $('paHoy').textContent = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    $('paHoy').textContent = new Date().toLocaleDateString('es-SV', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
     $('paToggleEdit').addEventListener('click', function () {
       editando = !editando;
@@ -315,6 +452,6 @@
     $('paDialogo').addEventListener('click', (e) => { if (e.target === e.currentTarget) cerrar(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('paDialogo').hidden) cerrar(); });
 
-    cargar();
+    cargar().then(cargarVideo);
   });
 })();

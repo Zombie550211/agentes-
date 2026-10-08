@@ -92,7 +92,7 @@
       var id = 'tn-menu-' + (n++);
       return '<div class="tn-grupo' + (activo ? ' tn-activo' : '') + '">' +
         '<button type="button" class="tn-btn" aria-expanded="false" aria-controls="' + id + '">' +
-          esc(g.label) + '<i class="ph-duotone ph-caret-down" aria-hidden="true"></i></button>' +
+          esc(g.label) + '<i class="ph ph-caret-down" aria-hidden="true"></i></button>' +
         '<div class="tn-menu" id="' + id + '" hidden>' + items.map(function (it) {
           var act = normPath(it.href) === ruta;
           return '<a href="' + esc(it.href) + '" class="tn-item' + (act ? ' tn-item-activo' : '') + '"' +

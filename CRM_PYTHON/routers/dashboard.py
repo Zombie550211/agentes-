@@ -6,7 +6,7 @@ Caché en memoria de 5 minutos.
 from fastapi import APIRouter, Depends, HTTPException
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
-from deps import current_user
+from deps import current_user, team_seccion
 import datetime as _dt, calendar, traceback, json as _json
 from tiempo_sv import ahora_sv
 
@@ -258,11 +258,13 @@ async def dashboard_home(user: dict = Depends(current_user)):
     ]
 
     # ── Semáforo ───────────────────────────────────────────────────────────
+    # `seccion` (residencial | lineas): cada página de inicio enseña sólo los teams de la suya.
     semaforo = [
         {
-            "team":   r["team"],
-            "ventas": int(r["ventas"] or 0),
-            "puntos": round(float(r["puntos"] or 0), 2),
+            "team":    r["team"],
+            "seccion": team_seccion(r["team"]),
+            "ventas":  int(r["ventas"] or 0),
+            "puntos":  round(float(r["puntos"] or 0), 2),
         }
         for r in semaforo_rows
     ]
@@ -482,3 +484,33 @@ async def get_actividades(user: dict = Depends(current_user)):
             "created_at":      ts.isoformat() if ts else None,
         })
     return {"ok": True, "actividades_recientes": actividades}
+
+
+@router.get("/ventas-dia")
+async def ventas_del_dia(fecha: _dt.date | None = None, user: dict = Depends(current_user)):
+    """Ventas de un día (dia_venta) para la Agenda de inicio, con la hora a la que se
+    subieron (created_at, guardado en UTC → hora de El Salvador). Sin fecha: hoy."""
+    from tiempo_sv import TZ_SV
+    fecha = fecha or ahora_sv().date()
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            SELECT nombre_cliente, COALESCE(agente_nombre, agente) AS agente, team, created_at
+            FROM leads
+            WHERE dia_venta = :f
+              AND UPPER(TRIM(COALESCE(status,''))) NOT IN ('CANCELLED','CANCELADO','CANCELADA','CANCEL','HOLD','RESERVA','RESCHEDULED','REAGENDADO')
+            ORDER BY created_at ASC
+            LIMIT 300
+        """), {"f": fecha.isoformat()})
+        rows = r.mappings().all()
+
+    ventas = []
+    for row in rows:
+        ts = row["created_at"]
+        hora = ts.replace(tzinfo=_dt.timezone.utc).astimezone(TZ_SV).strftime("%H:%M") if ts else None
+        ventas.append({
+            "hora":    hora,
+            "cliente": row["nombre_cliente"] or "—",
+            "agente":  row["agente"] or "—",
+            "team":    row["team"] or "",
+        })
+    return {"success": True, "fecha": fecha.isoformat(), "ventas": ventas}

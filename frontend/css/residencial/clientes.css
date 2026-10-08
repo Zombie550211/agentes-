@@ -1,0 +1,208 @@
+/* Lista de clientes (residencial/costumer.html).
+   Sistema común en css/base/sistema.css (paleta del logo, vidrio, esquinas rectas).
+   Las hojas antiguas (costumer*.css) siguen cargadas SÓLO para las ventanas de edición;
+   por eso todo va bajo body.cl-pagina: gana a sus reglas sin !important. */
+
+body.cl-pagina{font-size:13px;--font-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
+  /* Cifras (teléfonos, fechas, cuenta, puntos, página): Inter, sin remates y con dígitos de
+     ancho fijo. La monoespaciada queda sólo para las etiquetas de servicio. */
+  --font-num:"Inter",system-ui,"Segoe UI",sans-serif}
+.cl-pagina .in-hoja{display:flex;flex-direction:column;gap:var(--space-3)}
+.cl-pagina .in-head{margin-bottom:calc(var(--space-3) * -1)}
+
+/* ═══ Título e indicadores ═════════════════════════════════════════════════ */
+/* Sólo los indicadores, a todo el ancho. */
+.cl-hero{padding:var(--space-3);background:linear-gradient(135deg, rgb(48 160 200 / .14), rgb(255 255 255 / .7)) !important}
+.cl-kpis{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:var(--space-2)}
+.cl-kpi{display:flex;flex-direction:column;align-items:flex-start;min-width:0;padding:var(--space-3);
+  background:rgb(255 255 255 / .85);border:1px solid var(--glass-borde);box-shadow:0 2px 10px rgb(0 112 152 / .05)}
+.cl-kpi-ico{width:28px;height:28px;display:grid;place-items:center;font-size:15px;color:var(--color-accent-2-500);
+  border:1px solid rgb(0 112 152 / .22)}
+.cl-kpi-num{display:block;margin-top:14px;font-family:var(--font-num);font-size:22px;font-weight:600;line-height:1;letter-spacing:-.01em;color:var(--color-neutral-900);font-variant-numeric:lining-nums tabular-nums}
+.cl-kpi-lbl{margin-top:5px;font-size:11px;color:var(--color-neutral-600);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+@media (max-width:900px){ .cl-kpis{grid-template-columns:repeat(4,minmax(0,1fr))} }
+@media (max-width:460px){ .cl-kpis{grid-template-columns:repeat(2,minmax(0,1fr))} }
+
+/* ═══ Filtros ══════════════════════════════════════════════════════════════ */
+/* Fila 1: búsqueda + 5 filtros en columnas que llenan el ancho (nunca se parten).
+   Fila 2: chips de status a la izquierda; recuento, puntos y Actualizar a la derecha. */
+.cl-filtros{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-3) var(--space-4)}
+.cl-fila-filtros{display:grid;grid-template-columns:minmax(220px,1.7fr) repeat(5,minmax(0,1fr));gap:var(--space-2)}
+.cl-fila-estado{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3)}
+@media (max-width:1100px){ .cl-fila-filtros{grid-template-columns:repeat(3,minmax(0,1fr))} .cl-buscar{grid-column:1 / -1} }
+@media (max-width:600px){ .cl-fila-filtros{grid-template-columns:minmax(0,1fr)} }
+.cl-buscar{position:relative;display:block;min-width:0}
+.cl-buscar i{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:15px;color:var(--color-neutral-500);pointer-events:none}
+.cl-pagina #costumer-search{width:100%;height:38px;margin:0;padding:0 12px 0 34px;font:inherit;font-size:13px;color:var(--color-text);
+  background:rgb(255 255 255 / .78);border:1px solid rgb(0 112 152 / .18);border-radius:0;box-shadow:none;outline:none;transition:border-color .15s,box-shadow .15s}
+.cl-pagina #costumer-search:focus{border-color:var(--color-accent-2-500);background:#fff;box-shadow:0 0 0 3px rgb(0 112 152 / .12)}
+/* Filtro = una caja con el rótulo dentro y el valor elegido (lista con estilo propio). */
+.cl-filtro{display:flex;align-items:center;min-width:0;height:38px;border:1px solid rgb(0 112 152 / .18);background:rgb(255 255 255 / .78);
+  transition:border-color .15s}
+.cl-filtro:hover,.cl-filtro:focus-within{border-color:rgb(0 112 152 / .4)}
+.cl-filtro > span{flex:none;padding:0 0 0 11px;font-size:11px;color:var(--color-neutral-600)}
+.cl-filtro .sel{flex:1;min-width:0}
+.cl-filtro .sel-btn{width:100%;height:36px;border:0;background:transparent;box-shadow:none;padding-left:8px;font-weight:600}
+.cl-filtro .sel-abierto .sel-btn,.cl-filtro .sel-btn:focus-visible{box-shadow:none;background:transparent}
+.cl-filtro .sel-vacio .sel-txt{color:var(--color-text)}   /* «Todos» no es un vacío: se lee normal */
+
+/* Las hojas antiguas ponen mayúsculas y letra monoespaciada a estos elementos: fuera. */
+.cl-pagina .cl-chip,.cl-pagina #recuentoCount,.cl-pagina #puntajeTotalCount,.cl-pagina #pageInfo,.cl-pagina .cl-btn,.cl-pagina #toggleMonthsBtn{
+  text-transform:none;letter-spacing:normal;font-family:var(--font-body)}
+.cl-pagina .cl-tabla,.cl-pagina .cl-scroll,.cl-pagina .cl-table,.cl-pagina .cl-table th{border-radius:0}
+
+/* Chips de status */
+.cl-chips{display:flex;flex-wrap:wrap;gap:6px}
+.cl-pagina .cl-chip{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 12px;margin:0;border:1px solid rgb(0 112 152 / .14);
+  border-radius:0;background:rgb(255 255 255 / .6);box-shadow:none;font:inherit;font-size:12px;font-weight:500;color:var(--color-neutral-800);
+  cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.cl-pagina .cl-chip::before{content:none}
+.cl-pagina .cl-chip:hover{background:#fff;border-color:rgb(0 112 152 / .32);color:var(--color-text)}
+.cl-pagina .cl-chip.is-active{background:var(--color-accent-2-500);border-color:var(--color-accent-2-500);color:#fff;font-weight:600}
+.cl-punto{display:inline-block;width:7px;height:7px;border-radius:50%;font-style:normal}
+.cl-chip.is-active .cl-punto{box-shadow:0 0 0 1.5px #fff}
+.cl-p-pending{background:var(--cl-pending)}.cl-p-active{background:var(--cl-active)}.cl-p-colchon{background:var(--color-accent-500)}
+.cl-p-oficina{background:var(--cl-oficina)}.cl-p-reserva{background:var(--color-accent-2-500)}.cl-p-cancelled{background:var(--cl-cancelled)}
+.cl-p-hold{background:var(--cl-hold)}
+
+.cl-resumen{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);flex:none}
+.cl-pagina #recuentoCount{display:inline-flex;align-items:center;height:38px;padding:0 12px;font-size:12px;font-weight:500;color:var(--color-neutral-700);
+  background:rgb(0 112 152 / .06);border:0;border-radius:0}
+.cl-pagina #puntajeTotalCount{display:inline-flex;align-items:center;height:38px;padding:0 16px;font-family:var(--font-num);font-size:15px;font-weight:600;letter-spacing:.01em;
+  color:var(--color-accent-2-600);background:rgb(255 255 255 / .85);border:1px solid rgb(0 112 152 / .18);border-radius:0;font-variant-numeric:tabular-nums}
+.cl-btn{display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 18px;border:0;border-radius:0;cursor:pointer;font:inherit;font-size:12px;
+  font-weight:600;color:#fff;background:var(--color-accent-2-500);transition:background .15s}
+.cl-btn i{font-size:15px}
+.cl-btn:hover{background:var(--color-accent-2-600)}
+.cl-btn:disabled{opacity:.6;cursor:wait}
+.cl-btn-sec{display:inline-flex;align-items:center;height:32px;padding:0 12px;border:1px solid rgb(0 112 152 / .2);border-radius:0;cursor:pointer;
+  font:inherit;font-size:12px;font-weight:500;color:var(--color-accent-2-600);background:rgb(255 255 255 / .7)}
+.cl-btn-sec:hover,.cl-pagina #toggleMonthsBtn:hover{background:#fff;border-color:rgb(0 112 152 / .4)}
+.cl-pagina #toggleMonthsBtn{height:34px;font-size:12px;border-radius:0;background:rgb(255 255 255 / .7);border-color:rgb(0 112 152 / .2);color:var(--color-accent-2-600);font-weight:500}
+.cl-pagina #toggleMonthsBtn.active{background:rgb(0 112 152 / .08)}
+.cl-btn-icono{display:inline-grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid rgb(0 112 152 / .18);border-radius:0;
+  background:rgb(255 255 255 / .7);color:var(--color-neutral-700);font-size:16px;cursor:pointer;transition:all .15s}
+.cl-btn-icono:hover:not(:disabled){background:#fff;color:var(--color-accent-2-600);border-color:rgb(0 112 152 / .4)}
+.cl-btn-icono:disabled{opacity:.4;cursor:default}
+
+/* ═══ Tabla ════════════════════════════════════════════════════════════════ */
+.cl-tabla{display:flex;flex-direction:column;min-height:0;padding:0}
+.cl-scroll{overflow:auto;max-height:calc(100vh - 210px);min-height:260px;overscroll-behavior:contain}
+.cl-table{width:100%;min-width:1060px;border-collapse:separate;border-spacing:0;font-size:12px}
+/* Cabecera fija como UNA pieza (thead): fijando cada th por separado, Chrome dejaba
+   costuras oscuras entre columnas. */
+.cl-table thead{position:sticky;top:0;z-index:2;background:#eef4f7}
+.cl-table thead th{padding:10px 10px;text-align:left;white-space:normal;line-height:1.3;font-size:11px;font-weight:600;
+  color:var(--color-neutral-700);background:transparent;border-bottom:1px solid rgb(0 112 152 / .14)}
+/* Columnas ordenables: clic (o Enter) alterna ascendente → descendente → sin orden. */
+.cl-table th[data-orden]{cursor:pointer;user-select:none}
+.cl-table th[data-orden]:hover{color:var(--color-text)}
+.cl-table th[data-orden] i{font-size:11px;vertical-align:-1px;margin-left:2px;white-space:nowrap;color:var(--color-neutral-400)}
+.cl-table th[aria-sort="ascending"],.cl-table th[aria-sort="descending"]{color:var(--color-accent-2-600)}
+.cl-table th[aria-sort="ascending"] i,.cl-table th[aria-sort="descending"] i{color:var(--color-accent-2-500)}
+.cl-table .cl-th-acc{text-align:center}
+.cl-table tbody td{padding:8px 10px;vertical-align:middle;border-bottom:1px solid rgb(0 112 152 / .07);color:var(--color-text)}
+.cl-reg{transition:background .12s}
+.cl-reg:hover{background:rgb(0 112 152 / .035)}
+.cl-reg.cl-es-colchon{background:rgb(48 160 200 / .04)}
+/* Franja de color por status a la izquierda de la fila */
+.cl-reg td:first-child{box-shadow:inset 3px 0 0 var(--franja,transparent)}
+.st-pending{--franja:var(--cl-pending)}.st-completed,.st-active{--franja:var(--cl-active)}.st-cancelled{--franja:var(--cl-cancelled)}
+.st-hold,.st-rescheduled{--franja:var(--cl-hold)}.st-oficina{--franja:var(--cl-oficina)}.st-reserva{--franja:var(--color-accent-2-500)}
+
+.cl-cliente{display:flex;align-items:center;gap:9px;min-width:165px}
+.cl-avatar{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;
+  color:var(--color-accent-2-700);background:var(--color-accent-100);border:1px solid rgb(0 112 152 / .15)}
+.cl-cliente-txt{min-width:0}
+.cl-nombre{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.01em}
+.cl-nombre span:not(.cl-sin-leer){overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px}
+.cl-ico-colchon{font-size:14px;color:var(--color-accent-500)}
+.cl-sin-leer{flex:none;width:7px;height:7px;border-radius:50%;background:var(--cl-cancelled);box-shadow:0 0 0 2px rgb(220 38 38 / .15)}
+.cl-sub{margin-top:2px;font-size:10px;text-transform:uppercase;letter-spacing:.02em;color:var(--color-neutral-600)}
+.cl-tel{font-family:var(--font-num);font-size:12px;font-weight:600;letter-spacing:.01em;color:var(--color-neutral-900);font-variant-numeric:lining-nums tabular-nums}
+.cl-tel-alt{font-weight:400;color:var(--color-neutral-700)}
+.cl-dir{margin-top:2px;max-width:200px;font-size:11px;color:var(--color-neutral-600);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cl-table td:nth-child(3){min-width:190px}
+.cl-tags{display:flex;flex-wrap:wrap;gap:4px}
+.cl-tag{display:inline-flex;align-items:center;height:18px;padding:0 6px;font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:0;white-space:nowrap;
+  color:var(--color-text);background:rgb(255 255 255 / .8);border:1px solid rgb(20 33 42 / .18)}
+.cl-tag-sis{color:var(--color-accent-2-600);background:rgb(48 160 200 / .08);border-color:rgb(48 160 200 / .35)}
+.cl-tag-riesgo{background:transparent}
+.cl-riesgo-bajo{color:var(--cl-active);border-color:rgb(22 163 74 / .35)}
+.cl-riesgo-medio{color:#a16207;border-color:rgb(234 179 8 / .5)}
+.cl-riesgo-alto{color:var(--cl-cancelled);border-color:rgb(220 38 38 / .35)}
+.cl-motivo{margin-top:4px;font-size:10px;font-weight:600;text-transform:uppercase;color:var(--color-neutral-800)}
+.cl-acc{margin-top:1px;font-family:var(--font-num);font-size:10px;font-weight:500;letter-spacing:.02em;color:var(--color-neutral-500);font-variant-numeric:lining-nums tabular-nums}
+.cl-fechas{display:grid;grid-template-columns:auto auto;gap:3px 8px;margin:0;font-size:11px;white-space:nowrap}
+.cl-fechas dt{color:var(--color-neutral-500)}
+.cl-fechas dt::after{content:":"}
+.cl-fechas dd{margin:0;font-family:var(--font-num);font-size:11px;font-weight:500;letter-spacing:.01em;color:var(--color-neutral-800);font-variant-numeric:lining-nums tabular-nums}
+
+/* Status, comisión y riesgo: lista nativa con estilo (hay una por fila y columna). */
+.cl-pagina .cl-sel{display:block;width:104px;height:30px;margin:0;padding:0 20px 0 8px;font:inherit;font-size:11px;font-weight:600;cursor:pointer;
+  appearance:none;-webkit-appearance:none;border:1px solid var(--sel-borde,rgb(0 112 152 / .2));border-radius:0;
+  color:var(--sel-texto,var(--color-text));background-color:var(--sel-fondo,rgb(255 255 255 / .8));
+  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:calc(100% - 11px) 50%,calc(100% - 7px) 50%;background-size:4px 4px,4px 4px;background-repeat:no-repeat;
+  box-shadow:none;transition:filter .15s}
+.cl-pagina .cl-sel:hover{filter:brightness(.97)}
+.cl-pagina .cl-sel:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:1px}
+.cl-pagina .cl-sel:disabled{opacity:.6;cursor:wait}
+.cl-pagina .cl-sel option{color:var(--color-text);background:#fff;font-weight:400}
+.cl-badge{display:inline-flex;align-items:center;height:24px;padding:0 10px;font-size:11px;font-weight:600;
+  color:var(--sel-texto,var(--color-text));background:var(--sel-fondo,rgb(0 112 152 / .06));border:1px solid var(--sel-borde,transparent)}
+/* Colores por status y por riesgo (los mismos en lista y en insignia) */
+.badge-active{--sel-texto:#15803d;--sel-fondo:rgb(22 163 74 / .09);--sel-borde:rgb(22 163 74 / .3)}
+.badge-pending{--sel-texto:#a16207;--sel-fondo:rgb(234 179 8 / .12);--sel-borde:rgb(234 179 8 / .45)}
+.badge-cancelled{--sel-texto:#b91c1c;--sel-fondo:rgb(220 38 38 / .08);--sel-borde:rgb(220 38 38 / .3)}
+.badge-hold{--sel-texto:var(--color-neutral-700);--sel-fondo:rgb(20 33 42 / .05);--sel-borde:rgb(20 33 42 / .18)}
+.badge-oficina{--sel-texto:#fff;--sel-fondo:var(--cl-oficina);--sel-borde:var(--cl-oficina)}
+.rcx-bajo{--sel-texto:#15803d;--sel-fondo:rgb(22 163 74 / .09);--sel-borde:rgb(22 163 74 / .3)}
+.rcx-medio{--sel-texto:#a16207;--sel-fondo:rgb(234 179 8 / .12);--sel-borde:rgb(234 179 8 / .45)}
+.rcx-alto{--sel-texto:#b91c1c;--sel-fondo:rgb(220 38 38 / .08);--sel-borde:rgb(220 38 38 / .3)}
+.cl-pagina .cl-sel.colchon-select{box-shadow:inset 3px 0 0 var(--color-accent-500);font-style:normal}
+.cl-colchon{display:inline-block;margin-top:4px;font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--color-accent-600)}
+.cl-auto{display:block;margin-top:3px;font-size:9px;color:var(--color-neutral-500)}
+
+.cl-pts{font-family:var(--font-num);font-size:13px;font-weight:600;letter-spacing:.01em;white-space:nowrap;color:var(--color-neutral-900);font-variant-numeric:lining-nums tabular-nums}
+.cl-pts small{font-size:9px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--color-neutral-500)}
+/* Estilo ejecutivo: cifra en tinta; el nivel sólo se insinúa con una marca fina a la izquierda. */
+.cl-pts::before{content:"";display:inline-block;width:3px;height:10px;margin-right:6px;vertical-align:-1px;background:var(--pts-marca,transparent)}
+.cl-pts-alto{--pts-marca:#16a34a}.cl-pts-medio{--pts-marca:var(--color-accent-2-500)}.cl-pts-bajo{--pts-marca:#eab308}.cl-pts-nada{color:var(--color-neutral-400)}
+
+.cl-td-acc{text-align:center}
+.cl-acciones{display:inline-flex;gap:4px}
+.cl-accion{display:grid;place-items:center;width:30px;height:30px;padding:0;border:1px solid transparent;border-radius:0;background:transparent;
+  color:var(--color-neutral-600);font-size:16px;cursor:pointer;transition:all .15s}
+.cl-accion:hover{color:var(--color-accent-2-600);background:#fff;border-color:rgb(0 112 152 / .25)}
+.cl-accion-borrar:hover{color:var(--cl-cancelled);border-color:rgb(220 38 38 / .3)}
+
+.cl-vacia td{padding:48px 12px !important;border:0 !important}
+.cl-vacia-box{display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--color-neutral-600);font-size:12px}
+.cl-vacia-box i{font-size:26px;color:var(--color-accent-2-400)}
+.cl-vacia-box strong{font-size:14px;color:var(--color-text)}
+
+/* ═══ Paginación ═══════════════════════════════════════════════════════════ */
+.cl-pagina #paginationControls{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);padding:10px var(--space-4);
+  border-top:1px solid rgb(0 112 152 / .1);background:transparent;border-radius:0}
+.cl-pagina #pageInfo{margin-right:auto;font-size:11px;color:var(--color-neutral-600);font-variant-numeric:tabular-nums}
+.cl-filas{height:34px}
+.cl-filas{flex:none}
+.cl-filas .sel{flex:none;width:84px}
+.cl-filas .sel-btn{height:32px}
+.cl-pag-btns{display:flex;align-items:center;gap:4px}
+.cl-pag-num{display:inline-grid;place-items:center;min-width:34px;height:34px;padding:0 8px;font-family:var(--font-num);font-size:12px;font-weight:700;
+  color:#fff;background:var(--color-accent-2-500)}
+.cl-pagina #pageFirst,.cl-pagina #pageLast{width:34px;height:34px;font-size:15px}
+.cl-pagina #pagePrev,.cl-pagina #pageNext{width:34px;height:34px;font-size:16px}
+
+/* Aviso «Activa las notificaciones» (lo crea costumer-main.js con estilos en línea): paleta del sistema. */
+.cl-pagina #notif-banner{background:rgb(255 255 255 / .94) !important;color:var(--color-text) !important;border-radius:0 !important;
+  border:1px solid rgb(0 112 152 / .18) !important;box-shadow:0 12px 32px rgb(0 112 152 / .18) !important;font-family:var(--font-body)}
+.cl-pagina #notif-allow-btn{background:var(--color-accent-2-500) !important;border-radius:0 !important}
+.cl-pagina #notif-dismiss-btn{color:var(--color-neutral-600) !important}
+
+/* Colores de status (semánticos; los mismos en chips, franja, listas e insignias) */
+:root{--cl-pending:#eab308;--cl-active:#16a34a;--cl-cancelled:#dc2626;--cl-hold:#8f9ca6;--cl-oficina:#14212a}
+
+@media (prefers-reduced-motion:reduce){ .cl-reg,.cl-chip,.cl-btn,.cl-accion{transition:none} }

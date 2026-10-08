@@ -1,10 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Clientes y ventas · Residencial</title>
-  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+  <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate"/>
+  <meta http-equiv="Pragma" content="no-cache"/>
+  <meta http-equiv="Expires" content="0"/>
+  <title>CRM · Clientes</title>
   <!-- Guard: redirigir usuarios de Líneas a su sección -->
   <script>
     (function guardLineas(){
@@ -23,37 +24,19 @@
       }catch(e){}
     })();
   </script>
-  <!-- Sesión: la cabecera (menú e iconos) la reutiliza; sin sesión, al login. -->
-  <script>
-    window.__sesion = fetch('/api/auth/verify-server', { credentials: 'include' })
-      .then(function (r) { return r.ok ? r.json() : { authenticated: false }; })
-      .then(function (d) { if (!d.authenticated) { location.replace('/login.html'); } return d; })
-      .catch(function () { location.replace('/login.html'); return {}; });
-  </script>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" type="image/png" href="/images/favicon.png">
 
-  <!-- Hojas antiguas: SÓLO para las ventanas (editar cliente, status masivo, cuadratura),
-       que todavía no se han rediseñado. La página y la tabla usan las hojas nuevas de abajo. -->
   <link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
-  <link rel="stylesheet" href="/css/base/theme.css">
+  <link rel="stylesheet" href="/css/base/theme.css"/>
   <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
-  <link rel="stylesheet" href="/css/residencial/costumer.css">
-  <link rel="stylesheet" href="/css/base/form-controls.css?v=20260921">
-  <link rel="stylesheet" href="/css/residencial/costumer-2.css">
-  <link rel="stylesheet" href="/css/residencial/costumer-v2.css?v=20260927e">
-  <link rel="stylesheet" href="/css/residencial/costumer-edit-glass.css?v=20260927c">
-
-  <!-- Sistema de diseño (paleta del logo, vidrio, esquinas rectas) y la página. -->
-  <link rel="stylesheet" href="/css/base/scroll.css?v=20261008a">
+  <link rel="stylesheet" href="/css/componentes/costumer-table-clean.css?v=20251124">
+  <link rel="stylesheet" href="/css/componentes/costumer-table-actions.css">
+  <link rel="stylesheet" href="/css/componentes/costumer-table-comments.css">
+  <link rel="stylesheet" href="/css/componentes/costumer-calendar.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008e">
-  <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
-  <link rel="stylesheet" href="/css/componentes/selector.css?v=20261008a">
-  <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
-  <link rel="stylesheet" href="/css/residencial/clientes.css?v=20261008p">
-  <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
-  <script src="/js/layout/transicion.js?v=20261008b"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
   <script src="/js/core/fetch-interceptor.js" defer></script>
   <script src="/js/core/logout-handler.js" defer></script>
@@ -62,122 +45,198 @@
   <script src="/utils/catalogos.js?v=20260702" defer></script>
   <script src="/js/core/realtime.js" defer></script>
   <script src="/utils/teams.js?v=20251124f" defer></script>
+
+  <link rel="stylesheet" href="/css/residencial/costumer.css">
+  <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
+  <link rel="stylesheet" href="/css/base/form-controls.css?v=20260921">
 </head>
-<body class="cl-pagina">
-<div class="in-marco">
-<div class="in-hoja">
+<body>
+  <script src="/js/core/theme-init.js"></script>
+  <script src="/js/layout/sidebar.js" defer></script>
+  <script src="/js/layout/sidebar-ui.js" defer></script>
+  <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
+  <script src="/js/layout/sidebar-user.js" defer></script>
+<div class="layout">
 
-  <header class="in-head">
-    <nav id="topnav" class="tn" aria-label="Menú principal"></nav>
-    <!-- Ajustes, chat, notificaciones y usuario: js/layout/topbar-acciones.js -->
-    <div id="topbar-acciones" class="in-iconos"></div>
-  </header>
+  <nav class="sidebar" id="app-sidebar"></nav>
 
-  <!-- ══ Título e indicadores del mes (los cuenta costumer-main.js → updateKPIs) ══ -->
-  <section class="cl-hero in-glass" aria-label="Resumen de ventas del mes">
-    <div class="cl-kpis">
-      <div class="cl-kpi"><span class="cl-kpi-ico" aria-hidden="true"><i class="ph ph-calendar-check"></i></span><output id="costumer-ventas-hoy" class="cl-kpi-num">0</output><span class="cl-kpi-lbl">Hoy</span></div>
-      <div class="cl-kpi"><span class="cl-kpi-ico" aria-hidden="true"><i class="ph ph-calendar-blank"></i></span><output id="costumer-ventas-mes" class="cl-kpi-num">0</output><span class="cl-kpi-lbl">Mes</span></div>
-      <div class="cl-kpi"><span class="cl-kpi-ico" aria-hidden="true"><i class="ph ph-check-circle"></i></span><output id="costumer-ventas-activas" class="cl-kpi-num">0</output><span class="cl-kpi-lbl">Activas</span></div>
-      <div class="cl-kpi"><span class="cl-kpi-ico" aria-hidden="true"><i class="ph ph-hourglass"></i></span><output id="costumer-pendientes" class="cl-kpi-num">0</output><span class="cl-kpi-lbl">Pendientes</span></div>
-      <div class="cl-kpi"><span class="cl-kpi-ico" aria-hidden="true"><i class="ph ph-x-circle"></i></span><output id="costumer-cancelados" class="cl-kpi-num">0</output><span class="cl-kpi-lbl">Canceladas</span></div>
-      <div class="cl-kpi"><span class="cl-kpi-ico" aria-hidden="true"><i class="ph ph-buildings"></i></span><output id="costumer-oficina" class="cl-kpi-num">0</output><span class="cl-kpi-lbl">Oficina</span></div>
-      <div class="cl-kpi"><span class="cl-kpi-ico" aria-hidden="true"><i class="ph ph-bookmark-simple"></i></span><output id="costumer-reserva" class="cl-kpi-num">0</output><span class="cl-kpi-lbl">Reserva</span></div>
-      <div class="cl-kpi" title="Ventas colchón del mes (instaladas este mes, vendidas el anterior)"><span class="cl-kpi-ico" aria-hidden="true"><i class="ph ph-bed"></i></span><output id="costumer-colchon" class="cl-kpi-num">0</output><span class="cl-kpi-lbl">Colchón</span></div>
-    </div>
-  </section>
-
-  <!-- ══ Búsqueda, filtros y status ══ -->
-  <section class="cl-filtros in-glass" aria-label="Filtros">
-    <div class="cl-fila-filtros">
-      <label class="cl-buscar">
-        <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
-        <input id="costumer-search" type="search" class="costumer-filter-input" placeholder="Buscar cliente, teléfono, ZIP o cuenta…" aria-label="Buscar clientes" autocomplete="off">
-      </label>
-      <label class="cl-filtro"><span>Servicio</span>
-        <select id="serviceFilter" class="costumer-filter-input" aria-label="Filtrar por servicio"><option value="">Todos</option></select></label>
-      <label class="cl-filtro" id="token-team"><span>Team</span>
-        <select id="teamFilter" class="costumer-filter-input" aria-label="Filtrar por team">
-          <option value="" selected>Todos</option>
-          <option value="Oficina">Oficina</option>
-        </select></label>
-      <label class="cl-filtro"><span>Agente</span>
-        <select id="agentFilter" class="costumer-filter-input" aria-label="Filtrar por agente"><option value="">Todos</option></select></label>
-      <label class="cl-filtro"><span>Mercado</span>
-        <select id="mercadoFilter" class="costumer-filter-input" aria-label="Filtrar por mercado">
-          <option value="">Todos</option>
-          <option value="ICON">ICON</option>
-          <option value="BAMO">BAMO</option>
-        </select></label>
-      <label class="cl-filtro"><span>Mes</span>
-        <select id="monthFilter" class="costumer-filter-input" aria-label="Filtrar por mes"><option value="" selected>Todos</option></select></label>
-    </div>
-    <div class="cl-fila-estado">
-      <div class="cl-chips" id="quickStatusChips" role="group" aria-label="Filtro por status">
-        <button type="button" class="stab cl-chip is-active" data-status="all">Todos</button>
-        <button type="button" class="stab cl-chip" data-status="pending"><i class="cl-punto cl-p-pending"></i>Pending</button>
-        <button type="button" class="stab cl-chip" data-status="completed"><i class="cl-punto cl-p-active"></i>Active</button>
-        <button type="button" class="stab cl-chip" data-status="colchon"><i class="cl-punto cl-p-colchon"></i>Colchón</button>
-        <button type="button" class="stab cl-chip" data-status="oficina"><i class="cl-punto cl-p-oficina"></i>Oficina</button>
-        <button type="button" class="stab cl-chip" data-status="reserva"><i class="cl-punto cl-p-reserva"></i>Reserva</button>
-        <button type="button" class="stab cl-chip" data-status="cancelled"><i class="cl-punto cl-p-cancelled"></i>Cancelled</button>
-        <button type="button" class="stab cl-chip" data-status="hold"><i class="cl-punto cl-p-hold"></i>Hold</button>
+  <main class="main-content">
+    <div class="command-zone costumer-table-header">
+      <div class="cmd-top">
+        <div class="cmd-live-stats" aria-label="Estadísticas en vivo">
+          <div class="cls-item">
+            <span class="cls-dot" style="background:var(--a)"></span>
+            <span class="cls-val" id="costumer-ventas-hoy">0</span>
+            <span class="cls-lbl">hoy</span>
+          </div>
+          <div class="cls-item">
+            <span class="cls-dot" style="background:var(--info)"></span>
+            <span class="cls-val" id="costumer-ventas-mes">0</span>
+            <span class="cls-lbl">mes</span>
+          </div>
+          <div class="cls-item activas">
+            <span class="cls-dot"></span>
+            <span class="cls-val" id="costumer-ventas-activas">0</span>
+            <span class="cls-lbl">activas</span>
+          </div>
+          <div class="cls-item">
+            <span class="cls-dot" style="background:var(--warn)"></span>
+            <span class="cls-val" id="costumer-pendientes">0</span>
+            <span class="cls-lbl">pend.</span>
+          </div>
+          <div class="cls-item">
+            <span class="cls-dot" style="background:var(--stop)"></span>
+            <span class="cls-val" id="costumer-cancelados">0</span>
+            <span class="cls-lbl">cancel.</span>
+          </div>
+          <div class="cls-item">
+            <span class="cls-dot" style="background:var(--ink-3)"></span>
+            <span class="cls-val" id="costumer-oficina">0</span>
+            <span class="cls-lbl">oficina</span>
+          </div>
+          <div class="cls-item">
+            <span class="cls-dot" style="background:var(--info)"></span>
+            <span class="cls-val" id="costumer-reserva">0</span>
+            <span class="cls-lbl">reserva</span>
+          </div>
+          <div class="cls-item cls-item--colchon" title="Ventas colchón del mes (instaladas este mes, vendidas el anterior)">
+            <span class="cls-dot" id="cls-dot-colchon" style="background:var(--ink-4)"></span>
+            <span class="cls-val" id="costumer-colchon">0</span>
+            <span class="cls-lbl">colchón</span>
+          </div>
+        </div>
       </div>
-      <div class="cl-resumen">
-        <output id="recuentoCount" class="cl-recuento" aria-live="polite" aria-label="Total de registros">0</output>
-        <output id="puntajeTotalCount" class="cl-puntos" aria-live="polite" title="Puntaje total de los clientes filtrados">0 pts</output>
-        <button id="toggle-forceall" type="button" class="cl-btn-sec" style="display:none">Ver todos</button>
-        <button id="refresh-table" type="button" class="cl-btn"><i class="ph ph-arrows-clockwise" aria-hidden="true"></i><span>Actualizar</span></button>
+
+      <div class="cmd-bar-row" role="toolbar" aria-label="Filtros">
+        <div class="input__container">
+          <div class="shadow__input"></div>
+          <button class="input__button__shadow" type="button" aria-label="Buscar">
+            <svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" height="20px" width="20px">
+              <path d="M4 9a5 5 0 1110 0A5 5 0 014 9zm5-7a7 7 0 104.2 12.6.999.999 0 00.093.107l3 3a1 1 0 001.414-1.414l-3-3a.999.999 0 00-.107-.093A7 7 0 009 2z" fill-rule="evenodd" fill="#17202A"></path>
+            </svg>
+          </button>
+          <input id="costumer-search" type="search" name="text" class="input__search costumer-filter-input"
+                 placeholder="Buscar cliente, tel., ZIP, cuenta…" aria-label="Buscar clientes"/>
+        </div>
+
+        <div class="cmd-tokens">
+          <div class="token" id="token-service">
+            <span class="token-label">Servicio</span>
+            <span class="token-val" id="tv-service">Todos</span>
+            <span class="token-chevron" aria-hidden="true">▾</span>
+            <select id="serviceFilter" class="costumer-filter-input" aria-label="Filtrar por servicio"><option value="">Todos</option></select>
+          </div>
+
+          <div class="token" id="token-team">
+            <span class="token-label">Team</span>
+            <span class="token-val" id="tv-team">Todos</span>
+            <span class="token-chevron" aria-hidden="true">▾</span>
+            <select id="teamFilter" class="costumer-filter-input" aria-label="Filtrar por equipo">
+              <option value="" selected>Todos</option>
+              <option value="Oficina">Oficina</option>
+            </select>
+          </div>
+
+          <div class="token" id="token-agent">
+            <span class="token-label">Agente</span>
+            <span class="token-val" id="tv-agent">Todos</span>
+            <span class="token-chevron" aria-hidden="true">▾</span>
+            <select id="agentFilter" class="costumer-filter-input" aria-label="Filtrar por agente">
+              <option value="">Todos</option>
+            </select>
+          </div>
+
+          <div class="token" id="token-mercado">
+            <span class="token-label">Mercado</span>
+            <span class="token-val" id="tv-mercado">Todos</span>
+            <span class="token-chevron" aria-hidden="true">▾</span>
+            <select id="mercadoFilter" class="costumer-filter-input" aria-label="Filtrar por mercado">
+              <option value="">Todos</option>
+              <option value="ICON">ICON</option>
+              <option value="BAMO">BAMO</option>
+            </select>
+          </div>
+
+          <div class="token" id="token-month">
+            <span class="token-label">Mes</span>
+            <span class="token-val" id="tv-month">Todos</span>
+            <span class="token-chevron" aria-hidden="true">▾</span>
+            <select id="monthFilter" class="costumer-filter-input" aria-label="Filtrar por mes">
+              <option value="" selected>Todos</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="cmd-status-tabs" id="quickStatusChips" role="group" aria-label="Filtro por estado">
+          <button type="button" class="stab all is-active" data-status="all">Todos</button>
+          <button type="button" class="stab pending"       data-status="pending">Pending</button>
+          <button type="button" class="stab active"        data-status="completed">Active</button>
+          <button type="button" class="stab colchon"       data-status="colchon">Colchón</button>
+          <button type="button" class="stab oficina"       data-status="oficina">Oficina</button>
+          <button type="button" class="stab reserva"       data-status="reserva">Reserva</button>
+          <button type="button" class="stab cancelled"     data-status="cancelled">Cancelled</button>
+          <button type="button" class="stab hold"          data-status="hold">Hold</button>
+        </div>
+
+        <div class="cmd-bar-right">
+          <output id="recuentoCount" aria-live="polite" aria-label="Total de registros">0</output>
+          <output id="puntajeTotalCount" aria-live="polite" aria-label="Puntaje total filtrado" title="Puntaje total de leads filtrados">0 pts</output>
+          <button id="scroll-left"  class="btn" style="height:26px;padding:0 8px;font-size:.8rem" aria-label="Desplazar tabla a la izquierda">«</button>
+          <button id="scroll-right" class="btn" style="height:26px;padding:0 8px;font-size:.8rem" aria-label="Desplazar tabla a la derecha">»</button>
+          <button id="toggle-forceall" class="btn" style="display:none;height:26px;padding:0 10px;font-size:.7rem">👥 Ver todos</button>
+          <div class="cmd-actions">
+            <button class="btn" id="enable-notifications-btn" title="Activar notificaciones" aria-label="Notificaciones">🔔</button>
+            <button class="btn btn-accent" id="refresh-table">↻ Refrescar</button>
+          </div>
+        </div>
       </div>
     </div>
-  </section>
 
-  <!-- ══ Tabla (las filas las pinta costumer-main.js → renderTableRows) ══ -->
-  <section class="cl-tabla in-glass" aria-label="Tabla de clientes">
-    <div class="tscroll cl-scroll">
-      <table class="cl-table" aria-label="Lista de clientes">
-        <thead>
-          <tr>
-            <th scope="col" data-orden="cliente" tabindex="0" aria-sort="none">Cliente / Agente <i class="ph ph-caret-up-down" aria-hidden="true"></i></th>
-            <th scope="col" data-orden="contacto" tabindex="0" aria-sort="none">Contacto / Dirección <i class="ph ph-caret-up-down" aria-hidden="true"></i></th>
-            <th scope="col" data-orden="servicio" tabindex="0" aria-sort="none">Servicio / Sistema <i class="ph ph-caret-up-down" aria-hidden="true"></i></th>
-            <th scope="col" data-orden="logistica" tabindex="0" aria-sort="none">Logística <i class="ph ph-caret-up-down" aria-hidden="true"></i></th>
-            <th scope="col" data-orden="estatus" tabindex="0" aria-sort="none">Estatus <i class="ph ph-caret-up-down" aria-hidden="true"></i></th>
-            <th scope="col" data-orden="comision" tabindex="0" aria-sort="none">Comisión <i class="ph ph-caret-up-down" aria-hidden="true"></i></th>
-            <th scope="col" data-orden="riesgo" tabindex="0" aria-sort="none" title="Riesgo del cliente (lo fijan administración y backoffice); pone el color de salida del semáforo de clientes">Riesgo CX <i class="ph ph-caret-up-down" aria-hidden="true"></i></th>
-            <th scope="col" data-orden="puntos" tabindex="0" aria-sort="none">Puntos / Supervisor <i class="ph ph-caret-up-down" aria-hidden="true"></i></th>
-            <th scope="col" class="cl-th-acc">Acción</th>
-          </tr>
-        </thead>
-        <tbody id="costumer-tbody"></tbody>
-      </table>
-    </div>
-    <!-- Barra espejo del scroll horizontal: la gestiona costumer-main.js; oculta en este diseño. -->
-    <div id="scrollbarMirror" class="scrollbar-mirror" aria-hidden="true" hidden><div id="scrollbarMirrorInner" style="width:1px;height:1px"></div></div>
+    <div class="table-panel tpanel costumer-table-container compact" role="region" aria-label="Tabla de clientes">
+      <div class="tscroll">
+        <table class="costumer-table" aria-label="Lista de clientes">
+          <thead>
+            <tr>
+              <th scope="col">Agente / Cliente</th>
+              <th scope="col">Contacto / Dirección</th>
+              <th scope="col">Servicio &amp; Sistema</th>
+              <th scope="col">Logística</th>
+              <th scope="col">Estatus</th>
+              <th scope="col">Status Comisión</th>
+              <th scope="col" title="Riesgo del cliente (lo fijan administración y backoffice); pone el color de salida del semáforo de clientes">Riesgo CX</th>
+              <th scope="col">Métricas / Sup</th>
+              <th scope="col">Acción</th>
+            </tr>
+          </thead>
+          <tbody id="costumer-tbody"></tbody>
+        </table>
+      </div>
 
-    <div id="paginationControls" class="cl-pag" role="navigation" aria-label="Paginación">
-      <div id="pageInfo" class="cl-pag-info" aria-live="polite">Página 1</div>
-      <button id="toggleMonthsBtn" class="cl-btn-sec" type="button">Solo 2 meses</button>
-      <label class="cl-filtro cl-filas"><span>Filas</span>
-        <select id="pageSizeSelect" aria-label="Filas por página">
-          <option value="50">50</option>
-          <option value="100" selected>100</option>
-          <option value="200">200</option>
-          <option value="500">500</option>
-          <option value="1000">1000</option>
-          <option value="99999">Todos</option>
-        </select></label>
-      <div class="cl-pag-btns">
-        <button id="pageFirst" class="cl-btn-icono" type="button" aria-label="Primera página"><i class="ph ph-caret-double-left" aria-hidden="true"></i></button>
-        <button id="pagePrev" class="cl-btn-icono" type="button" aria-label="Página anterior"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
-        <span id="pageNum" class="cl-pag-num" aria-label="Página actual">1</span>
-        <button id="pageNext" class="cl-btn-icono" type="button" aria-label="Página siguiente"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
-        <button id="pageLast" class="cl-btn-icono" type="button" aria-label="Última página"><i class="ph ph-caret-double-right" aria-hidden="true"></i></button>
+      <div id="scrollbarMirror" class="scrollbar-mirror" aria-hidden="true">
+        <div id="scrollbarMirrorInner" style="width:1px;height:1px"></div>
+      </div>
+
+      <div id="paginationControls" class="pag" role="navigation" aria-label="Paginación">
+        <div style="display:flex;align-items:center;gap:7px">
+          <label for="pageSizeSelect" style="font-size:.68rem;color:var(--ink-4);font-weight:500">Filas</label>
+          <select id="pageSizeSelect" class="btn fsel" style="cursor:pointer;padding:4px 8px;min-width:58px">
+            <option value="50">50</option>
+            <option value="100" selected>100</option>
+            <option value="200">200</option>
+            <option value="500">500</option>
+            <option value="1000">1000</option>
+            <option value="99999">Todos</option>
+          </select>
+        </div>
+        <button id="toggleMonthsBtn" class="btn" type="button">Solo 2 meses</button>
+        <div id="pageInfo" aria-live="polite">Página 1</div>
+        <div style="display:flex;gap:5px">
+          <button id="pagePrev" class="btn" type="button" aria-label="Página anterior">‹</button>
+          <button id="pageNext" class="btn" type="button" aria-label="Página siguiente">›</button>
+        </div>
       </div>
     </div>
-  </section>
-
-</div>
+  </main>
 </div>
 
 <!-- MODALES -->
@@ -577,19 +636,123 @@
   </div>
 </div>
 
+
+<link rel="stylesheet" href="/css/residencial/costumer-2.css">
+<!-- Rediseño visual de la lista de clientes (se carga al final para prevalecer) -->
+<link rel="stylesheet" href="/css/residencial/costumer-v2.css?v=20260927e">
+<!-- Modal "Editar cliente" con estilo glassmorphism -->
+<link rel="stylesheet" href="/css/residencial/costumer-edit-glass.css?v=20260927c">
+
+
 <script src="/socket.io/socket.io.js" onerror="void 0" defer></script>
-<script src="/js/layout/topnav.js?v=20261008c" defer></script>
-<script src="/js/layout/topbar-acciones.js?v=20261008b" defer></script>
-<script src="/js/componentes/llamadas-bloqueo.js" defer></script>
-<script src="/js/componentes/selector.js?v=20261008a" defer></script>
+
+<!-- Panel dropdown personalizado para los filtros token -->
+<div id="cdrop"></div>
+
+<!-- Zona de imagen en fila expandida -->
+
 <!-- CRM CORE SCRIPT -->
-<script src="/js/residencial/costumer-main.js?v=20261008e" defer></script>
+<script src="/js/residencial/costumer-main.js?v=20261005a" defer></script>
+
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    // Listas desplegables con estilo propio en los filtros y la paginación. Las de la
-    // tabla son nativas con estilo (hay cientos y se repintan con cada filtro).
-    if (window.Selector) { Selector.auto(document.querySelector('.cl-filtros')); Selector.auto(document.querySelector('.cl-pag')); }
+(function(){
+  'use strict';
+  var panel = null;
+  var activeToken = null;
+  var activeSel   = null;
+
+  // IDs de select que deben agruparse por letra (nombres de personas)
+  var ALPHA_SELECTS = ['agentFilter','teamFilter'];
+
+  function closeDrop(){
+    if(panel){ panel.classList.remove('open'); panel.innerHTML=''; }
+    if(activeToken) activeToken.classList.remove('drop-open');
+    activeToken=null; activeSel=null;
+  }
+
+  function addItem(opt, curVal){
+    var item=document.createElement('div');
+    item.className='cdrop-item'+(opt.value===curVal?' cdrop-sel':'');
+    var chk=document.createElement('span');
+    chk.className='cdrop-check';
+    chk.textContent=opt.value===curVal?'✓':'';
+    var lbl=document.createElement('span');
+    lbl.textContent=opt.text||'Todos';
+    item.appendChild(chk); item.appendChild(lbl);
+    item.addEventListener('mousedown',function(e){
+      e.preventDefault();
+      activeSel.value=opt.value;
+      activeSel.dispatchEvent(new Event('change',{bubbles:true}));
+      closeDrop();
+    });
+    return item;
+  }
+
+  function openDrop(token){
+    if(!panel) return;
+    var sel=token.querySelector('select');
+    if(!sel) return;
+    if(activeToken===token){ closeDrop(); return; }
+    closeDrop();
+    activeToken=token; activeSel=sel;
+    activeToken.classList.add('drop-open');
+
+    var curVal=sel.value;
+    var useAlpha=ALPHA_SELECTS.indexOf(sel.id)!==-1;
+    var opts=Array.from(sel.options);
+    panel.innerHTML='';
+
+    if(useAlpha){
+      // "Todos" siempre primero, sin letra
+      var todosOpt=opts.find(function(o){return o.value==='';});
+      if(todosOpt) panel.appendChild(addItem(todosOpt,curVal));
+
+      // Resto agrupado por primera letra
+      var named=opts.filter(function(o){return o.value!=='';});
+      var lastLetter='';
+      named.forEach(function(opt){
+        var letter=(opt.text||'').charAt(0).toUpperCase();
+        if(letter!==lastLetter){
+          lastLetter=letter;
+          var div=document.createElement('div');
+          div.className='cdrop-letter';
+          div.textContent=letter;
+          panel.appendChild(div);
+        }
+        panel.appendChild(addItem(opt,curVal));
+      });
+    } else {
+      opts.forEach(function(opt){ panel.appendChild(addItem(opt,curVal)); });
+    }
+
+    var rect=token.getBoundingClientRect();
+    var left=rect.left;
+    var top=rect.bottom+4;
+    var panW=Math.max(rect.width, 180);
+    if(left+panW>window.innerWidth-8) left=window.innerWidth-panW-8;
+    panel.style.left=left+'px';
+    panel.style.top=top+'px';
+    panel.style.minWidth=panW+'px';
+    panel.classList.add('open');
+  }
+
+  document.addEventListener('DOMContentLoaded',function(){
+    panel=document.getElementById('cdrop');
+    document.querySelectorAll('.token').forEach(function(token){
+      token.addEventListener('click',function(e){
+        openDrop(token);
+      });
+    });
+    document.addEventListener('mousedown',function(e){
+      if(panel&&panel.contains(e.target)) return;
+      if(e.target.closest&&e.target.closest('.token')) return;
+      closeDrop();
+    });
+    document.addEventListener('keydown',function(e){
+      if(e.key==='Escape') closeDrop();
+    });
   });
+})();
 </script>
 
 <!-- Modal edición cliente -->

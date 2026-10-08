@@ -1,0 +1,235 @@
+/* Sistema de diseño del CRM rediseñado — lo común a todas las páginas nuevas
+   (inicio, formulario de registro, lista de clientes…): tokens, base, vidrio, cabecera
+   con menú e iconos, tarjeta de indicador y listas con scroll interno.
+   Cada página añade su propia hoja (css/paginas/inicio.css, css/residencial/…).
+   Paleta del logo: #30a0c8 (C exterior) y #007098 (C interior). Esquinas rectas. */
+
+:root {
+  /* Paleta del logo oficial (las dos C): --color-accent = C exterior #30a0c8,
+     --color-accent-2 = C interior #007098 (los mismos que css/paginas/login.css).
+     Sus escalas 100-900 y los grises fríos salen de esos dos azules. */
+  --color-bg: #f7f9fa;
+  --color-surface: #e8eef1;
+  --color-text: #14212a;
+  --color-accent: #30a0c8;
+  --color-accent-2: #007098;
+  --color-divider: color-mix(in srgb, #14212a 16%, transparent);
+
+  /* Tonal ramps — generated in OKLCH on one shared lightness scale, so the
+     same step of any role matches the others in visual value. */
+  --color-neutral-100: #f8fafb;
+  --color-neutral-200: #e9eef1;
+  --color-neutral-300: #d5dde2;
+  --color-neutral-400: #b6c1c8;
+  --color-neutral-500: #8f9ca6;
+  --color-neutral-600: #62707a;
+  --color-neutral-700: #53616b;
+  --color-neutral-800: #3a464e;
+  --color-neutral-900: #242e35;
+
+  --color-accent-100: #eaf6fb;
+  --color-accent-200: #cfeaf5;
+  --color-accent-300: #a3d7ec;
+  --color-accent-400: #6cbfe0;
+  --color-accent-500: #30a0c8;
+  --color-accent-600: #1f88ad;
+  --color-accent-700: #176e8d;
+  --color-accent-800: #12566e;
+  --color-accent-900: #0d3e50;
+
+  --color-accent-2-100: #e6f1f6;
+  --color-accent-2-200: #c4dfea;
+  --color-accent-2-300: #8fc2d7;
+  --color-accent-2-400: #4f9dbd;
+  --color-accent-2-500: #007098;
+  --color-accent-2-600: #005f82;
+  --color-accent-2-700: #004e6b;
+  --color-accent-2-800: #003e55;
+  --color-accent-2-900: #002e40;
+
+  /* The third process ink — review round 3: the deck's print treatments
+     (the CMYK separation and the misregistered plate numerals below) need
+     the full four-color set. Cyan and magenta are the system's own accents;
+     this yellow completes them, muted to the same press-ink register. A
+     print treatment color, not an interface accent — body copy and chrome
+     never take it. */
+  --color-process-yellow: #30a0c8;
+
+  --font-heading: "Source Serif 4", system-ui, sans-serif;
+  --font-heading-weight: 600;
+  --font-body: "Source Serif 4", system-ui, sans-serif;
+
+  --space-1: 5.0px;
+  --space-2: 10.0px;
+  --space-3: 15.0px;
+  --space-4: 20.0px;
+  --space-6: 30.0px;
+  --space-8: 40.0px;
+
+  --radius-sm: 1px;
+  --radius-md: 2px;
+  --radius-lg: 4px;
+
+  /* Elevation — derived from the ground: soft ink-tinted shadows on a
+     light theme, a hairline edge + ambient darkness on a dark one. */
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
+  --shadow-md: 0 3px 10px color-mix(in srgb, #14212a 16%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent);
+}
+
+/* ═══ Semáforo (verde → amarillo → rojo → vencido) ═══ */
+:root{--color-sem-verde:#16a34a;--color-sem-amarillo:#eab308;--color-sem-rojo:#dc2626;--color-sem-negro:#111111}
+
+/* ═══ Base ═══ */
+*, *::before, *::after { box-sizing: border-box; }
+body{margin:0;color:var(--color-text);font-family:var(--font-body);font-size:15px;line-height:1.55;font-weight:400}
+h1, h2, h3, h4 { font-family: var(--font-heading); font-weight: var(--font-heading-weight); }
+a{color:var(--color-accent-700);text-underline-offset:3px}a:hover{color:var(--color-accent-600)}
+img { max-width: 100%; }
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--color-accent-2-500); outline-offset: 2px; }
+::selection { background: color-mix(in srgb, var(--color-accent) 30%, transparent); }
+
+/* — tags — */
+.tag {
+  display: inline-flex; align-items: center; font-size: 11px;
+  letter-spacing: 0.02em; padding: 3px 10px;
+  border-radius: calc(var(--radius-md) * 0.75);
+}
+.tag-accent { background: var(--color-accent-100); color: var(--color-accent-800); }
+.tag-accent-2 { background: var(--color-accent-2-100); color: var(--color-accent-2-800); }
+.tag-neutral { background: var(--color-neutral-100); color: var(--color-neutral-800); }
+.tag-outline { border: 1px solid var(--color-accent); color: var(--color-accent); }
+
+/* ═══ Marco de la página ═══ */
+.in-marco{padding:var(--space-6) clamp(12px,2vw,var(--space-6))}
+.in-hoja{--hoja-pad:var(--space-4);position:relative;border-radius:var(--radius-glass);padding:0 var(--hoja-pad) var(--hoja-pad);font-size:13px;
+  background:var(--glass-hoja);border:1px solid var(--glass-borde);box-shadow:var(--glass-sombra)}
+@media (max-width:760px){
+  .in-marco{padding:var(--space-2)}
+  .in-hoja{--hoja-pad:var(--space-2)}
+}
+
+/* Menú superior (js/layout/topnav.js): 6 botones con desplegable.
+   Cabecera de UNA fila: el menú repartido a lo largo y los iconos (ajustes, chat, avisos,
+   usuario) compactos a la derecha. Queda fija arriba al hacer scroll (sticky), sobre un
+   vidrio blanco para que el contenido pase por debajo. Sólo en pantallas estrechas el
+   menú baja a una segunda fila. */
+.in-head{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:var(--space-4);
+  margin:0 calc(var(--hoja-pad,var(--space-4)) * -1);padding:10px var(--hoja-pad,var(--space-4));
+  background:rgb(255 255 255 / .84);-webkit-backdrop-filter:blur(18px) saturate(150%);backdrop-filter:blur(18px) saturate(150%);
+  border-bottom:1px solid rgb(0 112 152 / .1)}
+.in-iconos{flex:none;margin-left:auto;display:flex;align-items:center;gap:2px}
+.tn{flex:1;min-width:0;display:flex;justify-content:space-between;align-items:center;gap:2px}
+.tn-grupo{position:relative}
+.tn-btn{display:flex;align-items:center;gap:5px;border:0;background:transparent;padding:7px 8px;border-radius:0;
+  font:inherit;font-size:13px;font-weight:600;color:var(--color-neutral-800);cursor:pointer;white-space:nowrap}
+.tn-btn i{font-size:11px;transition:transform .15s}
+.tn-btn:hover{background:rgb(0 112 152 / .07)}
+.tn-btn[aria-expanded="true"]{background:rgb(0 112 152 / .1)}
+.tn-btn[aria-expanded="true"] i{transform:rotate(180deg)}
+.tn-activo>.tn-btn{color:var(--color-accent-2-600);box-shadow:inset 0 -2px 0 var(--color-accent-2-500)}
+.tn-btn:focus-visible,.tn-item:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:2px}
+.tn-menu{position:absolute;top:calc(100% + 8px);left:0;z-index:50;min-width:220px;padding:6px;display:flex;flex-direction:column;
+  background:rgb(255 255 255 / .97);border:1px solid rgb(0 112 152 / .14);border-radius:0;box-shadow:0 12px 32px rgb(0 112 152 / .18)}
+.tn-menu[hidden]{display:none}
+.tn-item{padding:8px 10px;border-radius:0;color:var(--color-text);text-decoration:none;font-size:13px;white-space:nowrap}
+.tn-item:hover{background:rgb(0 112 152 / .07);color:var(--color-text)}
+.tn-item-activo{color:var(--color-accent-2-600);font-weight:600}
+@media (prefers-reduced-motion:reduce){.tn-btn i{transition:none}}
+@media (max-width:1320px){
+  .tn-btn{font-size:12px;padding:7px 5px;gap:4px}
+}
+@media (max-width:1100px){
+  .in-head{flex-wrap:wrap;row-gap:4px}
+  .tn{order:2;flex-basis:100%;flex-wrap:wrap;justify-content:flex-start}
+}
+@media (max-width:560px){
+  .tn-btn{font-size:11.5px;padding:5px 6px}
+  .tn-menu{min-width:190px}
+}
+
+/* ═══ Glassmorphism de los contenedores ══════════════════════════════════════
+   Paneles translúcidos con desenfoque sobre un fondo de manchas suaves con los dos azules
+   del logo (sin ese fondo el vidrio no se notaría). Sólo la paleta: blanco translúcido,
+   #30a0c8 y #007098. La hoja (.in-hoja) NO lleva backdrop-filter a propósito: un padre
+   con backdrop-filter corta el de sus hijos y las tarjetas dejarían de verse de vidrio. */
+:root{
+  --radius-glass:0;   /* esquinas rectas en todos los contenedores */
+  --glass-fondo:rgb(255 255 255 / .74);
+  --glass-hoja:rgb(255 255 255 / .45);
+  --glass-borde:rgb(255 255 255 / .85);
+  --glass-blur:blur(18px) saturate(150%);
+  --glass-sombra:0 8px 28px rgb(0 112 152 / .07), inset 0 1px 0 rgb(255 255 255 / .9);
+}
+body{background:
+  radial-gradient(42vw 42vw at 8% 12%, rgb(48 160 200 / .16), transparent 70%),
+  radial-gradient(38vw 38vw at 92% 8%, rgb(0 112 152 / .11), transparent 70%),
+  radial-gradient(46vw 46vw at 78% 78%, rgb(48 160 200 / .13), transparent 70%),
+  radial-gradient(36vw 36vw at 18% 92%, rgb(0 112 152 / .09), transparent 70%),
+  var(--color-bg);
+  background-attachment:fixed;min-height:100vh}
+.in-glass{
+  background:var(--glass-fondo);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-borde);border-radius:var(--radius-glass);
+  box-shadow:var(--glass-sombra);
+  /* Lo que dentro iba sobre gris sólido (chips, filas, cabecera de tabla, líneas) pasa a
+     ser un velo del azul profundo: sigue leyéndose como capa sin tapar el vidrio. */
+  --color-neutral-200:rgb(0 112 152 / .06);
+}
+/* Navegadores sin backdrop-filter: vidrio más opaco para que el texto se lea igual. */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .in-glass{--glass-fondo:rgb(255 255 255 / .86)}
+}
+@media (prefers-reduced-transparency:reduce){
+  .in-glass{--glass-fondo:rgb(255 255 255 / .94);-webkit-backdrop-filter:none;backdrop-filter:none}
+}
+
+/* ═══ Iconos de la cabecera con menú (js/layout/topbar-acciones.js) ═══════════════ */
+.tb-grupo{position:relative}
+.tb-btn{position:relative;display:flex;align-items:center;gap:4px;border:0;background:transparent;color:inherit;
+  cursor:pointer;padding:7px;font:inherit;text-decoration:none;font-size:19px;line-height:1}
+.tb-btn:hover,.tb-btn[aria-expanded="true"]{background:rgb(0 112 152 / .1)}
+.tb-btn:focus-visible,.tb-item:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:2px}
+.tb-avatar{width:28px;height:28px;border-radius:50%;background:var(--color-accent-2-200);color:var(--color-accent-2-800);
+  display:grid;place-items:center;font-weight:700;font-size:12px}
+.tb-caret{font-size:12px;transition:transform .15s}
+.tb-btn[aria-expanded="true"] .tb-caret{transform:rotate(180deg)}
+.tb-punto{position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:50%;background:var(--color-accent-2-500);
+  box-shadow:0 0 0 2px var(--color-neutral-100)}
+.tb-punto[hidden]{display:none}
+.tb-menu{position:absolute;top:calc(100% + 8px);right:0;z-index:60;min-width:230px;padding:6px;display:flex;flex-direction:column;
+  background:rgb(255 255 255 / .82);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-borde);box-shadow:0 12px 32px rgb(0 112 152 / .18);font-size:13px}
+.tb-menu[hidden]{display:none}
+.tb-panel{width:320px;max-width:calc(100vw - 24px)}
+.tb-titulo{padding:6px 10px 8px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-neutral-600)}
+.tb-quien{padding:6px 10px 10px;margin-bottom:4px;border-bottom:1px solid rgb(0 112 152 / .12);display:flex;flex-direction:column;gap:2px}
+.tb-quien span{font-size:11px;color:var(--color-neutral-600)}
+.tb-item{display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;border:0;background:transparent;font:inherit;
+  color:var(--color-text);text-decoration:none;text-align:left;cursor:pointer;white-space:nowrap}
+.tb-item i{font-size:16px;color:var(--color-accent-2-500)}
+.tb-item:hover{background:rgb(0 112 152 / .08);color:var(--color-text)}
+.tb-peligro,.tb-peligro i{color:var(--color-sem-rojo)}
+.tb-avisos{max-height:360px;overflow-y:auto;display:flex;flex-direction:column}
+.tb-aviso{display:flex;gap:8px;padding:8px 10px;font-size:12px;line-height:1.4;border-top:1px solid rgb(0 112 152 / .08)}
+.tb-aviso:first-child{border-top:0}
+.tb-aviso>i{font-size:16px;color:var(--color-accent-2-500);margin-top:1px}
+.tb-meta{font-size:10px;color:var(--color-neutral-600);margin-top:2px}
+.tb-vacio{display:flex;align-items:center;gap:6px;padding:10px;font-size:12px;font-style:italic;color:var(--color-neutral-600)}
+@media (prefers-reduced-motion:reduce){.tb-caret{transition:none}}
+
+/* Listas dentro de una tarjeta (agenda, casos, semáforo): la tarjeta NO crece con la lista.
+   contain:size hace que la lista no aporte altura a la fila de la cuadrícula; flex:1 le da el
+   hueco que dejan el resto de tarjetas de la fila, y lo que no cabe se desplaza dentro. */
+.in-lista-scroll{flex:1 1 0;min-height:180px;overflow-y:auto;contain:size;overscroll-behavior:contain}
+
+/* ═══ Tarjetas de indicador del saludo (ventas, puntos, mejor vendedor) ═══ */
+.in-kpi-card{padding:var(--space-3);display:flex;flex-direction:column;justify-content:space-between;gap:var(--space-4);min-width:0}
+.in-kpi-head{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-2);
+  font-size:10px;line-height:1.35;color:var(--color-neutral-600)}
+.in-kpi-ico{flex:none;width:28px;height:28px;display:grid;place-items:center;font-size:15px;
+  color:var(--color-accent-2-500);border:1px solid rgb(0 112 152 / .22)}
+.in-kpi-num{font-size:24px;font-weight:700;line-height:1.1;letter-spacing:-.01em;overflow-wrap:anywhere}
+.in-kpi-num-txt{font-size:16px}

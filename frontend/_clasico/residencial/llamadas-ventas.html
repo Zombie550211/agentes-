@@ -3,120 +3,137 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Llamadas y ventas · Residencial</title>
+  <title>Llamadas y Ventas — CRM</title>
   <link rel="icon" type="image/png" href="/images/favicon.png">
-  <!-- Sesión: la cabecera (menú e iconos) la reutiliza; sin sesión, al login. -->
-  <script>
-    window.__sesion = fetch('/api/auth/verify-server', { credentials: 'include' })
-      .then(function (r) { return r.ok ? r.json() : { authenticated: false }; })
-      .then(function (d) { if (!d.authenticated) { location.replace('/login.html'); } return d; })
-      .catch(function () { location.replace('/login.html'); return {}; });
-  </script>
-  <link rel="stylesheet" href="/css/base/scroll.css?v=20261008a">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
-  <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
-  <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
-  <link rel="stylesheet" href="/css/residencial/llamadas-ventas.css?v=20261008c">
-  <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
-  <script src="/js/layout/transicion.js?v=20261008b"></script>
+  <link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
   <script src="/js/core/fetch-interceptor.js" defer></script>
   <script src="/js/core/logout-handler.js" defer></script>
   <script src="/js/core/user-info.js" defer></script>
+  <link rel="stylesheet" href="/css/residencial/llamadas-ventas.css">
+  <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
+  <link rel="stylesheet" href="/css/base/form-controls.css?v=20260921">
 </head>
 <body>
-<div class="in-marco">
-<div class="in-hoja">
+  <script src="/js/core/theme-init.js"></script>
+  <script src="/js/layout/sidebar.js" defer></script>
+  <script src="/js/layout/sidebar-ui.js" defer></script>
+  <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
+  <script src="/js/layout/sidebar-user.js" defer></script>
+<div class="layout">
+  <nav class="sidebar" id="app-sidebar"></nav>
+  <main class="main-content">
 
-  <header class="in-head">
-    <nav id="topnav" class="tn" aria-label="Menú principal"></nav>
-    <!-- Ajustes, chat, notificaciones y usuario: js/layout/topbar-acciones.js -->
-    <div id="topbar-acciones" class="in-iconos"></div>
-  </header>
+    <div class="lv-header">
+      <div>
+        <div class="lv-eyebrow">Servicios Residenciales</div>
+        <div class="lv-title">Llamadas y Ventas</div>
+        <div class="lv-sub" id="lv-daylabel">—</div>
+      </div>
+      <div class="lv-filters">
+        <div class="lv-filter">
+          <label for="lv-month">Mes</label>
+          <input type="month" id="lv-month">
+        </div>
+        <div class="lv-filter">
+          <label for="lv-date">Día</label>
+          <input type="date" id="lv-date">
+        </div>
+      </div>
+    </div>
 
-  <!-- ══ Sección (Residencial / Líneas) y día ══ -->
-  <section class="lv-barra in-glass" aria-label="Sección y fecha">
-    <div class="lv-tabs" role="tablist" aria-label="Sección">
-      <button type="button" role="tab" class="lv-tab" id="lv-tab-resi" aria-selected="true" aria-controls="lv-sec-resi"><i class="ph ph-house-line" aria-hidden="true"></i>Residencial</button>
-      <button type="button" role="tab" class="lv-tab" id="lv-tab-lin" aria-selected="false" aria-controls="lv-sec-lin" tabindex="-1"><i class="ph ph-device-mobile" aria-hidden="true"></i>Líneas</button>
+    <!-- ══ SECCIÓN RESIDENCIAL ══ -->
+    <div class="lv-section-head"><span class="dot" style="background:#38bdf8"></span>Servicios Residenciales</div>
+    <div class="lv-resumen">
+      <div class="lv-resumen-title">Resumen de Rendimiento · Residencial</div>
+      <div class="lv-tiles">
+        <div class="lv-tile">
+          <div class="lv-tile-ic" style="background:#f1f5f9"><i class="fas fa-phone-volume" style="color:#475569"></i></div>
+          <div><div class="lv-tile-lbl">Llamadas Totales</div><div class="lv-tile-val" id="kpi-llamadas-tot">0</div></div>
+        </div>
+        <div class="lv-tile">
+          <div class="lv-tile-ic" style="background:#ecfdf5"><i class="fas fa-phone" style="color:#059669"></i></div>
+          <div><div class="lv-tile-lbl">Llamadas Atendidas</div><div class="lv-tile-val" id="kpi-atendidas">0</div></div>
+        </div>
+        <div class="lv-tile">
+          <div class="lv-tile-ic" style="background:#fef2f2"><i class="fas fa-triangle-exclamation" style="color:#dc2626"></i></div>
+          <div><div class="lv-tile-lbl">Llamadas Perdidas</div>
+            <input type="number" min="0" id="kpi-perdidas" value="0" title="Editable — se guarda al salir de la celda"/></div>
+        </div>
+        <div class="lv-tile accent">
+          <div class="lv-tile-ic" style="background:#dbeafe"><i class="fas fa-sack-dollar" style="color:#1d4ed8"></i></div>
+          <div><div class="lv-tile-lbl">Inversión</div>
+            <div style="display:flex;align-items:baseline;gap:2px;">
+              <span style="font-weight:800;color:#1d4ed8;">$</span>
+              <input type="number" min="0" step="0.01" id="kpi-inversion" value="0" title="Editable — se guarda al salir de la celda"/>
+            </div></div>
+        </div>
+        <div class="lv-tile">
+          <div class="lv-tile-ic" style="background:rgba(52,211,153,.12)"><i class="fas fa-chart-line" style="color:#059669"></i></div>
+          <div><div class="lv-tile-lbl">Ventas <span class="lv-adj" id="adj-ventas" title="Ajustado manualmente — borra el campo para volver al automático">✎ ajustado</span></div>
+            <input type="number" min="0" id="kpi-ventas" value="0" title="Automático desde el CRM — editable por admin; vacío = volver al automático"/></div>
+        </div>
+        <div class="lv-tile">
+          <div class="lv-tile-ic" style="background:#fefce8"><i class="fas fa-bullseye" style="color:#ca8a04"></i></div>
+          <div><div class="lv-tile-lbl">Puntos</div><div class="lv-tile-val" id="kpi-puntos">0.00</div></div>
+        </div>
+        <div class="lv-tile accent">
+          <div class="lv-tile-ic" style="background:#dbeafe"><i class="fas fa-calculator" style="color:#1d4ed8"></i></div>
+          <div><div class="lv-tile-lbl">Costo por Venta</div><div class="lv-tile-val" id="kpi-costo">$0.00</div></div>
+        </div>
+      </div>
     </div>
-    <div class="lv-filters">
-      <label class="lv-filter"><span>Mes</span><input type="month" id="lv-month"></label>
-      <label class="lv-filter"><span>Día</span><input type="date" id="lv-date"></label>
-    </div>
-  </section>
 
-  <!-- ══ Residencial ══ -->
-  <section class="lv-sec" id="lv-sec-resi" role="tabpanel" aria-labelledby="lv-tab-resi">
-    <div class="lv-tiles">
-      <div class="lv-tile in-glass"><span class="lv-ico"><i class="ph ph-phone-call"></i></span><div class="lv-tile-val" id="kpi-llamadas-tot">0</div><div class="lv-tile-lbl">Llamadas totales</div></div>
-      <div class="lv-tile in-glass"><span class="lv-ico"><i class="ph ph-phone"></i></span><div class="lv-tile-val" id="kpi-atendidas">0</div><div class="lv-tile-lbl">Llamadas atendidas</div></div>
-      <div class="lv-tile lv-edit in-glass"><span class="lv-ico lv-ico-rojo"><i class="ph ph-phone-x"></i></span>
-        <input type="number" min="0" id="kpi-perdidas" value="0" aria-label="Llamadas perdidas (editable)" title="Editable — se guarda al salir de la celda"/>
-        <div class="lv-tile-lbl">Llamadas perdidas <i class="ph ph-pencil-simple" aria-hidden="true"></i></div></div>
-      <div class="lv-tile lv-edit in-glass"><span class="lv-ico"><i class="ph ph-currency-dollar"></i></span>
-        <div class="lv-money"><span>$</span><input type="number" min="0" step="0.01" id="kpi-inversion" value="0" aria-label="Inversión (editable)" title="Editable — se guarda al salir de la celda"/></div>
-        <div class="lv-tile-lbl">Inversión <i class="ph ph-pencil-simple" aria-hidden="true"></i></div></div>
-      <div class="lv-tile lv-edit in-glass"><span class="lv-ico lv-ico-verde"><i class="ph ph-trend-up"></i></span>
-        <input type="number" min="0" id="kpi-ventas" value="0" aria-label="Ventas (automático, ajustable)" title="Automático desde el CRM — editable por admin; vacío = volver al automático"/>
-        <div class="lv-tile-lbl">Ventas <span class="lv-adj" id="adj-ventas" title="Ajustado manualmente — borra el campo para volver al automático">ajuste</span></div></div>
-      <div class="lv-tile in-glass"><span class="lv-ico"><i class="ph ph-target"></i></span><div class="lv-tile-val" id="kpi-puntos">0.00</div><div class="lv-tile-lbl">Puntos</div></div>
-      <div class="lv-tile lv-tile-dest in-glass"><span class="lv-ico"><i class="ph ph-calculator"></i></span><div class="lv-tile-val" id="kpi-costo">$0.00</div><div class="lv-tile-lbl">Costo por venta</div></div>
-    </div>
     <div id="lv-content-resi"><div class="lv-loading">Cargando…</div></div>
-  </section>
 
-  <!-- ══ Líneas ══ -->
-  <section class="lv-sec" id="lv-sec-lin" role="tabpanel" aria-labelledby="lv-tab-lin" hidden>
-    <div class="lv-tiles">
-      <div class="lv-tile in-glass"><span class="lv-ico"><i class="ph ph-phone-call"></i></span><div class="lv-tile-val" id="kpi-llamadas-tot-lin">0</div><div class="lv-tile-lbl">Llamadas totales</div></div>
-      <div class="lv-tile in-glass"><span class="lv-ico"><i class="ph ph-phone"></i></span><div class="lv-tile-val" id="kpi-atendidas-lin">0</div><div class="lv-tile-lbl">Llamadas atendidas</div></div>
-      <div class="lv-tile lv-edit in-glass"><span class="lv-ico lv-ico-rojo"><i class="ph ph-phone-x"></i></span>
-        <input type="number" min="0" id="kpi-perdidas-lin" value="0" aria-label="Llamadas perdidas de Líneas (editable)" title="Editable — se guarda al salir de la celda"/>
-        <div class="lv-tile-lbl">Llamadas perdidas <i class="ph ph-pencil-simple" aria-hidden="true"></i></div></div>
-      <div class="lv-tile lv-edit in-glass"><span class="lv-ico"><i class="ph ph-currency-dollar"></i></span>
-        <div class="lv-money"><span>$</span><input type="number" min="0" step="0.01" id="kpi-inversion-lin" value="0" aria-label="Inversión de Líneas (editable)" title="Editable — se guarda al salir de la celda"/></div>
-        <div class="lv-tile-lbl">Inversión <i class="ph ph-pencil-simple" aria-hidden="true"></i></div></div>
-      <div class="lv-tile lv-edit in-glass"><span class="lv-ico lv-ico-verde"><i class="ph ph-trend-up"></i></span>
-        <input type="number" min="0" id="kpi-ventas-lin" value="0" aria-label="Ventas de Líneas (automático, ajustable)" title="Automático desde el CRM — editable por admin; vacío = volver al automático"/>
-        <div class="lv-tile-lbl">Ventas <span class="lv-adj" id="adj-ventas-lin" title="Ajustado manualmente — borra el campo para volver al automático">ajuste</span></div></div>
-      <div class="lv-tile in-glass"><span class="lv-ico"><i class="ph ph-target"></i></span><div class="lv-tile-val" id="kpi-puntos-lin">0.00</div><div class="lv-tile-lbl">Puntos</div></div>
-      <div class="lv-tile lv-tile-dest in-glass"><span class="lv-ico"><i class="ph ph-calculator"></i></span><div class="lv-tile-val" id="kpi-costo-lin">$0.00</div><div class="lv-tile-lbl">Costo por venta</div></div>
+    <!-- ══ SECCIÓN LÍNEAS ══ -->
+    <div class="lv-section-head" style="margin-top:34px"><span class="dot" style="background:#a5b4fc"></span>Servicios Móviles · Líneas</div>
+    <div class="lv-resumen lin">
+      <div class="lv-resumen-title" style="color:#4f46e5">Resumen de Rendimiento · Líneas</div>
+      <div class="lv-tiles">
+        <div class="lv-tile">
+          <div class="lv-tile-ic" style="background:rgba(165,180,252,.12)"><i class="fas fa-phone-volume" style="color:#4f46e5"></i></div>
+          <div><div class="lv-tile-lbl">Llamadas Totales</div><div class="lv-tile-val" id="kpi-llamadas-tot-lin">0</div></div>
+        </div>
+        <div class="lv-tile">
+          <div class="lv-tile-ic" style="background:rgba(52,211,153,.12)"><i class="fas fa-phone" style="color:#059669"></i></div>
+          <div><div class="lv-tile-lbl">Llamadas Atendidas</div><div class="lv-tile-val" id="kpi-atendidas-lin">0</div></div>
+        </div>
+        <div class="lv-tile">
+          <div class="lv-tile-ic" style="background:rgba(251,113,133,.12)"><i class="fas fa-triangle-exclamation" style="color:#e11d48"></i></div>
+          <div><div class="lv-tile-lbl">Llamadas Perdidas</div>
+            <input type="number" min="0" id="kpi-perdidas-lin" value="0" title="Editable — se guarda al salir de la celda"/></div>
+        </div>
+        <div class="lv-tile accent lin">
+          <div class="lv-tile-ic" style="background:rgba(165,180,252,.15)"><i class="fas fa-sack-dollar" style="color:#4f46e5"></i></div>
+          <div><div class="lv-tile-lbl">Inversión</div>
+            <div style="display:flex;align-items:baseline;gap:2px;">
+              <span style="font-weight:800;color:#4f46e5;">$</span>
+              <input type="number" min="0" step="0.01" id="kpi-inversion-lin" value="0" title="Editable — se guarda al salir de la celda"/>
+            </div></div>
+        </div>
+        <div class="lv-tile">
+          <div class="lv-tile-ic" style="background:rgba(52,211,153,.12)"><i class="fas fa-chart-line" style="color:#059669"></i></div>
+          <div><div class="lv-tile-lbl">Ventas <span class="lv-adj" id="adj-ventas-lin" title="Ajustado manualmente — borra el campo para volver al automático">✎ ajustado</span></div>
+            <input type="number" min="0" id="kpi-ventas-lin" value="0" title="Automático desde el CRM — editable por admin; vacío = volver al automático"/></div>
+        </div>
+        <div class="lv-tile">
+          <div class="lv-tile-ic" style="background:rgba(251,191,36,.12)"><i class="fas fa-bullseye" style="color:#fbbf24"></i></div>
+          <div><div class="lv-tile-lbl">Puntos</div><div class="lv-tile-val" id="kpi-puntos-lin">0.00</div></div>
+        </div>
+        <div class="lv-tile accent lin">
+          <div class="lv-tile-ic" style="background:rgba(165,180,252,.15)"><i class="fas fa-calculator" style="color:#4f46e5"></i></div>
+          <div><div class="lv-tile-lbl">Costo por Venta</div><div class="lv-tile-val" id="kpi-costo-lin">$0.00</div></div>
+        </div>
+      </div>
     </div>
+
     <div id="lv-content-lin"><div class="lv-loading">Cargando…</div></div>
-  </section>
 
+  </main>
 </div>
-</div>
-
-<script src="/js/layout/topnav.js?v=20261008c" defer></script>
-<script src="/js/layout/topbar-acciones.js?v=20261008b" defer></script>
-<script src="/js/componentes/llamadas-bloqueo.js" defer></script>
-<script>
-  // Pestañas Residencial / Líneas (con teclado: ← →)
-  (function () {
-    var tabs = [document.getElementById('lv-tab-resi'), document.getElementById('lv-tab-lin')];
-    function elegir(t, foco) {
-      tabs.forEach(function (x) {
-        var on = x === t;
-        x.setAttribute('aria-selected', String(on));
-        x.tabIndex = on ? 0 : -1;
-        document.getElementById(x.getAttribute('aria-controls')).hidden = !on;
-      });
-      if (foco) t.focus();
-      try { sessionStorage.setItem('lv-seccion', t.id); } catch (e) {}
-    }
-    tabs.forEach(function (t, i) {
-      t.addEventListener('click', function () { elegir(t); });
-      t.addEventListener('keydown', function (e) {
-        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); elegir(tabs[(i + 1) % 2], true); }
-      });
-    });
-    try { var g = sessionStorage.getItem('lv-seccion'); if (g && document.getElementById(g)) elegir(document.getElementById(g)); } catch (e) {}
-  })();
-</script>
 
 <script>
 (function(){
@@ -213,7 +230,7 @@
     try{
       var r=await fetch(API+'/sheets',{credentials:'include'});
       if(r.status===403){
-        ['lv-content-resi','lv-content-lin'].forEach(function(id){document.getElementById(id).innerHTML='<div class="lv-loading">Solo Admin / Back Office pueden ver esta página</div>';});
+        document.getElementById('lv-content').innerHTML='<div class="lv-loading">Solo Admin / Back Office pueden ver esta página</div>';
         return false;
       }
       var j=await r.json();
@@ -302,8 +319,7 @@
 
   /* ── día seleccionado ── */
   async function loadDay(){
-    // Reinicio completo del día: también Líneas y el ajuste de ventas (antes se arrastraban del día anterior)
-    cells={};globals={perdidas:0,inversion:0,perdidasLin:0,inversionLin:0};ventasOff={resi:0,lin:0};
+    cells={};globals={perdidas:0,inversion:0};
     teams.forEach(function(t){t.agents=t.agents.filter(function(a){return !a.manual;});});
     var key=dateKey(sel.getDate(),sel.getMonth()+1,sel.getFullYear());
     var sh=sheetsByDate[key];
@@ -384,7 +400,7 @@
     if(document.activeElement!==vInp)vInp.value=vResi;
     var adjR=document.getElementById('adj-ventas');
     adjR.classList.toggle('on',ventasOff.resi!==0);
-    adjR.textContent='ajuste '+(ventasOff.resi>0?'+':'')+ventasOff.resi;
+    adjR.textContent='✎ ajuste '+(ventasOff.resi>0?'+':'')+ventasOff.resi;
     document.getElementById('kpi-puntos').textContent=puntos.resi.toFixed(2);
     document.getElementById('kpi-costo').textContent=vResi>0?fmtUSD((globals.inversion||0)/vResi):'$0.00';
     // ── Líneas ──
@@ -394,7 +410,7 @@
     if(document.activeElement!==vInp2)vInp2.value=vLin;
     var adjL=document.getElementById('adj-ventas-lin');
     adjL.classList.toggle('on',ventasOff.lin!==0);
-    adjL.textContent='ajuste '+(ventasOff.lin>0?'+':'')+ventasOff.lin;
+    adjL.textContent='✎ ajuste '+(ventasOff.lin>0?'+':'')+ventasOff.lin;
     document.getElementById('kpi-puntos-lin').textContent=puntos.lin.toFixed(2);
     document.getElementById('kpi-costo-lin').textContent=vLin>0?fmtUSD((globals.inversionLin||0)/vLin):'$0.00';
     teams.forEach(function(t){
@@ -407,8 +423,7 @@
     });
   }
   function updateDayLabel(){
-    var lbl=document.getElementById('lv-daylabel'); if(!lbl)return;
-    lbl.textContent=
+    document.getElementById('lv-daylabel').textContent=
       DIAS[sel.getDay()]+' '+sel.getDate()+' de '+MESES[sel.getMonth()]+' de '+sel.getFullYear()+' · registro diario por agente';
   }
 
@@ -433,17 +448,17 @@
         var vCell='<td><span class="lv-vauto'+(nv>0?' has':'')+'" '+
           'title="Ventas registradas por el agente en el CRM (automático)">'+(nv||'—')+'</span></td>';
         return '<tr><td class="ag"><div class="lv-ag-wrap"><span class="lv-avatar">'+esc(initials(a.name))+'</span>'+
-          '<span class="lv-agent-name">'+esc(a.name)+'</span>'+(a.sup?'<span class="lv-sup">SUP</span>':'')+'</div></td>'+
+          '<span class="lv-agent-name">'+esc(a.name)+(a.sup?'<span class="sup">SUP</span>':'')+'</span></div></td>'+
           inp('LL')+inp('CA')+vCell+'</tr>';
       }).join('');
-      return '<div class="lv-team in-glass">'+
+      return '<div class="lv-team">'+
         '<div class="lv-team-head"><div class="lv-team-name">'+esc(t.label)+'</div>'+
           '<div class="lv-team-tot"><span class="lv-chip ll" id="chip-ll-'+esc(t.token)+'">0 llamadas</span>'+
           '<span class="lv-chip v" id="chip-v-'+esc(t.token)+'">0 ventas</span></div></div>'+
         '<div class="lv-team-scroll">'+
           (t.agents.length
             ? '<table class="lv-tbl"><colgroup><col class="c-ag"><col class="c-n"><col class="c-n"><col class="c-n"></colgroup>'+
-              '<thead><tr><th>Agente</th><th title="Llamadas">LL</th><th title="Llamadas con cliente atendido">CA</th><th title="Automático: ventas registradas en el CRM">V <i class="ph ph-lightning" aria-hidden="true"></i></th></tr></thead><tbody>'+rows+'</tbody></table>'
+              '<thead><tr><th>Agente</th><th>LL</th><th>CA</th><th title="Automático: ventas registradas en el CRM">V ⚡</th></tr></thead><tbody>'+rows+'</tbody></table>'
             : '<div class="lv-empty-team">Sin agentes asignados</div>')+
         '</div></div>';
     };
