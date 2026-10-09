@@ -3,34 +3,54 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Horarios de agentes — CRM</title>
+  <title>Horarios de agentes · Administración</title>
   <link rel="icon" type="image/png" href="/images/favicon.png">
+  <!-- Sesión: la cabecera (menú e iconos) la reutiliza; sin sesión, al login. -->
+  <script>
+    window.__sesion = fetch('/api/auth/verify-server', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : { authenticated: false }; })
+      .then(function (d) { if (!d.authenticated) { location.replace('/login.html'); } return d; })
+      .catch(function () { location.replace('/login.html'); return {}; });
+  </script>
+  <link rel="stylesheet" href="/css/base/scroll.css?v=20261008a">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
+  <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
+  <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
+  <link rel="stylesheet" href="/css/componentes/pagina.css?v=20261009a">
+  <link rel="stylesheet" href="/css/paginas/horarios.css?v=20261009a">
+  <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
+  <script src="/js/layout/transicion.js?v=20261008b"></script>
   <script src="/js/core/fetch-interceptor.js" defer></script>
   <script src="/js/core/logout-handler.js" defer></script>
   <script src="/js/core/user-info.js" defer></script>
-  <link rel="stylesheet" href="/css/paginas/horarios.css?v=20261008b">
-  <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
-  <link rel="stylesheet" href="/css/base/form-controls.css?v=20260921">
 </head>
 <body>
-  <script src="/js/core/theme-init.js"></script>
-  <script src="/js/layout/sidebar.js" defer></script>
-  <script src="/js/layout/sidebar-ui.js" defer></script>
-  <script src="/js/layout/sidebar-user.js" defer></script>
-<div class="layout">
-  <nav class="sidebar" id="app-sidebar"></nav>
-  <main class="main-content">
-   <div class="hr-page">
+<div class="in-marco">
+<div class="in-hoja">
 
-    <!-- "Esta semana" vive aquí y no en la barra: al aparecer o desaparecer no mueve nada. -->
-    <div class="hr-top">
-      <div class="hr-eyebrow" id="hr-eyebrow">Supervisión · Horarios de agentes</div>
-      <button class="hr-link" id="hr-today" hidden>Volver a esta semana</button>
+  <header class="in-head">
+    <nav id="topnav" class="tn" aria-label="Menú principal"></nav>
+    <!-- Ajustes, chat, notificaciones y usuario: js/layout/topbar-acciones.js -->
+    <div id="topbar-acciones" class="in-iconos"></div>
+  </header>
+
+  <section class="pg-barra in-glass" aria-label="Horarios">
+    <div class="pg-titulo">
+      <span class="pg-ico"><i class="ph ph-calendar-check" aria-hidden="true"></i></span>
+      <div>
+        <h1>Horarios de agentes</h1>
+        <p id="hr-eyebrow">Supervisión · Horarios de agentes</p>
+      </div>
     </div>
+    <!-- "Volver a esta semana" vive aquí y no en la barra de días: al aparecer no mueve nada. -->
+    <div class="pg-acciones"><button type="button" class="pg-boton" id="hr-today" hidden>Volver a esta semana</button></div>
+  </section>
+
+  <div class="hr-page">
+
     <!-- KPIs de la semana; las flechas cambian de semana. -->
     <div class="hr-days-nav">
       <button class="hr-icon-btn hr-days-arrow" id="hr-prev" aria-label="Semana anterior" title="Semana anterior">‹</button>
@@ -64,8 +84,9 @@
       </div>
     </div>
 
-   </div>
-  </main>
+  </div>
+
+</div>
 </div>
 
 <div class="hr-pop-bg" id="hr-pop-bg" hidden></div>
@@ -95,6 +116,8 @@
   </form>
 </div>
 
+<script src="/js/layout/topnav.js?v=20261008c" defer></script>
+<script src="/js/layout/topbar-acciones.js?v=20261008b" defer></script>
 <script src="/js/paginas/horarios.js?v=20261008b" defer></script>
 </body>
 </html>

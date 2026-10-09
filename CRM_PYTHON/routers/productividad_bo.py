@@ -9,9 +9,10 @@ activities (description 'Estado → X') con dos tracks independientes:
 El dedupe es por (track, cliente): el último cambio normal Y el último cambio
 de comisión de un mismo cliente cuentan cada uno por separado.
 
-La tabla muestra un roster FIJO separado POR TEAM: los usuarios activos con rol
-backoffice o rol_icon aparecen siempre (aunque tengan 0) agrupados por su team;
-otros actores con actividad ese día se agregan bajo su propio team al final.
+La tabla muestra un roster separado POR TEAM tomado de Permisos (users.team): los
+usuarios activos de los teams de back office, Icon, USA/BAMO y monitoreo aparecen
+siempre (aunque tengan 0); otros actores con actividad ese día se agregan bajo su
+propio team al final.
 """
 from fastapi import APIRouter, Depends, Query
 from typing import Optional
@@ -26,8 +27,14 @@ router = APIRouter(prefix="/api/productividad-bo", tags=["Productividad BO"])
 # Offset del huso local respecto a UTC (El Salvador = UTC-6, sin horario de verano)
 _LOCAL_OFFSET_HOURS = 6
 
-# Teams fijos de la tabla: sus usuarios activos aparecen siempre (aunque con 0)
-# y las secciones salen en este orden; otros teams con actividad van después.
+# Teams de la tabla: los equipos de Permisos (users.team) cuyo nombre es de back office,
+# Icon, USA/BAMO o monitoreo. Sus usuarios activos aparecen siempre (aunque con 0), así
+# que mover a alguien de equipo en Permisos lo mete o lo saca de la tabla al momento.
+# Se reconocen por el nombre y no por una lista fija: "Backoffice" y "TEAM BACKOFFICE"
+# cuentan igual, y un team nuevo de B.O. creado en Permisos entra solo.
+_TEAM_BO = re.compile(r"back\s*office|\bicon\b|\busa\b|\bbamo\b|monitoreo", re.I)
+# Orden de las secciones; los demás teams de B.O. van después, alfabéticos, y al final
+# los de otros actores que cambiaron status ese día (p. ej. administración).
 _FIXED_TEAMS = ["TEAM BACKOFFICE", "TEAM ICON", "TEAM USA"]
 
 # Columnas fijas; cualquier otro status presente ese día se agrega alfabético después
@@ -97,8 +104,12 @@ async def productividad_bo(
             """), {"off": _LOCAL_OFFSET_HOURS, "f": f})
             rows = r.mappings().all()
 
-            # Roster fijo (BO + Icon) + nombres reales para enriquecer
-            ur = await s.execute(text("SELECT username, name, role, team, active FROM users"))
+            # Roster (teams de B.O. según Permisos) + nombres reales para enriquecer
+            ur = await s.execute(text("""
+                SELECT username, name, role, team, active,
+                       COALESCE(acceso_crm, 1) AS acceso_crm
+                FROM users
+            """))
             users_all = ur.mappings().all()
     except Exception as exc:
         import logging
@@ -123,7 +134,8 @@ async def productividad_bo(
             "status": st,
         }
 
-    # ── Roster fijo: usuarios activos de los teams fijos (BO/Icon/USA) ──
+    # ── Roster: usuarios activos y con acceso al CRM de los teams de B.O. ──
+    # Solo cuenta el team asignado en Permisos; el rol ya no mete a nadie en la tabla.
     def _mk_row(agente: str, nombre: str, rol: str, team: str) -> dict:
         return {"agente": agente, "nombre": nombre, "rol": rol, "team": team,
                 "counts": {}, "total": 0}
@@ -132,11 +144,10 @@ async def productividad_bo(
     order: list = []          # usernames en orden de presentación (roster primero)
     for u in users_all:
         uname = str(u["username"] or "").strip()
-        if not uname or not int(u.get("active") or 0):
+        if not uname or not int(u.get("active") or 0) or not int(u.get("acceso_crm") or 0):
             continue
-        team = _team_of(u)
-        if (_is_bo_role(u.get("role")) or _is_icon_role(u.get("role"))
-                or team in _FIXED_TEAMS):
+        team = str(u.get("team") or "").strip().upper()
+        if team and _TEAM_BO.search(team):
             key = uname.lower()
             if key not in agg:
                 agg[key] = _mk_row(uname, u.get("name") or "", u.get("role") or "", team)
@@ -172,7 +183,8 @@ async def productividad_bo(
         t = fr["team"] or "OTROS"
         rows_by_team.setdefault(t, []).append(fr)
     team_order = [t for t in _FIXED_TEAMS if t in rows_by_team] + \
-                 sorted(t for t in rows_by_team if t not in _FIXED_TEAMS)
+                 sorted(t for t in rows_by_team if t not in _FIXED_TEAMS and _TEAM_BO.search(t)) + \
+                 sorted(t for t in rows_by_team if t not in _FIXED_TEAMS and not _TEAM_BO.search(t))
 
     teams = []
     for t in team_order:

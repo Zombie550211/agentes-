@@ -1,0 +1,241 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rankings del Mes — CRM</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
+  <script src="/js/core/fetch-interceptor.js" defer></script>
+  <script src="/js/core/logout-handler.js" defer></script>
+  <script src="/js/core/user-info.js" defer></script>
+  <script src="/js/core/crm-config.js" defer></script>
+  <script src="/js/core/inactivity-manager.js?v=20260611a" defer></script>
+  <script src="/js/core/crm-init.js" defer></script>
+  <link rel="stylesheet" href="/css/residencial/ranking-agente.css">
+  <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
+  <link rel="stylesheet" href="/css/base/form-controls.css?v=20260921">
+</head>
+<body>
+  <script src="/js/core/theme-init.js"></script>
+  <script src="/js/layout/sidebar.js" defer></script>
+  <script src="/js/layout/sidebar-ui.js" defer></script>
+  <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
+  <script src="/js/layout/sidebar-user.js" defer></script>
+<div class="layout">
+  <nav class="sidebar" id="app-sidebar"></nav>
+  <main class="main-content">
+
+    <div class="rk-header drop" style="animation-delay:.05s">
+      <div class="rk-title-wrap">
+        <div class="rk-icon-wrap"><i class="fas fa-trophy"></i></div>
+        <div>
+          <div class="rk-title">Rankings del Mes</div>
+          <div class="rk-sub">Monitoreo de desempeño operativo y comercial en tiempo real</div>
+        </div>
+      </div>
+      <div class="rk-tabs">
+        <button class="rk-tab active" data-mode="puntaje"><i class="fas fa-bolt"></i> Ranking de Activación</button>
+        <button class="rk-tab" data-mode="att"><i class="fas fa-signal"></i> Ranking AT&T / Frontier</button>
+      </div>
+      <div class="rk-month">
+        <button class="rk-nav-btn" id="rank-prev"><i class="fas fa-chevron-left"></i></button>
+        <div class="rk-month-label">
+          <i class="fas fa-calendar-alt"></i>
+          <span id="rank-period-label">—</span>
+        </div>
+        <button class="rk-nav-btn" id="rank-next"><i class="fas fa-chevron-right"></i></button>
+      </div>
+    </div>
+
+    <div class="rk-kpis drop" style="animation-delay:.15s">
+      <div class="rk-kpi">
+        <div class="rk-kpi-icon" style="background:#eff6ff"><i class="fas fa-users" style="color:#3b82f6"></i></div>
+        <div><div class="rk-kpi-label">Agentes Activos</div><div class="rk-kpi-val" id="kpi-agentes" style="color:#0f172a">—</div><div class="rk-kpi-sub">Este mes</div></div>
+      </div>
+      <div class="rk-kpi">
+        <div class="rk-kpi-icon" style="background:#f0fdf4"><i class="fas fa-bullseye" style="color:#16a34a"></i></div>
+        <div><div class="rk-kpi-label">Puntaje Total</div><div class="rk-kpi-val" id="kpi-puntos" style="color:#16a34a">—</div><div class="rk-kpi-sub">Suma de puntos</div></div>
+      </div>
+      <div class="rk-kpi">
+        <div class="rk-kpi-icon" style="background:#faf5ff"><i class="fas fa-arrow-trend-up" style="color:#9333ea"></i></div>
+        <div><div class="rk-kpi-label">Ventas Totales Activas</div><div class="rk-kpi-val" id="kpi-ventas" style="color:#9333ea">—</div><div class="rk-kpi-sub">Del mes actual</div></div>
+      </div>
+      <div class="rk-kpi">
+        <div class="rk-kpi-icon" style="background:#fffbeb"><i class="fas fa-bed" style="color:#d97706"></i></div>
+        <div><div class="rk-kpi-label">Colchón Total</div><div class="rk-kpi-val" id="kpi-colchon" style="color:#d97706">—</div><div class="rk-kpi-sub">Disponibles</div></div>
+      </div>
+      <div class="rk-kpi">
+        <div class="rk-kpi-icon" style="background:#fef3c7"><i class="fas fa-sigma" style="color:#dc2626"></i></div>
+        <div><div class="rk-kpi-label">Total de Ventas Activas</div><div class="rk-kpi-val" id="kpi-total-val" style="color:#dc2626">—</div><div class="rk-kpi-sub">Del período</div></div>
+      </div>
+      <div class="rk-kpi">
+        <div class="rk-kpi-icon" style="background:#ecfeff"><i class="fas fa-plug-circle-check" style="color:#0891b2"></i></div>
+        <div><div class="rk-kpi-label">Activas del Día</div><div class="rk-kpi-val" id="kpi-activas-dia" style="color:#0891b2">—</div><div class="rk-kpi-sub">Instalaciones de hoy</div></div>
+      </div>
+    </div>
+
+    <div class="rk-table-card drop" style="animation-delay:.28s">
+      <div class="rk-table-top">
+        <div>
+          <div class="rk-table-title"><i class="fas fa-list-ol" style="color:var(--blue-d)"></i> Tabla de Posiciones</div>
+          <div class="rk-table-sub">Ordenado por puntaje neto del período seleccionado</div>
+        </div>
+        <div class="rk-toggle">
+          <button class="rk-toggle-btn active" id="btn-view-agente"><i class="fas fa-user"></i> Agente</button>
+          <button class="rk-toggle-btn" id="btn-view-team"><i class="fas fa-users"></i> Team</button>
+        </div>
+      </div>
+      <div class="rk-thead">
+        <span>#</span><span style="text-align:left">Agente</span>
+        <span>Ventas</span><span>Colchón</span><span>Total</span><span>Puntos</span>
+      </div>
+      <div id="rank-list-dynamic">
+        <div class="rk-loading"><div class="rk-spinner"></div> Cargando ranking…</div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div style="display:none">
+  <div class="first-pos"><div class="astronaut-name"></div><div class="astronaut-score"></div></div>
+  <div class="second-pos"><div class="astronaut-name"></div><div class="astronaut-score"></div></div>
+  <div class="third-pos"><div class="astronaut-name"></div><div class="astronaut-score"></div></div>
+  <div id="fullRankingModal"></div><div id="btn-open-full-ranking"></div><div id="btn-toggle-force-all"></div>
+  <table id="full-rank-table"><tbody></tbody></table>
+  <span id="welcome-message"></span><span id="welcome-user-name"></span><span id="welcome-user-role"></span>
+  <span id="user-name"></span><span id="user-role"></span>
+  <span id="sidebar-user-sales"></span><span id="sidebar-user-points"></span><span id="sidebar-user-team"></span>
+  <div id="roleBar"></div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  (function(){var t=localStorage.getItem('theme')||localStorage.getItem('crm_theme')||'';if(t==='dark'||document.cookie.includes('theme=dark'))document.body.classList.add('dark-theme');})();
+
+  var MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var now=new Date(),curY=now.getFullYear(),curM=now.getMonth();
+  var _data=[],_mode='puntaje',_view='agente';
+
+  function fmt(v){var n=Number(v||0);return n%1===0?n.toString():n.toFixed(2);}
+  function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+  var PAL=['#6366f1','#8b5cf6','#3b82f6','#10b981','#f59e0b','#ef4444','#14b8a6','#db2777'];
+  function avatarColor(n){var h=0;for(var i=0;i<n.length;i++)h=(h*31+n.charCodeAt(i))&0x7fffffff;return PAL[h%PAL.length];}
+  function initials(n){return(n||'').split(/\s+/).filter(Boolean).map(function(w){return w[0];}).join('').toUpperCase().slice(0,2)||'??';}
+  function set(id,v){var e=document.getElementById(id);if(e)e.textContent=v;}
+  function updateLabel(){var el=document.getElementById('rank-period-label');if(el)el.textContent=MONTHS[curM]+' '+curY;}
+  function getScore(a){if(_mode==='att')return Number(a.ventas_att||a.att||a.ventas||0);return Number(a.puntaje||a.puntos||a.sum_puntaje||a.score||0);}
+
+  async function load(){
+    var lastDay=new Date(curY,curM+1,0).getDate();
+    var dts=curY+'-'+String(curM+1).padStart(2,'0')+'-01';
+    var dte=curY+'-'+String(curM+1).padStart(2,'0')+'-'+String(lastDay).padStart(2,'0');
+    var base='/api/ranking?fechaInicio='+dts+'&fechaFin='+dte+'&limit=200&statuses=COMPLETED';
+    try{
+      if(_mode==='att'){
+        var [r1,r2]=await Promise.all([fetch(base+'&servicio=AT%26T',{credentials:'include'}),fetch(base+'&servicio=FRONTIER',{credentials:'include'})]);
+        var [j1,j2]=await Promise.all([r1.json(),r2.json()]);
+        var parse=function(j){return Array.isArray(j)?j:Array.isArray(j.ranking)?j.ranking:(j.data&&Array.isArray(j.data.ranking))?j.data.ranking:[];};
+        var merged={};
+        parse(j1).concat(parse(j2)).forEach(function(a){var k=a.nombreNormalizado||a.nombre||'?';if(!merged[k]){merged[k]=Object.assign({},a,{ventas:0,puntos:0,sumPuntaje:0});}merged[k].ventas+=Number(a.ventas||0);merged[k].puntos+=Number(a.puntos||a.sumPuntaje||0);merged[k].sumPuntaje+=Number(a.sumPuntaje||a.puntos||0);});
+        _data=Object.values(merged).sort(function(a,b){return b.puntos-a.puntos;});
+        _data.forEach(function(a,i){a.position=i+1;});
+      }else{
+        var res=await fetch(base,{credentials:'include'});
+        if(!res.ok)throw new Error(res.status);
+        var j=await res.json();
+        _data=Array.isArray(j)?j:Array.isArray(j.ranking)?j.ranking:Array.isArray(j.agents)?j.agents:(j.data&&Array.isArray(j.data.ranking))?j.data.ranking:[];
+      }
+    }catch(e){console.warn('[ranking]',e);_data=[];}
+    render();
+  }
+
+  function render(){updateKpis();renderList();}
+
+  async function loadActivasDia(){
+    try{
+      var d=new Date();
+      var f=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      var r=await fetch('/api/ranking/instalaciones-dia?fecha='+f,{credentials:'include'});
+      if(!r.ok)throw new Error(r.status);
+      var j=await r.json();
+      set('kpi-activas-dia',Number(j.completadas||0)+'/'+Number(j.total||0));
+    }catch(e){console.warn('[activas-dia]',e);set('kpi-activas-dia','—');}
+  }
+
+  function updateKpis(){
+    var totalPts=_data.reduce(function(s,a){return s+Number(a.puntaje||a.puntos||a.sum_puntaje||a.score||0);},0);
+    var totalV=_data.reduce(function(s,a){return s+Number(a.ventas||0);},0);
+    var totalC=_data.reduce(function(s,a){return s+Number(a.colchon||a.colchón||0);},0);
+    var totalA=_data.reduce(function(s,a){return s+Number(a.activas||0);},0);
+
+    set('kpi-agentes',_data.length);set('kpi-puntos',totalPts.toFixed(2));set('kpi-ventas',totalV);set('kpi-colchon',totalC);
+    // "Total Ventas Activas" = activas del período (completed normales + completed colchón)
+    set('kpi-total-val', totalA || (totalV + totalC));
+  }
+
+  function renderList(){
+    var container=document.getElementById('rank-list-dynamic');
+    if(!container)return;
+    var items;
+    if(_view==='team'){
+      var teams={};
+      _data.forEach(function(a){
+        var t=String(a.team||a.equipo||'').trim()||'Sin equipo';
+        if(!teams[t])teams[t]={name:t,ventas:0,colchon:0,activas:0,pts:0,agents:0};
+        teams[t].ventas+=Number(a.ventas||0);
+        teams[t].colchon+=Number(a.colchon||a.colchón||0);
+        teams[t].activas+=Number(a.activas||0);
+        teams[t].pts+=Number(a.puntaje||a.puntos||a.sum_puntaje||a.score||0);
+        teams[t].agents++;
+      });
+      items=Object.values(teams).filter(function(t){return t.name!=='Sin equipo';}).sort(function(a,b){return b.pts-a.pts;});
+    }else{items=_data.slice().sort(function(a,b){return getScore(b)-getScore(a);});}
+    if(!items.length){container.innerHTML='<div class="rk-loading"><i class="fas fa-inbox" style="font-size:1.5rem;opacity:.25"></i><span style="margin-left:8px">Sin datos para este período</span></div>';return;}
+    var maxScore=_view==='team'?items[0].pts:getScore(items[0])||1;
+    var html=items.map(function(a,i){
+      var pos=i+1;
+      var posClass=pos===1?'pos-1':pos===2?'pos-2':pos===3?'pos-3':'';
+      var name=_view==='team'?esc(a.name):(esc(a.nombre||a.name||a.agenteNombre||a.agente||'—'));
+      var sup=_view==='team'?(a.agents+' agentes'):(esc(a.supervisor||a.cargo||a.team||''));
+      var ventas=_view==='team'?a.ventas:Number(a.ventas||0);
+      var colchon=_view==='team'?a.colchon:Number(a.colchon||a.colchón||0);
+      var activas=_view==='team'?a.activas:Number(a.activas||0);
+      var total=_view==='team'?(activas||ventas+colchon):Number(a.total||ventas+colchon);
+      var score=_view==='team'?a.pts:getScore(a);
+      var barW=Math.round((score/maxScore)*100);
+      var color=avatarColor(name);var ini=initials(name);
+      var avatar='<div class="agent-avatar" style="background:'+color+'">'+ini+'</div>';
+      if(a.avatar_url||a.avatarUrl){avatar='<div class="agent-avatar" style="background:'+color+'"><img src="'+(a.avatar_url||a.avatarUrl)+'" onerror="this.parentNode.innerHTML=\''+ini+'\'"></div>';}
+      return '<div class="rank-item">'+
+        '<div class="rank-number '+posClass+'">'+String(pos).padStart(2,'0')+'</div>'+
+        '<div class="agent-info">'+avatar+'<div class="agent-details"><h4>'+name+'</h4>'+(sup?'<p>'+sup+'</p>':'')+'</div></div>'+
+        '<div class="rk-cell">'+ventas+'</div>'+
+        '<div class="rk-cell '+(colchon?'':'muted')+'">'+(colchon?'<i class="fas fa-bed" style="font-size:.7rem;margin-right:3px;color:var(--amber)"></i>'+colchon:'—')+'</div>'+
+        '<div class="rk-cell" style="font-weight:700;color:var(--t1)">'+total+'</div>'+
+        '<div class="agent-stats"><span class="points" style="'+(pos===1?'color:#2563eb;':'')+'">'+fmt(score)+' <span style="font-size:.6rem;font-weight:500;color:var(--t3)">pts</span></span>'+
+        '<div class="rk-bar-wrap"><div class="rk-bar'+(pos===1?' top':'')+'" style="width:'+barW+'%"></div></div></div>'+
+      '</div>';
+    }).join('');
+    container.innerHTML=html;
+  }
+
+  document.getElementById('rank-prev').addEventListener('click',function(){curM--;if(curM<0){curM=11;curY--;}updateLabel();load();});
+  document.getElementById('rank-next').addEventListener('click',function(){curM++;if(curM>11){curM=0;curY++;}updateLabel();load();});
+  document.querySelectorAll('.rk-tab').forEach(function(btn){btn.addEventListener('click',function(){document.querySelectorAll('.rk-tab').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');_mode=btn.dataset.mode||'puntaje';load();});});
+  document.getElementById('btn-view-agente').addEventListener('click',function(){_view='agente';this.classList.add('active');document.getElementById('btn-view-team').classList.remove('active');render();});
+  document.getElementById('btn-view-team').addEventListener('click',function(){_view='team';this.classList.add('active');document.getElementById('btn-view-agente').classList.remove('active');render();});
+
+  updateLabel();load();loadActivasDia();
+  setInterval(loadActivasDia,120000);
+  document.addEventListener('themeChanged',function(){localStorage.setItem('theme',document.body.classList.contains('dark-theme')?'dark':'light');});
+})();
+</script>
+</body>
+</html>

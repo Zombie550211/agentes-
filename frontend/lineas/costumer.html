@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
@@ -7,7 +7,7 @@
      el cristal se convierte en gris sucio. -->
   <meta name="color-scheme" content="light">
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Customer - Team Líneas</title>
+  <title>Clientes · Líneas</title>
   <script>
     (function guard(){
       try{
@@ -37,40 +37,57 @@
     };
   </script>
   <script src="/vendor/tailwind/tailwind-cdn.js"></script>
-  <link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
-  <link rel="stylesheet" href="/css/base/theme.css?v=20251124f"/>
+  <!-- Sesión: la cabecera (menú e iconos) la reutiliza; sin sesión, al login. -->
+  <script>
+    window.__sesion = fetch('/api/auth/verify-server', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : { authenticated: false }; })
+      .then(function (d) { if (!d.authenticated) { location.replace('/login.html'); } return d; })
+      .catch(function () { location.replace('/login.html'); return {}; });
+  </script>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <link rel="stylesheet" href="/css/base/scroll.css?v=20261008a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
+  <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
+  <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
+  <link rel="stylesheet" href="/css/componentes/pagina.css?v=20261009a">
   <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
+  <script src="/js/layout/transicion.js?v=20261008b"></script>
   <!-- Hoja única de esta página: el diseño vive aquí, acotado a .lc y .fc.
        Ya no se cargan glass-cards-cream ni las de la tabla antigua: eran las
        que imponían fondos y bordes a todo input/select de la página. -->
-  <link rel="stylesheet" href="/css/lineas/costumer-lista.css?v=20260922">
-  <link rel="stylesheet" href="/css/lineas/ficha-cliente.css?v=20261007">
+  <link rel="stylesheet" href="/css/lineas/costumer-lista.css?v=20261009a">
+  <link rel="stylesheet" href="/css/lineas/ficha-cliente.css?v=20261009a">
   <link rel="stylesheet" href="/css/componentes/costumer-table-comments.css" />
-  <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
   </head>
-<body style="background: #ffffff;">
-  <script src="/js/core/theme-init.js"></script>
-  <script src="/js/layout/sidebar.js" defer></script>
-  <script src="/js/layout/sidebar-ui.js" defer></script>
-  <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
-  <script src="/js/layout/sidebar-user.js" defer></script>
-  <div class="layout">
-    <nav class="sidebar" id="app-sidebar"></nav>
-    <main class="main-content">
-      <div class="lc">
-      <div class="lc-wrap">
+<body>
+<div class="in-marco">
+<div class="in-hoja">
 
-        <header class="lc-head">
+  <header class="in-head">
+    <nav id="topnav" class="tn" aria-label="Menú principal"></nav>
+    <!-- Ajustes, chat, notificaciones y usuario: js/layout/topbar-acciones.js -->
+    <div id="topbar-acciones" class="in-iconos"></div>
+  </header>
+
+      <section class="pg-barra in-glass" aria-label="Clientes de Líneas">
+        <div class="pg-titulo">
+          <span class="pg-ico"><i class="ph ph-device-mobile" aria-hidden="true"></i></span>
           <div>
-            <h1>Clientes</h1>
+            <h1>Clientes de Líneas</h1>
             <p id="lcSubtitulo">—</p>
           </div>
-          <div class="lc-spacer"></div>
-          <button class="lc-round" id="btnRefrescar" type="button" title="Actualizar" aria-label="Actualizar">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M13.5 8a5.5 5.5 0 11-1.6-3.9M13.5 2.5v3h-3"/></svg>
-          </button>
-        </header>
+        </div>
+        <div class="pg-acciones">
+          <button class="pg-boton" id="btnRefrescar" type="button" title="Actualizar"><i class="ph ph-arrows-clockwise" aria-hidden="true"></i>Actualizar</button>
+        </div>
+      </section>
+
+      <div class="lc">
+      <div class="lc-wrap">
 
         <!-- Filtros. Los <select> son los de siempre: el JS de la pantalla los
              sigue leyendo por su id, solo cambia cómo se ven. -->
@@ -152,8 +169,12 @@
 
       </div><!-- /.lc-wrap -->
       </div><!-- /.lc -->
-    </main>
-  </div>
+
+</div>
+</div>
+  <script src="/js/layout/topnav.js?v=20261008c" defer></script>
+  <script src="/js/layout/topbar-acciones.js?v=20261008b" defer></script>
+  <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
   <script src="/js/core/fetch-interceptor.js"></script>
   <script src="/js/core/logout-handler.js"></script>
   <script src="/js/core/user-info.js"></script>

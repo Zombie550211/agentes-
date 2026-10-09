@@ -148,6 +148,8 @@
     sessionStorage.removeItem('costumerCacheUserId');
     sessionStorage.clear();
 
+    try { localStorage.setItem('crm_show_tour_after_logout', '1'); } catch (_) {}
+
     if (savedAvatars) {
       try { localStorage.setItem('sidebarUserPhotos', JSON.stringify(savedAvatars)); } catch (_) {}
     }

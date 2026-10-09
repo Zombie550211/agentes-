@@ -1,768 +1,262 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CRM Agente - Tabla de Puntaje</title>
-  <link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
-  <link rel="stylesheet" href="/css/base/theme.css?v=20251124f"/>
-  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-  <!-- Estilo mínimo para acomodar el sidebar -->
-  <link rel="stylesheet" href="/css/residencial/tabla-puntaje.css">
-  <!-- Estilos propios de la página pegados tal como los compartiste -->
-  <!-- Protección de autenticación en frontend -->
-  <script src="/agentes/js/auth-check.js"></script>
-  <script src="/js/core/logout-handler.js"></script>
-  <script src="/js/core/user-info.js"></script>
-  <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
-  <link rel="stylesheet" href="/css/base/form-controls.css?v=20260921">
+  <title>Tabla de puntaje · Residencial</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <!-- Sesión: la cabecera (menú e iconos) la reutiliza; sin sesión, al login. -->
+  <script>
+    window.__sesion = fetch('/api/auth/verify-server', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : { authenticated: false }; })
+      .then(function (d) { if (!d.authenticated) { location.replace('/login.html'); } return d; })
+      .catch(function () { location.replace('/login.html'); return {}; });
+  </script>
+  <link rel="stylesheet" href="/css/base/scroll.css?v=20261008a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
+  <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
+  <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
+  <link rel="stylesheet" href="/css/componentes/pagina.css?v=20261009a">
+  <link rel="stylesheet" href="/css/residencial/tabla-puntaje.css?v=20261009a">
+  <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
+  <script src="/js/layout/transicion.js?v=20261008b"></script>
+  <script src="/js/core/fetch-interceptor.js" defer></script>
+  <script src="/js/core/logout-handler.js" defer></script>
+  <script src="/js/core/user-info.js" defer></script>
 </head>
 <body>
-  <script src="/js/core/theme-init.js"></script>
-  <script src="/js/layout/sidebar.js" defer></script>
-  <script src="/js/layout/sidebar-ui.js" defer></script>
-  <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
-  <script src="/js/layout/sidebar-user.js" defer></script>
-  <div class="layout">
-    <!-- Sidebar dinámico -->
-    <nav class="sidebar" id="app-sidebar"></nav>
+<div class="in-marco">
+<div class="in-hoja">
 
-    <!-- Contenido principal -->
-    <div class="main-content">
-      <div class="container">
-        <div class="header">
-            <h1>Tabla de Puntaje por producto</h1>
-            <p>Tabla de puntaje por producto y velocidades</p>
-        </div>
-        
-        <div class="table-wrapper">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Proveedor</th>
-                        <th>Producto/Servicio</th>
-                        <th>Velocidad</th>
-                        <th>Puntuación</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- AT&T Section -->
-                    <tr class="category-divider att-category">
-                        <td colspan="4"><span>AT&T</span></td>
-                        <tr>
-                            <td class="provider-name">AT&T</td>
-                            <td class="product-name">Internet Air 90-300Mbps</td>
-                            <td class="speed-value">90-300 Mbps</td>
-                            <td class="score-container"><span class="score-badge score-good">0.45</span></td>
-                        </tr>
-                    <tr>
-                        <td class="provider-name">AT&T</td>
-                        <td class="product-name">Internet Menos de 50Mbps</td>
-                        <td class="speed-value">Menos de 50 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-good">0.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">AT&T</td>
-                        <td class="product-name">Internet 50 y 75 MBPS</td>
-                        <td class="speed-value">50 y 75 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-good">0.35</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">AT&T</td>
-                        <td class="product-name">Internet de 100 MBPS</td>
-                        <td class="speed-value">100 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-excellent">0.35</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">AT&T</td>
-                        <td class="product-name">Internet 100 Fibra</td>
-                        <td class="speed-value">100 Mbps Fibra  </td>
-                        <td class="score-container"><span class="score-badge score-fair">0.70</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">AT&T</td>
-                        <td class="product-name">internet 300MBPS</td>
-                        <td class="speed-value">300 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-fair">1.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">AT&T</td>
-                        <td class="product-name">internet 500MBPS</td>
-                        <td class="speed-value">500 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-fair">1.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">AT&T</td>
-                        <td class="product-name">internet 1GB o más</td>
-                        <td class="speed-value">1 Gbps o más</td>
-                        <td class="score-container"><span class="score-badge score-fair">1.50</span></td>
-                    </tr>
-                    <tr>
-                        
-                    <!-- Frontier Section -->
-                    <tr class="category-divider frontier-category">
-                        <td colspan="4"><span>Frontier</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Frontier</td>
-                        <td class="product-name">7 GIG Fiber</td>
-                        <td class="speed-value">7,000 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.50</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Frontier</td>
-                        <td class="product-name">5 GIG Fiber</td>
-                        <td class="speed-value">5,000 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-good">1.50</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Frontier</td>
-                        <td class="product-name">2 GIG Fiber</td>
-                        <td class="speed-value">2,000 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-good">1.50</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Frontier</td>
-                        <td class="product-name">1 GIG Fiber</td>
-                        <td class="speed-value">1,000 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-good">1.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Frontier</td>
-                        <td class="product-name">500 MBPS</td>
-                        <td class="speed-value">500 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-fair">1.00</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Frontier</td>
-                        <td class="product-name">FIBER UNDER 500 MBPS</td>
-                        <td class="speed-value">500 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-good">0.35</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Frontier</td>
-                        <td class="product-name">UNLIMITED DIGITAL VOICE</td>
-                        <td class="speed-value">----   </td>
-                        <td class="score-container"><span class="score-badge score-good">0.35</span></td>
-                    </tr>
-                
-                    <!-- AltaFiber Section -->
-                    <tr class="category-divider altafiber-category">
-                        <td colspan="4"><span>AltaFiber - Cincinnati Bell Y Hawaiian TELECOM    </span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">AltaFiber</td>
-                        <td class="product-name">800MB - 1GB</td>
-                        <td class="speed-value">800Mbps-1000Mbps</td>
-                        <td class="score-container"><span class="score-badge score-fair">0.35</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">AltaFiber</td>
-                        <td class="product-name">100MB - 600MB</td>
-                        <td class="speed-value">100-600 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-fair">0.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Hawaiian Telecom</td>
-                        <td class="product-name">1 Gig Fiber</td>
-                        <td class="speed-value">1,000 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-fair">0.35</span></td>
-                    </tr>
-                
-                    <tr>
-                        <td class="provider-name">Hawaiian Telecom</td>
-                        <td class="product-name">750MB Fiber</td>
-                        <td class="speed-value">750 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-fair">0.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Hawaiian Telecom</td>
-                        <td class="product-name">500MB Fiber</td>
-                        <td class="speed-value">500Mbps</td>
-                        <td class="score-container"><span class="score-badge score-fair">0.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Hawaiian Telecom</td>
-                        <td class="product-name">300MB Fiber</td>
-                        <td class="speed-value">300Mbps</td>
-                        <td class="score-container"><span class="score-badge score-fair">0.25</span></td>
-                    </tr>
-            
-                    <!-- DIRECTV Section -->
-                    <tr class="category-divider directv-category">
-                        <td colspan="4"><span>DIRECTV</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">DIRECTV</td>
-                        <td class="product-name">LOW</td>
-                        <td class="speed-value">LOW</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.00</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">DIRECTV</td>
-                        <td class="product-name">Medium </td>
-                        <td class="speed-value">MEDIUM</td>
-                        <td class="score-container"><span class="score-badge score-fair">0.35</span></td>
-                    </tr>
+  <header class="in-head">
+    <nav id="topnav" class="tn" aria-label="Menú principal"></nav>
+    <!-- Ajustes, chat, notificaciones y usuario: js/layout/topbar-acciones.js -->
+    <div id="topbar-acciones" class="in-iconos"></div>
+  </header>
 
-                    <!-- XFINITY Section -->
-                    <tr class="category-divider" style="background: linear-gradient(135deg, #fecdd3 0%, #fbcfe8 100%) !important; color: #831843 !important;">
-                        <td colspan="4"><span>XFINITY</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">XFINITY</td>
-                        <td class="product-name">100-299 Mbps</td>
-                        <td class="speed-value">100-299 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-good">0.35</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">XFINITY</td>
-                        <td class="product-name">300 Mbps</td>
-                        <td class="speed-value">300 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-good">0.35</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">XFINITY</td>
-                        <td class="product-name">500 Mbps+</td>
-                        <td class="speed-value">500 Mbps o más</td>
-                        <td class="score-container"><span class="score-badge score-good">0.75</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">XFINITY</td>
-                        <td class="product-name">Double Play</td>
-                        <td class="speed-value">Internet + TV</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.00</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">XFINITY</td>
-                        <td class="product-name">Ultimate TV</td>
-                        <td class="speed-value">TV Premium</td>
-                        <td class="score-container"><span class="score-badge score-good">0.75</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">XFINITY</td>
-                        <td class="product-name">Unlimited VoIP</td>
-                        <td class="speed-value">Telefonía VoIP</td>
-                        <td class="score-container"><span class="score-badge score-good">0.75</span></td>
-                    </tr>
-
-                    <!-- Spectrum Section -->
-                    <tr class="category-divider spectrum-category">
-                        <td colspan="4"><span>Spectrum</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Spectrum</td>
-                        <td class="product-name">2 GIGA Ultra</td>
-                        <td class="speed-value">2,000 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-good">1.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Spectrum</td>
-                        <td class="product-name">1 GIGA Pro</td>
-                        <td class="speed-value">1,000 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.00</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Spectrum</td>
-                        <td class="product-name">Premier</td>
-                        <td class="speed-value">premie  </td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.00</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Spectrum</td>
-                        <td class="product-name">Advantage</td>
-                        <td class="speed-value">Standard</td>
-                        <td class="score-container"><span class="score-badge score-fair">0.35</span></td>
-                    </tr>
-            
-                    <tr>
-                        <td class="provider-name">400MBPS</td>
-                        <td class="product-name">400MBPS</td>
-                        <td class="speed-value">400MBPS</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.00</span></td>
-                    </tr>
-                    <!-- Spectrum Section -->
-                    <tr class="category-divider spectrum-category">
-                        <td colspan="4"><span>Zipl fiber</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Zipl fiber 10GIG</td>
-                        <td class="product-name">Zipl fiber 10GIG</td>
-                        <td class="speed-value">Zipl fiber 10GIG</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Zipl fiber 5GIG</td>
-                        <td class="product-name">Zipl fiber 5GIG</td>
-                        <td class="speed-value">Zipl fiber 5GIG</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Zipl fiber 2GIG</td>
-                        <td class="product-name">Zipl fiber 2GIG</td>
-                        <td class="speed-value">Zipl fiber 2GIG</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.00</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Zipl fiber 1GIG</td>
-                        <td class="product-name">Zipl fiber 1GIG</td>
-                        <td class="speed-value">Zipl fiber 1GIG</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.00</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Zipl fiber 300MB</td>
-                        <td class="product-name">Zipl fiber 300MB</td>
-                        <td class="speed-value">Zipl fiber 300MB</td>
-                        <td class="score-container"><span class="score-badge score-excellent">0.35</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Zipl fiber 200MB</td>
-                        <td class="product-name">Zipl fiber 200MB</td>
-                        <td class="speed-value">Zipl fiber 200MB</td>
-                        <td class="score-container"><span class="score-badge score-excellent">0.35</span></td>
-                    </tr>
-
-                    <!-- Consolidated Communications/Fidium Section -->
-                    <tr class="category-divider" style="background: linear-gradient(135deg, #fef9c3 0%, #fef08a 100%) !important; color: #854d0e !important;">
-                        <td colspan="4"><span>Consolidated Communications/Fidium</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Consolidated/Fidium</td>
-                        <td class="product-name">2G/G</td>
-                        <td class="speed-value">2,000 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Consolidated/Fidium</td>
-                        <td class="product-name">1G/G</td>
-                        <td class="speed-value">1,000 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Consolidated/Fidium</td>
-                        <td class="product-name">300M</td>
-                        <td class="speed-value">300 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-good">0.35</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Consolidated/Fidium</td>
-                        <td class="product-name">100M</td>
-                        <td class="speed-value">100 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-good">0.35</span></td>
-                    </tr>
-
-                    <!-- Windstream/Kinetic Section -->
-                    <tr class="category-divider" style="background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%) !important; color: #075985 !important;">
-                        <td colspan="4"><span>Windstream/Kinetic</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Windstream/Kinetic</td>
-                        <td class="product-name">DEBAJO DE 499MBPS</td>
-                        <td class="speed-value">Menos de 499 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.00</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Windstream/Kinetic</td>
-                        <td class="product-name">500 A 999MBPS</td>
-                        <td class="speed-value">500-999 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.00</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Windstream/Kinetic</td>
-                        <td class="product-name">1GIG O MAS</td>
-                        <td class="speed-value">1,000 Mbps o más</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.25</span></td>
-                    </tr>
-
-                    <!-- MetroNet Residential Section -->
-                    <tr class="category-divider" style="background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%) !important; color: #9f1239 !important;">
-                        <td colspan="4"><span>MetroNet Residential</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">MetroNet</td>
-                        <td class="product-name">5GB</td>
-                        <td class="speed-value">5,000 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">MetroNet</td>
-                        <td class="product-name">3GB</td>
-                        <td class="speed-value">3,000 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">MetroNet</td>
-                        <td class="product-name">2GB</td>
-                        <td class="speed-value">2,000 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">MetroNet</td>
-                        <td class="product-name">1GB</td>
-                        <td class="speed-value">1,000 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.00</span></td>
-                    </tr>
-
-                    <!-- CenturyLink/Lumen Section -->
-                    <tr class="category-divider" style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%) !important; color: #14532d !important;">
-                        <td colspan="4"><span>CenturyLink/Lumen</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">CenturyLink/Lumen</td>
-                        <td class="product-name">900MBPS+</td>
-                        <td class="speed-value">900 Mbps o más</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.00</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">CenturyLink/Lumen</td>
-                        <td class="product-name">100-899MBPS</td>
-                        <td class="speed-value">100-899 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-good">0.75</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">CenturyLink/Lumen</td>
-                        <td class="product-name">10-99MBPS</td>
-                        <td class="speed-value">10-99 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-fair">0.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">CenturyLink/Lumen</td>
-                        <td class="product-name">CenturyLink/Lumen D2D</td>
-                        <td class="speed-value">---</td>
-                        <td class="score-container"><span class="score-badge score-good">0.35</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">CenturyLink/Lumen</td>
-                        <td class="product-name">ALL FIBER</td>
-                        <td class="speed-value">Fibra</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">CenturyLink/Lumen</td>
-                        <td class="product-name">40-99MBPS</td>
-                        <td class="speed-value">40-99 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-good">0.35</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">CenturyLink/Lumen</td>
-                        <td class="product-name">10-39MBPS</td>
-                        <td class="speed-value">10-39 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-fair">0.25</span></td>
-                    </tr>
-
-                    <!-- Brightspeed Section -->
-                    <tr class="category-divider" style="background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%) !important; color: #7c2d12 !important;">
-                        <td colspan="4"><span>Brightspeed</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Brightspeed</td>
-                        <td class="product-name">900MBPS+</td>
-                        <td class="speed-value">900 Mbps o más</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.00</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Brightspeed</td>
-                        <td class="product-name">100-899MBPS</td>
-                        <td class="speed-value">100-899 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.00</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Brightspeed</td>
-                        <td class="product-name">40-99MBPS</td>
-                        <td class="speed-value">40-99 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-good">0.35</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Brightspeed</td>
-                        <td class="product-name">10-39MBPS</td>
-                        <td class="speed-value">10-39 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-good">0.35</span></td>
-                    </tr>
-
-                    <!-- Earthlink Section -->
-                    <tr class="category-divider" style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%) !important; color: #064e3b !important;">
-                        <td colspan="4"><span>Earthlink</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Earthlink</td>
-                        <td class="product-name">Earthlink &lt;100MBPS</td>
-                        <td class="speed-value">Menos de 100 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-fair">0.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Earthlink</td>
-                        <td class="product-name">Speeds up to 99mbps</td>
-                        <td class="speed-value">Hasta 99 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-fair">0.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Earthlink</td>
-                        <td class="product-name">Speeds 100+mbps</td>
-                        <td class="speed-value">100 Mbps o más</td>
-                        <td class="score-container"><span class="score-badge score-good">0.35</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Earthlink</td>
-                        <td class="product-name">12 AT&T Markets - 100mbps UNLIMITED</td>
-                        <td class="speed-value">100 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-good">0.75</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Earthlink</td>
-                        <td class="product-name">12 AT&T Markets - 300mbps UNLIMITED</td>
-                        <td class="speed-value">300 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.00</span></td>
-                    </tr>
-
-                    <!-- Wireless ATT Section -->
-                    <tr class="category-divider" style="background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%) !important; color: #713f12 !important;">
-                        <td colspan="4"><span>WIRELES - ATT</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">ATT Wireless</td>
-                        <td class="product-name">C/A</td>
-                        <td class="speed-value">Con Activación</td>
-                        <td class="score-container"><span class="score-badge score-good">0.50</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">ATT Wireless</td>
-                        <td class="product-name">S/A</td>
-                        <td class="speed-value">Sin Activación</td>
-                        <td class="score-container"><span class="score-badge score-fair">0.25</span></td>
-                    </tr>
-
-                    <!-- Altafiber - Cincinnati Bell (Productos Adicionales) -->
-                    <tr class="category-divider altafiber-category">
-                        <td colspan="4"><span>Altafiber - Cincinnati Bell (Productos Adicionales)</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Altafiber</td>
-                        <td class="product-name">800MB - 1GB</td>
-                        <td class="speed-value">800-1000 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-good">0.35</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Altafiber</td>
-                        <td class="product-name">100MB - 600MB</td>
-                        <td class="speed-value">100-600 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-fair">0.25</span></td>
-                    </tr>
-
-                    <!-- Hawaiian Telecom (Productos Adicionales) -->
-                    <tr>
-                        <td class="provider-name">Hawaiian Telecom</td>
-                        <td class="product-name">1200MBPS</td>
-                        <td class="speed-value">1,200 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-good">0.35</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Hawaiian Telecom</td>
-                        <td class="product-name">1000MBPS</td>
-                        <td class="speed-value">1,000 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-good">0.35</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Hawaiian Telecom</td>
-                        <td class="product-name">500MBPS</td>
-                        <td class="speed-value">500 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-fair">0.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Hawaiian Telecom</td>
-                        <td class="product-name">300MB</td>
-                        <td class="speed-value">300 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-fair">0.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Hawaiian Telecom</td>
-                        <td class="product-name">200MBPS</td>
-                        <td class="speed-value">200 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-fair">0.25</span></td>
-                    </tr>
-
-                    <!-- HughesNet Section -->
-                    <tr class="category-divider" style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%) !important; color: #1e3a8a !important;">
-                        <td colspan="4"><span>HughesNet</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">HughesNet</td>
-                        <td class="product-name">Activation Commission</td>
-                        <td class="speed-value">---</td>
-                        <td class="score-container"><span class="score-badge score-good">0.35</span></td>
-                    </tr>
-
-                    <!-- OPTIMUM Section -->
-                    <tr class="category-divider" style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%) !important; color: #166534 !important;">
-                        <td colspan="4"><span>OPTIMUM</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Optimum</td>
-                        <td class="product-name">BROADBAND 5 GBPS</td>
-                        <td class="speed-value">5,000 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Optimum</td>
-                        <td class="product-name">BROADBAND 2 GBPS</td>
-                        <td class="speed-value">2,000 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Optimum</td>
-                        <td class="product-name">BROADBAND 1 GBPS</td>
-                        <td class="speed-value">1,000 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.00</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Optimum</td>
-                        <td class="product-name">BROADBAND 500 MBPS</td>
-                        <td class="speed-value">500 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-good">0.35</span></td>
-                    </tr>
-
-                    <!-- EXTRAS NO APLICAN PARA PUNTAJE -->
-                    <tr class="category-divider" style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%) !important; color: #78350f !important;">
-                        <td colspan="4"><span>EXTRAS NO APLICAN PARA PUNTAJE</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Extras</td>
-                        <td class="product-name">VIVINT</td>
-                        <td class="speed-value">---</td>
-                        <td class="score-container"><span class="score-badge" style="background: #e5e7eb; color: #6b7280;">N/A</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Extras</td>
-                        <td class="product-name">LINEAS TELEFONICA AT&T</td>
-                        <td class="speed-value">---</td>
-                        <td class="score-container"><span class="score-badge" style="background: #e5e7eb; color: #6b7280;">N/A</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Extras</td>
-                        <td class="product-name">LINEAS TELEFONICA SPECTRUM</td>
-                        <td class="speed-value">---</td>
-                        <td class="score-container"><span class="score-badge" style="background: #e5e7eb; color: #6b7280;">N/A</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Extras</td>
-                        <td class="product-name">VIDEO EXTRA DE SPECTRUM</td>
-                        <td class="speed-value">---</td>
-                        <td class="score-container"><span class="score-badge" style="background: #e5e7eb; color: #6b7280;">N/A</span></td>
-                    </tr>
-
-                    <!-- DIRECTV (Productos Adicionales) -->
-                    <tr class="category-divider directv-category">
-                        <td colspan="4"><span>DIRECTV (Productos Adicionales)</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">DIRECTV</td>
-                        <td class="product-name">Low</td>
-                        <td class="speed-value">Low</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.00</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">DIRECTV</td>
-                        <td class="product-name">Medium</td>
-                        <td class="speed-value">Medium</td>
-                        <td class="score-container"><span class="score-badge score-good">0.35</span></td>
-                    </tr>
-
-                    <!-- SPECTRUM (Productos Adicionales) -->
-                    <tr class="category-divider spectrum-category">
-                        <td colspan="4"><span>SPECTRUM (Productos Adicionales)</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Spectrum</td>
-                        <td class="product-name">2 GIGA</td>
-                        <td class="speed-value">2,000 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Spectrum</td>
-                        <td class="product-name">1 GIGA</td>
-                        <td class="speed-value">1,000 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.00</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Spectrum</td>
-                        <td class="product-name">PREMIER</td>
-                        <td class="speed-value">Premier</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.00</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Spectrum</td>
-                        <td class="product-name">ADVANTAGE</td>
-                        <td class="speed-value">Standard</td>
-                        <td class="score-container"><span class="score-badge score-good">0.35</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Spectrum</td>
-                        <td class="product-name">400 mbps</td>
-                        <td class="speed-value">400 Mbps</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.00</span></td>
-                    </tr>
-
-                    <!-- MOBILITY Section -->
-                    <tr class="category-divider" style="background: linear-gradient(135deg, #fef9c3 0%, #fef08a 100%) !important; color: #713f12 !important;">
-                        <td colspan="4"><span>MOBILITY</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Mobility</td>
-                        <td class="product-name">UNLIMITED PLUS FIRST LINE</td>
-                        <td class="speed-value">---</td>
-                        <td class="score-container"><span class="score-badge score-fair">0.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Mobility</td>
-                        <td class="product-name">UNLIMITED PLUS LINES 2 +</td>
-                        <td class="speed-value">---</td>
-                        <td class="score-container"><span class="score-badge score-excellent">1.00</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Mobility</td>
-                        <td class="product-name">UNLIMITED LINES 2 +</td>
-                        <td class="speed-value">---</td>
-                        <td class="score-container"><span class="score-badge score-good">0.35</span></td>
-                    </tr>
-
-                    <!-- VIDEO Section -->
-                    <tr class="category-divider" style="background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%) !important; color: #3730a3 !important;">
-                        <td colspan="4"><span>VIDEO</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Video</td>
-                        <td class="product-name">SELECT</td>
-                        <td class="speed-value">---</td>
-                        <td class="score-container"><span class="score-badge score-good">0.35</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Video</td>
-                        <td class="product-name">ADDITIONAL</td>
-                        <td class="speed-value">---</td>
-                        <td class="score-container"><span class="score-badge" style="background: #e5e7eb; color: #6b7280;">N/A</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Video</td>
-                        <td class="product-name">DOUBLE PLAY</td>
-                        <td class="speed-value">---</td>
-                        <td class="score-container"><span class="score-badge score-fair">0.25</span></td>
-                    </tr>
-                    <tr>
-                        <td class="provider-name">Video</td>
-                        <td class="product-name">TRIPLE PLAY</td>
-                        <td class="speed-value">---</td>
-                        <td class="score-container"><span class="score-badge score-good">0.35</span></td>
-                    </tr>
-                   
-                    
-                </tbody>
-            </table>
-        </div>
-
-        </div>
+  <section class="pg-barra in-glass" aria-label="Tabla de puntaje">
+    <div class="pg-titulo">
+      <span class="pg-ico"><i class="ph ph-hash" aria-hidden="true"></i></span>
+      <div>
+        <h1>Tabla de puntaje</h1>
+        <p>Puntos que suma cada producto según proveedor y velocidad</p>
       </div>
     </div>
+    <div class="pg-acciones">
+      <label class="pg-campo tp-buscar">
+        <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+        <span class="tp-sr">Buscar producto</span>
+        <input type="search" id="tp-buscar" placeholder="Buscar proveedor, producto o velocidad" autocomplete="off">
+      </label>
+    </div>
+  </section>
+
+  <div class="tp-leyenda" aria-label="Leyenda de puntos">
+    <span><b class="tp-pts tp-alto">1.25+</b>Alto</span>
+    <span><b class="tp-pts tp-medio">0.70 – 1.00</b>Medio</span>
+    <span><b class="tp-pts tp-bajo">hasta 0.50</b>Base</span>
+    <span><b class="tp-pts tp-na">N/A</b>No suma puntaje</span>
+    <span class="tp-resumen" id="tp-resumen" aria-live="polite"></span>
   </div>
+
+  <div class="tp-grid" id="tp-grid"></div>
+
+</div>
+</div>
+
+<script src="/js/layout/topnav.js?v=20261008c" defer></script>
+<script src="/js/layout/topbar-acciones.js?v=20261008b" defer></script>
+<script src="/js/componentes/llamadas-bloqueo.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  // [proveedor, producto, velocidad, puntos] — mismos valores que la tabla anterior.
+  var PUNTAJES = [
+    { cat: "AT&T", filas: [
+      ["AT&T", "Internet Air 90-300Mbps", "90-300 Mbps", "0.45"],
+      ["AT&T", "Internet Menos de 50Mbps", "Menos de 50 Mbps", "0.25"],
+      ["AT&T", "Internet 50 y 75 MBPS", "50 y 75 Mbps", "0.35"],
+      ["AT&T", "Internet de 100 MBPS", "100 Mbps", "0.35"],
+      ["AT&T", "Internet 100 Fibra", "100 Mbps Fibra", "0.70"],
+      ["AT&T", "internet 300MBPS", "300 Mbps", "1.25"],
+      ["AT&T", "internet 500MBPS", "500 Mbps", "1.25"],
+      ["AT&T", "internet 1GB o más", "1 Gbps o más", "1.50"]
+    ] },
+    { cat: "Frontier", filas: [
+      ["Frontier", "7 GIG Fiber", "7,000 Mbps", "1.50"],
+      ["Frontier", "5 GIG Fiber", "5,000 Mbps", "1.50"],
+      ["Frontier", "2 GIG Fiber", "2,000 Mbps", "1.50"],
+      ["Frontier", "1 GIG Fiber", "1,000 Mbps", "1.25"],
+      ["Frontier", "500 MBPS", "500 Mbps", "1.00"],
+      ["Frontier", "FIBER UNDER 500 MBPS", "500 Mbps", "0.35"],
+      ["Frontier", "UNLIMITED DIGITAL VOICE", "----", "0.35"]
+    ] },
+    { cat: "AltaFiber - Cincinnati Bell Y Hawaiian TELECOM", filas: [
+      ["AltaFiber", "800MB - 1GB", "800Mbps-1000Mbps", "0.35"],
+      ["AltaFiber", "100MB - 600MB", "100-600 Mbps", "0.25"],
+      ["Hawaiian Telecom", "1 Gig Fiber", "1,000 Mbps", "0.35"],
+      ["Hawaiian Telecom", "750MB Fiber", "750 Mbps", "0.25"],
+      ["Hawaiian Telecom", "500MB Fiber", "500Mbps", "0.25"],
+      ["Hawaiian Telecom", "300MB Fiber", "300Mbps", "0.25"]
+    ] },
+    { cat: "DIRECTV", filas: [
+      ["DIRECTV", "LOW", "LOW", "1.00"],
+      ["DIRECTV", "Medium", "MEDIUM", "0.35"]
+    ] },
+    { cat: "XFINITY", filas: [
+      ["XFINITY", "100-299 Mbps", "100-299 Mbps", "0.35"],
+      ["XFINITY", "300 Mbps", "300 Mbps", "0.35"],
+      ["XFINITY", "500 Mbps+", "500 Mbps o más", "0.75"],
+      ["XFINITY", "Double Play", "Internet + TV", "1.00"],
+      ["XFINITY", "Ultimate TV", "TV Premium", "0.75"],
+      ["XFINITY", "Unlimited VoIP", "Telefonía VoIP", "0.75"]
+    ] },
+    { cat: "Spectrum", filas: [
+      ["Spectrum", "2 GIGA Ultra", "2,000 Mbps", "1.25"],
+      ["Spectrum", "1 GIGA Pro", "1,000 Mbps", "1.00"],
+      ["Spectrum", "Premier", "premie", "1.00"],
+      ["Spectrum", "Advantage", "Standard", "0.35"],
+      ["400MBPS", "400MBPS", "400MBPS", "1.00"]
+    ] },
+    { cat: "Zipl fiber", filas: [
+      ["Zipl fiber 10GIG", "Zipl fiber 10GIG", "Zipl fiber 10GIG", "1.25"],
+      ["Zipl fiber 5GIG", "Zipl fiber 5GIG", "Zipl fiber 5GIG", "1.25"],
+      ["Zipl fiber 2GIG", "Zipl fiber 2GIG", "Zipl fiber 2GIG", "1.00"],
+      ["Zipl fiber 1GIG", "Zipl fiber 1GIG", "Zipl fiber 1GIG", "1.00"],
+      ["Zipl fiber 300MB", "Zipl fiber 300MB", "Zipl fiber 300MB", "0.35"],
+      ["Zipl fiber 200MB", "Zipl fiber 200MB", "Zipl fiber 200MB", "0.35"]
+    ] },
+    { cat: "Consolidated Communications/Fidium", filas: [
+      ["Consolidated/Fidium", "2G/G", "2,000 Mbps", "1.25"],
+      ["Consolidated/Fidium", "1G/G", "1,000 Mbps", "1.25"],
+      ["Consolidated/Fidium", "300M", "300 Mbps", "0.35"],
+      ["Consolidated/Fidium", "100M", "100 Mbps", "0.35"]
+    ] },
+    { cat: "Windstream/Kinetic", filas: [
+      ["Windstream/Kinetic", "DEBAJO DE 499MBPS", "Menos de 499 Mbps", "1.00"],
+      ["Windstream/Kinetic", "500 A 999MBPS", "500-999 Mbps", "1.00"],
+      ["Windstream/Kinetic", "1GIG O MAS", "1,000 Mbps o más", "1.25"]
+    ] },
+    { cat: "MetroNet Residential", filas: [
+      ["MetroNet", "5GB", "5,000 Mbps", "1.25"],
+      ["MetroNet", "3GB", "3,000 Mbps", "1.25"],
+      ["MetroNet", "2GB", "2,000 Mbps", "1.25"],
+      ["MetroNet", "1GB", "1,000 Mbps", "1.00"]
+    ] },
+    { cat: "CenturyLink/Lumen", filas: [
+      ["CenturyLink/Lumen", "900MBPS+", "900 Mbps o más", "1.00"],
+      ["CenturyLink/Lumen", "100-899MBPS", "100-899 Mbps", "0.75"],
+      ["CenturyLink/Lumen", "10-99MBPS", "10-99 Mbps", "0.25"],
+      ["CenturyLink/Lumen", "CenturyLink/Lumen D2D", "---", "0.35"],
+      ["CenturyLink/Lumen", "ALL FIBER", "Fibra", "1.25"],
+      ["CenturyLink/Lumen", "40-99MBPS", "40-99 Mbps", "0.35"],
+      ["CenturyLink/Lumen", "10-39MBPS", "10-39 Mbps", "0.25"]
+    ] },
+    { cat: "Brightspeed", filas: [
+      ["Brightspeed", "900MBPS+", "900 Mbps o más", "1.00"],
+      ["Brightspeed", "100-899MBPS", "100-899 Mbps", "1.00"],
+      ["Brightspeed", "40-99MBPS", "40-99 Mbps", "0.35"],
+      ["Brightspeed", "10-39MBPS", "10-39 Mbps", "0.35"]
+    ] },
+    { cat: "Earthlink", filas: [
+      ["Earthlink", "Earthlink <100MBPS", "Menos de 100 Mbps", "0.25"],
+      ["Earthlink", "Speeds up to 99mbps", "Hasta 99 Mbps", "0.25"],
+      ["Earthlink", "Speeds 100+mbps", "100 Mbps o más", "0.35"],
+      ["Earthlink", "12 AT&T Markets - 100mbps UNLIMITED", "100 Mbps", "0.75"],
+      ["Earthlink", "12 AT&T Markets - 300mbps UNLIMITED", "300 Mbps", "1.00"]
+    ] },
+    { cat: "WIRELES - ATT", filas: [
+      ["ATT Wireless", "C/A", "Con Activación", "0.50"],
+      ["ATT Wireless", "S/A", "Sin Activación", "0.25"]
+    ] },
+    { cat: "Altafiber - Cincinnati Bell (Productos Adicionales)", filas: [
+      ["Altafiber", "800MB - 1GB", "800-1000 Mbps", "0.35"],
+      ["Altafiber", "100MB - 600MB", "100-600 Mbps", "0.25"],
+      ["Hawaiian Telecom", "1200MBPS", "1,200 Mbps", "0.35"],
+      ["Hawaiian Telecom", "1000MBPS", "1,000 Mbps", "0.35"],
+      ["Hawaiian Telecom", "500MBPS", "500 Mbps", "0.25"],
+      ["Hawaiian Telecom", "300MB", "300 Mbps", "0.25"],
+      ["Hawaiian Telecom", "200MBPS", "200 Mbps", "0.25"]
+    ] },
+    { cat: "HughesNet", filas: [
+      ["HughesNet", "Activation Commission", "---", "0.35"]
+    ] },
+    { cat: "OPTIMUM", filas: [
+      ["Optimum", "BROADBAND 5 GBPS", "5,000 Mbps", "1.25"],
+      ["Optimum", "BROADBAND 2 GBPS", "2,000 Mbps", "1.25"],
+      ["Optimum", "BROADBAND 1 GBPS", "1,000 Mbps", "1.00"],
+      ["Optimum", "BROADBAND 500 MBPS", "500 Mbps", "0.35"]
+    ] },
+    { cat: "EXTRAS NO APLICAN PARA PUNTAJE", filas: [
+      ["Extras", "VIVINT", "---", "N/A"],
+      ["Extras", "LINEAS TELEFONICA AT&T", "---", "N/A"],
+      ["Extras", "LINEAS TELEFONICA SPECTRUM", "---", "N/A"],
+      ["Extras", "VIDEO EXTRA DE SPECTRUM", "---", "N/A"]
+    ] },
+    { cat: "DIRECTV (Productos Adicionales)", filas: [
+      ["DIRECTV", "Low", "Low", "1.00"],
+      ["DIRECTV", "Medium", "Medium", "0.35"]
+    ] },
+    { cat: "SPECTRUM (Productos Adicionales)", filas: [
+      ["Spectrum", "2 GIGA", "2,000 Mbps", "1.25"],
+      ["Spectrum", "1 GIGA", "1,000 Mbps", "1.00"],
+      ["Spectrum", "PREMIER", "Premier", "1.00"],
+      ["Spectrum", "ADVANTAGE", "Standard", "0.35"],
+      ["Spectrum", "400 mbps", "400 Mbps", "1.00"]
+    ] },
+    { cat: "MOBILITY", filas: [
+      ["Mobility", "UNLIMITED PLUS FIRST LINE", "---", "0.25"],
+      ["Mobility", "UNLIMITED PLUS LINES 2 +", "---", "1.00"],
+      ["Mobility", "UNLIMITED LINES 2 +", "---", "0.35"]
+    ] },
+    { cat: "VIDEO", filas: [
+      ["Video", "SELECT", "---", "0.35"],
+      ["Video", "ADDITIONAL", "---", "N/A"],
+      ["Video", "DOUBLE PLAY", "---", "0.25"],
+      ["Video", "TRIPLE PLAY", "---", "0.35"]
+    ] }
+  ];
+
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function norm(s) { try { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); } catch (e) { return String(s || '').toLowerCase(); } }
+  function nivel(p) {
+    var n = parseFloat(p);
+    if (isNaN(n)) return 'tp-na';
+    return n >= 1.25 ? 'tp-alto' : n >= 0.7 ? 'tp-medio' : 'tp-bajo';
+  }
+  function sinDato(v) { return !v || /^-+$/.test(v); }
+
+  function pintar() {
+    var q = norm(document.getElementById('tp-buscar').value.trim());
+    var html = '', vistos = 0, total = 0;
+    PUNTAJES.forEach(function (c) {
+      total += c.filas.length;
+      var filas = c.filas.filter(function (r) { return !q || norm(c.cat + ' ' + r.join(' ')).indexOf(q) >= 0; });
+      if (!filas.length) return;
+      vistos += filas.length;
+      // La columna de proveedor sólo hace falta si en la categoría hay más de uno.
+      var varios = c.filas.some(function (r) { return r[0] !== c.filas[0][0]; });
+      html += '<section class="pg-card in-glass tp-card"><div class="pg-card-head"><h2>' + esc(c.cat) + '</h2>' +
+        '<span class="pg-chip">' + filas.length + (filas.length === 1 ? ' producto' : ' productos') + '</span></div>' +
+        '<table class="pg-tbl tp-tbl"><thead><tr>' + (varios ? '<th scope="col" class="pg-izq">Proveedor</th>' : '') +
+        '<th scope="col" class="pg-izq">Producto</th><th scope="col" class="pg-izq">Velocidad</th><th scope="col" class="tp-col-pts">Puntos</th></tr></thead><tbody>' +
+        filas.map(function (r) {
+          return '<tr>' + (varios ? '<td class="pg-izq tp-prov">' + esc(r[0]) + '</td>' : '') +
+            '<th scope="row" class="pg-izq tp-prod">' + esc(r[1]) + '</th>' +
+            '<td class="pg-izq tp-vel">' + (sinDato(r[2]) ? '<span class="tp-guion">—</span>' : esc(r[2])) + '</td>' +
+            '<td class="tp-col-pts"><span class="tp-pts ' + nivel(r[3]) + '">' + esc(r[3]) + '</span></td></tr>';
+        }).join('') + '</tbody></table></section>';
+    });
+    document.getElementById('tp-grid').innerHTML = html || '<div class="pg-vacio in-glass">Ningún producto coincide con la búsqueda</div>';
+    document.getElementById('tp-resumen').textContent = q ? vistos + ' de ' + total + ' productos' : total + ' productos';
+  }
+
+  document.getElementById('tp-buscar').addEventListener('input', pintar);
+  pintar();
+})();
+</script>
 </body>
 </html>
-

@@ -3,180 +3,153 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard - Ranking Líneas</title>
+  <title>Ranking · Líneas</title>
   <link rel="icon" type="image/png" href="/images/favicon.png">
-  <link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
-  <link rel="stylesheet" href="/css/base/theme.css?v=20251124f">
-
-  <!-- Font Awesome (async para no bloquear render) -->
-  <link rel="preload" as="style" href="/vendor/fontawesome/css/all.min.css" onload="this.rel='stylesheet'">
-  <noscript><link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css"></noscript>
-
-  <!-- Google Fonts (async para no bloquear render) -->
+  <!-- Sesión: la cabecera (menú e iconos) la reutiliza; sin sesión, al login. -->
+  <script>
+    window.__sesion = fetch('/api/auth/verify-server', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : { authenticated: false }; })
+      .then(function (d) { if (!d.authenticated) { location.replace('/login.html'); } return d; })
+      .catch(function () { location.replace('/login.html'); return {}; });
+  </script>
+  <link rel="stylesheet" href="/css/base/scroll.css?v=20261008a">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" onload="this.rel='stylesheet'">
-  <noscript><link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet"></noscript>
-
-  <!-- Custom CSS -->
-  <link rel="stylesheet" href="/css/componentes/costumer-table-actions.css">
-
-  <link rel="stylesheet" href="/css/lineas/ranking.css?v=20260828">
-
-
-
-
-  <!-- Scripts -->
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
+  <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
+  <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
+  <link rel="stylesheet" href="/css/componentes/pagina.css?v=20261009a">
+  <!-- Mismo podio y lista que el ranking de Residencial -->
+  <link rel="stylesheet" href="/css/residencial/ranking.css?v=20261009b">
+  <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
+  <script src="/js/layout/transicion.js?v=20261008b"></script>
   <script src="/js/core/fetch-interceptor.js" defer></script>
   <script src="/js/core/logout-handler.js" defer></script>
   <script src="/js/core/user-info.js" defer></script>
-  <script src="/js/core/crm-config.js" defer></script>
-  <script src="/js/core/inactivity-manager.js?v=20260611a" defer></script>
-  <script src="/js/core/crm-init.js" defer></script>
-
-
-  <link rel="stylesheet" href="/css/componentes/glass-cards-cream.css?v=20260716a">
-  <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
 </head>
 <body>
-  <script src="/js/core/theme-init.js"></script>
-  <script src="/js/layout/sidebar.js" defer></script>
-  <script src="/js/layout/sidebar-ui.js" defer></script>
-  <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
-  <script src="/js/layout/sidebar-user.js" defer></script>
-  <div class="layout">
-    <!-- SIDEBAR (cargado dinámicamente) -->
-    <nav class="sidebar" id="app-sidebar"></nav>
-    <main class="main-content">
+<div class="in-marco">
+<div class="in-hoja">
 
-      <!-- Card principal con fondo morado -->
-      <div class="ranking-main-card fsu">
-        <div class="ranking-top-row">
-          <!-- Texto motivacional -->
-          <div class="motiv-card">
-            <div class="motiv-divider"></div>
-            <div class="motiv-heading">¡Domina el<br><span>ranking!</span></div>
-            <div class="motiv-body">
-              Cada línea vendida es un paso hacia la cima.<br>
-              Supera tus metas, acelera tus ventas<br>
-              y conviértete en el mejor de Líneas.
-            </div>
-          </div>
-          <!-- Podium image con labels sobre los cilindros -->
-          <div class="ranking-podium-final" style="flex:1;display:flex;align-items:flex-end;justify-content:center;min-height:420px;">
-            <div style="position:relative;display:inline-block;height:460px;flex-shrink:0;">
-              <img src="/images/podium.webp" alt="Podio" style="height:460px;width:auto;display:block;">
-              <div id="label-first" class="podium-label label-first">
-                <span class="place-badge place-gold">🥇 1er Lugar</span>
-                <div class="podium-label-name" id="label-first-name">—</div>
-                <div class="podium-label-score" id="label-first-score">0</div>
-              </div>
-              <div id="label-second" class="podium-label label-second">
-                <span class="place-badge place-silver">🥈 2do Lugar</span>
-                <div class="podium-label-name" id="label-second-name">—</div>
-                <div class="podium-label-score" id="label-second-score">0</div>
-              </div>
-              <div id="label-third" class="podium-label label-third">
-                <span class="place-badge place-bronze">🥉 3er Lugar</span>
-                <div class="podium-label-name" id="label-third-name">—</div>
-                <div class="podium-label-score" id="label-third-score">0</div>
-              </div>
-            </div>
-          </div>
-        </div>
+  <header class="in-head">
+    <nav id="topnav" class="tn" aria-label="Menú principal"></nav>
+    <!-- Ajustes, chat, notificaciones y usuario: js/layout/topbar-acciones.js -->
+    <div id="topbar-acciones" class="in-iconos"></div>
+  </header>
 
-        <!-- Elementos ocultos requeridos por JS (compatibilidad) -->
-        <div style="display:none">
-          <div class="first-pos"><div class="astronaut-name">—</div><div class="astronaut-score">0</div></div>
-          <div class="second-pos"><div class="astronaut-name">—</div><div class="astronaut-score">0</div></div>
-          <div class="third-pos"><div class="astronaut-name">—</div><div class="astronaut-score">0</div></div>
-          <div class="circular-podium"></div>
-        </div>
-      </div><!-- /ranking-main-card -->
-
-      <!-- Navegación de fecha (solo mes actual) -->
-      <div class="rank-date-nav fsu" style="gap: 0; border: none; box-shadow: none; background: transparent; padding: 0;">
-        <span id="rank-period-label" style="background: white; border: 1.5px solid #e2e8f0; border-radius: 40px; padding: 8px 22px; box-shadow: 0 3px 14px rgba(0,0,0,0.07);">Ranking — …</span>
-      </div>
-
-      <!-- Otros Participantes -->
-      <div class="ranking-panel fsu">
-        <div class="ranking-content">
-          <div class="other-ranks">
-            <div class="other-ranks-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-              <h3 style="margin:0;">Otros Agentes</h3>
-              <div style="display:flex;gap:8px;align-items:center;">
-                <button id="btn-open-full-ranking" type="button" style="background:#111827; color:#fff; border:none; padding:8px 14px; border-radius:8px; cursor:pointer;">Ver todos</button>
-              </div>
-            </div>
-            <div class="rank-list" id="rank-list-dynamic"></div>
-          </div>
-        </div>
-      </div>
-    </main>
-
-    <!-- Modal de tabla completa -->
-    <div id="fullRankingModal" style="position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; z-index:9999;">
-      <div style="background:#fff; width:min(1100px, 92vw); max-height:88vh; border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,.25); display:flex; flex-direction:column;">
-        <div style="padding:14px 18px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #e5e7eb;">
-          <h3 id="full-ranking-title" style="margin:0; font-size:1.1rem;">Ranking completo de Líneas</h3>
-          <button id="btn-close-full-ranking" type="button" style="background:#111827; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer;">Cerrar</button>
-        </div>
-        <div style="padding:12px 18px; overflow:auto;">
-          <div class="table-responsive">
-            <table id="full-rank-table" style="width:100%; border-collapse:collapse; font-size:0.95rem;">
-              <thead>
-                <tr style="background:linear-gradient(90deg,#6366f1,#9333ea); color:#fff;">
-                  <th style="text-align:left; padding:10px;">#</th>
-                  <th style="text-align:left; padding:10px;">Agente</th>
-                  <th style="text-align:right; padding:10px;">Líneas Totales</th>
-                  <th style="text-align:right; padding:10px;">Wireless</th>
-                  <th style="text-align:right; padding:10px;">Sin Wireless</th>
-                  <th style="text-align:right; padding:10px;">Ventas</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
+  <section class="pg-barra in-glass" aria-label="Ranking de Líneas">
+    <div class="pg-titulo">
+      <span class="pg-ico"><i class="ph ph-device-mobile" aria-hidden="true"></i></span>
+      <div>
+        <h1>Ranking de Líneas</h1>
+        <p>Cada línea vendida es un paso hacia la cima: supera tus metas y conviértete en el mejor de Líneas.</p>
       </div>
     </div>
+    <div class="pg-acciones">
+      <span class="pg-periodo-lbl" id="rank-period-label" aria-live="polite">Ranking — …</span>
+    </div>
+  </section>
+
+  <section class="pg-card in-glass rk-podio-card" aria-labelledby="rk-podio-t">
+    <div class="pg-card-head">
+      <div>
+        <h2 id="rk-podio-t">Podio</h2>
+        <p>Los tres primeros del mes por líneas vendidas</p>
+      </div>
+    </div>
+    <div class="rk-podio">
+      <div class="rk-escalon rk-escalon-2" id="label-second">
+        <div class="rk-escalon-quien">
+          <span class="rk-medalla">2.º lugar</span>
+          <div class="rk-escalon-nom" id="label-second-name">—</div>
+          <div class="rk-escalon-pts"><span id="label-second-score">0</span> líneas</div>
+        </div>
+        <div class="rk-escalon-bloque"><span>2</span></div>
+      </div>
+      <div class="rk-escalon rk-escalon-1" id="label-first">
+        <div class="rk-escalon-quien">
+          <span class="rk-medalla"><i class="ph ph-trophy" aria-hidden="true"></i>1.er lugar</span>
+          <div class="rk-escalon-nom" id="label-first-name">—</div>
+          <div class="rk-escalon-pts"><span id="label-first-score">0</span> líneas</div>
+        </div>
+        <div class="rk-escalon-bloque"><span>1</span></div>
+      </div>
+      <div class="rk-escalon rk-escalon-3" id="label-third">
+        <div class="rk-escalon-quien">
+          <span class="rk-medalla">3.er lugar</span>
+          <div class="rk-escalon-nom" id="label-third-name">—</div>
+          <div class="rk-escalon-pts"><span id="label-third-score">0</span> líneas</div>
+        </div>
+        <div class="rk-escalon-bloque"><span>3</span></div>
+      </div>
+    </div>
+    <!-- Elementos ocultos que rellena el script del ranking -->
+    <div hidden>
+      <div class="first-pos"><div class="astronaut-name">—</div><div class="astronaut-score">0</div></div>
+      <div class="second-pos"><div class="astronaut-name">—</div><div class="astronaut-score">0</div></div>
+      <div class="third-pos"><div class="astronaut-name">—</div><div class="astronaut-score">0</div></div>
+      <div class="circular-podium"></div>
+    </div>
+  </section>
+
+  <section class="pg-card in-glass ranking-panel" aria-labelledby="rk-otros-t">
+    <div class="pg-card-head">
+      <div>
+        <h2 id="rk-otros-t">Otros agentes</h2>
+        <p>Del 4.º puesto en adelante</p>
+      </div>
+      <button id="btn-open-full-ranking" type="button" class="pg-boton">Ver todos</button>
+    </div>
+    <div class="ranking-content">
+      <div class="rank-list" id="rank-list-dynamic"></div>
+    </div>
+  </section>
+
+</div>
+</div>
+
+<!-- Tabla completa (la abre ranking-lineas.js con style.display) -->
+<div id="fullRankingModal" class="rk-modal" style="display:none">
+  <div class="rk-modal-caja" role="dialog" aria-modal="true" aria-labelledby="full-ranking-title">
+    <div class="pg-card-head">
+      <h2 id="full-ranking-title">Ranking completo de Líneas</h2>
+      <button id="btn-close-full-ranking" type="button" class="pg-boton"><i class="ph ph-x" aria-hidden="true"></i>Cerrar</button>
+    </div>
+    <div class="pg-scroll rk-modal-cuerpo">
+      <table id="full-rank-table" class="pg-tbl">
+        <thead><tr><th scope="col" class="pg-izq">#</th><th scope="col" class="pg-izq">Agente</th><th scope="col">Líneas totales</th><th scope="col">Wireless</th><th scope="col">Sin wireless</th><th scope="col">Ventas</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
+</div>
 
-  <script>
-    (function(){
-      function go(el, delay){ if(!el) return; setTimeout(function(){ el.classList.add('go'); }, delay||0); }
-      function runAnim(){ document.querySelectorAll('.fsu').forEach(function(el,i){ go(el, i*260); }); }
-      if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', runAnim); }
-      else { runAnim(); }
-    })();
-  </script>
-
-  <script>
-    // Sincroniza etiquetas visibles del podium cuando el JS actualice los elementos ocultos
-    document.addEventListener('DOMContentLoaded', function() {
-      const map = [
-        ['.first-pos .astronaut-name',  'label-first-name'],
-        ['.first-pos .astronaut-score', 'label-first-score'],
-        ['.second-pos .astronaut-name', 'label-second-name'],
-        ['.second-pos .astronaut-score','label-second-score'],
-        ['.third-pos .astronaut-name',  'label-third-name'],
-        ['.third-pos .astronaut-score', 'label-third-score'],
-      ];
-      map.forEach(function([srcSel, destId]) {
-        const src = document.querySelector(srcSel);
-        const dest = document.getElementById(destId);
-        if (!src || !dest) return;
-        new MutationObserver(function() {
-          if (src.textContent && src.textContent !== '—' && src.textContent !== '0') {
-            dest.textContent = src.textContent;
-          }
-        }).observe(src, { childList: true, characterData: true, subtree: true });
-      });
+<script src="/js/layout/topnav.js?v=20261008c" defer></script>
+<script src="/js/layout/topbar-acciones.js?v=20261008b" defer></script>
+<script src="/js/componentes/llamadas-bloqueo.js" defer></script>
+<script>
+  // Copia los nombres y cifras del podio (el script rellena los elementos ocultos).
+  document.addEventListener('DOMContentLoaded', function () {
+    [
+      ['.first-pos .astronaut-name', 'label-first-name'],
+      ['.first-pos .astronaut-score', 'label-first-score'],
+      ['.second-pos .astronaut-name', 'label-second-name'],
+      ['.second-pos .astronaut-score', 'label-second-score'],
+      ['.third-pos .astronaut-name', 'label-third-name'],
+      ['.third-pos .astronaut-score', 'label-third-score']
+    ].forEach(function (par) {
+      var src = document.querySelector(par[0]), dest = document.getElementById(par[1]);
+      if (!src || !dest) return;
+      new MutationObserver(function () {
+        if (src.textContent && src.textContent !== '—' && src.textContent !== '0') dest.textContent = src.textContent;
+      }).observe(src, { childList: true, characterData: true, subtree: true });
     });
-  </script>
-
-  <!-- Script de ranking para líneas -->
-  <script src="/js/lineas/ranking-lineas.js?v=20260810a" defer></script>
+  });
+</script>
+<script src="/js/lineas/ranking-lineas.js?v=20260810a" defer></script>
+<script src="/js/core/crm-config.js" defer></script>
+<script src="/js/core/inactivity-manager.js?v=20260611a" defer></script>
+<script src="/js/core/crm-init.js" defer></script>
 </body>
 </html>

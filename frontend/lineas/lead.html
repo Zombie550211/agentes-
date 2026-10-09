@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Lead - Team Líneas</title>
+  <title>Nuevo lead · Líneas</title>
   <script>
     (function guard(){
       try{
@@ -31,36 +31,57 @@
         .replace(/'/g, '&#39;');
     };
   </script>
-  <link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
-  <link rel="stylesheet" href="/css/base/theme.css?v=20251124f"/>
+  <!-- Sesión: la cabecera (menú e iconos) la reutiliza; sin sesión, al login. -->
+  <script>
+    window.__sesion = fetch('/api/auth/verify-server', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : { authenticated: false }; })
+      .then(function (d) { if (!d.authenticated) { location.replace('/login.html'); } return d; })
+      .catch(function () { location.replace('/login.html'); return {}; });
+  </script>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <link rel="stylesheet" href="/css/base/scroll.css?v=20261008a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
+  <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
+  <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
+  <link rel="stylesheet" href="/css/componentes/pagina.css?v=20261009a">
+  <!-- Font Awesome: sólo para el formulario de transferencia (transferencia-form.js) -->
   <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css" />
-  <link rel="stylesheet" href="/css/lineas/lead.css?v=20260922">
-  <link rel="stylesheet" href="/css/componentes/glass-cards-cream.css?v=20260716a">
-  <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
-  <link rel="stylesheet" href="/css/componentes/transferencia-form.css?v=20261007a">
+  <link rel="stylesheet" href="/css/componentes/transferencia-form.css?v=20261009a">
+  <link rel="stylesheet" href="/css/componentes/transferencia-rediseno.css?v=20261009a">
+  <link rel="stylesheet" href="/css/lineas/lead.css?v=20261009a">
+  <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
+  <script src="/js/layout/transicion.js?v=20261008b"></script>
 </head>
 <body>
-  <script src="/js/core/theme-init.js"></script>
-  <script src="/js/layout/sidebar.js" defer></script>
-  <script src="/js/layout/sidebar-ui.js" defer></script>
-  <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
-  <script src="/js/layout/sidebar-user.js" defer></script>
-  <script src="/js/componentes/transferencia-form.js?v=20261007a" defer></script>
-  <div class="layout">
-    <nav class="sidebar" id="app-sidebar"></nav>
-    <main class="main-content">
-      <div class="ll-page">
+  <script src="/js/componentes/transferencia-form.js?v=20261009a" defer></script>
+<div class="in-marco">
+<div class="in-hoja">
 
-        <!-- Header -->
-        <div class="ll-header">
-          <div class="ll-title">NUEVO LEAD — <span>TEAM LÍNEAS</span></div>
-          <div class="ll-clock">
+  <header class="in-head">
+    <nav id="topnav" class="tn" aria-label="Menú principal"></nav>
+    <!-- Ajustes, chat, notificaciones y usuario: js/layout/topbar-acciones.js -->
+    <div id="topbar-acciones" class="in-iconos"></div>
+  </header>
+
+      <div class="ll-page">
+        <section class="pg-barra in-glass" aria-label="Nuevo lead de Líneas">
+          <div class="pg-titulo">
+            <span class="pg-ico"><i class="ph ph-device-mobile" aria-hidden="true"></i></span>
+            <div>
+              <h1>Nuevo lead · Team Líneas</h1>
+              <p>Registra la venta de líneas o transfiere la llamada a Residencial</p>
+            </div>
+          </div>
+          <div class="ll-clock" aria-label="Hora actual">
             <strong id="ll-clock-time">--:--:-- --</strong>
             <span id="ll-clock-date">--- -- --- ----</span>
           </div>
-        </div>
+        </section>
 
-        <div class="trf-tabs" role="tablist" aria-label="Tipo de registro" style="margin-bottom:16px">
+        <div class="trf-tabs" role="tablist" aria-label="Tipo de registro">
           <button type="button" class="trf-tab trf-tab-on" role="tab" data-trf-tab="lead" aria-selected="true"><i class="fas fa-clipboard-list"></i> Nuevo Lead</button>
           <button type="button" class="trf-tab" role="tab" data-trf-tab="transferencia" aria-selected="false"><i class="fas fa-phone-volume"></i> Transferir llamada</button>
         </div>
@@ -153,7 +174,7 @@
           <!-- Card 4: Registro y control -->
           <div class="ll-card">
             <div class="ll-section-title">Registro y Control</div>
-            <div style="display:flex; gap:48px; flex-wrap:wrap; justify-content:center; align-items:flex-start; margin-bottom:20px;">
+            <div class="ll-fila-control">
               <div class="ll-field" style="min-width:140px;">
                 <label>Mercado *</label>
                 <div class="ll-toggle-group">
@@ -166,7 +187,7 @@
                 <div class="ll-toggle-group" id="supervisorPills">
                   <!-- Pills de supervisor generadas desde /api/lineas/teams (permisos) -->
                 </div>
-                <div id="supervisorNote" style="display:none;font-size:10px;color:#94a3b8;margin-top:5px;font-style:italic;">Asignado automáticamente según tu equipo</div>
+                <div id="supervisorNote" class="ll-nota" style="display:none;">Asignado automáticamente según tu equipo</div>
               </div>
             </div>
             <div class="ll-field" id="assignWrap" style="display:none;">
@@ -174,7 +195,7 @@
               <select id="agentAssign">
                 <option value="">— Selecciona agente —</option>
               </select>
-              <div id="agentAssignNote" style="font-size:10px;color:#94a3b8;margin-top:5px;font-style:italic;">Cargando agentes...</div>
+              <div id="agentAssignNote" class="ll-nota">Cargando agentes...</div>
             </div>
           </div>
 
@@ -183,19 +204,15 @@
             <div class="ll-section-title">Imagen del Lead</div>
             <div class="ll-field">
               <label>Adjuntar imagen (opcional)</label>
-              <div id="ll-img-zone" style="
-                position:relative; min-height:110px; border:2px dashed #cbd5e1;
-                border-radius:13px; background:#f8fafc;
-                display:flex; align-items:center; justify-content:center;
-                cursor:pointer; overflow:hidden; transition:border .2s, background .2s;
-              "
+              <div id="ll-img-zone" class="ll-img-zona" tabindex="0" role="button" aria-label="Adjuntar imagen"
                 onclick="document.getElementById('ll-img-input').click()"
-                ondragover="event.preventDefault();this.style.borderColor='#0891b2';this.style.background='#f0f9ff';"
-                ondragleave="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc';"
+                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('ll-img-input').click();}"
+                ondragover="event.preventDefault();this.classList.add('encima');"
+                ondragleave="this.classList.remove('encima');"
                 ondrop="_llImgDrop(event)">
                 <div id="ll-img-placeholder" style="display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;">
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-                  <span style="font-size:12px;font-weight:700;color:#94a3b8;letter-spacing:.05em;">Click o arrastra una imagen</span>
+                  <i class="ph ph-camera" aria-hidden="true"></i>
+                  <span>Haz clic o arrastra una imagen</span>
                 </div>
                 <img id="ll-img-preview" src="/" alt="preview" style="
                   display:none; width:100%; height:100%; object-fit:cover; position:absolute; inset:0;
@@ -217,7 +234,7 @@
 
           <!-- Submit -->
           <div class="ll-submit-wrap">
-            <button type="submit" class="ll-submit-btn">ENVIAR REGISTRO →</button>
+            <button type="submit" class="ll-submit-btn"><i class="ph ph-floppy-disk" aria-hidden="true"></i>Enviar registro</button>
             <div id="msg"></div>
           </div>
 
@@ -227,8 +244,12 @@
         <div id="trf-panel" data-trf-panel="transferencia" class="trf-oculto"></div>
       </div>
 
-    </main>
-  </div>
+
+</div>
+</div>
+  <script src="/js/layout/topnav.js?v=20261008c" defer></script>
+  <script src="/js/layout/topbar-acciones.js?v=20261008b" defer></script>
+  <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
 
   <script src="/js/core/fetch-interceptor.js"></script>
   <script src="/js/core/logout-handler.js"></script>
@@ -245,9 +266,7 @@
 
     function _llImgDrop(e) {
       e.preventDefault();
-      var zone = document.getElementById('ll-img-zone');
-      zone.style.borderColor = '#cbd5e1';
-      zone.style.background = '#f8fafc';
+      document.getElementById('ll-img-zone').classList.remove('encima');
       var file = e.dataTransfer.files[0];
       if (file && file.type.startsWith('image/')) _llImgSetPreview(file);
     }
@@ -282,7 +301,11 @@
       if (!src) return;
       var overlay = document.createElement('div');
       overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px;';
-      overlay.innerHTML = '<img src="/'+src+'" style="max-width:92vw;max-height:90vh;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,.6);">';
+      var big = document.createElement('img');
+      big.src = src;
+      big.alt = 'Imagen del lead';
+      big.style.cssText = 'max-width:92vw;max-height:90vh;box-shadow:0 8px 40px rgba(0,0,0,.5);';
+      overlay.appendChild(big);
       overlay.onclick = function(){ document.body.removeChild(overlay); };
       document.body.appendChild(overlay);
     }
@@ -417,7 +440,7 @@
           '<div class="ll-line-header" onclick="this.closest(\'.ll-line-block\').classList.toggle(\'open\')">' +
             '<span class="ll-line-badge">Línea ' + i + '</span>' +
             '<span class="ll-line-hint">Teléfono + Servicio</span>' +
-            '<i class="fa fa-chevron-down ll-line-chevron"></i>' +
+            '<i class="ph ph-caret-down ll-line-chevron" aria-hidden="true"></i>' +
           '</div>' +
           '<div class="ll-line-body">' +
             '<div class="ll-grid">' +

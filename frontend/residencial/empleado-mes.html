@@ -1,186 +1,145 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Empleado del Mes</title>
-
+  <title>Empleado del mes · Residencial</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <link rel="stylesheet" href="/css/base/scroll.css?v=20261008a">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
-  
-  
-  <script src="/js/core/fetch-interceptor.js"></script>
-  <script src="/js/core/logout-handler.js"></script>
-  <script src="/js/core/user-info.js"></script>
-
-  <link rel="stylesheet" href="/css/residencial/empleado-mes.css">
-  <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
-  <link rel="stylesheet" href="/css/base/form-controls.css?v=20260921">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
+  <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
+  <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
+  <link rel="stylesheet" href="/css/componentes/pagina.css?v=20261009a">
+  <link rel="stylesheet" href="/css/residencial/empleado-mes.css?v=20261009a">
+  <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
+  <script src="/js/layout/transicion.js?v=20261008b"></script>
+  <script src="/js/core/fetch-interceptor.js" defer></script>
+  <script src="/js/core/logout-handler.js" defer></script>
+  <script src="/js/core/user-info.js" defer></script>
 </head>
 <body>
-  <script src="/js/core/theme-init.js"></script>
-  <script src="/js/layout/sidebar.js" defer></script>
-  <script src="/js/layout/sidebar-ui.js" defer></script>
-  <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
-  <script src="/js/layout/sidebar-user.js" defer></script>
-<nav class="sidebar" id="app-sidebar"></nav>
+<div class="in-marco">
+<div class="in-hoja">
 
-<!-- ── SIDEBAR (Dynamic Load) ─────────────────────────────────── -->
-<div class="sidebar" id="sidebar" role="navigation" aria-label="Menú lateral"></div>
-
-<!-- ── MAIN WRAPPER ──────────────────────────────────────────── -->
-<div class="main-wrapper">
-
-<!-- ── LOADER ─────────────────────────────────────────────────── -->
-<div class="loader-overlay" id="loaderOverlay" role="status" aria-live="polite">
-  <div class="box-of-star1"><div class="star star-position1"></div><div class="star star-position2"></div><div class="star star-position3"></div><div class="star star-position4"></div><div class="star star-position5"></div><div class="star star-position6"></div><div class="star star-position7"></div></div>
-  <div class="box-of-star2"><div class="star star-position1"></div><div class="star star-position2"></div><div class="star star-position3"></div><div class="star star-position4"></div><div class="star star-position5"></div><div class="star star-position6"></div><div class="star star-position7"></div></div>
-  <div class="box-of-star3"><div class="star star-position1"></div><div class="star star-position2"></div><div class="star star-position3"></div><div class="star star-position4"></div><div class="star star-position5"></div><div class="star star-position6"></div><div class="star star-position7"></div></div>
-  <div class="box-of-star4"><div class="star star-position1"></div><div class="star star-position2"></div><div class="star star-position3"></div><div class="star star-position4"></div><div class="star star-position5"></div><div class="star star-position6"></div><div class="star star-position7"></div></div>
-  <div data-js="astro" class="astronaut"><div class="head"></div><div class="arm arm-left"></div><div class="arm arm-right"></div><div class="body"><div class="panel"></div></div><div class="leg leg-left"></div><div class="leg leg-right"></div><div class="schoolbag"></div></div>
-  <p id="loaderMsg" style="position:absolute;bottom:18%;color:rgba(255,255,255,0.7);font-size:13px;letter-spacing:1px;text-align:center;width:100%;">Cargando…</p>
-</div>
-
-<!-- ── PAGE ───────────────────────────────────────────────────── -->
-<div class="page">
-
-  <!-- Header -->
-  <header class="page-header">
-    <div class="header-eyebrow">
-      <i class="fas fa-trophy"></i>
-      Reconocimiento
-    </div>
-    <h1>Empleado<br>del <em>Mes</em></h1>
-    <p class="subtitle">Celebrando la excelencia y dedicación de nuestro equipo</p>
+  <header class="in-head">
+    <nav id="topnav" class="tn" aria-label="Menú principal"></nav>
+    <!-- Ajustes, chat, notificaciones y usuario: js/layout/topbar-acciones.js -->
+    <div id="topbar-acciones" class="in-iconos"></div>
   </header>
 
-  <!-- Divider -->
-  <div class="divider" aria-hidden="true">
-    <span></span>
-    <i class="fas fa-star"></i>
-    <span></span>
-  </div>
+  <section class="pg-barra in-glass" aria-label="Empleado del mes">
+    <div class="pg-titulo">
+      <span class="pg-ico"><i class="ph ph-star" aria-hidden="true"></i></span>
+      <div>
+        <h1>Empleado del mes</h1>
+        <p>Celebrando la excelencia y dedicación de nuestro equipo</p>
+      </div>
+    </div>
+    <div class="pg-acciones">
+      <span class="pg-periodo-lbl"><i class="ph ph-calendar-blank" aria-hidden="true"></i>&nbsp;<span id="em-periodo">—</span></span>
+    </div>
+  </section>
 
-  <!-- Cards -->
-  <div class="cards-grid" role="list">
-
-    <!-- FIRST PLACE -->
-    <article class="emp-card gold-card" id="card-first" role="listitem">
-      <div class="card-band"></div>
-      <div class="card-header">
-        <span class="rank-pill"><i class="fas fa-star"></i> Empleado del Mes</span>
+  <div class="em-grid" role="list">
+    <article class="em-card in-glass em-card-1" id="card-first" role="listitem">
+      <div class="em-card-top">
+        <span class="em-puesto"><i class="ph ph-trophy" aria-hidden="true"></i>Primer lugar</span>
         <div class="edit-controls" id="editCtrl-first">
-          <button class="edit-btn" id="editBtn-first" aria-label="Editar primer lugar" title="Editar">
-            <i class="fas fa-pen"></i>
-          </button>
-          <button class="edit-btn danger" id="deleteBtn-first" aria-label="Eliminar primer lugar" title="Eliminar">
-            <i class="fas fa-trash"></i>
-          </button>
+          <button type="button" class="em-btn-ico" id="editBtn-first" aria-label="Editar primer lugar" title="Editar"><i class="ph ph-pencil-simple" aria-hidden="true"></i></button>
+          <button type="button" class="em-btn-ico em-peligro" id="deleteBtn-first" aria-label="Eliminar primer lugar" title="Eliminar"><i class="ph ph-trash" aria-hidden="true"></i></button>
         </div>
       </div>
-      <div class="photo-frame" id="photoFrame-first">
-        <!-- filled by JS -->
-      </div>
-      <div class="card-body">
-        <h2 class="emp-name" id="name-first">—</h2>
-        <p class="emp-description" id="desc-first">Sin información</p>
-        <span class="card-footer-stat">
-          <i class="fas fa-chart-line"></i> Mejor Rendimiento
-        </span>
+      <div class="photo-frame" id="photoFrame-first"></div>
+      <div class="em-card-body">
+        <h2 class="em-nombre" id="name-first">—</h2>
+        <p class="em-desc" id="desc-first">Sin información</p>
+        <span class="pg-chip"><i class="ph ph-trend-up" aria-hidden="true"></i>Mejor rendimiento</span>
       </div>
     </article>
-
-    <!-- SECOND PLACE -->
-    <article class="emp-card silver-card" id="card-second" role="listitem">
-      <div class="card-band"></div>
-      <div class="card-header">
-        <span class="rank-pill"><i class="fas fa-medal"></i> Empleado del Mes</span>
+    <article class="em-card in-glass" id="card-second" role="listitem">
+      <div class="em-card-top">
+        <span class="em-puesto"><i class="ph ph-star" aria-hidden="true"></i>Segundo lugar</span>
         <div class="edit-controls" id="editCtrl-second">
-          <button class="edit-btn" id="editBtn-second" aria-label="Editar segundo lugar" title="Editar">
-            <i class="fas fa-pen"></i>
-          </button>
-          <button class="edit-btn danger" id="deleteBtn-second" aria-label="Eliminar segundo lugar" title="Eliminar">
-            <i class="fas fa-trash"></i>
-          </button>
+          <button type="button" class="em-btn-ico" id="editBtn-second" aria-label="Editar segundo lugar" title="Editar"><i class="ph ph-pencil-simple" aria-hidden="true"></i></button>
+          <button type="button" class="em-btn-ico em-peligro" id="deleteBtn-second" aria-label="Eliminar segundo lugar" title="Eliminar"><i class="ph ph-trash" aria-hidden="true"></i></button>
         </div>
       </div>
-      <div class="photo-frame" id="photoFrame-second">
-        <!-- filled by JS -->
-      </div>
-      <div class="card-body">
-        <h2 class="emp-name" id="name-second">—</h2>
-        <p class="emp-description" id="desc-second">Sin información</p>
-        <span class="card-footer-stat">
-          <i class="fas fa-star"></i> Excelente Desempeño
-        </span>
+      <div class="photo-frame" id="photoFrame-second"></div>
+      <div class="em-card-body">
+        <h2 class="em-nombre" id="name-second">—</h2>
+        <p class="em-desc" id="desc-second">Sin información</p>
+        <span class="pg-chip"><i class="ph ph-star" aria-hidden="true"></i>Excelente desempeño</span>
       </div>
     </article>
-
   </div>
+
+</div>
 </div>
 
-<!-- ── UPLOAD MODAL ────────────────────────────────────────────── -->
+<!-- Carga -->
+<div class="loader-overlay" id="loaderOverlay" role="status" aria-live="polite">
+  <div class="em-cargando"><span class="em-spinner" aria-hidden="true"></span><p id="loaderMsg">Cargando…</p></div>
+</div>
+
+<!-- Subir / editar -->
 <div class="modal-overlay" id="uploadModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
   <div class="modal-box">
-    <div class="modal-top"></div>
     <div class="modal-head">
-      <h2 id="modalTitle">Agregar Empleado</h2>
-      <button class="modal-close" id="modalCloseBtn" aria-label="Cerrar modal">
-        <i class="fas fa-times"></i>
-      </button>
+      <h2 id="modalTitle">Agregar empleado</h2>
+      <button type="button" class="em-btn-ico" id="modalCloseBtn" aria-label="Cerrar"><i class="ph ph-x" aria-hidden="true"></i></button>
     </div>
     <div class="modal-body">
-      <!-- Upload zone -->
       <div class="upload-zone" id="uploadZone" tabindex="0" role="button" aria-label="Seleccionar imagen">
-        <i class="fas fa-cloud-upload-alt"></i>
-        <p>Arrastra o haz clic para subir imagen</p>
-        <small>JPG, PNG, WEBP — máx. 5 MB</small>
-        <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" style="display:none">
+        <i class="ph ph-cloud-arrow-up" aria-hidden="true"></i>
+        <p>Arrastra o haz clic para subir la foto</p>
+        <small>JPG, PNG o WEBP · máx. 5 MB</small>
+        <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" hidden>
       </div>
-
-      <!-- Preview -->
-      <div class="preview-wrap" id="previewWrap">
-        <img id="previewImg" src="/" alt="Vista previa">
-      </div>
-
+      <div class="preview-wrap" id="previewWrap"><img id="previewImg" src="data:," alt="Vista previa"></div>
       <div class="form-group">
-        <label for="inputName">Nombre del Empleado</label>
+        <label for="inputName">Nombre del empleado</label>
         <input type="text" id="inputName" placeholder="Ej. María García" maxlength="80">
       </div>
       <div class="form-group">
-        <label for="inputDesc">Logros / Descripción</label>
+        <label for="inputDesc">Logros / descripción</label>
         <textarea id="inputDesc" rows="3" placeholder="Describe los logros o méritos…" maxlength="300"></textarea>
       </div>
     </div>
     <div class="modal-foot">
-      <button class="btn btn-ghost" id="modalCancelBtn">Cancelar</button>
-      <button class="btn btn-primary" id="modalSaveBtn" disabled>
-        <i class="fas fa-save"></i> Guardar
-      </button>
+      <button type="button" class="pg-boton" id="modalCancelBtn">Cancelar</button>
+      <button type="button" class="pg-boton pg-boton-pri" id="modalSaveBtn" disabled><i class="ph ph-floppy-disk" aria-hidden="true"></i>Guardar</button>
     </div>
   </div>
 </div>
 
-<!-- ── CONFIRM DIALOG ──────────────────────────────────────────── -->
-<div class="confirm-overlay" id="confirmOverlay" role="alertdialog" aria-modal="true">
+<!-- Confirmación -->
+<div class="confirm-overlay" id="confirmOverlay" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
   <div class="confirm-box">
-    <div class="confirm-icon"><i class="fas fa-exclamation"></i></div>
+    <div class="confirm-icon"><i class="ph ph-warning" aria-hidden="true"></i></div>
     <h3 id="confirmTitle">¿Eliminar empleado?</h3>
     <p id="confirmMsg">Esta acción no se puede deshacer.</p>
     <div class="confirm-actions">
-      <button class="btn btn-ghost" id="confirmCancelBtn">Cancelar</button>
-      <button class="btn btn-danger" id="confirmOkBtn"><i class="fas fa-trash"></i> Eliminar</button>
+      <button type="button" class="pg-boton" id="confirmCancelBtn">Cancelar</button>
+      <button type="button" class="pg-boton em-boton-peligro" id="confirmOkBtn"><i class="ph ph-trash" aria-hidden="true"></i>Eliminar</button>
     </div>
   </div>
 </div>
 
-<!-- ── TOASTS ──────────────────────────────────────────────────── -->
 <div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
 
-
-<!-- ── SCRIPTS ────────────────────────────────────────────────── -->
+<script src="/js/layout/topnav.js?v=20261008c" defer></script>
+<script src="/js/layout/topbar-acciones.js?v=20261008b" defer></script>
+<script src="/js/componentes/llamadas-bloqueo.js" defer></script>
+<script>
+  // Periodo: el mes en curso.
+  (function () {
+    var M = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'], d = new Date();
+    document.getElementById('em-periodo').textContent = M[d.getMonth()] + ' ' + d.getFullYear();
+  })();
+</script>
 <script>
 /* ═══════════════════════════════════════════════════════════════
    UTILITIES
@@ -198,12 +157,14 @@ const Loader = {
 
 // Toast
 function showToast(msg, type = 'info', duration = 3500) {
-  const icons = { success: 'fa-check-circle', error: 'fa-times-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
+  const icons = { success: 'ph-check-circle', error: 'ph-x-circle', warning: 'ph-warning', info: 'ph-info' };
   const t = document.createElement('div');
   t.className = `toast ${type}`;
-  t.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i><span>${msg}</span>`;
+  const i = document.createElement('i'); i.className = `ph ${icons[type] || icons.info}`; i.setAttribute('aria-hidden', 'true');
+  const sp = document.createElement('span'); sp.textContent = msg;   // el mensaje puede venir del servidor
+  t.append(i, sp);
   $('toastWrap').prepend(t);
-  setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(40px)'; t.style.transition = '.3s'; setTimeout(() => t.remove(), 320); }, duration);
+  setTimeout(() => { t.classList.add('sale'); setTimeout(() => t.remove(), 320); }, duration);
 }
 
 // Confirm dialog
@@ -255,12 +216,12 @@ async function checkPermissions() {
     if (res.ok) {
       const data = await res.json();
       if (!data.authenticated) {
-        window.location.replace('login.html');
+        window.location.replace('/login.html');
         return;
       }
       user = data?.user || data;
     } else {
-      window.location.replace('login.html');
+      window.location.replace('/login.html');
       return;
     }
 
@@ -333,11 +294,6 @@ function renderCard(emp, data) {
     frame.innerHTML = placeholderHTML(hasEdit, emp, false);
   }
 
-  // Badge
-  const badge = document.createElement('div');
-  badge.className = 'photo-badge';
-  badge.textContent = emp === 'first' ? 'Empleado del Mes' : 'Empleado del Mes';
-  frame.appendChild(badge);
 
   // Wire up placeholder click
   const ph = frame.querySelector('.photo-placeholder');
@@ -348,9 +304,9 @@ function renderCard(emp, data) {
 
 function placeholderHTML(hasEdit, emp, withRetry) {
   const cls = hasEdit ? 'photo-placeholder editable' : 'photo-placeholder';
-  const icon = withRetry ? 'fa-user' : 'fa-user-plus';
+  const icon = withRetry ? 'ph-user' : 'ph-plus';
   const label = hasEdit ? (withRetry ? 'Sin imagen — clic para cambiar' : 'Clic para agregar foto') : 'Sin fotografía';
-  return `<div class="${cls}"><i class="fas ${icon}"></i><span>${label}</span></div>`;
+  return `<div class="${cls}"><i class="ph ${icon}" aria-hidden="true"></i><span>${label}</span></div>`;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -390,7 +346,7 @@ function openModal(emp) {
   if (document.body.classList.contains('view-only-mode')) return;
   state.currentEmployee = emp;
   state.selectedFile = null;
-  $('modalTitle').textContent = `${emp === 'first' ? 'Primer' : 'Segundo'} Lugar — Editar`;
+  $('modalTitle').textContent = `${emp === 'first' ? 'Primer' : 'Segundo'} lugar · editar`;
   // Reset
   $('uploadZone').style.display = 'flex';
   $('previewWrap').style.display = 'none';
@@ -432,9 +388,9 @@ function handleFile(file) {
 
 $('uploadZone').addEventListener('click', () => $('fileInput').click());
 $('uploadZone').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') $('fileInput').click(); });
-$('uploadZone').addEventListener('dragover', e => { e.preventDefault(); $('uploadZone').style.borderColor = 'var(--gold)'; });
-$('uploadZone').addEventListener('dragleave', () => { $('uploadZone').style.borderColor = ''; });
-$('uploadZone').addEventListener('drop', e => { e.preventDefault(); $('uploadZone').style.borderColor = ''; handleFile(e.dataTransfer.files[0]); });
+$('uploadZone').addEventListener('dragover', e => { e.preventDefault(); $('uploadZone').classList.add('encima'); });
+$('uploadZone').addEventListener('dragleave', () => { $('uploadZone').classList.remove('encima'); });
+$('uploadZone').addEventListener('drop', e => { e.preventDefault(); $('uploadZone').classList.remove('encima'); handleFile(e.dataTransfer.files[0]); });
 $('fileInput').addEventListener('change', e => handleFile(e.target.files[0]));
 
 function validateForm() {
@@ -516,7 +472,7 @@ async function deleteEmployee(emp) {
   Loader.show('Eliminando…');
   try {
     const res = await fetch(`/api/employees-of-month/${emp}`, { method: 'DELETE', credentials: 'include' });
-    if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Error al eliminar'); }
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || e.message || 'Error al eliminar'); }
     showToast('Empleado eliminado', 'success');
     renderCard(emp, null);
   } catch (err) {
@@ -552,7 +508,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadEmployees();
 });
 </script>
-
-</div><!-- /.main-wrapper -->
 </body>
 </html>

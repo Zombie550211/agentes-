@@ -3,204 +3,208 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Productividad B.O — CRM</title>
+  <title>Productividad B.O · Residencial</title>
   <link rel="icon" type="image/png" href="/images/favicon.png">
+  <!-- Sesión: la cabecera (menú e iconos) la reutiliza; sin sesión, al login. -->
+  <script>
+    window.__sesion = fetch('/api/auth/verify-server', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : { authenticated: false }; })
+      .then(function (d) { if (!d.authenticated) { location.replace('/login.html'); } return d; })
+      .catch(function () { location.replace('/login.html'); return {}; });
+  </script>
+  <link rel="stylesheet" href="/css/base/scroll.css?v=20261008a">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
+  <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
+  <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
+  <link rel="stylesheet" href="/css/residencial/productividad-bo.css?v=20261009c">
+  <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
+  <script src="/js/layout/transicion.js?v=20261008b"></script>
   <script src="/js/core/fetch-interceptor.js" defer></script>
   <script src="/js/core/logout-handler.js" defer></script>
   <script src="/js/core/user-info.js" defer></script>
-  <script src="/js/core/crm-config.js" defer></script>
-  <script src="/js/core/inactivity-manager.js?v=20260611a" defer></script>
-  <script src="/js/core/crm-init.js" defer></script>
-  <link rel="stylesheet" href="/css/residencial/productividad-bo.css">
-  <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
 </head>
 <body>
-  <script src="/js/core/theme-init.js"></script>
-  <script src="/js/layout/sidebar.js" defer></script>
-  <script src="/js/layout/sidebar-ui.js" defer></script>
-  <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
-  <script src="/js/layout/sidebar-user.js" defer></script>
-<div class="layout">
-  <nav class="sidebar" id="app-sidebar"></nav>
-  <main class="main-content" style="padding:0">
-    <div id="pb-app">
+<div class="in-marco">
+<div class="in-hoja">
 
-      <div class="pb-header pb-fade">
-        <div class="pb-title-wrap">
-          <div class="pb-icon"><i class="fas fa-user-clock"></i></div>
-          <div>
-            <div class="pb-title">Productividad B.O</div>
-            <div class="pb-sub">Cambios de status por usuario · registro diario</div>
-          </div>
-        </div>
-        <div class="pb-daynav">
-          <button id="pb-prev" title="Día anterior"><i class="fas fa-chevron-left"></i></button>
-          <div class="pb-daylabel"><i class="fas fa-calendar-day"></i><span id="pb-daylabel">—</span></div>
-          <button id="pb-next" title="Día siguiente"><i class="fas fa-chevron-right"></i></button>
-          <button class="pb-today" id="pb-today">Hoy</button>
-        </div>
+  <header class="in-head">
+    <nav id="topnav" class="tn" aria-label="Menú principal"></nav>
+    <!-- Ajustes, chat, notificaciones y usuario: js/layout/topbar-acciones.js -->
+    <div id="topbar-acciones" class="in-iconos"></div>
+  </header>
+
+  <!-- ══ Título y día ══ -->
+  <section class="pb-barra in-glass" aria-label="Día consultado">
+    <div class="pb-titulo">
+      <span class="pb-ico"><i class="ph ph-user-check" aria-hidden="true"></i></span>
+      <div>
+        <h1>Productividad B.O</h1>
+        <p>Cambios de status por usuario · registro diario</p>
       </div>
-
-      <div class="pb-kpis pb-fade">
-        <div class="pb-kpi">
-          <div class="pb-kpi-ic" style="background:var(--pb-green-soft)"><i class="fas fa-circle-check" style="color:var(--pb-green)"></i></div>
-          <div><div class="pb-kpi-lbl">Completed</div><div class="pb-kpi-val" id="pb-k-completed" style="color:var(--pb-green)">0</div></div>
-        </div>
-        <div class="pb-kpi">
-          <div class="pb-kpi-ic" style="background:var(--pb-red-soft)"><i class="fas fa-circle-xmark" style="color:var(--pb-red)"></i></div>
-          <div><div class="pb-kpi-lbl">Cancelled</div><div class="pb-kpi-val" id="pb-k-cancelled" style="color:var(--pb-red)">0</div></div>
-        </div>
-        <div class="pb-kpi">
-          <div class="pb-kpi-ic" style="background:var(--pb-blue-soft)"><i class="fas fa-calendar-day" style="color:var(--pb-blue)"></i></div>
-          <div><div class="pb-kpi-lbl">Ventas que se instalan hoy</div><div class="pb-kpi-val" id="pb-k-install-total" style="color:var(--pb-blue)">0</div></div>
-        </div>
-        <div class="pb-kpi">
-          <div class="pb-kpi-ic" style="background:var(--pb-green-soft)"><i class="fas fa-plug-circle-check" style="color:var(--pb-green)"></i></div>
-          <div><div class="pb-kpi-lbl">Ventas instaladas</div><div class="pb-kpi-val" id="pb-k-install-done" style="color:var(--pb-green)">0/0</div></div>
-        </div>
-        <div class="pb-kpi">
-          <div class="pb-kpi-ic" style="background:var(--pb-green-soft)"><i class="fas fa-circle-dollar-to-slot" style="color:var(--pb-green)"></i></div>
-          <div><div class="pb-kpi-lbl">Comisión → completed</div><div class="pb-kpi-val" id="pb-k-comision-done" style="color:var(--pb-green)">0</div></div>
-        </div>
-      </div>
-
-      <div class="pb-table-card pb-fade">
-        <div class="pb-table-top">
-          <div>
-            <div class="pb-table-title"><i class="fas fa-table-list"></i> Cambios de status por usuario</div>
-            <div class="pb-table-sub">Cada celda = clientes cuyo último status del día lo dejó ese usuario (si un cliente se movió varias veces, solo cuenta el cambio final)</div>
-          </div>
-        </div>
-        <div class="pb-scroll">
-          <div class="pb-grid" id="pb-grid">
-            <div class="pb-loading"><div class="pb-spinner"></div> Cargando…</div>
-          </div>
-        </div>
-      </div>
-
     </div>
-  </main>
+    <div class="pb-dia">
+      <button type="button" class="pb-paso" id="pb-prev" aria-label="Día anterior"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
+      <label class="pb-filtro"><span>Día</span><input type="date" id="pb-fecha"></label>
+      <button type="button" class="pb-paso" id="pb-next" aria-label="Día siguiente"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
+      <button type="button" class="pb-hoy" id="pb-today">Hoy</button>
+    </div>
+  </section>
+
+  <!-- ══ Indicadores del día ══ -->
+  <div class="pb-tiles" aria-live="polite">
+    <div class="pb-tile in-glass"><span class="pb-tico pb-tico-verde"><i class="ph ph-check-circle"></i></span><div class="pb-tile-val" id="pb-k-completed">0</div><div class="pb-tile-lbl">Completed</div></div>
+    <div class="pb-tile in-glass"><span class="pb-tico pb-tico-rojo"><i class="ph ph-x-circle"></i></span><div class="pb-tile-val" id="pb-k-cancelled">0</div><div class="pb-tile-lbl">Cancelled</div></div>
+    <div class="pb-tile in-glass"><span class="pb-tico"><i class="ph ph-calendar-check"></i></span><div class="pb-tile-val" id="pb-k-install-total">0</div><div class="pb-tile-lbl">Ventas que se instalan hoy</div></div>
+    <div class="pb-tile in-glass"><span class="pb-tico pb-tico-verde"><i class="ph ph-truck"></i></span><div class="pb-tile-val" id="pb-k-install-done">0/0</div>
+      <div class="pb-barrita" aria-hidden="true"><span id="pb-k-install-bar"></span></div><div class="pb-tile-lbl">Ventas instaladas</div></div>
+    <div class="pb-tile pb-tile-dest in-glass"><span class="pb-tico"><i class="ph ph-coins"></i></span><div class="pb-tile-val" id="pb-k-comision-done">0</div><div class="pb-tile-lbl">Comisión → completed</div></div>
+  </div>
+
+  <!-- ══ Tabla por team ══ -->
+  <section class="pb-card in-glass" aria-labelledby="pb-tabla-t">
+    <div class="pb-card-head">
+      <div>
+        <h2 id="pb-tabla-t">Cambios de status por usuario</h2>
+        <p>Cada celda = clientes cuyo último status del día lo dejó ese usuario (si un cliente se movió varias veces, solo cuenta el cambio final).</p>
+      </div>
+      <span class="pb-chip" id="pb-total-chip">0 cambios</span>
+    </div>
+    <div class="pb-scroll" id="pb-grid"><div class="pb-vacio">Cargando…</div></div>
+  </section>
+
+</div>
 </div>
 
+<script src="/js/layout/topnav.js?v=20261008c" defer></script>
+<script src="/js/layout/topbar-acciones.js?v=20261008b" defer></script>
+<script src="/js/componentes/llamadas-bloqueo.js" defer></script>
 <script>
-(function(){
+(function () {
   'use strict';
-  var API='/api/productividad-bo';
-  var MONTHS=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-  var DAYS=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
-  var PAL=['#4F46E5','#7C3AED','#0284C7','#059669','#D97706','#E11D48','#0EA5E9','#9333EA'];
+  var API = '/api/productividad-bo';
+  var MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  var DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 
-  // fecha local seleccionada (YYYY-MM-DD)
-  var sel=new Date();
+  var sel = new Date();   // día local consultado
+  var $ = function (id) { return document.getElementById(id); };
 
-  function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-  function esc(s){var d=document.createElement('div');d.textContent=String(s==null?'':s);return d.innerHTML;}
-  function set(id,v){var e=document.getElementById(id);if(e)e.textContent=v;}
-  function initials(n){return String(n||'').split(/\s+/).filter(Boolean).map(function(w){return w[0];}).join('').toUpperCase().slice(0,2)||'?';}
-  function color(n){var h=0;for(var i=0;i<n.length;i++)h=(h*31+n.charCodeAt(i))&0x7fffffff;return PAL[h%PAL.length];}
-  function pillClass(key){key=String(key||'').toLowerCase();return ['completed','cancelled','hold','pending'].indexOf(key)>=0?key:'other';}
+  function ymd(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function esc(s) { var d = document.createElement('div'); d.textContent = String(s == null ? '' : s); return d.innerHTML; }
+  function set(id, v) { var e = $(id); if (e) e.textContent = v; }
+  function iniciales(n) { return String(n || '').split(/\s+/).filter(Boolean).map(function (w) { return w[0]; }).join('').toUpperCase().slice(0, 2) || '?'; }
+  function claseStatus(k) { k = String(k || '').toLowerCase(); return ['completed', 'cancelled', 'hold', 'pending'].indexOf(k) >= 0 ? k : 'otro'; }
 
-  function updateLabel(){
-    var isToday=ymd(sel)===ymd(new Date());
-    var lbl=DAYS[sel.getDay()]+' '+sel.getDate()+' '+MONTHS[sel.getMonth()]+(isToday?' · hoy':'');
-    set('pb-daylabel',lbl);
-    document.getElementById('pb-next').disabled=isToday;
-    document.getElementById('pb-next').style.opacity=isToday?'.4':'1';
+  function pintarDia() {
+    var hoy = ymd(new Date());
+    var esHoy = ymd(sel) === hoy;
+    var f = $('pb-fecha');
+    f.value = ymd(sel);
+    f.max = hoy;
+    f.title = DIAS[sel.getDay()] + ' ' + sel.getDate() + ' de ' + MESES[sel.getMonth()] + (esHoy ? ' · hoy' : '');
+    $('pb-next').disabled = esHoy;
+    $('pb-today').disabled = esHoy;
   }
 
-  async function load(){
-    updateLabel();
-    var grid=document.getElementById('pb-grid');
-    grid.innerHTML='<div class="pb-loading"><div class="pb-spinner"></div> Cargando…</div>';
-    try{
-      var r=await fetch(API+'?fecha='+ymd(sel),{credentials:'include'});
-      if(!r.ok)throw new Error(r.status);
-      var j=await r.json();
-      render(j);
-    }catch(e){
-      console.warn('[productividad-bo]',e);
-      grid.innerHTML='<div class="pb-empty"><i class="fas fa-triangle-exclamation"></i>No se pudo cargar la información</div>';
+  async function cargar() {
+    pintarDia();
+    var box = $('pb-grid');
+    box.innerHTML = '<div class="pb-vacio">Cargando…</div>';
+    try {
+      var r = await fetch(API + '?fecha=' + ymd(sel), { credentials: 'include' });
+      if (!r.ok) throw new Error(r.status);
+      pintar(await r.json());
+    } catch (e) {
+      console.warn('[productividad-bo]', e);
+      box.innerHTML = '<div class="pb-vacio"><i class="ph ph-warning"></i> No se pudo cargar la información</div>';
     }
   }
 
-  function render(j){
-    var cols=j.columns||[];
-    var rows=j.rows||[];
-    set('pb-k-completed',(j.totales&&j.totales.COMPLETED)||0);
-    set('pb-k-cancelled',(j.totales&&j.totales.CANCELLED)||0);
-    // Instalaciones: se instalan hoy (programadas) y ventas completadas hoy
-    var instTotal=Number(j.instalan_hoy||0), instDone=Number(j.instaladas_hoy||0);
-    set('pb-k-install-total',instTotal);
-    set('pb-k-install-done',instDone+'/'+instTotal);
-    set('pb-k-comision-done',j.comisiones_completadas||0);
+  function pintar(j) {
+    var cols = j.columns || [];
+    var tot = j.totales || {};
+    set('pb-k-completed', tot.COMPLETED || 0);
+    set('pb-k-cancelled', tot.CANCELLED || 0);
+    var instTotal = Number(j.instalan_hoy || 0), instHechas = Number(j.instaladas_hoy || 0);
+    set('pb-k-install-total', instTotal);
+    set('pb-k-install-done', instHechas + '/' + instTotal);
+    $('pb-k-install-bar').style.width = (instTotal ? Math.min(100, Math.round(instHechas * 100 / instTotal)) : 0) + '%';
+    set('pb-k-comision-done', j.comisiones_completadas || 0);
+    var total = Number(j.total_general || 0);
+    set('pb-total-chip', total + (total === 1 ? ' cambio' : ' cambios'));
 
-    var grid=document.getElementById('pb-grid');
-    var teams=j.teams||[];
-    if(!teams.length&&!rows.length){
-      grid.innerHTML='<div class="pb-empty"><i class="fas fa-inbox"></i>Sin cambios de status registrados este día</div>';
+    var box = $('pb-grid');
+    var teams = j.teams || [];
+    var filas = j.rows || [];
+    if (!teams.length && !filas.length) {
+      box.innerHTML = '<div class="pb-vacio">Sin cambios de status registrados este día</div>';
       return;
     }
-    if(!teams.length){teams=[{team:'',rows:rows,totales:j.totales||{},total:j.total_general||0}];}
-    // grid-template-columns: agente + N status + total
-    var tpl='minmax(190px,1.6fr) '+cols.map(function(){return '1fr';}).join(' ')+' 90px';
+    if (!teams.length) teams = [{ team: '', rows: filas, totales: tot, total: total }];
+    var nCol = cols.length + 2;
 
-    function userRow(fr){
-      var cnt=fr.counts||{};
-      var cell='<div class="pb-cell pb-agent">'+
-        '<div class="pb-avatar" style="background:'+color(fr.agente)+'">'+esc(initials(fr.nombre||fr.agente))+'</div>'+
-        '<div style="min-width:0"><div class="pb-agent-name">'+esc(fr.agente)+'</div>'+
-        (fr.nombre?'<div class="pb-agent-sub">'+esc(fr.nombre)+'</div>':(fr.rol?'<div class="pb-agent-sub">'+esc(fr.rol)+'</div>':''))+
-        '</div></div>';
-      cols.forEach(function(c){
-        var n=cnt[c.key]||0;
-        cell+='<div class="pb-cell"><span class="pb-pill '+(n?pillClass(c.key):'zero')+'">'+n+'</span></div>';
-      });
-      cell+='<div class="pb-cell pb-total-cell">'+(fr.total||0)+'</div>';
-      return '<div class="pb-row" style="grid-template-columns:'+tpl+'">'+cell+'</div>';
+    function celdas(cuentas) {
+      return cols.map(function (c) {
+        var n = (cuentas && cuentas[c.key]) || 0;
+        return '<td class="pb-n"><span class="pb-pill ' + (n ? claseStatus(c.key) : 'cero') + '">' + n + '</span></td>';
+      }).join('');
+    }
+    function sumas(cuentas) {
+      return cols.map(function (c) { return '<td class="pb-n">' + ((cuentas && cuentas[c.key]) || 0) + '</td>'; }).join('');
     }
 
-    var html='';
-    // encabezado
-    var head='<div class="pb-cell pb-agent">Agente</div>'+
-      cols.map(function(c){return '<div class="pb-cell">'+esc(c.label)+'</div>';}).join('')+
-      '<div class="pb-cell">Total</div>';
-    html+='<div class="pb-row pb-head" style="grid-template-columns:'+tpl+'">'+head+'</div>';
+    var html = '<table class="pb-tbl"><thead><tr><th scope="col" class="pb-ag">Agente</th>' +
+      cols.map(function (c) { return '<th scope="col"><span class="pb-dot ' + claseStatus(c.key) + '"></span>' + esc(c.label) + '</th>'; }).join('') +
+      '<th scope="col">Total</th></tr></thead>';
 
-    // secciones por team: banda con el nombre, filas y subtotal
-    teams.forEach(function(tm){
-      if(tm.team){
-        html+='<div class="pb-team-band"><i class="fas fa-people-group"></i>'+esc(tm.team)+
-          '<span class="pb-team-count">'+(tm.rows||[]).length+' usuarios</span></div>';
+    teams.forEach(function (tm) {
+      var rs = tm.rows || [];
+      html += '<tbody>';
+      if (tm.team) {
+        html += '<tr class="pb-band"><th scope="rowgroup" colspan="' + nCol + '"><div class="pb-band-in"><i class="ph ph-users-three" aria-hidden="true"></i>' +
+          esc(tm.team) + '<span>' + rs.length + (rs.length === 1 ? ' usuario' : ' usuarios') + '</span></div></th></tr>';
       }
-      (tm.rows||[]).forEach(function(fr){html+=userRow(fr);});
-      if(tm.team&&teams.length>1){
-        var sub='<div class="pb-cell pb-agent">Subtotal '+esc(tm.team)+'</div>'+
-          cols.map(function(c){return '<div class="pb-cell">'+((tm.totales&&tm.totales[c.key])||0)+'</div>';}).join('')+
-          '<div class="pb-cell pb-total-cell">'+(tm.total||0)+'</div>';
-        html+='<div class="pb-row pb-subtotal" style="grid-template-columns:'+tpl+'">'+sub+'</div>';
+      rs.forEach(function (fr) {
+        var sub = fr.nombre && fr.nombre !== fr.agente ? fr.nombre : (fr.nombre ? '' : (fr.rol || ''));
+        html += '<tr><th scope="row" class="pb-ag"><div class="pb-ag-wrap">' +
+          '<span class="pb-avatar" aria-hidden="true">' + esc(iniciales(fr.nombre || fr.agente)) + '</span>' +
+          '<div class="pb-ag-txt"><span class="pb-ag-nom">' + esc(fr.agente) + '</span>' +
+          (sub ? '<span class="pb-ag-sub">' + esc(sub) + '</span>' : '') + '</div></div></th>' +
+          celdas(fr.counts) + '<td class="pb-n pb-tot">' + (fr.total || 0) + '</td></tr>';
+      });
+      if (tm.team && teams.length > 1) {
+        html += '<tr class="pb-sub"><th scope="row" class="pb-ag">Subtotal ' + esc(tm.team) + '</th>' +
+          sumas(tm.totales) + '<td class="pb-n pb-tot">' + (tm.total || 0) + '</td></tr>';
       }
+      html += '</tbody>';
     });
 
-    // totales generales
-    var tot='<div class="pb-cell pb-agent">Totales</div>'+
-      cols.map(function(c){return '<div class="pb-cell">'+((j.totales&&j.totales[c.key])||0)+'</div>';}).join('')+
-      '<div class="pb-cell pb-total-cell">'+(j.total_general||0)+'</div>';
-    html+='<div class="pb-row pb-total" style="grid-template-columns:'+tpl+'">'+tot+'</div>';
-
-    grid.innerHTML=html;
+    html += '<tfoot><tr><th scope="row" class="pb-ag">Totales</th>' + sumas(tot) +
+      '<td class="pb-n pb-tot">' + total + '</td></tr></tfoot></table>';
+    box.innerHTML = html;
   }
 
-  document.getElementById('pb-prev').addEventListener('click',function(){sel.setDate(sel.getDate()-1);load();});
-  document.getElementById('pb-next').addEventListener('click',function(){if(ymd(sel)>=ymd(new Date()))return;sel.setDate(sel.getDate()+1);load();});
-  document.getElementById('pb-today').addEventListener('click',function(){sel=new Date();load();});
+  $('pb-prev').addEventListener('click', function () { sel.setDate(sel.getDate() - 1); cargar(); });
+  $('pb-next').addEventListener('click', function () {
+    if (ymd(sel) >= ymd(new Date())) return;
+    sel.setDate(sel.getDate() + 1); cargar();
+  });
+  $('pb-today').addEventListener('click', function () { sel = new Date(); cargar(); });
+  $('pb-fecha').addEventListener('change', function () {
+    var p = (this.value || '').split('-').map(Number);
+    if (p.length !== 3 || !p[0]) { pintarDia(); return; }
+    var d = new Date(p[0], p[1] - 1, p[2]);
+    sel = ymd(d) > ymd(new Date()) ? new Date() : d;
+    cargar();
+  });
 
-  load();
+  cargar();
 })();
 </script>
+<script src="/js/core/crm-config.js" defer></script>
+<script src="/js/core/inactivity-manager.js?v=20260611a" defer></script>
+<script src="/js/core/crm-init.js" defer></script>
 </body>
 </html>

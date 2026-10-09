@@ -1,136 +1,120 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Premios — Reconocimiento</title>
-
-  <link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
-  <link rel="stylesheet" href="/css/base/theme.css?v=20251124f"/>
-  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-
-  <link rel="stylesheet" href="/css/residencial/premios.css">
-  <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
-  <link rel="stylesheet" href="/css/base/form-controls.css?v=20260921">
+  <title>Premios · Residencial</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <!-- Sesión: la cabecera (menú e iconos) la reutiliza; sin sesión, al login. -->
+  <script>
+    window.__sesion = fetch('/api/auth/verify-server', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : { authenticated: false }; })
+      .then(function (d) { if (!d.authenticated) { location.replace('/login.html'); } return d; })
+      .catch(function () { location.replace('/login.html'); return {}; });
+  </script>
+  <link rel="stylesheet" href="/css/base/scroll.css?v=20261008a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
+  <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
+  <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
+  <link rel="stylesheet" href="/css/componentes/pagina.css?v=20261009a">
+  <link rel="stylesheet" href="/css/residencial/premios.css?v=20261009a">
+  <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
+  <script src="/js/layout/transicion.js?v=20261008b"></script>
 </head>
 <body>
-  <script src="/js/core/theme-init.js"></script>
-  <script src="/js/layout/sidebar.js" defer></script>
-  <script src="/js/layout/sidebar-ui.js" defer></script>
-  <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
-  <script src="/js/layout/sidebar-user.js" defer></script>
-<div class="layout">
-  <nav class="sidebar" id="app-sidebar"></nav>
+<div class="in-marco">
+<div class="in-hoja">
 
-  <main class="main-content">
+  <header class="in-head">
+    <nav id="topnav" class="tn" aria-label="Menú principal"></nav>
+    <!-- Ajustes, chat, notificaciones y usuario: js/layout/topbar-acciones.js -->
+    <div id="topbar-acciones" class="in-iconos"></div>
+  </header>
 
-    <!-- Page Header -->
-    <div class="page-header">
-      <div class="page-header-inner">
-        <div>
-          <div class="page-eyebrow">Equipo de Ventas</div>
-          <h1 class="page-title">Premios &amp; Reconocimientos</h1>
-        </div>
-        <div class="period-badge">
-          <i class="fas fa-calendar-alt"></i>
-          <span id="periodText">Febrero 2026</span>
-        </div>
+  <!-- ══ Título y periodo ══ -->
+  <section class="pg-barra in-glass" aria-label="Premios">
+    <div class="pg-titulo">
+      <span class="pg-ico"><i class="ph ph-gift" aria-hidden="true"></i></span>
+      <div>
+        <h1>Premios y reconocimientos</h1>
+        <p>Premios del periodo para el equipo de ventas y sus ganadores</p>
       </div>
     </div>
-
-    <!-- Stats Strip -->
-    <div class="stats-strip">
-      <div class="stat-item">
-        <div class="stat-label">Premios activos</div>
-        <div class="stat-value" id="statActivos">0</div>
-        <div class="stat-sub">este período</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-label">Ganadores</div>
-        <div class="stat-value" id="statGanadores">0</div>
-        <div class="stat-sub">asignados</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-label">Total premiado</div>
-        <div class="stat-value" id="statTotal">$0</div>
-        <div class="stat-sub">en premios entregados</div>
-      </div>
+    <div class="pg-acciones">
+      <span class="pg-periodo-lbl"><i class="ph ph-calendar-blank" aria-hidden="true"></i>&nbsp;<span id="periodText">—</span></span>
     </div>
+  </section>
 
-    <div class="page-body">
+  <!-- ══ Indicadores ══ -->
+  <div class="pg-tiles" style="--pg-cols:3">
+    <div class="pg-tile in-glass"><span class="pg-tico"><i class="ph ph-gift"></i></span><div class="pg-tile-val" id="statActivos">0</div><div class="pg-tile-lbl">Premios activos este periodo</div></div>
+    <div class="pg-tile in-glass"><span class="pg-tico pg-tico-verde"><i class="ph ph-trophy"></i></span><div class="pg-tile-val" id="statGanadores">0</div><div class="pg-tile-lbl">Ganadores asignados</div></div>
+    <div class="pg-tile pg-tile-dest in-glass"><span class="pg-tico"><i class="ph ph-currency-dollar"></i></span><div class="pg-tile-val" id="statTotal">$0</div><div class="pg-tile-lbl">Total en premios entregados</div></div>
+  </div>
 
-      <!-- SECCIÓN 1: Premios Activos -->
-      <div class="section">
-        <div class="section-head">
-          <div>
-            <div class="section-title">Premios Activos</div>
-            <div class="section-subtitle">Premios disponibles para este período</div>
-          </div>
-          <button class="btn-action" id="btnAddActivo">
-            <i class="fas fa-plus"></i> Agregar Premio
-          </button>
-        </div>
-        <div class="prizes-grid" id="activosGrid"></div>
+  <!-- ══ Premios activos ══ -->
+  <section class="pg-card in-glass" aria-labelledby="pr-activos-t">
+    <div class="pg-card-head">
+      <div>
+        <h2 id="pr-activos-t">Premios activos</h2>
+        <p>Premios disponibles para este periodo</p>
       </div>
-
-      <!-- SECCIÓN 2: Tabla de Premios (Ganadores) -->
-      <div class="section">
-        <div class="section-head">
-          <div>
-            <div class="section-title">Tabla de Premios</div>
-            <div class="section-subtitle">Ganadores asignados del período</div>
-          </div>
-          <button class="btn-action" id="btnAddGanador">
-            <i class="fas fa-user-plus"></i> Agregar Ganador
-          </button>
-        </div>
-        <div class="table-card">
-          <div class="table-toolbar">
-            <div class="table-info"><strong id="ganadoresCount">0</strong> ganadores registrados</div>
-          </div>
-          <table class="winners-table">
-            <thead>
-              <tr>
-                <th>Colaborador</th>
-                <th>Premio</th>
-                <th>Monto</th>
-                <th>Categoría</th>
-                <th>Estado</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="ganadoresBody"></tbody>
-          </table>
-          <div class="table-empty" id="ganadoresEmpty" style="display:none;">
-            <i class="fas fa-trophy"></i>
-            <p>No hay ganadores registrados aún. Agrega el primero.</p>
-          </div>
-        </div>
-      </div>
-
+      <button type="button" class="pg-boton pg-boton-pri" id="btnAddActivo"><i class="ph ph-plus" aria-hidden="true"></i>Agregar premio</button>
     </div>
-  </main>
+    <div class="pr-grid" id="activosGrid"></div>
+  </section>
+
+  <!-- ══ Ganadores ══ -->
+  <section class="pg-card in-glass" aria-labelledby="pr-ganadores-t">
+    <div class="pg-card-head">
+      <div>
+        <h2 id="pr-ganadores-t">Tabla de premios</h2>
+        <p><strong id="ganadoresCount">0</strong> ganadores registrados en el periodo</p>
+      </div>
+      <button type="button" class="pg-boton pg-boton-pri" id="btnAddGanador"><i class="ph ph-user-check" aria-hidden="true"></i>Agregar ganador</button>
+    </div>
+    <div class="pg-scroll">
+      <table class="pg-tbl pr-tbl">
+        <thead>
+          <tr>
+            <th scope="col" class="pg-izq">Colaborador</th>
+            <th scope="col" class="pg-izq">Premio</th>
+            <th scope="col">Monto</th>
+            <th scope="col" class="pg-izq">Categoría</th>
+            <th scope="col">Estado</th>
+            <th scope="col"><span class="pr-sr">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody id="ganadoresBody"></tbody>
+      </table>
+      <div class="pg-vacio" id="ganadoresEmpty" style="display:none;"><i class="ph ph-trophy" aria-hidden="true"></i>No hay ganadores registrados aún. Agrega el primero.</div>
+    </div>
+  </section>
+
+</div>
 </div>
 
-<!-- MODAL: Agregar Premio Activo -->
+<!-- MODAL: Agregar premio activo -->
 <div class="modal-backdrop" id="modalActivo">
-  <div class="modal" role="dialog" aria-modal="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalActivo-t">
     <div class="modal-header">
-      <div class="modal-title">Nuevo Premio Activo</div>
-      <button class="modal-close" data-close="modalActivo">×</button>
+      <h2 class="modal-title" id="modalActivo-t">Nuevo premio activo</h2>
+      <button type="button" class="modal-close" data-close="modalActivo" aria-label="Cerrar"><i class="ph ph-x" aria-hidden="true"></i></button>
     </div>
     <form id="formActivo">
       <div class="modal-body">
         <div class="field">
           <label for="aTipo">Tipo</label>
           <select id="aTipo" name="tipo" required>
-            <option value="first">🏆  1er Lugar</option>
-            <option value="second">🥈  2do Lugar</option>
-            <option value="third">🥉  3er Lugar</option>
-            <option value="special">✨  Reconocimiento Especial</option>
-            <option value="team">👥  Premio de Equipo</option>
-            <option value="bonus">🎁  Bono</option>
+            <option value="first">1.er lugar</option>
+            <option value="second">2.º lugar</option>
+            <option value="third">3.er lugar</option>
+            <option value="special">Reconocimiento especial</option>
+            <option value="team">Premio de equipo</option>
+            <option value="bonus">Bono</option>
           </select>
         </div>
         <div class="field">
@@ -142,7 +126,7 @@
           <input id="aTitulo" name="titulo" type="text" placeholder="Ej: Mayor número de ventas" required>
         </div>
         <div class="field full">
-          <label for="aDesc">Descripción / Criterio</label>
+          <label for="aDesc">Descripción / criterio</label>
           <input id="aDesc" name="descripcion" type="text" placeholder="Ej: Agente con más cierres del mes" required>
         </div>
         <div class="field full">
@@ -151,19 +135,19 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-cancel" type="button" data-close="modalActivo">Cancelar</button>
-        <button class="btn-save" type="submit">Guardar</button>
+        <button class="pg-boton" type="button" data-close="modalActivo">Cancelar</button>
+        <button class="pg-boton pg-boton-pri" type="submit">Guardar</button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- MODAL: Agregar Ganador -->
+<!-- MODAL: Agregar ganador -->
 <div class="modal-backdrop" id="modalGanador">
-  <div class="modal" role="dialog" aria-modal="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalGanador-t">
     <div class="modal-header">
-      <div class="modal-title">Registrar Ganador</div>
-      <button class="modal-close" data-close="modalGanador">×</button>
+      <h2 class="modal-title" id="modalGanador-t">Registrar ganador</h2>
+      <button type="button" class="modal-close" data-close="modalGanador" aria-label="Cerrar"><i class="ph ph-x" aria-hidden="true"></i></button>
     </div>
     <form id="formGanador">
       <div class="modal-body">
@@ -194,20 +178,22 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-cancel" type="button" data-close="modalGanador">Cancelar</button>
-        <button class="btn-save" type="submit">Guardar</button>
+        <button class="pg-boton" type="button" data-close="modalGanador">Cancelar</button>
+        <button class="pg-boton pg-boton-pri" type="submit">Guardar</button>
       </div>
     </form>
   </div>
 </div>
 
-<div class="toast-container" id="toastContainer"></div>
+<div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
 <script src="/js/core/logout-handler.js"></script>
 <script src="/js/core/fetch-interceptor.js"></script>
 <script src="/js/core/user-info.js"></script>
 <script src="/socket.io/socket.io.js"></script>
-
+<script src="/js/layout/topnav.js?v=20261008c" defer></script>
+<script src="/js/layout/topbar-acciones.js?v=20261008b" defer></script>
+<script src="/js/componentes/llamadas-bloqueo.js" defer></script>
 <script>
 (function () {
   'use strict';
@@ -216,16 +202,16 @@
   let activosData   = [];
   let ganadoresData = [];
 
-  /* ── toast ── */
+  /* ── toast (título y texto pueden venir del servidor: van escapados) ── */
   function showToast(icon, title, sub, colorClass) {
     const container = document.getElementById('toastContainer');
     if (!container) return;
     const t = document.createElement('div');
     t.className = 'toast ' + (colorClass || '');
-    t.innerHTML = `<div class="toast-icon">${icon}</div><div class="toast-text"><strong>${title}</strong><span>${sub}</span></div>`;
+    t.innerHTML = `<i class="ph ${icon} toast-icon" aria-hidden="true"></i><div class="toast-text"><strong>${esc(title)}</strong><span>${esc(sub)}</span></div>`;
     container.appendChild(t);
     setTimeout(function () {
-      t.style.animation = 'toastOut 0.3s ease forwards';
+      t.classList.add('sale');
       setTimeout(function () { t.remove(); }, 300);
     }, 4000);
   }
@@ -245,7 +231,6 @@
       activosData = (Array.isArray(json.data) ? json.data : []).map(function(d){ return Object.assign({}, d, { _id: toIdString(d._id) }); });
     } catch (e) { console.error('[PREMIOS] loadActivos:', e); activosData = []; }
   }
-
   async function loadGanadores() {
     try {
       const res  = await apiFetch('/api/premios/ganadores');
@@ -258,27 +243,24 @@
   async function apiAddActivo(data) {
     const res  = await apiFetch('/api/premios/activos', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
     const json = await res.json();
-    if (!json.success) throw new Error(json.message || 'Error');
+    if (!json.success) throw new Error(json.message || json.detail || 'Error');
     return json.data;
   }
-
   async function apiDeleteActivo(id) {
-    const res  = await apiFetch('/api/premios/activos/' + id, { method:'DELETE' });
+    const res  = await apiFetch('/api/premios/activos/' + encodeURIComponent(id), { method:'DELETE' });
     const json = await res.json();
-    if (!json.success) throw new Error(json.message || 'Error');
+    if (!json.success) throw new Error(json.message || json.detail || 'Error');
   }
-
   async function apiAddGanador(data) {
     const res  = await apiFetch('/api/premios/ganadores', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
     const json = await res.json();
-    if (!json.success) throw new Error(json.message || 'Error');
+    if (!json.success) throw new Error(json.message || json.detail || 'Error');
     return json.data;
   }
-
   async function apiDeleteGanador(id) {
-    const res  = await apiFetch('/api/premios/ganadores/' + id, { method:'DELETE' });
+    const res  = await apiFetch('/api/premios/ganadores/' + encodeURIComponent(id), { method:'DELETE' });
     const json = await res.json();
-    if (!json.success) throw new Error(json.message || 'Error');
+    if (!json.success) throw new Error(json.message || json.detail || 'Error');
   }
 
   /* ── Socket.io real-time ── */
@@ -288,36 +270,28 @@
       socket.on('premios-update', function (payload) {
         const { action, coleccion, doc } = payload || {};
         const id = doc && (doc._id ? String(doc._id) : null);
-
         if (coleccion === 'activos') {
           if (action === 'add') {
             const exists = activosData.some(function (x) { return String(x._id) === id; });
             if (!exists) activosData.push(Object.assign({}, doc, { _id: id }));
-            renderActivos();
-            updateStats();
-            const cfg = TIPO_CFG[doc.tipo] || TIPO_CFG.second;
-            showToast(cfg.icon, 'Nuevo premio activo', doc.titulo || '', 'green');
+            renderActivos(); updateStats();
+            showToast('ph-gift', 'Nuevo premio activo', doc.titulo || '', 'verde');
           } else if (action === 'delete') {
             activosData = activosData.filter(function (x) { return String(x._id) !== id; });
-            renderActivos();
-            updateStats();
-            showToast('🗑️', 'Premio eliminado', 'Un premio fue removido', 'red');
+            renderActivos(); updateStats();
+            showToast('ph-trash', 'Premio eliminado', 'Un premio fue removido', 'rojo');
           }
         }
-
         if (coleccion === 'ganadores') {
           if (action === 'add') {
             const exists = ganadoresData.some(function (x) { return String(x._id) === id; });
             if (!exists) ganadoresData.push(Object.assign({}, doc, { _id: id }));
-            renderGanadores();
-            updateStats();
-            const cfg = TIPO_CFG[doc.tipo] || TIPO_CFG.second;
-            showToast('🏅', '¡Nuevo ganador registrado!', doc.nombre || '', 'green');
+            renderGanadores(); updateStats();
+            showToast('ph-trophy', '¡Nuevo ganador registrado!', doc.nombre || '', 'verde');
           } else if (action === 'delete') {
             ganadoresData = ganadoresData.filter(function (x) { return String(x._id) !== id; });
-            renderGanadores();
-            updateStats();
-            showToast('🗑️', 'Ganador eliminado', 'Un ganador fue removido', 'red');
+            renderGanadores(); updateStats();
+            showToast('ph-trash', 'Ganador eliminado', 'Un ganador fue removido', 'rojo');
           }
         }
       });
@@ -326,20 +300,18 @@
 
   /* ── TIPO CONFIG ── */
   const TIPO_CFG = {
-    first:   { label: '1er Lugar',               icon: '🏆' },
-    second:  { label: '2do Lugar',               icon: '🥈' },
-    third:   { label: '3er Lugar',               icon: '🥉' },
-    special: { label: 'Reconocimiento Especial', icon: '✨' },
-    team:    { label: 'Premio de Equipo',         icon: '👥' },
-    bonus:   { label: 'Bono',                    icon: '🎁' }
+    first:   { label: '1.er lugar',              icon: 'ph-trophy' },
+    second:  { label: '2.º lugar',               icon: 'ph-star' },
+    third:   { label: '3.er lugar',              icon: 'ph-star' },
+    special: { label: 'Reconocimiento especial', icon: 'ph-shield-check' },
+    team:    { label: 'Premio de equipo',        icon: 'ph-users-three' },
+    bonus:   { label: 'Bono',                    icon: 'ph-gift' }
   };
 
   /* ── helpers ── */
   function money(n) { const v=Number(n||0); return '$'+(v%1===0?v:v.toFixed(2)); }
   function moneyFull(n) { return '$'+Number(n||0).toFixed(2); }
-  function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-  // Convertir ObjectId a string correctamente
+  function esc(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
   function toIdString(id) {
     if (!id) return '';
     if (typeof id === 'string') return id;
@@ -362,33 +334,30 @@
     if (!grid) return;
     grid.innerHTML = '';
     if (!activosData.length) {
-      grid.innerHTML = `<div class="empty-state"><i class="fas fa-gift"></i><p>No hay premios activos. Agrega el primero.</p></div>`;
+      grid.innerHTML = `<div class="pg-vacio pr-vacio-grid"><i class="ph ph-gift" aria-hidden="true"></i>No hay premios activos. Agrega el primero.</div>`;
       return;
     }
     activosData.forEach(function (item) {
       const tipo = TIPO_CFG[item.tipo] ? item.tipo : 'second';
       const cfg  = TIPO_CFG[tipo];
       const id   = toIdString(item._id);
-      const card = document.createElement('div');
-      card.className = 'prize-card';
+      const card = document.createElement('article');
+      card.className = 'pr-premio';
       card.setAttribute('data-tipo', tipo);
       card.setAttribute('data-id', id);
       card.innerHTML = `
-        <div class="prize-card-deco">${cfg.icon}</div>
-        <div class="prize-card-body">
-          <div class="prize-card-top">
-            <div class="tipo-pill">${cfg.icon} ${cfg.label}</div>
-            <button class="card-delete-btn" data-del-activo="${esc(id)}" title="Eliminar">
-              <i class="fas fa-times"></i>
-            </button>
-          </div>
-          <div class="prize-card-amount">${money(item.monto)}</div>
-          <div class="prize-card-titulo">${esc(item.titulo)}</div>
-          <div class="prize-card-desc">${esc(item.descripcion)}</div>
-          <div class="prize-card-footer">
-            <div class="categoria-chip"><i class="fas fa-tag"></i> ${esc(item.categoria)}</div>
-            <div class="activo-dot">Activo</div>
-          </div>
+        <div class="pr-premio-top">
+          <span class="pr-tipo"><i class="ph ${cfg.icon}" aria-hidden="true"></i>${cfg.label}</span>
+          <button type="button" class="pr-borrar" data-del-activo="${esc(id)}" title="Eliminar premio" aria-label="Eliminar premio">
+            <i class="ph ph-x" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div class="pr-monto">${money(item.monto)}</div>
+        <h3 class="pr-titulo">${esc(item.titulo)}</h3>
+        <p class="pr-desc">${esc(item.descripcion)}</p>
+        <div class="pr-pie">
+          <span class="pg-chip pg-chip-gris"><i class="ph ph-tag" aria-hidden="true"></i>${esc(item.categoria)}</span>
+          <span class="pg-chip pg-chip-verde">Activo</span>
         </div>
       `;
       grid.appendChild(card);
@@ -412,27 +381,23 @@
       const tipo = TIPO_CFG[item.tipo] ? item.tipo : 'second';
       const cfg  = TIPO_CFG[tipo];
       const id   = toIdString(item._id);
-      const statusClass = item.status === 'pendiente' ? 'pendiente' : 'asignado';
-      const statusLabel = item.status === 'pendiente' ? 'Pendiente' : 'Asignado';
+      const pendiente = item.status === 'pendiente';
       const tr = document.createElement('tr');
       tr.setAttribute('data-tipo', tipo);
       tr.innerHTML = `
-        <td>
-          <div class="winner-cell">
-            <div class="winner-avatar">${esc(item.iniciales)}</div>
-            <div>
-              <div class="winner-name">${esc(item.nombre)}</div>
-              <div class="winner-sub">${formatDate(item.fecha)}</div>
-            </div>
+        <th scope="row" class="pg-izq">
+          <div class="pg-persona">
+            <span class="pg-avatar" aria-hidden="true">${esc(item.iniciales)}</span>
+            <div class="pg-persona-txt"><span class="pg-persona-nom">${esc(item.nombre)}</span><span class="pg-persona-sub">${esc(formatDate(item.fecha))}</span></div>
           </div>
-        </td>
-        <td><div class="table-tipo-pill">${cfg.icon} ${cfg.label}</div></td>
-        <td><div class="amount-cell">${moneyFull(item.monto)}</div></td>
-        <td><span style="font-size:0.82rem;color:#5A6478;">${esc(item.categoria)}</span></td>
-        <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
-        <td>
-          <button class="row-delete-btn" data-del-ganador="${esc(id)}" title="Eliminar">
-            <i class="fas fa-times"></i>
+        </th>
+        <td class="pg-izq"><span class="pr-tipo"><i class="ph ${cfg.icon}" aria-hidden="true"></i>${cfg.label}</span></td>
+        <td class="pg-n pg-n-dest">${moneyFull(item.monto)}</td>
+        <td class="pg-izq pr-cat">${esc(item.categoria)}</td>
+        <td class="pg-n"><span class="pg-chip ${pendiente ? 'pg-chip-amarillo' : 'pg-chip-verde'}">${pendiente ? 'Pendiente' : 'Asignado'}</span></td>
+        <td class="pg-n">
+          <button type="button" class="pr-borrar" data-del-ganador="${esc(id)}" title="Eliminar ganador" aria-label="Eliminar ganador">
+            <i class="ph ph-x" aria-hidden="true"></i>
           </button>
         </td>
       `;
@@ -462,7 +427,7 @@
       const cfg = TIPO_CFG[item.tipo] || TIPO_CFG.second;
       const opt = document.createElement('option');
       opt.value = toIdString(item._id);
-      opt.textContent = cfg.icon + ' ' + item.titulo + ' (' + money(item.monto) + ')';
+      opt.textContent = cfg.label + ' · ' + item.titulo + ' (' + money(item.monto) + ')';
       opt.setAttribute('data-tipo', item.tipo);
       opt.setAttribute('data-monto', item.monto);
       opt.setAttribute('data-categoria', item.categoria);
@@ -471,8 +436,9 @@
   }
 
   /* ── modal helpers ── */
-  function openModal(id)  { const m=document.getElementById(id); if(m) m.classList.add('open'); }
+  function openModal(id)  { const m=document.getElementById(id); if(m){ m.classList.add('open'); const f=m.querySelector('select,input'); if(f) f.focus(); } }
   function closeModal(id) { const m=document.getElementById(id); if(m) m.classList.remove('open'); }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') ['modalActivo','modalGanador'].forEach(closeModal); });
 
   /* ── event delegation ── */
   document.addEventListener('click', function (e) {
@@ -490,7 +456,7 @@
       apiDeleteActivo(id).then(function () {
         activosData = activosData.filter(function (x) { return toIdString(x._id) !== id; });
         renderActivos(); updateStats();
-      }).catch(function (err) { showToast('⚠️', 'Error al eliminar', err.message, 'red'); });
+      }).catch(function (err) { showToast('ph-warning', 'Error al eliminar', err.message, 'rojo'); });
       return;
     }
 
@@ -500,13 +466,18 @@
       apiDeleteGanador(id).then(function () {
         ganadoresData = ganadoresData.filter(function (x) { return toIdString(x._id) !== id; });
         renderGanadores(); updateStats();
-      }).catch(function (err) { showToast('⚠️', 'Error al eliminar', err.message, 'red'); });
+      }).catch(function (err) { showToast('ph-warning', 'Error al eliminar', err.message, 'rojo'); });
       return;
     }
   });
 
   /* ── DOMContentLoaded ── */
   document.addEventListener('DOMContentLoaded', async function () {
+    // Periodo: el mes en curso (antes era un texto fijo).
+    const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const hoy = new Date();
+    document.getElementById('periodText').textContent = MESES[hoy.getMonth()] + ' ' + hoy.getFullYear();
+
     const gFecha = document.getElementById('gFecha');
     if (gFecha) gFecha.value = new Date().toISOString().slice(0,10);
 
@@ -538,7 +509,7 @@
           f.reset();
           document.getElementById('aMonto').value    = '0';
           document.getElementById('aCategoria').value = 'Viáticos';
-        } catch (err) { showToast('⚠️', 'Error al guardar', err.message, 'red'); }
+        } catch (err) { showToast('ph-warning', 'Error al guardar', err.message, 'rojo'); }
       });
     }
 
@@ -569,7 +540,7 @@
           closeModal('modalGanador');
           f.reset();
           document.getElementById('gFecha').value = new Date().toISOString().slice(0,10);
-        } catch (err) { showToast('⚠️', 'Error al guardar', err.message, 'red'); }
+        } catch (err) { showToast('ph-warning', 'Error al guardar', err.message, 'rojo'); }
       });
     }
   });
@@ -577,4 +548,3 @@
 </script>
 </body>
 </html>
-

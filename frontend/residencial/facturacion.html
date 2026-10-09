@@ -3,350 +3,213 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Facturación</title>
+  <title>Facturación · Residencial</title>
   <link rel="icon" type="image/png" href="/images/favicon.png">
+  <!-- Sesión: la cabecera (menú e iconos) la reutiliza; sin sesión, al login. -->
+  <script>
+    window.__sesion = fetch('/api/auth/verify-server', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : { authenticated: false }; })
+      .then(function (d) { if (!d.authenticated) { location.replace('/login.html'); } return d; })
+      .catch(function () { location.replace('/login.html'); return {}; });
+  </script>
+  <link rel="stylesheet" href="/css/base/scroll.css?v=20261008a">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
+  <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
+  <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
+  <link rel="stylesheet" href="/css/componentes/pagina.css?v=20261009a">
+  <link rel="stylesheet" href="/css/residencial/facturacion.css?v=20261009a">
+  <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
+  <script src="/js/layout/transicion.js?v=20261008b"></script>
   <script src="/vendor/chartjs/chart.umd.min.js"></script>
   <script src="/vendor/chartjs-plugin/chartjs-plugin-datalabels.min.js"></script>
-
-  <link rel="stylesheet" href="/css/residencial/facturacion.css?v=20260919e">
-  <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
-  <link rel="stylesheet" href="/css/base/form-controls.css?v=20260921">
 </head>
 <body>
-  <script src="/js/core/theme-init.js"></script>
-  <script src="/js/layout/sidebar.js" defer></script>
-  <script src="/js/layout/sidebar-ui.js" defer></script>
-  <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
-  <script src="/js/layout/sidebar-user.js" defer></script>
-  <!-- Iconos de línea (trazos estilo Lucide, licencia ISC) para KPI y resumen -->
-  <svg class="svg-sprite" aria-hidden="true">
-    <symbol id="ic-factura" viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/></symbol>
-    <symbol id="ic-bolsa" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></symbol>
-    <symbol id="ic-tendencia" viewBox="0 0 24 24"><path d="M22 7 13.5 15.5 8.5 10.5 2 17"/><path d="M16 7h6v6"/></symbol>
-    <symbol id="ic-trofeo" viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></symbol>
-    <symbol id="ic-usuarios" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
-    <symbol id="ic-movil" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></symbol>
-    <symbol id="ic-monedas" viewBox="0 0 24 24"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></symbol>
-    <symbol id="ic-diana" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
-  </svg>
-<div class="layout">
-  <!-- Sidebar compartido -->
-  <nav class="sidebar" id="app-sidebar"></nav>
+<div class="in-marco">
+<div class="in-hoja">
 
-  <main class="main-content">
-    <div class="central-container">
+  <header class="in-head">
+    <nav id="topnav" class="tn" aria-label="Menú principal"></nav>
+    <!-- Ajustes, chat, notificaciones y usuario: js/layout/topbar-acciones.js -->
+    <div id="topbar-acciones" class="in-iconos"></div>
+  </header>
 
-      <!-- ── TOPBAR ── -->
-      <div class="topbar">
-        <!-- TODO(redisño facturación): título temporalmente oculto, ver [[facturacion-redesign]] -->
-        <div class="topbar-title" style="display:none">
-          <h1>Facturación</h1>
-          <p>Control y seguimiento de ventas por asesor</p>
-        </div>
+  <!-- ══ Título, mes y guardar ══ -->
+  <section class="pg-barra in-glass" aria-label="Mes de facturación">
+    <div class="pg-titulo">
+      <span class="pg-ico"><i class="ph ph-currency-dollar" aria-hidden="true"></i></span>
+      <div>
+        <h1>Facturación</h1>
+        <p>Inversión por publicista y día · las celdas en blanco se escriben y se guardan con el botón</p>
+      </div>
+    </div>
+    <div class="pg-acciones">
+      <label class="pg-campo"><span>Mes</span><select id="filtroMes"><option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option><option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option><option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option></select></label>
+      <label class="pg-campo"><span>Año</span><select id="filtroAno"></select></label>
+      <button type="button" class="pg-boton pg-boton-pri" id="btnGuardarFacturacion"><i class="ph ph-floppy-disk" aria-hidden="true"></i> Guardar</button>
+      <!-- Vista Líneas (pendiente de rediseño): el botón sigue oculto, como antes -->
+      <button type="button" class="pg-boton btn-mode" id="btnModo" title="Cambiar de vista" style="display:none">
+        <i class="ph ph-device-mobile" aria-hidden="true"></i> <span id="btnModoLabel">Líneas</span>
+      </button>
+    </div>
+  </section>
 
-        <div class="filters-group">
-          <!-- TODO(redisño facturación): botón de modo (KPI) oculto por ahora — recolocar cuando se resuelva la vista de líneas -->
-          <button class="btn-mode" id="btnModo" title="Cambiar de vista" style="display:none">
-            <i class="fas fa-network-wired"></i> <span id="btnModoLabel">Líneas</span>
-          </button>
+  <!-- ════════ VISTA RESIDENCIAL ════════ -->
+  <div id="view-residencial" class="fc-vista">
+
+    <h2 class="fc-titulo-seccion"><i class="ph ph-house-line" aria-hidden="true"></i>Residencial</h2>
+    <div class="pg-tiles" style="--pg-cols:5">
+      <div class="pg-tile in-glass pg-tile-dest"><span class="pg-tico"><i class="ph ph-currency-dollar"></i></span><div class="pg-tile-val" id="kpi-facturado">$0.00</div><div class="pg-tile-lbl">Total facturado</div><div class="pg-tile-sub kpi-sub" id="kpi-facturado-sub"></div></div>
+      <div class="pg-tile in-glass"><span class="pg-tico"><i class="ph ph-shopping-cart"></i></span><div class="pg-tile-val" id="kpi-ventas">0</div><div class="pg-tile-lbl">Total ventas</div><div class="pg-tile-sub kpi-sub" id="kpi-ventas-sub"></div></div>
+      <div class="pg-tile in-glass"><span class="pg-tico pg-tico-verde"><i class="ph ph-trend-up"></i></span><div class="pg-tile-val" id="kpi-valor">$0.00</div><div class="pg-tile-lbl">Valor promedio por venta</div><div class="pg-tile-sub kpi-sub" id="kpi-valor-sub"></div></div>
+      <div class="pg-tile in-glass"><span class="pg-tico pg-tico-amarillo"><i class="ph ph-trophy"></i></span><div class="pg-tile-val" id="kpi-mejor">—</div><div class="pg-tile-lbl">Mejor asesor</div><div class="pg-tile-sub kpi-sub" id="kpi-mejor-sub"></div></div>
+      <div class="pg-tile in-glass"><span class="pg-tico"><i class="ph ph-users"></i></span><div class="pg-tile-val" id="kpi-activos">0</div><div class="pg-tile-lbl">Asesores activos</div><div class="pg-tile-sub kpi-sub" id="kpi-activos-sub">de 3 totales</div></div>
+    </div>
+
+    <h2 class="fc-titulo-seccion"><i class="ph ph-device-mobile" aria-hidden="true"></i>Líneas móviles</h2>
+    <div class="pg-tiles" style="--pg-cols:5">
+      <div class="pg-tile in-glass pg-tile-dest"><span class="pg-tico"><i class="ph ph-currency-dollar"></i></span><div class="pg-tile-val" id="lkpi-facturado">$0.00</div><div class="pg-tile-lbl">Total facturado</div><div class="pg-tile-sub kpi-sub" id="lkpi-facturado-sub"></div></div>
+      <div class="pg-tile in-glass"><span class="pg-tico"><i class="ph ph-shopping-cart"></i></span><div class="pg-tile-val" id="lkpi-ventas">0</div><div class="pg-tile-lbl">Total ventas</div><div class="pg-tile-sub kpi-sub" id="lkpi-ventas-sub"></div></div>
+      <div class="pg-tile in-glass"><span class="pg-tico"><i class="ph ph-device-mobile"></i></span><div class="pg-tile-val" id="lkpi-lineas">0</div><div class="pg-tile-lbl">Total líneas</div><div class="pg-tile-sub kpi-sub"></div></div>
+      <div class="pg-tile in-glass"><span class="pg-tico pg-tico-verde"><i class="ph ph-trend-up"></i></span><div class="pg-tile-val" id="lkpi-vventa">$0.00</div><div class="pg-tile-lbl">Valor por venta</div><div class="pg-tile-sub kpi-sub"></div></div>
+      <div class="pg-tile in-glass"><span class="pg-tico"><i class="ph ph-coins"></i></span><div class="pg-tile-val" id="lkpi-vlinea">$0.00</div><div class="pg-tile-lbl">Valor por línea</div><div class="pg-tile-sub kpi-sub"></div></div>
+    </div>
+
+    <!-- Tabla del mes -->
+    <section class="pg-card in-glass table-section" aria-labelledby="fc-tabla-t">
+      <div class="pg-card-head">
+        <div>
+          <h2 id="fc-tabla-t">Inversión diaria por publicista</h2>
+          <p>Ventas y monto por día; el valor de venta, los totales y el CPA se calculan solos</p>
         </div>
       </div>
-
-      <!-- ════════ VISTA RESIDENCIAL ════════ -->
-      <div id="view-residencial">
-
-      <!-- ════════ KPI RESIDENCIAL ════════ -->
-      <h2 class="kpi-section-title">KPI Residencial</h2>
-      <div class="kpi-row">
-        <div class="kpi-card">
-          <div class="kpi-icon tono-violeta"><svg><use href="#ic-factura"/></svg></div>
-          <div class="kpi-body">
-            <div class="kpi-label">Total Facturado</div>
-            <div class="kpi-value" id="kpi-facturado">$0.00</div>
-            <div class="kpi-sub" id="kpi-facturado-sub"></div>
-          </div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-icon tono-azul"><svg><use href="#ic-bolsa"/></svg></div>
-          <div class="kpi-body">
-            <div class="kpi-label">Total Ventas</div>
-            <div class="kpi-value" id="kpi-ventas">0</div>
-            <div class="kpi-sub" id="kpi-ventas-sub"></div>
-          </div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-icon tono-verde"><svg><use href="#ic-tendencia"/></svg></div>
-          <div class="kpi-body">
-            <div class="kpi-label">Valor Prom. Venta</div>
-            <div class="kpi-value" id="kpi-valor">$0.00</div>
-            <div class="kpi-sub" id="kpi-valor-sub"></div>
-          </div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-icon tono-ambar"><svg><use href="#ic-trofeo"/></svg></div>
-          <div class="kpi-body">
-            <div class="kpi-label">Mejor Asesor</div>
-            <div class="kpi-value" id="kpi-mejor">—</div>
-            <div class="kpi-sub" id="kpi-mejor-sub"></div>
-          </div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-icon tono-teal"><svg><use href="#ic-usuarios"/></svg></div>
-          <div class="kpi-body">
-            <div class="kpi-label">Asesores Activos</div>
-            <div class="kpi-value" id="kpi-activos">0</div>
-            <div class="kpi-sub" id="kpi-activos-sub">de 3 totales</div>
-          </div>
-        </div>
+      <div class="table-scroll">
+        <table id="tablaExcel" class="fact-table">
+          <thead>
+            <tr class="group-header-row">
+              <th></th>
+              <th colspan="3" class="gh-alexis">Alexis</th>
+              <th colspan="3" class="gh-alexis2">Alexis 2</th>
+              <th colspan="3" class="gh-alejandro">Garay Líneas</th>
+              <th colspan="3" class="gh-tito">Tito</th>
+              <th colspan="3" class="gh-tito-lineas">Tito Líneas</th>
+              <th colspan="5" class="gh-total">Totales</th>
+            </tr>
+            <tr>
+              <th>Fecha</th>
+              <th>Ventas</th><th>Valor venta</th><th>Monto</th>
+              <th>Ventas</th><th>Valor venta</th><th>Monto</th>
+              <th>Ventas</th><th>Valor venta</th><th>Monto</th>
+              <th>Ventas</th><th>Valor venta</th><th>Monto</th>
+              <th>Ventas</th><th>Valor venta</th><th>Monto</th>
+              <th>Total día</th><th>Total ventas</th><th>Valor venta</th><th>Puntos</th><th>CPA puntos</th>
+            </tr>
+          </thead>
+          <tbody id="excelBody"></tbody>
+          <tfoot>
+            <tr class="totals-row" id="filaTotalesFacturacion">
+              <td>TOTALES</td>
+              <td id="total-col-1"></td><td id="total-col-2"></td><td id="total-col-3"></td>
+              <td id="total-col-4"></td><td id="total-col-5"></td><td id="total-col-6"></td>
+              <td id="total-col-7"></td><td id="total-col-8"></td><td id="total-col-9"></td>
+              <td id="total-col-10"></td><td id="total-col-11"></td><td id="total-col-12"></td>
+              <td id="total-col-13"></td><td id="total-col-14"></td><td id="total-col-15"></td>
+              <td id="total-col-16"></td><td id="total-col-17"></td><td id="total-col-18"></td><td id="total-col-19"></td><td id="total-col-20"></td>
+            </tr>
+          </tfoot>
+        </table>
       </div>
+    </section>
 
-      <!-- ════════ KPI LÍNEAS MÓVILES (LÍNEAS) ════════ -->
-      <h2 class="kpi-section-title">KPI Líneas Móviles (Líneas)</h2>
-      <div class="kpi-row">
-        <div class="kpi-card">
-          <div class="kpi-icon tono-naranja"><svg><use href="#ic-factura"/></svg></div>
-          <div class="kpi-body">
-            <div class="kpi-label">Total Facturado</div>
-            <div class="kpi-value" id="lkpi-facturado">$0.00</div>
-            <div class="kpi-sub" id="lkpi-facturado-sub"></div>
-          </div>
+    <div class="bottom-grid">
+      <section class="pg-card in-glass" aria-labelledby="fc-graf-t">
+        <div class="pg-card-head"><h2 id="fc-graf-t">Total facturado por mes</h2></div>
+        <div class="chart-canvas-wrap"><canvas id="graficaGastosMes" aria-label="Total facturado por mes"></canvas></div>
+      </section>
+      <section class="pg-card in-glass" aria-labelledby="fc-res-t">
+        <div class="pg-card-head"><h2 id="fc-res-t">Resumen del mes</h2></div>
+        <div class="resumen-list">
+          <div class="resumen-item"><span class="pg-tico"><i class="ph ph-currency-dollar"></i></span><div class="resumen-label">Total facturado</div><div class="resumen-val" id="res-facturado">$0.00</div></div>
+          <div class="resumen-item"><span class="pg-tico"><i class="ph ph-shopping-cart"></i></span><div class="resumen-label">Total ventas</div><div class="resumen-val" id="res-ventas">0</div></div>
+          <div class="resumen-item"><span class="pg-tico pg-tico-verde"><i class="ph ph-trend-up"></i></span><div class="resumen-label">Valor promedio venta</div><div class="resumen-val" id="res-valor">$0.00</div></div>
+          <div class="resumen-item"><span class="pg-tico pg-tico-amarillo"><i class="ph ph-target"></i></span><div class="resumen-label">CPA promedio</div><div class="resumen-val" id="res-cpa">$0.00</div></div>
         </div>
-        <div class="kpi-card">
-          <div class="kpi-icon tono-azul"><svg><use href="#ic-bolsa"/></svg></div>
-          <div class="kpi-body">
-            <div class="kpi-label">Total Ventas</div>
-            <div class="kpi-value" id="lkpi-ventas">0</div>
-            <div class="kpi-sub" id="lkpi-ventas-sub"></div>
-          </div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-icon tono-teal"><svg><use href="#ic-movil"/></svg></div>
-          <div class="kpi-body">
-            <div class="kpi-label">Total Líneas</div>
-            <div class="kpi-value" id="lkpi-lineas">0</div>
-            <div class="kpi-sub"></div>
-          </div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-icon tono-verde"><svg><use href="#ic-tendencia"/></svg></div>
-          <div class="kpi-body">
-            <div class="kpi-label">Valor por Venta</div>
-            <div class="kpi-value" id="lkpi-vventa">$0.00</div>
-            <div class="kpi-sub"></div>
-          </div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-icon tono-violeta"><svg><use href="#ic-monedas"/></svg></div>
-          <div class="kpi-body">
-            <div class="kpi-label">Valor por Línea</div>
-            <div class="kpi-value" id="lkpi-vlinea">$0.00</div>
-            <div class="kpi-sub"></div>
-          </div>
-        </div>
+      </section>
+      <section class="pg-card in-glass" aria-labelledby="fc-pub-t">
+        <div class="pg-card-head"><h2 id="fc-pub-t">Gasto por publicista</h2></div>
+        <div class="top-list" id="topAsesores"></div>
+      </section>
+    </div>
+  </div><!-- /view-residencial -->
+
+  <!-- ════════ VISTA LÍNEAS (tabla + gráficos — pendiente de rediseño; oculta) ════════ -->
+  <div id="view-lineas" class="fc-vista" style="display:none">
+    <section class="pg-card in-glass table-section">
+      <div class="table-scroll">
+        <table id="tablaExcelL" class="fact-table">
+          <thead>
+            <tr class="group-header-row">
+              <th></th>
+              <th colspan="5" class="gh-garay">Líneas Garay</th>
+              <th colspan="5" class="gh-connecting">Líneas Connecting</th>
+              <th colspan="4" class="gh-total">Totales</th>
+            </tr>
+            <tr>
+              <th>Fecha</th>
+              <th>Cant. ventas</th><th>Cant. líneas</th><th>Costo/venta</th><th>Costo/línea</th><th>Monto</th>
+              <th>Cant. ventas</th><th>Cant. líneas</th><th>Costo/venta</th><th>Costo/línea</th><th>Monto</th>
+              <th>Total ventas</th><th>Valor de venta</th><th>Total líneas</th><th>Valor de línea</th>
+            </tr>
+          </thead>
+          <tbody id="excelBodyL"></tbody>
+          <tfoot>
+            <tr class="totals-row">
+              <td>TOTALES</td>
+              <td id="ltotal-col-1"></td><td id="ltotal-col-2"></td><td id="ltotal-col-3"></td><td id="ltotal-col-4"></td><td id="ltotal-col-5"></td><td id="ltotal-col-6"></td><td id="ltotal-col-7"></td><td id="ltotal-col-8"></td><td id="ltotal-col-9"></td><td id="ltotal-col-10"></td><td id="ltotal-col-11"></td><td id="ltotal-col-12"></td><td id="ltotal-col-13"></td><td id="ltotal-col-14"></td>
+            </tr>
+          </tfoot>
+        </table>
       </div>
-
-      <!-- ── TABLE ── -->
-      <div class="card table-section">
-        <div class="table-toolbar">
-          <div class="filter-item">
-            <label for="filtroMes">Mes</label>
-            <select id="filtroMes">
-              <option value="1">Enero</option>
-              <option value="2">Febrero</option>
-              <option value="3">Marzo</option>
-              <option value="4">Abril</option>
-              <option value="5">Mayo</option>
-              <option value="6">Junio</option>
-              <option value="7">Julio</option>
-              <option value="8">Agosto</option>
-              <option value="9">Septiembre</option>
-              <option value="10">Octubre</option>
-              <option value="11">Noviembre</option>
-              <option value="12">Diciembre</option>
-            </select>
-          </div>
-          <div class="filter-item">
-            <label for="filtroAno">Año</label>
-            <select id="filtroAno"></select>
-          </div>
-          <button class="btn-save" id="btnGuardarFacturacion">
-            <i class="fas fa-save"></i> Guardar
-          </button>
+    </section>
+    <div class="bottom-grid">
+      <section class="pg-card in-glass">
+        <div class="pg-card-head"><h2>Total facturado por mes</h2></div>
+        <div class="chart-canvas-wrap"><canvas id="graficaGastosMesL"></canvas></div>
+      </section>
+      <section class="pg-card in-glass">
+        <div class="pg-card-head"><h2>Resumen del mes</h2></div>
+        <div class="resumen-list">
+          <div class="resumen-item"><span class="pg-tico"><i class="ph ph-currency-dollar"></i></span><div class="resumen-label">Total facturado</div><div class="resumen-val" id="lres-facturado">$0.00</div></div>
+          <div class="resumen-item"><span class="pg-tico"><i class="ph ph-shopping-cart"></i></span><div class="resumen-label">Total ventas</div><div class="resumen-val" id="lres-ventas">0</div></div>
+          <div class="resumen-item"><span class="pg-tico"><i class="ph ph-device-mobile"></i></span><div class="resumen-label">Total líneas</div><div class="resumen-val" id="lres-lineas">0</div></div>
+          <div class="resumen-item"><span class="pg-tico"><i class="ph ph-coins"></i></span><div class="resumen-label">Valor por línea</div><div class="resumen-val" id="lres-vlinea">$0.00</div></div>
         </div>
-        <div class="table-scroll">
-          <table id="tablaExcel" class="fact-table">
-            <thead>
-              <tr class="group-header-row">
-                <th></th>
-                <th colspan="3" class="gh-alexis">Alexis</th>
-                <th colspan="3" class="gh-alexis2">Alexis 2</th>
-                <th colspan="3" class="gh-alejandro">Garay Líneas</th>
-                <th colspan="3" class="gh-tito">Tito</th>
-                <th colspan="3" class="gh-tito-lineas">Tito Líneas</th>
-                <th colspan="5" class="gh-total">Totales</th>
-              </tr>
-              <tr>
-                <th>Fecha</th>
-                <th>Ventas</th><th>Valor venta</th><th>Monto</th>
-                <th>Ventas</th><th>Valor venta</th><th>Monto</th>
-                <th>Ventas</th><th>Valor venta</th><th>Monto</th>
-                <th>Ventas</th><th>Valor venta</th><th>Monto</th>
-                <th>Ventas</th><th>Valor venta</th><th>Monto</th>
-                <th>Total día</th><th>Total ventas</th><th>Valor venta</th><th>Puntos</th><th>CPA puntos</th>
-              </tr>
-            </thead>
-            <tbody id="excelBody"></tbody>
-            <tfoot>
-              <tr class="totals-row" id="filaTotalesFacturacion">
-                <td>TOTALES</td>
-                <td id="total-col-1"></td><td id="total-col-2"></td><td id="total-col-3"></td>
-                <td id="total-col-4"></td><td id="total-col-5"></td><td id="total-col-6"></td>
-                <td id="total-col-7"></td><td id="total-col-8"></td><td id="total-col-9"></td>
-                <td id="total-col-10"></td><td id="total-col-11"></td><td id="total-col-12"></td>
-                <td id="total-col-13"></td><td id="total-col-14"></td><td id="total-col-15"></td>
-                <td id="total-col-16"></td><td id="total-col-17"></td><td id="total-col-18"></td>
-                <td id="total-col-19"></td><td id="total-col-20"></td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
+      </section>
+      <section class="pg-card in-glass">
+        <div class="pg-card-head"><h2>Gasto por publicista</h2></div>
+        <div class="top-list" id="topPublicistas"></div>
+      </section>
+    </div>
+  </div><!-- /view-lineas -->
 
-      <!-- ── BOTTOM ── -->
-      <div class="bottom-grid">
-        <div class="card">
-          <div class="card-title">Total facturado por mes</div>
-          <div class="chart-canvas-wrap"><canvas id="graficaGastosMes"></canvas></div>
-        </div>
+  <div class="fact-footer">
+    <em>"El éxito es la suma de pequeños esfuerzos repetidos día tras día."</em>
+    <span id="ultimaActualizacion"></span>
+  </div>
 
-        <div class="card">
-          <div class="card-title">Resumen del mes</div>
-          <div class="resumen-list">
-            <div class="resumen-item">
-              <div class="resumen-ic tono-violeta"><svg><use href="#ic-factura"/></svg></div>
-              <div class="resumen-label">Total facturado</div>
-              <div class="resumen-val" id="res-facturado">$0.00</div>
-            </div>
-            <div class="resumen-item">
-              <div class="resumen-ic tono-azul"><svg><use href="#ic-bolsa"/></svg></div>
-              <div class="resumen-label">Total ventas</div>
-              <div class="resumen-val" id="res-ventas">0</div>
-            </div>
-            <div class="resumen-item">
-              <div class="resumen-ic tono-verde"><svg><use href="#ic-tendencia"/></svg></div>
-              <div class="resumen-label">Valor promedio venta</div>
-              <div class="resumen-val" id="res-valor">$0.00</div>
-            </div>
-            <div class="resumen-item">
-              <div class="resumen-ic tono-ambar"><svg><use href="#ic-diana"/></svg></div>
-              <div class="resumen-label">CPA promedio</div>
-              <div class="resumen-val" id="res-cpa">$0.00</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-title">Gasto por publicista</div>
-          <div class="top-list" id="topAsesores"></div>
-        </div>
-      </div>
-
-      </div><!-- /view-residencial -->
-
-      <!-- ════════ VISTA LÍNEAS (tabla + gráficos — pendiente de rediseño) ════════ -->
-      <div id="view-lineas" style="display:none">
-
-        <!-- Tabla Líneas -->
-        <div class="card table-section">
-          <div class="table-scroll">
-            <table id="tablaExcelL" class="fact-table">
-              <thead>
-                <tr class="group-header-row">
-                  <th></th>
-                  <th colspan="5" class="gh-garay">Líneas Garay</th>
-                  <th colspan="5" class="gh-connecting">Líneas Connecting</th>
-                  <th colspan="4" class="gh-total">Totales</th>
-                </tr>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Cant. ventas</th><th>Cant. líneas</th><th>Costo/venta</th><th>Costo/línea</th><th>Monto</th>
-                  <th>Cant. ventas</th><th>Cant. líneas</th><th>Costo/venta</th><th>Costo/línea</th><th>Monto</th>
-                  <th>Total ventas</th><th>Valor de venta</th><th>Total líneas</th><th>Valor de línea</th>
-                </tr>
-              </thead>
-              <tbody id="excelBodyL"></tbody>
-              <tfoot>
-                <tr class="totals-row">
-                  <td>TOTALES</td>
-                  <td id="ltotal-col-1"></td><td id="ltotal-col-2"></td><td id="ltotal-col-3"></td><td id="ltotal-col-4"></td><td id="ltotal-col-5"></td>
-                  <td id="ltotal-col-6"></td><td id="ltotal-col-7"></td><td id="ltotal-col-8"></td><td id="ltotal-col-9"></td><td id="ltotal-col-10"></td>
-                  <td id="ltotal-col-11"></td><td id="ltotal-col-12"></td><td id="ltotal-col-13"></td><td id="ltotal-col-14"></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
-
-        <!-- Bottom -->
-        <div class="bottom-grid">
-          <div class="card">
-            <div class="card-title">Total facturado por mes</div>
-            <div class="chart-canvas-wrap"><canvas id="graficaGastosMesL"></canvas></div>
-          </div>
-          <div class="card">
-            <div class="card-title">Resumen del mes</div>
-            <div class="resumen-list">
-              <div class="resumen-item">
-                <div class="resumen-ic tono-naranja"><svg><use href="#ic-factura"/></svg></div>
-                <div class="resumen-label">Total facturado</div>
-                <div class="resumen-val" id="lres-facturado">$0.00</div>
-              </div>
-              <div class="resumen-item">
-                <div class="resumen-ic tono-azul"><svg><use href="#ic-bolsa"/></svg></div>
-                <div class="resumen-label">Total ventas</div>
-                <div class="resumen-val" id="lres-ventas">0</div>
-              </div>
-              <div class="resumen-item">
-                <div class="resumen-ic tono-teal"><svg><use href="#ic-movil"/></svg></div>
-                <div class="resumen-label">Total líneas</div>
-                <div class="resumen-val" id="lres-lineas">0</div>
-              </div>
-              <div class="resumen-item">
-                <div class="resumen-ic tono-violeta"><svg><use href="#ic-monedas"/></svg></div>
-                <div class="resumen-label">Valor por línea</div>
-                <div class="resumen-val" id="lres-vlinea">$0.00</div>
-              </div>
-            </div>
-          </div>
-          <div class="card">
-            <div class="card-title">Gasto por publicista</div>
-            <div class="top-list" id="topPublicistas"></div>
-          </div>
-        </div>
-
-      </div><!-- /view-lineas -->
-
-      <div class="fact-footer">
-        <em>"El éxito es la suma de pequeños esfuerzos repetidos día tras día."</em>
-        <span id="ultimaActualizacion"></span>
-      </div>
-
-    </div><!-- /central-container -->
-  </main>
+</div>
 </div>
 
-<!-- Toast notification -->
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<!-- Scripts -->
 <script src="/js/core/fetch-interceptor.js"></script>
 <script src="/js/core/logout-handler.js"></script>
 <script src="/js/core/user-info.js"></script>
-
+<script src="/js/layout/topnav.js?v=20261008c" defer></script>
+<script src="/js/layout/topbar-acciones.js?v=20261008b" defer></script>
+<script src="/js/componentes/llamadas-bloqueo.js" defer></script>
 <script>
 /* =====================================================================
    AUTH GUARD (solo administradores)
@@ -764,7 +627,7 @@ btnGuardar.addEventListener('click', () => currentMode === 'lineas' ? guardarLin
 
 async function guardarTodoFacturacion() {
   btnGuardar.disabled = true;
-  btnGuardar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando…';
+  btnGuardar.innerHTML = '<i class="ph ph-arrows-clockwise fc-gira" aria-hidden="true"></i> Guardando…';
   const filas = Array.from(document.querySelectorAll('#excelBody tr'));
   let guardados = 0, errores = 0;
 
@@ -808,7 +671,7 @@ async function guardarTodoFacturacion() {
   actualizarGrafica();
   setUltimaActualizacion();
   btnGuardar.disabled = false;
-  btnGuardar.innerHTML = '<i class="fas fa-save"></i> Guardar';
+  btnGuardar.innerHTML = '<i class="ph ph-floppy-disk" aria-hidden="true"></i> Guardar';
   showToast(`✓ Guardados: ${guardados}${errores ? ` · Errores: ${errores}` : ''}`);
 }
 
@@ -834,10 +697,10 @@ async function actualizarGrafica() {
         labels: ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"],
         datasets: [{
           data: totalesPorMes,
-          backgroundColor: totalesPorMes.map((v, i) => i === (currentMonth - 1) ? 'rgba(0,229,255,0.85)' : 'rgba(0,229,255,0.22)'),
-          borderColor: 'transparent', borderRadius: 6,
+          backgroundColor: totalesPorMes.map((v, i) => i === (currentMonth - 1) ? '#007098' : 'rgba(48,160,200,0.28)'),
+          borderColor: 'transparent', borderRadius: 0,
           datalabels: {
-            anchor: 'end', align: 'end', offset: 4, color: '#0f172a',
+            anchor: 'end', align: 'end', offset: 4, color: '#14212a',
             font: { family: "'Inter', sans-serif", weight: '700', size: 11 },
             formatter: v => v > 0 ? "$" + Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 }) : ''
           }
@@ -847,7 +710,7 @@ async function actualizarGrafica() {
         plugins: { legend: { display: false }, datalabels: { display: ctx => Number(ctx?.dataset?.data?.[ctx?.dataIndex]) > 0 } },
         responsive: true, maintainAspectRatio: false, layout: { padding: { top: 30 } },
         scales: {
-          x: { grid: { display: false }, ticks: { color: "#64748b", font: { family: "'Inter', sans-serif", size: 11 } }, border: { display: false } },
+          x: { grid: { display: false }, ticks: { color: "#62707a", font: { family: "'Inter', sans-serif", size: 11 } }, border: { display: false } },
           y: { grid: { display: false }, ticks: { display: false }, border: { display: false } }
         }
       }
@@ -1045,7 +908,7 @@ function refreshDashboardL(t) {
 
 async function guardarLineas() {
   btnGuardar.disabled = true;
-  btnGuardar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando…';
+  btnGuardar.innerHTML = '<i class="ph ph-arrows-clockwise fc-gira" aria-hidden="true"></i> Guardando…';
   const filas = Array.from(excelBodyL.querySelectorAll('tr'));
   let guardados = 0, errores = 0;
 
@@ -1083,7 +946,7 @@ async function guardarLineas() {
   actualizarGraficaL();
   setUltimaActualizacion();
   btnGuardar.disabled = false;
-  btnGuardar.innerHTML = '<i class="fas fa-save"></i> Guardar';
+  btnGuardar.innerHTML = '<i class="ph ph-floppy-disk" aria-hidden="true"></i> Guardar';
   showToast(`✓ Guardados: ${guardados}${errores ? ` · Errores: ${errores}` : ''}`);
 }
 
@@ -1105,10 +968,10 @@ async function actualizarGraficaL() {
         labels: ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"],
         datasets: [{
           data: totalesPorMes,
-          backgroundColor: totalesPorMes.map((v, i) => i === (currentMonth - 1) ? 'rgba(245,158,11,0.9)' : 'rgba(245,158,11,0.22)'),
-          borderColor: 'transparent', borderRadius: 6,
+          backgroundColor: totalesPorMes.map((v, i) => i === (currentMonth - 1) ? '#a16207' : 'rgba(202,138,4,0.22)'),
+          borderColor: 'transparent', borderRadius: 0,
           datalabels: {
-            anchor: 'end', align: 'end', offset: 4, color: '#0f172a',
+            anchor: 'end', align: 'end', offset: 4, color: '#14212a',
             font: { family: "'Inter', sans-serif", weight: '700', size: 11 },
             formatter: v => v > 0 ? "$" + Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 }) : ''
           }
@@ -1118,7 +981,7 @@ async function actualizarGraficaL() {
         plugins: { legend: { display: false }, datalabels: { display: ctx => Number(ctx?.dataset?.data?.[ctx?.dataIndex]) > 0 } },
         responsive: true, maintainAspectRatio: false, layout: { padding: { top: 30 } },
         scales: {
-          x: { grid: { display: false }, ticks: { color: "#64748b", font: { family: "'Inter', sans-serif", size: 11 } }, border: { display: false } },
+          x: { grid: { display: false }, ticks: { color: "#62707a", font: { family: "'Inter', sans-serif", size: 11 } }, border: { display: false } },
           y: { grid: { display: false }, ticks: { display: false }, border: { display: false } }
         }
       }

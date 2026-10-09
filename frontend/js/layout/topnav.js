@@ -38,7 +38,6 @@
     { label: 'Rankings y premios', items: [
       { label: 'Ranking de Agentes', href: '/residencial/ranking-agente.html', seccion: 'res' },
       { label: 'Ranking y Promociones', href: '/residencial/ranking.html', seccion: 'res' },
-      { label: 'Premios', href: '/residencial/premios.html', seccion: 'res' },
       { label: 'Reglas y Puntajes', href: '/residencial/reglas.html', seccion: 'res' },
       { label: 'Tabla de Puntaje', href: '/residencial/tabla-puntaje.html', seccion: 'res' },
       { label: 'Empleado del Mes', href: '/residencial/empleado-mes.html', seccion: 'res' },

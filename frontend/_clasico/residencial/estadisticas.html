@@ -1,0 +1,700 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Estadísticas — Panel Ejecutivo</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Cinzel:wght@600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
+  <script src="/vendor/chartjs/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="/css/residencial/estadisticas.css">
+  <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
+  <link rel="stylesheet" href="/css/base/form-controls.css?v=20260921">
+</head>
+<body>
+  <script src="/js/core/theme-init.js"></script>
+  <script src="/js/layout/sidebar.js" defer></script>
+  <script src="/js/layout/sidebar-ui.js" defer></script>
+  <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
+  <script src="/js/layout/sidebar-user.js" defer></script>
+
+<div class="layout">
+  <nav class="sidebar" id="app-sidebar"></nav>
+  <main class="main-content">
+  <div class="page">
+
+    <!-- Header -->
+    <div class="header drop" style="animation-delay:.05s">
+      <div>
+        <div class="header-title">Estadísticas Avanzadas — Workspace CRM</div>
+        <div class="header-sub">Análisis de rendimiento operativo y comercial en tiempo real</div>
+      </div>
+      <div class="month-ctrl">
+        <button class="mbtn" id="btn-prev">◀</button>
+        <div class="mpill" id="month-display">— —</div>
+        <button class="mbtn" id="btn-next">▶</button>
+        <button class="mbtn" id="btn-today" style="color:var(--t3);padding:4px 10px;background:rgba(255,255,255,.05);border-radius:6px;margin-left:4px">Hoy</button>
+      </div>
+    </div>
+
+    <!-- KPIs Superiores -->
+    <div class="kpi-grid">
+      <div class="kpi blue drop" style="animation-delay:.15s">
+        <div>
+          <div class="kpi-label">Ventas Totales Mes</div>
+          <div class="kpi-value" id="kv-ventas">—</div>
+          <div class="kpi-hint">Producción del mes</div>
+        </div>
+        <div class="kpi-icon"><i class="fas fa-chart-line"></i></div>
+      </div>
+      <div class="kpi purple drop" style="animation-delay:.25s">
+        <div>
+          <div class="kpi-label">Puntaje ICON Mes</div>
+          <div class="kpi-value" id="kv-icon">—</div>
+          <div class="kpi-hint">Mercado ICON</div>
+        </div>
+        <div class="kpi-icon"><i class="fas fa-bolt"></i></div>
+      </div>
+      <div class="kpi teal drop" style="animation-delay:.35s">
+        <div>
+          <div class="kpi-label">Puntaje Acumulado</div>
+          <div class="kpi-value" id="kv-puntaje">—</div>
+          <div class="kpi-hint">Total del mes</div>
+        </div>
+        <div class="kpi-icon"><i class="fas fa-gem"></i></div>
+      </div>
+      <div class="kpi amber drop" style="animation-delay:.45s">
+        <div>
+          <div class="kpi-label">Tasa de Activación</div>
+          <div class="kpi-value" id="kv-activacion">—</div>
+          <div class="kpi-hint">Activas / Total</div>
+        </div>
+        <div class="kpi-icon"><i class="fas fa-gauge-high"></i></div>
+      </div>
+    </div>
+
+    <!-- Rejilla Principal Bento Balanceada -->
+    <div class="main-grid">
+
+      <!-- COLUMNA IZQUIERDA -->
+      <div class="col-left drop" style="animation-delay:.55s">
+
+        <!-- Card flip -->
+        <div class="flip-scene" id="flip-scene">
+
+            <!-- FRENTE: Ventas Mensuales -->
+            <div class="flip-face flip-front glass active">
+              <div class="glass-header res-header">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+                  <div>
+                    <div class="glass-title">📊 Ventas Mensuales — por Equipo</div>
+                    <div class="glass-sub">Producción acumulada del mes actual</div>
+                  </div>
+                  <button class="flip-btn" onclick="flipCard()" title="Ver ventas del día">
+                    🔄 Ver hoy
+                  </button>
+                </div>
+              </div>
+              <div class="tbl-wrap">
+                <table class="tbl">
+                  <thead><tr>
+                    <th>Equipo</th>
+                    <th class="th-mes">Ventas Mes</th>
+                    <th class="th-mes">Puntos Mes</th>
+                    <th class="th-mes">ICON</th>
+                    <th class="th-mes">BAMO</th>
+                  </tr></thead>
+                  <tbody id="teams-tbody">
+                    <tr><td colspan="5" style="text-align:center;padding:32px;color:var(--t3)">Cargando…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- DORSO: Ventas del Día -->
+            <div class="flip-face flip-back glass">
+              <div class="glass-header res-header">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+                  <div>
+                    <div class="glass-title">🗓️ Ventas del Día — por Equipo</div>
+                    <div class="glass-sub" id="daily-date-label">Producción de hoy</div>
+                  </div>
+                  <button class="flip-btn" onclick="flipCard()" title="Ver ventas del mes">
+                    🔄 Ver mes
+                  </button>
+                </div>
+              </div>
+              <div class="tbl-wrap">
+                <table class="tbl">
+                  <thead><tr>
+                    <th>Equipo</th>
+                    <th class="th-hoy">Ventas Hoy</th>
+                    <th class="th-hoy">Puntos Hoy</th>
+                    <th class="th-hoy">ICON Hoy</th>
+                  </tr></thead>
+                  <tbody id="teams-daily-tbody">
+                    <tr><td colspan="4" style="text-align:center;padding:32px;color:var(--t3)">Cargando…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+        </div>
+
+        <!-- Tendencia de Ventas -->
+        <div class="glass">
+          <div class="glass-header res-header">
+            <div class="glass-title">📈 Tendencia de Ventas <span style="font-size:.62rem;color:var(--t4);font-weight:500;text-transform:none;letter-spacing:0">(Últimos 7 días)</span></div>
+          </div>
+          <div class="trend-body">
+            <div class="trend-canvas"><canvas id="line-chart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COLUMNA DERECHA MODULAR (Dona de Servicios + Resumen Compacto) -->
+      <div class="col-right drop" style="animation-delay:.70s">
+        <!-- Gráfico de Dona -->
+        <div class="glass">
+          <div class="glass-header res-header">
+            <div class="glass-title">🍩 Desglose por Servicio <span style="font-size:.62rem;color:var(--t4);font-weight:500;text-transform:none;letter-spacing:0">(Mes Actual)</span></div>
+          </div>
+          <div class="donut-wrap">
+            <div class="donut-pos">
+              <canvas id="donut-chart"></canvas>
+              <div class="donut-center">
+                <div class="donut-val" id="donut-total">—</div>
+                <div class="donut-sub">Ventas</div>
+              </div>
+            </div>
+            <div class="leg" id="service-legend">
+              <div style="height:10px;background:rgba(255,255,255,.04);border-radius:4px;width:85%;margin-bottom:5px"></div>
+              <div style="height:10px;background:rgba(255,255,255,.04);border-radius:4px;width:75%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Team Líneas — Ventas del Mes -->
+        <div class="glass">
+          <div class="glass-header lineas-header">
+            <div class="glass-title">📶 Team Líneas <span style="font-size:.62rem;color:var(--t4);font-weight:500;text-transform:none;letter-spacing:0">Ventas del Mes</span></div>
+          </div>
+          <div id="lineas-mes-body" style="padding:12px 16px;display:flex;flex-direction:column;gap:10px">
+            <div style="text-align:center;padding:16px;color:var(--t3);font-size:.72rem">Cargando…</div>
+          </div>
+        </div>
+
+        <!-- Team Líneas — Ventas del Día -->
+        <div class="glass">
+          <div class="glass-header lineas-header">
+            <div class="glass-title">📶 Team Líneas <span style="font-size:.62rem;color:var(--t4);font-weight:500;text-transform:none;letter-spacing:0">Ventas del Día</span></div>
+          </div>
+          <div id="lineas-hoy-body" style="padding:12px 16px;display:flex;flex-direction:column;gap:10px">
+            <div style="text-align:center;padding:16px;color:var(--t3);font-size:.72rem">Cargando…</div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Summary Footer Widget -->
+    <div class="summary drop" style="animation-delay:.85s">
+      <div class="sum-it"><div class="sum-v c-blue"   id="s-ventas">—</div><div class="sum-l">Ventas Totales</div></div>
+      <div class="sum-it"><div class="sum-v c-teal"   id="s-puntaje">—</div><div class="sum-l">Puntaje Acumulado</div></div>
+      <div class="sum-it"><div class="sum-v c-purple" id="s-icon">—</div><div class="sum-l">Puntaje ICON</div></div>
+      <div class="sum-it"><div class="sum-v c-white"  id="s-equipos">—</div><div class="sum-l">Equipos Activos</div></div>
+      <div class="sum-it"><div class="sum-v c-amber"  id="s-hoy">—</div><div class="sum-l">Ventas Hoy</div></div>
+      <div class="sum-it"><div class="sum-v c-white"  id="s-activacion">—</div><div class="sum-l">Tasa Activación</div></div>
+    </div>
+
+  </div>
+  </main>
+</div>
+
+<script src="/js/core/fetch-interceptor.js" defer></script>
+<script src="/js/core/logout-handler.js" defer></script>
+<script src="/js/core/user-info.js?v=20260602" defer></script>
+<script src="/js/core/realtime.js" defer></script>
+<script>
+(function(){
+  'use strict';
+
+  var now=new Date();
+  var cY=now.getFullYear(), cM=now.getMonth()+1;
+  var MN=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  function mStr(y,m){return y+'-'+String(m).padStart(2,'0');}
+  function updateDisplay(){var e=document.getElementById('month-display');if(e)e.textContent=MN[cM-1]+' '+cY;}
+  function prevMonth(){cM--;if(cM<1){cM=12;cY--;}updateDisplay();load();}
+  function nextMonth(){cM++;if(cM>12){cM=1;cY++;}updateDisplay();load();}
+  function todayMonth(){cY=now.getFullYear();cM=now.getMonth()+1;updateDisplay();load();}
+
+  var TTL=2*60*1000;
+  function ck(m){return 'res_stats_v13_'+m;}
+  function cSave(m,d){try{localStorage.setItem(ck(m),JSON.stringify({ts:Date.now(),d:d}));}catch(_){}}
+  function cLoad(m){try{var r=localStorage.getItem(ck(m));if(!r)return null;var p=JSON.parse(r);return(Date.now()-p.ts<TTL)?p.d:null;}catch(_){return null;}}
+
+  async function fetchData(m){
+    try{
+      var res=await fetch('/api/leads/bootstrap?stats=1&seccion=residencial&salesTeams=1&month='+encodeURIComponent(m),{credentials:'include'});
+      if(!res.ok)return null;
+      var j=await res.json();
+      return j.success?j:null;
+    }catch(_){return null;}
+  }
+
+  var PAL=['#3b82f6','#8b5cf6','#14b8a6','#f59e0b','#ef4444','#10b981','#f43f5e','#06b6d4','#6366f1'];
+  function supColor(n){var h=0;for(var i=0;i<n.length;i++)h=(h*31+n.charCodeAt(i))&0x7fffffff;return PAL[h%PAL.length];}
+  function supInitials(n){return n.split(/\s+/).filter(Boolean).map(function(w){return w[0];}).join('').toUpperCase().slice(0,2)||'??';}
+  function normSup(s){return String(s||'').trim().toUpperCase()||'SIN SUPERVISOR';}
+  function todayStr(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+
+  var _donut=null,_line=null;
+  function isDark() { return document.body.classList.contains('dark-theme'); }
+  function gC(){return isDark()?'rgba(255,255,255,.03)':'rgba(0,0,0,.04)';}
+  function tC(){return isDark()?'#475569':'#94a3b8';}
+  function tipBg(){return isDark()?'#111827':'#fff';}
+  function tipT1(){return isDark()?'#f1f5f9':'#0f172a';}
+  function tipT2(){return isDark()?'#94a3b8':'#64748b';}
+  function tipBdr(){return isDark()?'rgba(255,255,255,.08)':'#e2e8f0';}
+  function bdBdr(){return isDark()?'rgba(15,23,42,0.9)':'rgba(255,255,255,0.9)';}
+
+  function renderDonut(labels,data,colors,total){
+    var ctx=document.getElementById('donut-chart');if(!ctx)return;
+    if(_donut){_donut.destroy();_donut=null;}
+    document.getElementById('donut-total').textContent=total;
+    _donut=new Chart(ctx,{type:'doughnut',
+      data:{labels:labels,datasets:[{data:data,backgroundColor:colors,
+        borderWidth:2,borderColor:bdBdr(),hoverBorderWidth:0}]},
+      options:{responsive:true,maintainAspectRatio:true,cutout:'73%',
+        plugins:{legend:{display:false},tooltip:{
+          backgroundColor:tipBg(),titleColor:tipT1(),bodyColor:tipT2(),
+          borderColor:tipBdr(),borderWidth:1,titleFont:{family:'Outfit',size:11},bodyFont:{family:'Outfit',size:11},
+          callbacks:{label:function(c){return ' '+c.label+': '+c.raw+' ('+(total>0?(c.raw/total*100).toFixed(1):0)+'%)';}}}}}});
+  }
+
+  function renderLine(labels,data){
+    var ctx=document.getElementById('line-chart');if(!ctx)return;
+    if(_line){_line.destroy();_line=null;}
+    _line=new Chart(ctx,{type:'line',
+      data:{labels:labels,datasets:[{data:data,
+        borderColor:'#3b82f6',backgroundColor:isDark()?'rgba(59,130,246,.03)':'rgba(59,130,246,.05)',
+        borderWidth:2.5,pointBackgroundColor:'#3b82f6',pointBorderColor:isDark()?'#0b0f19':'#fff',
+        pointBorderWidth:2,pointRadius:3.5,pointHoverRadius:5,fill:true,tension:.38}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{
+          backgroundColor:tipBg(),titleColor:tipT1(),bodyColor:tipT2(),
+          borderColor:tipBdr(),borderWidth:1,titleFont:{family:'Outfit'},bodyFont:{family:'Outfit'}}},
+        scales:{
+          x:{grid:{color:gC()},ticks:{color:tC(),font:{size:10,family:'Outfit',weight:500}}},
+          y:{grid:{color:gC()},ticks:{color:tC(),font:{size:10,family:'Outfit',weight:500}},beginAtZero:true}
+        }}});
+  }
+
+  // ── Equipos: fuente ÚNICA = backend ──
+  // Se llenan desde /api/leads/bootstrap -> teams (DISTINCT de users.team, que se
+  // gestiona en la página de permisos). SIN lista hardcodeada: si un equipo se
+  // renombra o se crea en la BD, aquí se refleja solo, sin tocar código.
+  var _configTeams=[];
+
+  // Mapa dinámico supervisor -> su equipo (desde /api/teams/supervisors-list).
+  // El lead guarda el nombre del supervisor; aquí lo resolvemos a su TEAM actual.
+  var _supTeam={};
+  async function loadSupervisors(){
+    try{
+      var res=await fetch('/api/teams/supervisors-list',{credentials:'include'});
+      if(!res||!res.ok)return;
+      var j=await res.json();
+      (j.supervisors||[]).forEach(function(sv){
+        var team=String(sv.team||'').trim();
+        if(!team)return;
+        if(sv.name)_supTeam[normMatch(sv.name)]=team;
+        if(sv.username)_supTeam[normMatch(sv.username)]=team;
+      });
+    }catch(_){}
+  }
+
+  // Rotación de fin de semana: qué equipos trabajan HOY. null = sin filtro (entre
+  // semana o sin config). El backend calcula la rotación (/api/weekend-rotation).
+  var _weekendTeams = null;
+  async function loadWeekendRotation(){
+    try{
+      var res=await fetch('/api/weekend-rotation?date='+encodeURIComponent(todayStr()),{credentials:'include'});
+      if(!res||!res.ok)return;
+      var j=await res.json();
+      _weekendTeams = (j && j.today && j.today.teams) ? j.today.teams : null;
+    }catch(_){ _weekendTeams = null; }
+  }
+
+  // Equipos de Líneas (para mostrar tarjetas placeholder cuando no hay datos).
+  // Dinámico desde el backend (/api/teams?seccion=lineas) — sin nombres hardcodeados.
+  var _lineasTeams = [];
+  async function loadLineasTeams(){
+    try{
+      var res=await fetch('/api/teams?seccion=lineas&sales=1',{credentials:'include'});
+      if(!res||!res.ok)return;
+      var j=await res.json();
+      _lineasTeams=(j.teams||[]).map(function(t){return t.value||t;});
+    }catch(_){}
+  }
+  function _lineasPlaceholder(){
+    return _lineasTeams.map(function(t){return {team:t,mesC:0,mesL:0,hoyC:0,hoyL:0};});
+  }
+
+  // Renames cargados del API [{old_name, new_name, changed_at:'YYYY-MM-DD'}]
+  var _renames=[];
+
+  function normMatch(s){
+    try{return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();}
+    catch(_){return String(s||'').toLowerCase().trim();}
+  }
+
+  // Canoniza el team de un lead contra la lista REAL de equipos del backend
+  // (_configTeams). Sin mapa hardcodeado: si el texto del lead coincide (o contiene)
+  // el nombre de un equipo real, se usa ese. Los renombres de negocio (por fecha)
+  // los aplica resolveTeam con la tabla team_renames del backend.
+  function matchTeam(raw){
+    if(!raw)return null;
+    var n=normMatch(raw);
+    if(!n)return null;
+    // 1) coincidencia exacta con un equipo real del backend
+    for(var i=0;i<_configTeams.length;i++){ if(normMatch(_configTeams[i])===n)return _configTeams[i]; }
+    // 2) contención (el texto del lead contiene el nombre del equipo o viceversa)
+    for(var j=0;j<_configTeams.length;j++){
+      var t=normMatch(_configTeams[j]);
+      if(t&&(n.indexOf(t)>=0||t.indexOf(n)>=0))return _configTeams[j];
+    }
+    return null;
+  }
+
+  // Resuelve el nombre de equipo correcto para un lead según la fecha de la venta.
+  // Si existe un rename vigente (dia_venta >= changed_at), usa el nuevo nombre.
+  function resolveTeam(teamRaw, diaVenta){
+    if(!teamRaw)return null;
+    // 1. supervisor -> su equipo actual (dinámico); si no, match por nombre de equipo
+    var canonical = _supTeam[normMatch(teamRaw)] || matchTeam(teamRaw) || teamRaw;
+    if(!diaVenta)return canonical;
+    var leadDate = diaVenta.slice(0,10); // 'YYYY-MM-DD'
+    // 2. Aplicar renames por fecha: si la venta es DESPUÉS del cambio, usar nuevo nombre
+    for(var i=0;i<_renames.length;i++){
+      var r=_renames[i];
+      // Comparar también la versión normalizada del old_name
+      var oldNorm = matchTeam(r.old_name) || r.old_name;
+      if(normMatch(canonical)===normMatch(oldNorm) && leadDate>=r.changed_at){
+        canonical=r.new_name;
+      }
+    }
+    return canonical;
+  }
+
+  function render(leads,configTeams,totalMes){
+    // Equipos desde el backend (DISTINCT de users.team). Fuente única, sin hardcode.
+    if(configTeams&&configTeams.length){
+      _configTeams=configTeams.map(function(t){return typeof t==='string'?t:(t&&t.team)||'';}).filter(Boolean);
+    }
+    var today=todayStr();
+    var ms=mStr(cY,cM);
+    var prevMo=cM===1?12:cM-1, prevYr=cM===1?cY-1:cY;
+    var pmStr=mStr(prevYr,prevMo);
+
+    // Ventas del mes: solo leads con dia_venta en el mes actual, excluye canceladas
+    var filtered=leads.filter(function(l){
+      return String(l.dia_venta||'').slice(0,7)===ms&&String(l.status||'').toLowerCase()!=='cancelled';
+    });
+
+    var total=filtered.length;
+    var totalPts=filtered.reduce(function(a,l){return a+(parseFloat(l.puntaje||0)||0);},0);
+    var iconPts=filtered.filter(function(l){return String(l.mercado||'').toUpperCase().includes('ICON');})
+                        .reduce(function(a,l){return a+(parseFloat(l.puntaje||0)||0);},0);
+    var hoy=filtered.filter(function(l){return String(l.dia_venta||'').slice(0,10)===today;}).length;
+    var active=filtered.filter(function(l){var s=String(l.status||'').toLowerCase();return s==='active'||s==='activa'||s.includes('activ')||s==='completed'||s.includes('complet');}).length;
+    var colchonLeads=leads.filter(function(l){var dinst=String(l.dia_instalacion||'').slice(0,7);var dv=String(l.dia_venta||'').slice(0,7);return dinst===ms&&(!dv||dv<ms);});
+    var activeColchon=colchonLeads.filter(function(l){var s=String(l.status||'').toLowerCase();return s==='completed'||s.includes('complet');}).length;
+    var totalParaActivacion=total+colchonLeads.length;
+    var actRate=totalParaActivacion>0?(((active+activeColchon)/totalParaActivacion)*100).toFixed(1)+'%':'0%';
+
+    document.getElementById('kv-ventas').textContent=total;
+    document.getElementById('kv-icon').textContent=iconPts.toFixed(2);
+    document.getElementById('kv-puntaje').textContent=totalPts.toFixed(2);
+    document.getElementById('kv-activacion').textContent=actRate;
+    document.getElementById('s-ventas').textContent=total;
+    document.getElementById('s-puntaje').textContent=totalPts.toFixed(2);
+    document.getElementById('s-icon').textContent=iconPts.toFixed(2);
+    document.getElementById('s-hoy').textContent=hoy;
+    document.getElementById('s-activacion').textContent=actRate;
+
+    // ── Grupos por EQUIPO (no supervisor) ──
+    // Sin lista pre-cargada: los equipos salen de las ventas reales del mes,
+    // canonizados contra la lista del backend. Así no se cuelan equipos que no
+    // venden residencial (líneas, backoffice, admin) ni nombres viejos hardcodeados.
+    var teams={};
+    filtered.forEach(function(l){
+      // Resolver equipo con normalización + historial de renames por fecha
+      var teamRaw=String(l.team||'').trim();
+      var dv=String(l.dia_venta||'').slice(0,10);
+      var matched=resolveTeam(teamRaw,dv)||resolveTeam(l.supervisor,dv)||(teamRaw||null);
+      if(!matched)return;
+      var k=matched.toUpperCase();
+      if(!teams[k])teams[k]={v:0,pts:0,hoy:0,ptsH:0,icon:0,bamo:0,iconH:0,label:matched};
+      teams[k].v++;
+      teams[k].pts+=(parseFloat(l.puntaje||0)||0);
+      var mkt=String(l.mercado||'').toUpperCase();
+      if(mkt.includes('ICON')){teams[k].icon++;}
+      if(mkt.includes('BAMO')){teams[k].bamo++;}
+      if(String(l.dia_venta||'').slice(0,10)===today){
+        teams[k].hoy++;
+        teams[k].ptsH+=(parseFloat(l.puntaje||0)||0);
+        if(mkt.includes('ICON'))teams[k].iconH++;
+      }
+    });
+    var tNames=Object.keys(teams).sort(function(a,b){
+      var diff=teams[b].v-teams[a].v;
+      return diff!==0?diff:(teams[a].label||a).localeCompare(teams[b].label||b);
+    });
+    document.getElementById('s-equipos').textContent=tNames.length;
+
+    var tbody=document.getElementById('teams-tbody');
+    if(!tNames.length){
+      tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--t3)">Sin datos para este mes</td></tr>';
+    }else{
+      function teamRow(s,t){
+        var dn=t.label||s;
+        var c=supColor(dn);
+        var ini=supInitials(dn);
+        var ca=c.replace('#','');
+        var rr=parseInt(ca.substr(0,2),16),gg=parseInt(ca.substr(2,2),16),bb=parseInt(ca.substr(4,2),16);
+        var bg='background:rgba('+rr+','+gg+','+bb+',.10);border:1px solid rgba('+rr+','+gg+','+bb+',.20);color:'+c;
+        return {dn:dn,chip:'<span class="t-avatar" style="'+bg+'">'+ini+'</span><span class="t-label">'+dn+'</span>'};
+      }
+
+      // Tabla mensual
+      var rowsMes=tNames.map(function(s){
+        var t=teams[s]; var tr=teamRow(s,t);
+        return '<tr><td><div class="t-name">'+tr.chip+'</div></td>'+
+          '<td class="val-hoy">'+t.v+'</td>'+
+          '<td class="val-mes">'+t.pts.toFixed(2)+'</td>'+
+          '<td class="val-icon">'+t.icon+'</td>'+
+          '<td class="val-icon">'+t.bamo+'</td>'+
+        '</tr>';
+      });
+      var tV=tNames.reduce(function(a,s){return a+teams[s].v;},0);
+      var tP=tNames.reduce(function(a,s){return a+teams[s].pts;},0);
+      var tI=tNames.reduce(function(a,s){return a+teams[s].icon;},0);
+      var tB=tNames.reduce(function(a,s){return a+teams[s].bamo;},0);
+      rowsMes.push('<tr class="total-row"><td><div class="t-name"><span style="font-size:.70rem;font-weight:900">TOTAL GENERAL</span></div></td>'+
+        '<td class="center">'+tV+'</td><td class="center">'+tP.toFixed(2)+'</td>'+
+        '<td class="center" style="font-family:monospace">'+tI+'</td>'+
+        '<td class="center" style="font-family:monospace">'+tB+'</td></tr>');
+      tbody.innerHTML=rowsMes.join('');
+
+      // Tabla diaria — en fin de semana solo los equipos que trabajan HOY (rotación
+      // gestionada por el backend). Entre semana (_weekendTeams=null): todos.
+      var dailyTbody=document.getElementById('teams-daily-tbody');
+      var dayTNames=tNames;
+      if(_weekendTeams){
+        var _wt=_weekendTeams.map(function(x){return normMatch(x);});
+        dayTNames=tNames.filter(function(s){return _wt.indexOf(normMatch(teams[s].label||s))!==-1;});
+      }
+      var rowsDay=dayTNames.map(function(s){
+        var t=teams[s]; var tr=teamRow(s,t);
+        return '<tr><td><div class="t-name">'+tr.chip+'</div></td>'+
+          '<td class="val-hoy">'+t.hoy+'</td>'+
+          '<td class="val-pts">'+t.ptsH.toFixed(2)+'</td>'+
+          '<td class="val-icon">'+t.iconH+'</td>'+
+        '</tr>';
+      });
+      if(!dayTNames.length){
+        rowsDay=['<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--t3)">Ningún equipo trabaja hoy</td></tr>'];
+      }
+      var tH=dayTNames.reduce(function(a,s){return a+teams[s].hoy;},0);
+      var tPH=dayTNames.reduce(function(a,s){return a+teams[s].ptsH;},0);
+      var tIH=dayTNames.reduce(function(a,s){return a+teams[s].iconH;},0);
+      // "Ventas Hoy" (resumen) coherente con la tabla del día
+      var _sHoy=document.getElementById('s-hoy'); if(_sHoy)_sHoy.textContent=tH;
+      rowsDay.push('<tr class="total-row"><td><div class="t-name"><span style="font-size:.70rem;font-weight:900">TOTAL HOY</span></div></td>'+
+        '<td class="center">'+tH+'</td><td class="center">'+tPH.toFixed(2)+'</td>'+
+        '<td class="center" style="font-family:monospace">'+tIH+'</td></tr>');
+      if(dailyTbody)dailyTbody.innerHTML=rowsDay.join('');
+      // Etiqueta de fecha en el dorso
+      var dl=document.getElementById('daily-date-label');
+      if(dl){var d=new Date();dl.textContent='Ventas del '+d.getDate()+'/'+(d.getMonth()+1)+'/'+d.getFullYear();}
+      // Ajustar altura del flip
+      setTimeout(syncFlipHeight,50);
+    }
+
+    // Donut Chart Processing
+    var svc={};
+    filtered.forEach(function(l){
+      var s=l.servicios||l.tipo_servicio;
+      if(Array.isArray(s))s=s[0]||'Otro';
+      s=String(s||'Otro').trim()||'Otro';
+      svc[s]=(svc[s]||0)+1;
+    });
+    var svcS=Object.keys(svc).sort(function(a,b){return svc[b]-svc[a];});
+    // Donut: top 5 + Otros
+    var top=svcS.slice(0,5),otrosVal=svcS.slice(5).reduce(function(a,k){return a+svc[k];},0);
+    var dLbls=top.slice(),dVals=top.map(function(k){return svc[k];});
+    if(otrosVal>0){dLbls.push('Otros');dVals.push(otrosVal);}
+    var cols=dLbls.map(function(_,i){return PAL[i%PAL.length];});
+    renderDonut(dLbls,dVals,cols,total);
+    // Leyenda: todos los servicios con scroll invisible
+    var colMap={};dLbls.forEach(function(l,i){colMap[l]=cols[i];});
+    document.getElementById('service-legend').innerHTML=svcS.map(function(l,i){
+      var col=colMap[l]||PAL[i%PAL.length];
+      var pct=total>0?((svc[l]/total)*100).toFixed(1):0;
+      return '<div class="leg-row"><span class="leg-dot" style="background:'+col+'"></span>'+
+        '<span class="leg-name">'+l+'</span>'+
+        '<span class="leg-n">'+svc[l]+'</span>'+
+        '<span class="leg-p">'+pct+'%</span></div>';
+    }).join('');
+
+    // Line Chart Processing
+    var dayL=[],dayD=[];
+    for(var d=6;d>=0;d--){
+      var dt=new Date();dt.setDate(dt.getDate()-d);
+      var ds=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+      var dN=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][dt.getDay()];
+      dayL.push(d===0?'Hoy':dN+' '+dt.getDate());
+      dayD.push(leads.filter(function(l){return String(l.dia_venta||'').slice(0,10)===ds;}).length);
+    }
+    renderLine(dayL,dayD);
+  }
+
+  // ── Team Líneas — llamada directa a /api/lineas-team ────────────
+  async function loadLineas(){
+    var mesEl=document.getElementById('lineas-mes-body');
+    var hoyEl=document.getElementById('lineas-hoy-body');
+    try{
+      var res=await fetch('/api/lineas-stats?month='+mStr(cY,cM),{credentials:'include'});
+      if(!res.ok)throw new Error('no auth');
+      var j=await res.json();
+      var data=j.data||[];
+      var today=todayStr();
+      var ms=mStr(cY,cM);
+
+      // Agrupar por team — clientes (registros) + líneas (cantidad_lineas)
+      var teams={};
+      data.forEach(function(r){
+        var t=(r.team||r.supervisor||'SIN TEAM').toUpperCase();
+        if(!teams[t])teams[t]={team:t,mesC:0,mesL:0,hoyC:0,hoyL:0};
+        var lineas=parseInt(r.cantidad_lineas||1)||1;
+        var dv=String(r.dia_venta||'').slice(0,7);
+        var dvFull=String(r.dia_venta||'').slice(0,10);
+        if(dv===ms){teams[t].mesC++;teams[t].mesL+=lineas;}
+        if(dvFull===today){teams[t].hoyC++;teams[t].hoyL+=lineas;}
+      });
+
+      var arr=Object.values(teams).sort(function(a,b){return b.mesC-a.mesC;});
+      if(!arr.length) arr=_lineasPlaceholder();
+      renderLineasCards(arr);
+    }catch(_){
+      renderLineasCards(_lineasPlaceholder());
+    }
+  }
+
+  function renderLineasCards(teams){
+    var mesEl=document.getElementById('lineas-mes-body');
+    var hoyEl=document.getElementById('lineas-hoy-body');
+    if(!mesEl||!hoyEl)return;
+
+    function teamRow(t,cf,lf){
+      return '<div class="lt-row">'+
+        '<span class="lt-name">'+t.team+'</span>'+
+        '<div style="display:flex;gap:20px;align-items:center">'+
+          '<div style="text-align:right">'+
+            '<div class="lt-val" style="color:var(--blue-t)">'+t[cf]+'</div>'+
+            '<div class="lt-label">clientes</div>'+
+          '</div>'+
+          '<div style="text-align:right">'+
+            '<div class="lt-val">'+t[lf]+'</div>'+
+            '<div class="lt-label">líneas</div>'+
+          '</div>'+
+        '</div>'+
+      '</div>';
+    }
+
+    var totMesC=teams.reduce(function(a,t){return a+t.mesC;},0);
+    var totMesL=teams.reduce(function(a,t){return a+t.mesL;},0);
+    var totHoyC=teams.reduce(function(a,t){return a+t.hoyC;},0);
+    var totHoyL=teams.reduce(function(a,t){return a+t.hoyL;},0);
+
+    mesEl.innerHTML=teams.map(function(t){return teamRow(t,'mesC','mesL');}).join('')+
+      '<div class="lt-total">'+
+        '<span class="lt-total-label">Total</span>'+
+        '<div style="display:flex;gap:20px">'+
+          '<div style="text-align:right"><span class="lt-total-val" style="color:var(--blue-t)">'+totMesC+'</span><div class="lt-label">clientes</div></div>'+
+          '<div style="text-align:right"><span class="lt-total-val">'+totMesL+'</span><div class="lt-label">líneas</div></div>'+
+        '</div>'+
+      '</div>';
+
+    hoyEl.innerHTML=teams.map(function(t){return teamRow(t,'hoyC','hoyL');}).join('')+
+      '<div class="lt-total">'+
+        '<span class="lt-total-label">Total hoy</span>'+
+        '<div style="display:flex;gap:20px">'+
+          '<div style="text-align:right"><span class="lt-total-val" style="color:var(--blue-t)">'+totHoyC+'</span><div class="lt-label">clientes</div></div>'+
+          '<div style="text-align:right"><span class="lt-total-val">'+totHoyL+'</span><div class="lt-label">líneas</div></div>'+
+        '</div>'+
+      '</div>';
+  }
+
+  async function load(){
+    var ms=mStr(cY,cM);
+    var cached=cLoad(ms);
+    if(cached&&cached.leads&&cached.leads.length>0){
+      if(cached.renames)_renames=cached.renames;
+      render(cached.leads,cached.teams||[]);
+    }
+    // Bootstrap y líneas en paralelo
+    var results=await Promise.all([fetchData(ms), loadLineas()]);
+    var data=results[0];
+    if(data&&data.leads){
+      if(data.renames)_renames=data.renames;
+      cSave(ms,{leads:data.leads,teams:data.teams||[],renames:data.renames||[]});
+      var changed=!cached||!cached.leads||data.leads.length!==cached.leads.length||
+        (data.leads[0]&&cached.leads&&cached.leads[0]&&data.leads[0].id!==cached.leads[0].id);
+      if(changed||!cached)render(data.leads,data.teams||[],data.total_mes);
+    }
+  }
+
+  // Tema guardado inmediato
+  (function(){
+    var t=localStorage.getItem('theme')||localStorage.getItem('crm_theme')||'';
+    if(t==='dark'||document.cookie.includes('theme=dark'))
+      document.body.classList.add('dark-theme');
+  })();
+
+  // ── Flip card ──
+  window.flipCard=function(){
+    var front=document.querySelector('.flip-front');
+    var back=document.querySelector('.flip-back');
+    if(!front||!back)return;
+    var showingFront=front.classList.contains('active');
+    front.classList.toggle('active',!showingFront);
+    back.classList.toggle('active',showingFront);
+  };
+  function syncFlipHeight(){} // no-op, ya no necesario
+
+  document.addEventListener('DOMContentLoaded',function(){
+    var t=localStorage.getItem('theme')||localStorage.getItem('crm_theme')||'';
+    if(t==='dark') document.body.classList.add('dark-theme');
+    updateDisplay();
+    document.getElementById('btn-prev').addEventListener('click',prevMonth);
+    document.getElementById('btn-next').addEventListener('click',nextMonth);
+    document.getElementById('btn-today').addEventListener('click',todayMonth);
+    // Cargar el mapa supervisor->equipo ANTES del primer render (para agrupar bien)
+    Promise.all([loadSupervisors(), loadWeekendRotation(), loadLineasTeams()]).then(load);
+    // Tiempo real: refresca al cambiar datos de residencial o de líneas (esta
+    // página muestra ambos). load() solo re-renderiza si los datos cambiaron.
+    if (window.CRMRealtime) {
+      CRMRealtime.connect('residencial', load);
+      CRMRealtime.connect('lineas', load);
+    }
+  });
+})();
+</script>
+</body>
+</html>

@@ -893,7 +893,12 @@ async def semaforo(
                         WHEN UPPER(TRIM(COALESCE(status,''))) REGEXP '{_EXCL}' THEN 0
                         WHEN TRIM(COALESCE(status,'')) = '' THEN COALESCE(puntaje,0)
                         WHEN UPPER(TRIM(status)) REGEXP '{_INCL}' THEN COALESCE(puntaje,0)
-                        ELSE 0 END) AS sum_puntaje
+                        ELSE 0 END) AS sum_puntaje,
+                  MAX(CASE
+                        WHEN UPPER(TRIM(COALESCE(status,''))) REGEXP '{_EXCL}' THEN NULL
+                        WHEN TRIM(COALESCE(status,'')) = '' THEN DATE(dia_venta)
+                        WHEN UPPER(TRIM(status)) REGEXP '{_INCL}' THEN DATE(dia_venta)
+                        ELSE NULL END) AS ultima_venta
                 FROM leads
                 WHERE dia_venta BETWEEN :s AND :e
                   AND (agente_nombre IS NOT NULL OR agente IS NOT NULL)
@@ -902,12 +907,33 @@ async def semaforo(
                 GROUP BY COALESCE(agente_nombre, agente)
                 ORDER BY sum_puntaje DESC, ventas DESC
             """), params)
-            rows = [{"agente": row["agente_fuente"], "ventas": row["ventas"], "puntaje": float(row["sum_puntaje"] or 0)}
-                    for row in r.mappings().all()]
+            filas = r.mappings().all()
         except Exception:
-            rows = []
+            filas = []
 
-    return {"success": True, "data": rows, "dateRange": {"start": start, "end": end}}
+    # Días sin venta (lista de agentes del semáforo): desde la última venta contada hasta
+    # hoy, o hasta el fin del rango si es un mes pasado. Sin ventas en el rango, el rango entero.
+    def _dia(v):
+        try:
+            return v if hasattr(v, "year") and not hasattr(v, "hour") else datetime.strptime(str(v)[:10], "%Y-%m-%d").date()
+        except (TypeError, ValueError):
+            return None
+    d_ini, d_fin = _dia(start), _dia(end)
+    ref = min(_sv.date(), d_fin) if d_fin else _sv.date()
+
+    def _dias_sin(ultima):
+        u = _dia(ultima) if ultima else None
+        if u:
+            return max(0, (ref - u).days)
+        return max(0, (ref - d_ini).days + 1) if d_ini else 0
+
+    rows = [{"agente": row["agente_fuente"], "ventas": row["ventas"], "puntaje": float(row["sum_puntaje"] or 0),
+             "ultima_venta": str(row["ultima_venta"]) if row["ultima_venta"] else None,
+             "daysWithout": _dias_sin(row["ultima_venta"])}
+            for row in filas]
+
+    return {"success": True, "data": rows, "dateRange": {"start": start, "end": end},
+            "meta": {"today": ref.strftime("%Y-%m-%d"), "startDate": start}}
 
 
 # ── COMISIONES ─────────────────────────────────────────────────────

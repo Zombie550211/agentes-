@@ -10,24 +10,25 @@
    nota sobre la paleta oscura, más abajo). */
 
 .fc {
-  --fc-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", "Helvetica Neue", Arial, sans-serif;
-  --fc-bg: #eef0f3;
-  --fc-blob1: #9ec5ff;
-  --fc-blob2: #ffd3b0;
-  --fc-blob3: #b9ecd9;
+  /* Paleta del sistema de diseño (css/base/sistema.css). La anterior sigue en _clasico/. */
+  --fc-font: var(--font-body, "Inter", system-ui, sans-serif);
+  --fc-bg: #f7f9fa;
+  --fc-blob1: #cfeaf5;
+  --fc-blob2: #eaf6fb;
+  --fc-blob3: #a3d7ec;
   --fc-glass: rgba(255, 255, 255, .55);
   --fc-glass-strong: rgba(255, 255, 255, .72);
   --fc-stroke: rgba(255, 255, 255, .7);
-  --fc-hair: rgba(60, 60, 67, .12);
-  --fc-text: #1d1d1f;
-  --fc-text-2: #6e6e73;
-  --fc-text-3: #a1a1a6;
-  --fc-blue: #0071e3;
-  --fc-fill: rgba(118, 118, 128, .10);
+  --fc-hair: rgb(0 112 152 / .12);
+  --fc-text: #14212a;
+  --fc-text-2: #53616b;
+  --fc-text-3: #8f9ca6;
+  --fc-blue: #007098;
+  --fc-fill: rgb(0 112 152 / .06);
   --fc-shadow: 0 1px 1px rgba(0,0,0,.03), 0 8px 30px rgba(20,30,60,.08);
-  --fc-orange: #ff9f0a;
-  --fc-green: #30d158;
-  --fc-red: #ff453a;
+  --fc-orange: #ca8a04;
+  --fc-green: #16a34a;
+  --fc-red: #dc2626;
   --fc-gray: #8e8e93;
 
   position: relative;
@@ -63,7 +64,7 @@
   backdrop-filter: blur(28px) saturate(180%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
   border: 1px solid var(--fc-stroke);
-  border-radius: 22px;
+  border-radius: 0;
   box-shadow: var(--fc-shadow);
 }
 
@@ -91,7 +92,7 @@
 
 .fc-status {
   position: relative; display: inline-flex; align-items: center; gap: 7px;
-  padding: 5px 12px 5px 10px; border-radius: 999px;
+  padding: 5px 12px 5px 10px; border-radius: 0;
   font-size: 13px; font-weight: 600;
   background: color-mix(in srgb, var(--c) 16%, transparent);
   color: var(--c); cursor: pointer; transition: background .2s;
@@ -103,7 +104,7 @@
 .fc-actions { display: flex; gap: 10px; align-items: center; }
 .fc-btn {
   font: inherit; font-size: 15px; font-weight: 500; border: 0; cursor: pointer;
-  padding: 10px 20px; border-radius: 999px;
+  padding: 10px 20px; border-radius: 0;
   transition: transform .15s, opacity .2s, background .2s;
 }
 .fc-btn:active { transform: scale(.97); }
@@ -175,7 +176,7 @@
 .fc-fijo { font-size: 15px; color: var(--fc-text-2); }
 
 /* ── Contador de líneas ─────────────────────────────────────── */
-.fc-stepper { display: inline-flex; background: var(--fc-fill); border-radius: 9px; overflow: hidden; }
+.fc-stepper { display: inline-flex; background: var(--fc-fill); border-radius: 0; overflow: hidden; }
 .fc-stepper button {
   width: 40px; height: 30px; border: 0; background: transparent;
   color: var(--fc-text); font-size: 18px; cursor: pointer;
@@ -197,13 +198,13 @@
 .fc-tl-point.fc-end { text-align: right; }
 .fc-tl-point.fc-end input { align-self: flex-end; }
 .fc-tl-line {
-  flex: 1; height: 2px; margin: 0 16px; border-radius: 2px; position: relative;
+  flex: 1; height: 2px; margin: 0 16px; border-radius: 0; position: relative;
   background: linear-gradient(90deg, var(--fc-blue), color-mix(in srgb, var(--fc-blue) 30%, transparent));
 }
 .fc-tl-line em {
   position: absolute; left: 50%; top: -24px; transform: translateX(-50%);
   font-style: normal; font-size: 12px; color: var(--fc-text-2); white-space: nowrap;
-  background: var(--fc-glass-strong); padding: 2px 9px; border-radius: 999px;
+  background: var(--fc-glass-strong); padding: 2px 9px; border-radius: 0;
 }
 
 /* ── Imagen ─────────────────────────────────────────────────── */
@@ -219,7 +220,7 @@
 .fc-drop img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .fc-img-remove {
   position: absolute; top: 8px; right: 8px; z-index: 3;
-  border: 0; border-radius: 999px; padding: 4px 10px; cursor: pointer;
+  border: 0; border-radius: 0; padding: 4px 10px; cursor: pointer;
   background: rgba(0,0,0,.45); color: #fff; font-size: 12px; font-weight: 600;
 }
 
@@ -292,7 +293,7 @@
 @keyframes fcPop { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: none; } }
 .fc-line-top { display: flex; align-items: center; gap: 14px; padding: 18px 18px 14px; }
 .fc-line-ico {
-  width: 44px; height: 44px; border-radius: 12px; flex: none;
+  width: 44px; height: 44px; border-radius: 0; flex: none;
   display: grid; place-items: center; color: #fff;
   background: linear-gradient(180deg, #5ee27c, #28c050);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 4px 10px rgba(40,192,80,.25);

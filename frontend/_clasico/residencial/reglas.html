@@ -1,0 +1,319 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <title>CRM Agente - Reglas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
+  <link rel="stylesheet" href="/css/base/theme.css?v=20251124f"/>
+  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- Protección de autenticación en frontend -->
+  <script src="/agentes/js/auth-check.js"></script>
+  <script src="/js/core/logout-handler.js"></script>
+  <script src="/js/core/user-info.js"></script>
+  <!-- Teams API: definición de equipos, supervisores y agentes -->
+  <script src="/utils/teams.js?v=20250904"></script>
+  
+  <link rel="stylesheet" href="/css/residencial/reglas.css">
+  <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
+  <link rel="stylesheet" href="/css/base/form-controls.css?v=20260921">
+</head>
+<body>
+  <script src="/js/core/theme-init.js"></script>
+  <script src="/js/layout/sidebar.js" defer></script>
+  <script src="/js/layout/sidebar-ui.js" defer></script>
+  <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
+  <script src="/js/layout/sidebar-user.js" defer></script>
+  <div class="layout">
+    <!-- SIDEBAR (cargado dinámicamente) -->
+    <nav class="sidebar" id="app-sidebar"></nav>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="rules-container">
+        <h1>📋 Reglas y Políticas</h1>
+
+        <!-- REGLA: CX YA ES VENTA Y QUIERE OTRO SERVICIO -->
+        <div class="section">
+          <div class="section-title">CX YA ES VENTA Y QUIERE ADQUIRIR OTRO SERVICIO</div>
+          <ul class="rules-list">
+            <li class="rule-item important">
+              <p><strong>Si un CX ya es venta y llama para adquirir otro servicio, lo trabajará quien tome la llamada.</strong><br>
+              Si validación dice que es CX de un agente específico, deben pasar esa llamada a ese agente. Si es de inbound, le queda a quien conteste.</p>
+            </li>
+          </ul>
+
+          <div class="subsection">
+            <div class="subsection-title">Aplica solamente si:</div>
+            <ul class="rules-list">
+              <li class="rule-item">
+                <p><span class="bullet-point">•</span> CX quiere adquirir servicio de internet en una nueva dirección <strong>(NO MUDANZA)</strong>.</p>
+              </li>
+              <li class="rule-item">
+                <p><span class="bullet-point">•</span> CX quiere adquirir otro servicio, ya sea servicio de canales o líneas.</p>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- PROTECCIONES -->
+        <div class="protecciones-section">
+          <div class="protecciones-header">
+            <h3><i class="fas fa-shield-alt"></i> PROTECCIONES</h3>
+            <p>Reglas importantes para el manejo de protecciones</p>
+          </div>
+          
+          <div class="protecciones-card">
+            <div class="protecciones-icon">
+              <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            
+            <div class="protecciones-content">
+              <h4><i class="fas fa-edit"></i> Redacción de Protecciones</h4>
+              
+              <div class="protecciones-rule">
+                <p><strong>Toda protección debe de ir bien redactada al momento de pasarla a B.O ya que de lo contrario, no se podrá modificar ningún dato de la protección.</strong></p>
+              </div>
+              
+              <div class="protecciones-warning">
+                <i class="fas fa-exclamation-circle"></i>
+                <p><strong>Importante:</strong> Revisa cuidadosamente todos los datos antes de enviar la protección a Back Office. Una vez procesada, los cambios no serán posibles.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- SECCIÓN CALLBACK -->
+        <div class="section">
+          <div class="section-title">CALLBACK</div>
+          <ul class="rules-list">
+            <li class="rule-item">
+              <p><strong>No hay protecciones para callback de ningún tipo.</strong></p>
+            </li>
+            <li class="rule-item important">
+              <p><strong>Callback aplica si se le cortó llamada:</strong> Tienen 3 minutos nada más para contactarlo de nuevo. Luego de eso, lo puede llamar y cerrar quien quiera.</p>
+            </li>
+            <li class="rule-item">
+              <p><strong>En caso de bajones de energía:</strong> Si se va del todo y no tipificó, se revisarán los audios y tiempos para saber a quién le queda.</p>
+            </li>
+          </ul>
+        </div>
+
+        <!-- SECCIÓN CALIFICACIONES -->
+        <div class="section">
+          <div class="section-title">CALIFICACIONES</div>
+          <ul class="rules-list">
+            <li class="rule-item important">
+              <p><strong>SE RESPETA SIEMPRE LA HORA DE CALI:</strong> Se respetará el tiempo del correo de calificación siempre y cuando tenga tipificación. Caso contrario se pasará gestión. Si el CX no contesta, no aplica enviar o tipificar cali si no hay respaldo.</p>
+            </li>
+            <li class="rule-item">
+              <p><strong>BAMO:</strong> Siempre tipificar respuesta de BAMO porque el departamento de procesamiento de ellos no tipifica en XENCALL.</p>
+            </li>
+            <li class="rule-item">
+              <p>Si no hay tipificación de cali o de callback, si hay gestión se enviará y si no, se indicará que se trabaje con la info de XENCALL.</p>
+            </li>
+            <li class="rule-item">
+              <p>Si no tipifican que CX ya es venta y ya pasó la hora de cali y soliciten gestión, se brinda y quedará para la persona que lo solicitó.</p>
+            </li>
+          </ul>
+
+          <div class="subsection">
+            <div class="subsection-title">NO SE BRINDA GESTIÓN POR:</div>
+            <ul class="rules-list">
+              <li class="rule-item critical">
+                <p><span class="bullet-point">•</span> NO HA PASADO TIEMPO DE CALI (1h desde que el depto. de procesamiento ya dio respuesta).</p>
+              </li>
+              <li class="rule-item critical">
+                <p><span class="bullet-point">•</span> NO TIENE RESPUESTA DE CALI (en correo de gestión no aparece respuesta del depto. de procesamiento).</p>
+              </li>
+              <li class="rule-item critical">
+                <p><span class="bullet-point">•</span> SI EL DEPTO DE PROCESAMIENTO (ambos mercados) INDICA QUE HAY PROBLEMAS EN SISTEMA.</p>
+              </li>
+              <li class="rule-item critical">
+                <p><span class="bullet-point">•</span> EN XENCALL YA ESTÁ TIPIFICADA COMO PROTEGIDA (revisen antes de solicitar gestión).</p>
+              </li>
+              <li class="rule-item critical">
+                <p><span class="bullet-point">•</span> SI YA TIENE LOS 3 INTENTOS SOLO CON AUTORIZACIÓN SE BRINDARÁ GESTIÓN.</p>
+              </li>
+              <li class="rule-item critical">
+                <p><span class="bullet-point">•</span> DEALER SUPPORT INDICA QUE HAY CUENTA.</p>
+              </li>
+              <li class="rule-item critical">
+                <p><span class="bullet-point">•</span> YA SOBREPASÓ LÍMITE DE CRÉDITO.</p>
+              </li>
+              <li class="rule-item critical">
+                <p><span class="bullet-point">•</span> ORDER SE CERRÓ CON OTRO DEALER.</p>
+              </li>
+              <li class="rule-item critical">
+                <p><span class="bullet-point">•</span> SI CX YA FUE PROCESADO EN OTRO MERCADO.</p>
+              </li>
+            </ul>
+          </div>
+
+          <div class="warning-box">
+            ⚠️ SI DESPUÉS DE 5 MINUTOS NO RECIBE GESTIÓN POR FAVOR NOTIFICAR EN EL GRUPO DE TODOS ⚠️
+          </div>
+
+          <ul class="rules-list">
+            <li class="rule-item">
+              <p>Si hay fallas en sistema no se pueden asignar gestiones. Cuando ya se tenga sistema se dará 1H para cerrarlo, después de eso queda libre.</p>
+            </li>
+            <li class="rule-item">
+              <p><strong>Las gestiones de LÍNEAS NO SE BRINDAN</strong> (únicamente entre el mismo Team de Líneas).</p>
+            </li>
+            <li class="rule-item important">
+              <p><strong>PUBLICIDAD:</strong> No está autorizado a brindar gestiones del día, y las de 24H debe consultar al área de B.O CONNECTING el porqué no se brindan antes de pasarla.</p>
+            </li>
+          </ul>
+        </div>
+
+        <!-- SECCIÓN VENTAS QUE PASAN A OFICINA -->
+        <div class="section">
+          <div class="section-title">VENTAS QUE PASAN A OFICINA</div>
+          
+          <div class="subsection">
+            <div class="subsection-title">MUDANZA:</div>
+            <ul class="rules-list">
+              <li class="rule-item">
+                <p><strong>AT&T:</strong> Toda cuenta que sea traslado se podrá vender siempre y cuando sea mudanza. OJO: NO ES VENDER CUENTA SOBRE CUENTA Y TENDRÁ UN MENOS PUNTAJE.</p>
+              </li>
+              <li class="rule-item">
+                <p><strong>XFINITY:</strong> La dirección debe aparecer libre para mudanza. Si un cliente tiene y lo mudara a una dirección libre sí se podría vender, pero NO se puede si tiene cancelar la orden y hacer una nueva, eso no se activa y es chargeback.</p>
+              </li>
+              <li class="rule-item critical">
+                <p><strong>DIRECTV:</strong> NO pueden vender mudanzas, eso no se activa es chargeback.</p>
+              </li>
+              <li class="rule-item critical">
+                <p><strong>FRONTIER:</strong> NO pueden vender mudanzas, eso no se activa es chargeback.</p>
+              </li>
+            </ul>
+          </div>
+
+          <div class="subsection">
+            <div class="subsection-title">CUENTA SOBRE CUENTA:</div>
+            <ul class="rules-list">
+              <li class="rule-item">
+                <p><span class="bullet-point">•</span> Cambio de plan Essential a mayor velocidad.</p>
+              </li>
+              <li class="rule-item">
+                <p><span class="bullet-point">•</span> CX nuevo (misma dirección pero con otro nombre ya sea por fallas en sistema o aumento de bill).</p>
+              </li>
+              <li class="rule-item">
+                <p><span class="bullet-point">•</span> Reactivar cuenta (cuenta suspendida por pago).</p>
+              </li>
+              <li class="rule-item">
+                <p><span class="bullet-point">•</span> Incremento de velocidad.</p>
+              </li>
+              <li class="rule-item">
+                <p><span class="bullet-point">•</span> Si NO hay audio de venta (en XENCALL).</p>
+              </li>
+              <li class="rule-item important">
+                <p><span class="bullet-point">•</span> Si la venta se completó por OPEN, labor de venta debe realizarse previamente por medio de XENCALL.</p>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- SECCIÓN PARÁMETROS PREMIOS -->
+        <div class="section">
+          <div class="section-title">PARÁMETROS PREVIOS</div>
+          <ul class="rules-list">
+            <li class="rule-item critical">
+              <p><strong>NO COACCIONAR AL CX.</strong></p>
+            </li>
+            <li class="rule-item">
+              <p>Llamadas de más de 25 minutos (excepciones).</p>
+            </li>
+            <li class="rule-item critical">
+              <p><strong>SI OFRECEN ACP:</strong> REPORTARLOS INMEDIATAMENTE porque por regla de la empresa van SUSPENDIDOS 3 DÍAS.</p>
+            </li>
+            <li class="rule-item important">
+              <p><strong>BRINDAR INFORMACIÓN COMPLETA</strong> del servicio ofertado (beneficios, precios, contrato).</p>
+            </li>
+            <li class="rule-item critical">
+              <p>Mentirle al CX sobre el producto que ofrece y de la compañía por la que llama.</p>
+            </li>
+            <li class="rule-item critical">
+              <p>Identificarse como "X" compañía.</p>
+            </li>
+            <li class="rule-item critical">
+              <p>Transferir llamada (a otro compañero o que se la transfieran) - Excepción: Líneas.</p>
+            </li>
+            <li class="rule-item">
+              <p>Que NO haga la labor de venta y el SUP termine cerrando la venta (con excepción si se identifica que el cliente está renuente de no tomar los servicios).</p>
+            </li>
+          </ul>
+        </div>
+
+        <!-- SECCIÓN PARÁMETROS DE COMISIÓN -->
+        <div class="section">
+          <div class="section-title">PARÁMETROS DE COMISIÓN</div>
+          <ul class="rules-list">
+            <li class="rule-item important">
+              <p>Para validar <strong>AT&T AIR</strong> el 90% debe ser con audio reciente del cliente (27 o 03 de cada mes).</p>
+            </li>
+            <li class="rule-item">
+              <p>No se validarán CX's en collection's o en mora, si no está con cuenta al día para el 03 de cada mes.</p>
+            </li>
+            <li class="rule-item">
+              <p>CX's que estén como alerta de chargeback no se validará si no hay confirmación de audio con el CX y que esté activo con nuestro número de cuenta.</p>
+            </li>
+            <li class="rule-item">
+              <p>CX's ilocalizables o posible cancelación no se valorarán por sistema si el CX no contesta ningún número o envía a buzón, aunque salga cuenta activa, CX debe confirmar.</p>
+            </li>
+            <li class="rule-item critical">
+              <p><strong>NO se validará ningún CX por medio de mensaje de texto,</strong> debe tener audio reciente (27 o 03 de c/mes y siempre se verificará que sea con nuestro número de cuenta). Capturas de pantalla de sistema NO se aceptan como válidas.</p>
+            </li>
+            <li class="rule-item">
+              <p>Todo <strong>AT&T o DTV</strong> (que no sea AT&T AIR y DTV vía internet) satelital se validará por medio de audio y sistema. Si la dirección aparece libre, esa cuenta ya esté cancel o no es la nuestra, aunque CX valide que es el mismo servicio.</p>
+            </li>
+            <li class="rule-item">
+              <p>Si el CX se cambia de dirección no se validará servicio como activo, ni cuenta para el mes siguiente porque es mudanza.</p>
+            </li>
+            <li class="rule-item">
+              <p>Si el CX posee fallas en el servicio de no estar solvente a más tardar el día 03, no se tomará en cuenta para la comisión.</p>
+            </li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Función para verificar autenticación (página pública)
+    // Nota: Reglas será accesible para todos; no se harán redirecciones ni validaciones de rol
+    function checkAuth() {
+      return true;
+    }
+    
+    // Función para realizar peticiones autenticadas
+    async function fetchWithAuth(url, options = {}) {
+      if (!checkAuth()) return null;
+      
+      const defaultHeaders = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      };
+      
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          ...defaultHeaders,
+          ...(options.headers || {})
+        },
+        credentials: 'include' // Importante para enviar las cookies de autenticación
+      });
+      
+      return response;
+    }
+
+    // Inicialización de la página
+    document.addEventListener('DOMContentLoaded', function() {
+    });
+  </script>
+</body>
+</html>
+

@@ -14,33 +14,33 @@
 
 /* A nivel de documento, no solo del contenedor: es lo que mira el modo
    oscuro automático del navegador para dejar la página en paz. */
-html:has(.lc), html:has(.lc) body { color-scheme: light; background: #eef0f3; }
+html:has(.lc), html:has(.lc) body { color-scheme: light; }
 
 .lc {
   color-scheme: light;
-  --lc-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", "Helvetica Neue", Arial, sans-serif;
-  --lc-bg: #eef0f3;
-  --lc-glass: rgba(255,255,255,.58);
-  --lc-glass-in: rgba(255,255,255,.78);
-  --lc-stroke: rgba(255,255,255,.75);
-  --lc-hair: rgba(60,60,67,.12);
-  --lc-text: #1d1d1f;
-  --lc-text-2: #6e6e73;
-  --lc-text-3: #a1a1a6;
-  --lc-blue: #0071e3;
-  --lc-red: #ff3b30;
-  --lc-fill: rgba(118,118,128,.10);
-  --lc-fill-2: rgba(118,118,128,.16);
-  --lc-shadow: 0 1px 1px rgba(0,0,0,.03), 0 8px 30px rgba(20,30,60,.07);
+  /* Con el sistema de diseño del CRM (css/base/sistema.css): mismos tokens, paleta del
+     logo y esquinas rectas. La versión anterior (estilo Apple) sigue en _clasico/. */
+  --lc-font: var(--font-body);
+  --lc-bg: transparent;
+  --lc-glass: var(--glass-fondo);
+  --lc-glass-in: rgb(255 255 255 / .86);
+  --lc-stroke: var(--glass-borde);
+  --lc-hair: rgb(0 112 152 / .1);
+  --lc-text: var(--color-text);
+  --lc-text-2: var(--color-neutral-700);
+  --lc-text-3: var(--color-neutral-500);
+  --lc-blue: #007098;
+  --lc-red: #dc2626;
+  --lc-fill: rgb(0 112 152 / .06);
+  --lc-fill-2: rgb(0 112 152 / .1);
+  --lc-shadow: var(--glass-sombra);
 
   position: relative;
   font-family: var(--lc-font);
   color: var(--lc-text);
   background: var(--lc-bg);
-  letter-spacing: -.01em;
   -webkit-font-smoothing: antialiased;
-  padding: 32px 16px 80px;
-  min-height: 100vh;
+  padding: 0;
   overflow-x: hidden;
 }
 .lc *, .lc *::before, .lc *::after { box-sizing: border-box; }
@@ -54,22 +54,18 @@ html:has(.lc), html:has(.lc) body { color-scheme: light; background: #eef0f3; }
    blanco sobre blanco. Queda por debajo de todo y no intercepta el ratón, así
    que el sidebar (opaco y con su propio apilamiento) no se entera. */
 .lc::before {
-  content: ""; position: fixed; inset: -20%; z-index: 0; pointer-events: none;
-  background:
-    radial-gradient(36% 40% at 15% 15%, #a9ccff 0%, transparent 70%),
-    radial-gradient(30% 36% at 88% 8%, #ffd9bb 0%, transparent 70%),
-    radial-gradient(40% 45% at 75% 95%, #bff0de 0%, transparent 70%);
-  filter: blur(40px); opacity: .8;
+  /* El fondo con manchas ya lo pone el sistema en <body> */
+  content: none;
 }
 .lc > * { position: relative; z-index: 1; }
 
-.lc-wrap { max-width: 1240px; margin: 0 auto; }
+.lc-wrap { max-width: none; margin: 0; }
 .lc-glass {
   background: var(--lc-glass);
   backdrop-filter: blur(28px) saturate(180%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
   border: 1px solid var(--lc-stroke);
-  border-radius: 22px;
+  border-radius: 0;
   box-shadow: var(--lc-shadow);
 }
 .lc .chev { width: 8px; height: 13px; flex: none; color: var(--lc-text-3); }
@@ -94,7 +90,7 @@ html:has(.lc), html:has(.lc) body { color-scheme: light; background: #eef0f3; }
 .lc-toolbar { padding: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .lc-search {
   flex: 1 1 260px; display: flex; align-items: center; gap: 8px;
-  background: var(--lc-fill); border-radius: 12px; padding: 0 12px; height: 40px;
+  background: var(--lc-fill); border-radius: 0; padding: 0 12px; height: 40px;
 }
 .lc-search svg { width: 16px; height: 16px; color: var(--lc-text-2); flex: none; }
 .lc-search input {
@@ -108,7 +104,7 @@ html:has(.lc), html:has(.lc) body { color-scheme: light; background: #eef0f3; }
    aplanaba los <optgroup>. */
 .lc-popup {
   position: relative; display: inline-flex; align-items: center; gap: 6px;
-  height: 40px; padding: 0 12px 0 14px; border-radius: 12px;
+  height: 40px; padding: 0 12px 0 14px; border-radius: 0;
   background: var(--lc-fill); font-size: 15px; cursor: pointer; white-space: nowrap;
 }
 .lc-popup:hover { background: var(--lc-fill-2); }
@@ -148,7 +144,7 @@ html:has(.lc), html:has(.lc) body { color-scheme: light; background: #eef0f3; }
 .lc-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
 .lc-chip {
   display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 13px;
-  border-radius: 999px; border: 0; background: var(--lc-glass-in);
+  border-radius: 0; border: 0; background: var(--lc-glass-in);
   box-shadow: inset 0 0 0 1px var(--lc-hair); cursor: pointer; font-size: 14px;
   transition: background .2s, color .2s;
 }
@@ -183,7 +179,7 @@ html:has(.lc), html:has(.lc) body { color-scheme: light; background: #eef0f3; }
 .lc-meta dt { font-size: 12px; color: var(--lc-text-3); }
 .lc-meta dd { font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .lc-tag {
-  display: inline-block; border-radius: 6px; padding: 0 7px; font-size: 13px;
+  display: inline-block; border-radius: 0; padding: 0 7px; font-size: 13px;
   background: color-mix(in srgb, var(--lc-blue) 12%, transparent); color: var(--lc-blue);
 }
 .lc-actions { display: flex; align-items: center; gap: 8px; flex: none; }
@@ -193,7 +189,7 @@ html:has(.lc), html:has(.lc) body { color-scheme: light; background: #eef0f3; }
 
 .lc-pill {
   position: relative; display: inline-flex; align-items: center; gap: 7px;
-  padding: 6px 12px 6px 10px; border-radius: 999px;
+  padding: 6px 12px 6px 10px; border-radius: 0;
   font-size: 13px; font-weight: 600; white-space: nowrap;
   background: color-mix(in srgb, var(--c) 15%, transparent);
   color: color-mix(in srgb, var(--c) 80%, #000); cursor: pointer;
@@ -232,7 +228,7 @@ html:has(.lc), html:has(.lc) body { color-scheme: light; background: #eef0f3; }
 
 .lc-list tr.table-row { cursor: pointer; }
 .lc-list tr.details-row {
-  overflow: hidden; border-radius: 22px;
+  overflow: hidden; border-radius: 0;
   border: 1px solid var(--lc-stroke); box-shadow: var(--lc-shadow);
   margin-top: -6px;
 }

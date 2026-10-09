@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tiempo Laboral — CRM</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
+  <script src="/js/core/fetch-interceptor.js" defer></script>
+  <script src="/js/core/logout-handler.js" defer></script>
+  <script src="/js/core/user-info.js" defer></script>
+  <link rel="stylesheet" href="/css/residencial/tiempo-laboral.css">
+  <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
+  <link rel="stylesheet" href="/css/base/form-controls.css?v=20260921">
+</head>
+<body>
+  <script src="/js/core/theme-init.js"></script>
+  <script src="/js/layout/sidebar.js" defer></script>
+  <script src="/js/layout/sidebar-ui.js" defer></script>
+  <script src="/js/layout/sidebar-user.js" defer></script>
+<div class="layout">
+  <nav class="sidebar" id="app-sidebar"></nav>
+  <main class="main-content">
+
+    <div class="tl-header">
+      <div class="tl-eyebrow">Administración</div>
+      <div class="tl-title">Tiempo Laboral</div>
+      <div class="tl-sub">Antigüedad de cada agente por equipo, calculada automáticamente desde su fecha de ingreso (se carga desde Permisos → Usuarios → Editar Perfil).</div>
+    </div>
+
+    <div id="tl-content"><div class="tl-loading">Cargando…</div></div>
+
+  </main>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var currentUser=null;
+
+  function esc(s){ var d=document.createElement('div'); d.textContent=String(s==null?'':s); return d.innerHTML; }
+
+  function normTok(label){
+    var n=String(label||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+    return n.replace(/^\s*team\s+/,'').replace(/[^a-z0-9]/g,'');
+  }
+
+  function isAdminOrBO(role){
+    var r=String(role||'').toLowerCase();
+    return r==='admin'||r==='administrador'||r.includes('backoffice');
+  }
+
+  function tenureText(fecha){
+    if(!fecha) return 'Sin fecha';
+    var d=new Date(String(fecha).slice(0,10)+'T00:00:00');
+    if(isNaN(d.getTime())) return 'Sin fecha';
+    var days=Math.floor((Date.now()-d.getTime())/86400000);
+    if(days<0) return 'Sin fecha';
+    if(days<30) return days<=0?'Hoy':(days+(days===1?' día':' días'));
+    var months=Math.floor(days/30.44);
+    if(months<12) return months+(months===1?' mes':' meses');
+    var years=Math.floor(months/12);
+    var remMonths=months%12;
+    var yTxt=years+(years===1?' año':' años');
+    return remMonths?(yTxt+' '+remMonths+(remMonths===1?' mes':' meses')):yTxt;
+  }
+
+  async function loadCurrentUser(){
+    try{
+      var r=await fetch('/api/auth/verify-server',{credentials:'include'});
+      if(!r.ok) return;
+      var j=await r.json();
+      if(j&&j.authenticated) currentUser=j.user||j;
+    }catch(e){ console.warn('[tl] user',e); }
+  }
+
+  async function loadTeams(){
+    var r;
+    try{ r=await fetch('/api/users/admin-list',{credentials:'include'}); }
+    catch(e){ return {error:'network'}; }
+    if(r.status===403) return {error:'forbidden'};
+    var j=await r.json();
+    var users=j.users||j.agents||[];
+    var byTeam={};
+    users.forEach(function(u){
+      var active=(u.active===undefined||u.active===null||u.active===1||u.active===true||u.active==='1');
+      if(!active) return;
+      var role=String(u.role||'').toLowerCase();
+      if(/supervisor|admin|backoffice/.test(role)) return;
+      if(!/agente|vendedor|agent|seller/.test(role)) return;
+      var label=String(u.team||'').trim();
+      if(!label) return;
+      var tok=normTok(label);
+      if(!tok||/backoffice|icon|usa|administra|monitoreo/.test(tok)) return;
+      if(!byTeam[tok]) byTeam[tok]={token:tok,label:label,agents:[],lineas:/linea/.test(tok)};
+      byTeam[tok].agents.push({name:(u.name||u.username||'').trim(),fecha:u.fecha_ingreso||''});
+    });
+    var teams=Object.values(byTeam).sort(function(a,b){
+      if(a.lineas!==b.lineas) return a.lineas?1:-1;
+      return a.label.localeCompare(b.label);
+    });
+    teams.forEach(function(t){ t.agents.sort(function(a,b){ return a.name.localeCompare(b.name); }); });
+    return {teams:teams};
+  }
+
+  function teamCard(t){
+    var rows=t.agents.map(function(a){
+      return '<tr><td>'+esc(a.name)+'</td><td class="tl-time">'+esc(tenureText(a.fecha))+'</td></tr>';
+    }).join('');
+    return '<div class="tl-team">'
+      +'<div class="tl-team-head">'
+        +'<div class="tl-team-ic"><i class="fas fa-user-group"></i></div>'
+        +'<div class="tl-team-name">'+esc(t.label)+'</div>'
+      +'</div>'
+      +'<table class="tl-tbl"><thead><tr><th>Agente</th><th style="text-align:center">Tiempo</th></tr></thead>'
+      +'<tbody>'+(rows||'<tr><td colspan="2" style="text-align:center;color:#9aa0ac;padding:16px">Sin agentes</td></tr>')+'</tbody>'
+      +'<tfoot><tr><td>Suma Total Agentes</td><td>'+t.agents.length+'</td></tr></tfoot>'
+      +'</table>'
+    +'</div>';
+  }
+
+  (async function init(){
+    await loadCurrentUser();
+    if(!currentUser||!isAdminOrBO(currentUser.role)){
+      document.querySelector('.main-content').innerHTML='<div class="tl-empty"><div class="tl-empty-ic">🔒</div><div class="tl-empty-title">Acceso restringido</div><div class="tl-empty-sub">Solo administradores y Back Office pueden ver esta página</div></div>';
+      return;
+    }
+    var box=document.getElementById('tl-content');
+    var res=await loadTeams();
+    if(res.error){
+      box.innerHTML='<div class="tl-loading">'+(res.error==='forbidden'?'Solo administradores y Back Office pueden ver esta página':'Error de conexión')+'</div>';
+      return;
+    }
+    if(!res.teams.length){
+      box.innerHTML='<div class="tl-loading">Sin equipos para mostrar</div>';
+      return;
+    }
+    box.innerHTML='<div class="tl-teams">'+res.teams.map(teamCard).join('')+'</div>';
+  })();
+})();
+</script>
+</body>
+</html>

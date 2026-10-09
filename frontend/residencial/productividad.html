@@ -3,64 +3,107 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Productividad — Ventas por Semana</title>
+  <title>Productividad · Residencial</title>
   <link rel="icon" type="image/png" href="/images/favicon.png">
+  <!-- Sesión: la cabecera (menú e iconos) la reutiliza; sin sesión, al login. -->
+  <script>
+    window.__sesion = fetch('/api/auth/verify-server', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : { authenticated: false }; })
+      .then(function (d) { if (!d.authenticated) { location.replace('/login.html'); } return d; })
+      .catch(function () { location.replace('/login.html'); return {}; });
+  </script>
+  <link rel="stylesheet" href="/css/base/scroll.css?v=20261008a">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
-  <link rel="stylesheet" href="/css/residencial/productividad.css">
-  <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
-  <link rel="stylesheet" href="/css/base/form-controls.css?v=20260921">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
+  <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
+  <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
+  <link rel="stylesheet" href="/css/residencial/productividad.css?v=20261009a">
+  <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
+  <script src="/js/layout/transicion.js?v=20261008b"></script>
+  <script src="/js/core/fetch-interceptor.js" defer></script>
+  <script src="/js/core/logout-handler.js" defer></script>
+  <script src="/js/core/user-info.js?v=20260703" defer></script>
+  <script src="/js/core/realtime.js" defer></script>
 </head>
 <body>
-  <script src="/js/core/theme-init.js"></script>
-  <script src="/js/layout/sidebar.js" defer></script>
-  <script src="/js/layout/sidebar-ui.js" defer></script>
-  <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
-  <script src="/js/layout/sidebar-user.js" defer></script>
-<div class="layout">
-  <nav class="sidebar" id="app-sidebar"></nav>
-  <main class="main-content">
-    <div class="pf-page">
-      <div class="pf-header">
-        <div>
-          <div class="pf-title"><i class="fas fa-gauge-high"></i> Productividad</div>
-          <div class="pf-sub">Ventas por agente y día — Residencial y Líneas</div>
-        </div>
-        <div class="wk-ctrl">
-          <button class="wk-btn" id="wk-prev" title="Semana anterior">◀</button>
-          <div class="wk-pill" id="wk-label">— —</div>
-          <button class="wk-btn" id="wk-next" title="Semana siguiente">▶</button>
-          <button class="wk-today" id="wk-cur">Esta semana</button>
-          <button class="wk-mode" id="wk-mode" title="Alternar entre check y número de ventas"><i class="fas fa-hashtag"></i> Ver N° de ventas</button>
-        </div>
+<div class="in-marco">
+<div class="in-hoja">
+
+  <header class="in-head">
+    <nav id="topnav" class="tn" aria-label="Menú principal"></nav>
+    <!-- Ajustes, chat, notificaciones y usuario: js/layout/topbar-acciones.js -->
+    <div id="topbar-acciones" class="in-iconos"></div>
+  </header>
+
+  <!-- ══ Título, semana y modo ══ -->
+  <section class="pf-barra in-glass" aria-label="Semana consultada">
+    <div class="pf-titulo">
+      <span class="pf-ico"><i class="ph ph-gauge" aria-hidden="true"></i></span>
+      <div>
+        <h1>Productividad</h1>
+        <p>Ventas por agente y día · Residencial y Líneas</p>
       </div>
-      <div id="pf-content"><div class="pf-loading">Cargando…</div></div>
     </div>
-  </main>
+    <div class="pf-ctrl">
+      <div class="pf-semana">
+        <button type="button" class="pf-paso" id="wk-prev" aria-label="Semana anterior"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
+        <span class="pf-semana-lbl" id="wk-label" aria-live="polite">— —</span>
+        <button type="button" class="pf-paso" id="wk-next" aria-label="Semana siguiente"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
+        <button type="button" class="pf-hoy" id="wk-cur">Esta semana</button>
+      </div>
+      <div class="pf-seg" role="group" aria-label="Qué mostrar en cada día">
+        <button type="button" data-modo="check" aria-pressed="true"><i class="ph ph-checks" aria-hidden="true"></i>Vendió</button>
+        <button type="button" data-modo="num" aria-pressed="false"><i class="ph ph-hash" aria-hidden="true"></i>N.º de ventas</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ Indicadores de la semana ══ -->
+  <div class="pf-tiles" aria-live="polite">
+    <div class="pf-tile in-glass"><span class="pf-tico"><i class="ph ph-shopping-cart"></i></span><div class="pf-tile-val" id="k-total">—</div><div class="pf-tile-lbl">Ventas de la semana</div></div>
+    <div class="pf-tile in-glass"><span class="pf-tico"><i class="ph ph-house-line"></i></span><div class="pf-tile-val" id="k-resi">—</div><div class="pf-tile-lbl">Residencial</div></div>
+    <div class="pf-tile in-glass"><span class="pf-tico"><i class="ph ph-device-mobile"></i></span><div class="pf-tile-val" id="k-lin">—</div><div class="pf-tile-lbl">Líneas</div></div>
+    <div class="pf-tile pf-tile-dest in-glass"><span class="pf-tico pf-tico-verde"><i class="ph ph-user-check"></i></span><div class="pf-tile-val" id="k-agentes">—</div>
+      <div class="pf-barrita" aria-hidden="true"><span id="k-agentes-bar"></span></div><div class="pf-tile-lbl">Agentes con al menos una venta</div></div>
+  </div>
+
+  <!-- ══ Sección ══ -->
+  <div class="pf-tabs" role="tablist" aria-label="Sección">
+    <button type="button" role="tab" class="pf-tab" id="pf-tab-resi" data-sec="residencial" aria-selected="true" aria-controls="pf-content"><i class="ph ph-house-line" aria-hidden="true"></i>Residencial <span class="pf-tab-n" id="pf-n-resi"></span></button>
+    <button type="button" role="tab" class="pf-tab" id="pf-tab-lin" data-sec="lineas" aria-selected="false" aria-controls="pf-content" tabindex="-1"><i class="ph ph-device-mobile" aria-hidden="true"></i>Líneas <span class="pf-tab-n" id="pf-n-lin"></span></button>
+  </div>
+  <div id="pf-content" role="tabpanel" aria-labelledby="pf-tab-resi"><div class="pf-vacio in-glass">Cargando…</div></div>
+
+</div>
 </div>
 
-<script src="/js/core/fetch-interceptor.js" defer></script>
-<script src="/js/core/logout-handler.js" defer></script>
-<script src="/js/core/user-info.js?v=20260703" defer></script>
-<script src="/js/core/realtime.js" defer></script>
+<script src="/js/layout/topnav.js?v=20261008c" defer></script>
+<script src="/js/layout/topbar-acciones.js?v=20261008b" defer></script>
+<script src="/js/componentes/llamadas-bloqueo.js" defer></script>
 <script>
 (function(){
   'use strict';
   var C = { credentials:'include' };
   var DIAS = ['L','M','M','J','V','S','D'];
+  var DIAS_LARGO = ['lunes','martes','miércoles','jueves','viernes','sábado','domingo'];
   var MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 
-  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-  function isAgent(role){ var r=String(role||'').toLowerCase(); return r.includes('agente')||r.includes('vendedor')||r.includes('agent'); }
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function isSupervisor(role){ return String(role||'').toLowerCase().indexOf('supervisor')>=0; }
   function normName(s){ return String(s||'').replace(/[._]+/g,' ').replace(/\s+/g,' ').trim().toLowerCase(); }
   function ymd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
   function mondayOf(date){ var d=new Date(date); d.setHours(0,0,0,0); var wd=(d.getDay()+6)%7; d.setDate(d.getDate()-wd); return d; }
+  function iniciales(n){ return String(n||'').split(/\s+/).filter(Boolean).map(function(w){return w[0];}).join('').toUpperCase().slice(0,2)||'?'; }
   async function jget(u){ try{ var r=await fetch(u,C); return r.ok?await r.json():null; }catch(e){ return null; } }
 
   var _teams=[], _agentsByTeam={}, _sold={}, _weekMonday=mondayOf(new Date());
-  var _mode='check';   // 'check' = ✅ ·  'num' = cantidad de ventas
+  var _totSec={ residencial:0, lineas:0 };
+  var _mode='check';            // 'check' = vendió ese día · 'num' = cantidad de ventas
+  var _sec='residencial';       // pestaña visible
+  try{ var g=sessionStorage.getItem('pf-seccion'); if(g==='lineas') _sec=g; }catch(e){}
 
   function addSale(agente, dateStr, n){
     var d=String(dateStr||'').slice(0,10);
@@ -74,23 +117,24 @@
     return ((_sold[k1]&&_sold[k1][day])||0) + (k2!==k1?((_sold[k2]&&_sold[k2][day])||0):0);
   }
 
-  // Equipos + agentes: cambian poco, se cargan una sola vez.
+  // Equipos + miembros: cambian poco, se cargan una sola vez.
+  // Los miembros salen del team asignado en Permisos (users.team), sea cual sea su rol:
+  // así entran los supervisores que venden y quien tiene otro rol dentro de un team de
+  // venta (p. ej. un administrador que vende en Líneas). Los suspendidos no salen.
   async function loadStatic(){
     var results = await Promise.all([
       jget('/api/teams?sales=1'),     // equipos de venta (resi + líneas)
-      jget('/api/users/agents')       // agentes (todos)
+      jget('/api/users/agents')       // usuarios con acceso al CRM
     ]);
     var teamsR=results[0], agentsR=results[1];
 
     _teams = ((teamsR&&teamsR.teams)||[]).slice().sort(function(a,b){
-      var sa=(a.seccion==='lineas')?1:0, sb=(b.seccion==='lineas')?1:0;
-      if(sa!==sb) return sa-sb;
       return String(a.value||a).localeCompare(String(b.value||b));
     });
 
     _agentsByTeam={};
     ((agentsR&&agentsR.agents)||[]).forEach(function(u){
-      if(!isAgent(u.role)) return;
+      if(Number(u.active)===0) return;
       var t=String(u.team||'').trim(); if(!t) return;
       (_agentsByTeam[t.toUpperCase()]||(_agentsByTeam[t.toUpperCase()]=[])).push(u);
     });
@@ -100,10 +144,10 @@
   async function loadWeek(){
     var days=weekDates();
     var res = await jget('/api/productividad?start='+days[0]+'&end='+days[6]);
-    _sold={};
+    _sold={}; _totSec={ residencial:0, lineas:0 };
     if(res){
-      (res.residencial||[]).forEach(function(r){ addSale(r.agente, r.dia, r.n); });
-      (res.lineas||[]).forEach(function(r){ addSale(r.agente, r.dia, r.n); });
+      (res.residencial||[]).forEach(function(r){ addSale(r.agente, r.dia, r.n); _totSec.residencial+=Number(r.n)||0; });
+      (res.lineas||[]).forEach(function(r){ addSale(r.agente, r.dia, r.n); _totSec.lineas+=Number(r.n)||0; });
     }
   }
 
@@ -114,80 +158,134 @@
     var end=new Date(_weekMonday); end.setDate(end.getDate()+6);
     return _weekMonday.getDate()+' '+MESES[_weekMonday.getMonth()]+' – '+end.getDate()+' '+MESES[end.getMonth()]+' '+end.getFullYear();
   }
+  function esSemanaActual(){ return ymd(_weekMonday)===ymd(mondayOf(new Date())); }
 
-  function teamTable(team, animate){
-    var name = team.value||team;
-    var agents = (_agentsByTeam[String(name).toUpperCase()]||[]).slice().sort(function(a,b){
+  function miembros(team){
+    var name=team.value||team;
+    // Supervisores primero; después el resto, por nombre.
+    return (_agentsByTeam[String(name).toUpperCase()]||[]).slice().sort(function(a,b){
+      var sa=isSupervisor(a.role)?0:1, sb=isSupervisor(b.role)?0:1;
+      if(sa!==sb) return sa-sb;
       return String(a.name||a.username||'').localeCompare(String(b.name||b.username||''));
     });
+  }
+
+  function teamCard(team){
+    var name = team.value||team;
+    var agents = miembros(team);
     var days = weekDates();
-    var head = '<tr><th class="pf-teamcell">'+esc(name)+'</th>'+
-      DIAS.map(function(d){return '<th class="pf-day">'+d+'</th>';}).join('')+
-      '<th class="pf-tot">Total</th></tr>';
-    var body, foot='';
+    var hoy = ymd(new Date());
+    var iHoy = days.indexOf(hoy);
+    var head = '<tr><th scope="col" class="pf-ag">Agente</th>'+
+      DIAS.map(function(d,i){
+        var f=new Date(_weekMonday); f.setDate(f.getDate()+i);
+        return '<th scope="col" class="pf-dia'+(i===iHoy?' pf-hoycol':'')+'" title="'+DIAS_LARGO[i]+' '+f.getDate()+'"><span>'+d+'</span><small>'+f.getDate()+'</small></th>';
+      }).join('')+
+      '<th scope="col" class="pf-tot">Total</th></tr>';
+    var body, foot='', grand=0, conVenta=0;
     if(!agents.length){
-      body = '<tr><td class="pf-team-empty" colspan="9">Sin agentes asignados</td></tr>';
+      body = '<tr><td class="pf-vacio-fila" colspan="9">Sin agentes asignados en Permisos</td></tr>';
     } else {
-      var dayTot=days.map(function(){return 0;}), grand=0;
+      var dayTot=days.map(function(){return 0;});
       body = agents.map(function(a){
         var nm=a.name||a.username||'', total=0;
         var cells=days.map(function(day,i){
           var n=agentCountOn(a,day); total+=n; dayTot[i]+=n;
           var content = !n ? '' : (_mode==='num'
             ? '<span class="pf-num">'+n+'</span>'
-            : '<span class="pf-ok">✔</span>');
-          return '<td class="pf-cell">'+content+'</td>';
+            : '<i class="ph ph-check-circle pf-ok" aria-label="Vendió"></i>');
+          return '<td class="pf-cel'+(i===iHoy?' pf-hoycol':'')+'">'+content+'</td>';
         }).join('');
-        grand+=total;
-        return '<tr><td class="pf-agent">'+esc(nm)+'</td>'+cells+
-          '<td class="pf-cell pf-totcell">'+(total||'')+'</td></tr>';
+        grand+=total; if(total) conVenta++;
+        return '<tr><th scope="row" class="pf-ag"><div class="pf-ag-wrap">'+
+            '<span class="pf-avatar" aria-hidden="true">'+esc(iniciales(nm))+'</span>'+
+            '<span class="pf-ag-nom" title="'+esc(nm)+'">'+esc(nm)+'</span>'+
+            (isSupervisor(a.role)?'<span class="pf-sup" title="Supervisor">SUP</span>':'')+
+          '</div></th>'+cells+
+          '<td class="pf-cel pf-totcel">'+(total||'<span class="pf-cero">0</span>')+'</td></tr>';
       }).join('');
-      foot = '<tr class="pf-foot"><td class="pf-agent">Total</td>'+
-        dayTot.map(function(v){return '<td class="pf-cell">'+(v||'')+'</td>';}).join('')+
-        '<td class="pf-cell pf-grand">'+(grand||'')+'</td></tr>';
+      foot = '<tr class="pf-pie"><th scope="row" class="pf-ag">Total</th>'+
+        dayTot.map(function(v,i){return '<td class="pf-cel'+(i===iHoy?' pf-hoycol':'')+'">'+(v||'')+'</td>';}).join('')+
+        '<td class="pf-cel pf-totcel">'+grand+'</td></tr>';
     }
-    return '<div class="pf-team'+(animate?' fsu':'')+'"><table class="pf-tbl"><thead>'+head+'</thead><tbody>'+body+'</tbody>'+
-      (foot?'<tfoot>'+foot+'</tfoot>':'')+'</table></div>';
+    return {
+      ventas: grand, agentes: agents.length, conVenta: conVenta,
+      html: '<section class="pf-team in-glass" aria-label="'+esc(name)+'">'+
+        '<div class="pf-team-head"><span class="pf-team-nom">'+esc(name)+'</span>'+
+          '<span class="pf-chips"><span class="pf-chip" title="Agentes con al menos una venta esta semana">'+conVenta+'/'+agents.length+' agentes</span>'+
+          '<span class="pf-chip pf-chip-v">'+grand+(grand===1?' venta':' ventas')+'</span></span></div>'+
+        '<div class="pf-team-scroll"><table class="pf-tbl"><thead>'+head+'</thead><tbody>'+body+'</tbody>'+
+        (foot?'<tfoot>'+foot+'</tfoot>':'')+'</table></div></section>'
+    };
   }
 
-  function render(animate){
-    document.getElementById('wk-label').textContent = fmtRange();
-    var box=document.getElementById('pf-content');
-    if(!_teams.length){ box.innerHTML='<div class="pf-loading">No hay equipos de venta.</div>'; return; }
-    var resi=_teams.filter(function(t){return t.seccion!=='lineas';});
-    var lin =_teams.filter(function(t){return t.seccion==='lineas';});
-    var tt=function(t){return teamTable(t,animate);};
-    var html='';
-    if(resi.length){ html+='<div class="pf-section-label">Residencial</div>'+resi.map(tt).join(''); }
-    if(lin.length){ html+='<div class="pf-section-label">Líneas Móviles</div>'+lin.map(tt).join(''); }
-    box.innerHTML=html;
-    if(animate){
-      box.querySelectorAll('.fsu').forEach(function(el,i){
-        setTimeout(function(){ el.classList.add('go'); }, i*140);
-      });
-    }
+  function render(){
+    $('wk-label').textContent = fmtRange();
+    $('wk-next').disabled = esSemanaActual();
+    $('wk-cur').disabled = esSemanaActual();
+
+    var porSec = { residencial:[], lineas:[] };
+    _teams.forEach(function(t){ porSec[t.seccion==='lineas'?'lineas':'residencial'].push(t); });
+
+    // Indicadores: toda la semana (las dos secciones)
+    var ag=0, agV=0;
+    var cards = { residencial:porSec.residencial.map(teamCard), lineas:porSec.lineas.map(teamCard) };
+    ['residencial','lineas'].forEach(function(s){ cards[s].forEach(function(c){ ag+=c.agentes; agV+=c.conVenta; }); });
+    $('k-total').textContent = _totSec.residencial+_totSec.lineas;
+    $('k-resi').textContent = _totSec.residencial;
+    $('k-lin').textContent = _totSec.lineas;
+    $('k-agentes').textContent = agV+'/'+ag;
+    $('k-agentes-bar').style.width = (ag?Math.round(agV*100/ag):0)+'%';
+    $('pf-n-resi').textContent = _totSec.residencial;
+    $('pf-n-lin').textContent = _totSec.lineas;
+
+    var box=$('pf-content');
+    var lista=cards[_sec];
+    if(!_teams.length){ box.innerHTML='<div class="pf-vacio in-glass">No hay equipos de venta.</div>'; return; }
+    if(!lista.length){ box.innerHTML='<div class="pf-vacio in-glass">No hay equipos de venta en esta sección.</div>'; return; }
+    box.innerHTML='<div class="pf-teams">'+lista.map(function(c){return c.html;}).join('')+'</div>';
   }
 
-  async function gotoWeek(){ render(false); await loadWeek(); render(true); }
-  document.getElementById('wk-prev').addEventListener('click',function(){ _weekMonday.setDate(_weekMonday.getDate()-7); gotoWeek(); });
-  document.getElementById('wk-next').addEventListener('click',function(){ _weekMonday.setDate(_weekMonday.getDate()+7); gotoWeek(); });
-  document.getElementById('wk-cur').addEventListener('click',function(){ _weekMonday=mondayOf(new Date()); gotoWeek(); });
-  document.getElementById('wk-mode').addEventListener('click',function(){
-    _mode = (_mode==='num') ? 'check' : 'num';
-    this.innerHTML = (_mode==='num')
-      ? '<i class="fas fa-check"></i> Ver checks'
-      : '<i class="fas fa-hashtag"></i> Ver N° de ventas';
-    this.classList.toggle('active', _mode==='num');
+  // ── Pestañas Residencial / Líneas (con teclado: ← →) ──
+  var tabs=[$('pf-tab-resi'),$('pf-tab-lin')];
+  function elegirTab(t,foco){
+    _sec=t.getAttribute('data-sec');
+    tabs.forEach(function(x){ var on=x===t; x.setAttribute('aria-selected',String(on)); x.tabIndex=on?0:-1; });
+    $('pf-content').setAttribute('aria-labelledby',t.id);
+    try{ sessionStorage.setItem('pf-seccion',_sec); }catch(e){}
+    if(foco) t.focus();
     render();
+  }
+  tabs.forEach(function(t,i){
+    t.addEventListener('click',function(){ elegirTab(t,false); });
+    t.addEventListener('keydown',function(e){
+      if(e.key!=='ArrowRight'&&e.key!=='ArrowLeft') return;
+      e.preventDefault(); elegirTab(tabs[(i+1)%2],true);
+    });
+  });
+  tabs.forEach(function(x){ var on=x.getAttribute('data-sec')===_sec; x.setAttribute('aria-selected',String(on)); x.tabIndex=on?0:-1; });
+
+  // ── Modo: vendió / número de ventas ──
+  document.querySelectorAll('.pf-seg button').forEach(function(b){
+    b.addEventListener('click',function(){
+      _mode=b.getAttribute('data-modo');
+      document.querySelectorAll('.pf-seg button').forEach(function(x){ x.setAttribute('aria-pressed',String(x===b)); });
+      render();
+    });
   });
 
-  async function bgRefresh(){ await loadWeek(); render(false); }
+  async function gotoWeek(){ render(); await loadWeek(); render(); }
+  $('wk-prev').addEventListener('click',function(){ _weekMonday.setDate(_weekMonday.getDate()-7); gotoWeek(); });
+  $('wk-next').addEventListener('click',function(){ if(esSemanaActual()) return; _weekMonday.setDate(_weekMonday.getDate()+7); gotoWeek(); });
+  $('wk-cur').addEventListener('click',function(){ _weekMonday=mondayOf(new Date()); gotoWeek(); });
+
+  async function bgRefresh(){ await loadWeek(); render(); }
 
   document.addEventListener('DOMContentLoaded', async function(){
     await Promise.all([loadStatic(), loadWeek()]);  // en paralelo: no dependen entre sí
-    render(true);
+    render();
     // Tiempo real: al cargarse una venta (residencial o líneas) se re-consulta la
-    // semana visible y el ✅/número aparece solo, sin recargar la página.
+    // semana visible y la marca/número aparece sola, sin recargar la página.
     if(window.CRMRealtime && CRMRealtime.connect){
       CRMRealtime.connect('residencial', bgRefresh);
       CRMRealtime.connect('lineas', bgRefresh);

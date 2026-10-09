@@ -1,172 +1,87 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Estadísticas - Team Líneas</title>
+  <title>Estadísticas · Líneas</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <!-- Sesión: la cabecera (menú e iconos) la reutiliza; sin sesión, al login. -->
   <script>
-    // Sin restricción - acceso permitido para todos
+    window.__sesion = fetch('/api/auth/verify-server', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : { authenticated: false }; })
+      .then(function (d) { if (!d.authenticated) { location.replace('/login.html'); } return d; })
+      .catch(function () { location.replace('/login.html'); return {}; });
   </script>
-  <link rel="stylesheet" href="/css/base/tokens.css?v=20260921">
-  <link rel="stylesheet" href="/css/base/theme.css?v=20251124f"/>
-  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css" />
-  <!-- Highcharts 3D -->
-  <link rel="stylesheet" href="/css/lineas/estadisticas.css?v=20260828">
-  <link rel="stylesheet" href="/css/componentes/glass-cards-cream.css?v=20260716a">
-  <link rel="stylesheet" href="/css/componentes/sidebar-static.css?v=2">
+  <link rel="stylesheet" href="/css/base/scroll.css?v=20261008a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
+  <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
+  <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
+  <link rel="stylesheet" href="/css/componentes/pagina.css?v=20261009a">
+  <link rel="stylesheet" href="/css/lineas/estadisticas.css?v=20261009a">
+  <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
+  <script src="/js/layout/transicion.js?v=20261008b"></script>
 </head>
 <body>
-  <script src="/js/core/theme-init.js"></script>
-  <script src="/js/layout/sidebar.js" defer></script>
-  <script src="/js/layout/sidebar-ui.js" defer></script>
-  <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
-  <script src="/js/layout/sidebar-user.js" defer></script>
-  <div class="layout">
-    <nav class="sidebar" id="app-sidebar"></nav>
-    <main class="main-content">
-      <div class="content-container">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-          <h1 style="margin: 0;">📊 Estadísticas - Team Líneas</h1>
-          
-          <!-- Navegación Mensual -->
-          <div style="display: flex; align-items: center; gap: 16px; background: #ffffff; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid rgba(13,20,32,0.10); padding: 12px 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(13,20,32,0.08);">
-            <button id="btn-prev-month" style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 6px;">
-              <i class="fas fa-chevron-left"></i> Anterior
-            </button>
-            <div style="text-align: center; min-width: 180px;">
-              <div style="font-size: 18px; font-weight: 700; color: #0f172a;" id="current-month-display">Cargando...</div>
-              <div style="font-size: 12px; color: rgba(15, 23, 42,0.55); margin-top: 2px;" id="date-range-display"></div>
-            </div>
-            <button id="btn-next-month" style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 6px;">
-              Siguiente <i class="fas fa-chevron-right"></i>
-            </button>
-            <button id="btn-current-month" style="background: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">
-              Mes Actual
-            </button>
-            <button id="btn-sumar-colchon" style="background: #f59e0b; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">
-              Sumar Colchón
-            </button>
-          </div>
-        </div>
+<div class="in-marco">
+<div class="in-hoja">
 
-        <!-- KPIs Globales (8 tarjetas: 5 de status + 3 de tipo de servicio) -->
-        <div class="kpi-global-grid">
-          <div class="kpi-global-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; color: white;">
-            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-              <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-shopping-cart" style="font-size: 24px;"></i>
-              </div>
-              <div>
-                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">Cantidad de Clientes</p>
-                <p style="margin: 0; font-size: 32px; font-weight: 700;" id="kpi-global-ventas">-</p>
-              </div>
-            </div>
-          </div>
-          
-          <div class="kpi-global-card" style="background: linear-gradient(135deg, #0b0f19 0%, #000000 100%); border-radius: 12px; padding: 24px; color: white;">
-            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-              <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-layer-group" style="font-size: 24px;"></i>
-              </div>
-              <div>
-                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500; color: #ffffff;">Cantidad de Líneas</p>
-                <p style="margin: 0; font-size: 32px; font-weight: 700; color: #ffffff;" id="kpi-global-ventas-lineas">-</p>
-              </div>
-            </div>
-          </div>
-          
-          <div class="kpi-global-card" style="background: linear-gradient(135deg, #6B8E23 0%, #556B2F 100%); border-radius: 12px; padding: 24px; color: white;">
-            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-              <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-check-circle" style="font-size: 24px;"></i>
-              </div>
-              <div>
-                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">Líneas Activas</p>
-                <p style="margin: 0; font-size: 32px; font-weight: 700;" id="kpi-global-activas">-</p>
-              </div>
-            </div>
-          </div>
-          
-          <div class="kpi-global-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); border-radius: 12px; padding: 24px; color: white;">
-            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-              <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-clock" style="font-size: 24px;"></i>
-              </div>
-              <div>
-                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">Líneas Pendientes</p>
-                <p style="margin: 0; font-size: 32px; font-weight: 700;" id="kpi-global-lineas-pendientes">-</p>
-              </div>
-            </div>
-          </div>
-          
-          <div class="kpi-global-card" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); border-radius: 12px; padding: 24px; color: white;">
-            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-              <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-times-circle" style="font-size: 24px;"></i>
-              </div>
-              <div>
-                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500; color: #ffffff;">Líneas Canceladas</p>
-                <p style="margin: 0; font-size: 32px; font-weight: 700; color: #ffffff;" id="kpi-global-lineas-canceladas">-</p>
-              </div>
-            </div>
-          </div>
-          <div class="kpi-global-card" style="background: linear-gradient(135deg, #4f46e5 0%, #312e81 100%); border-radius: 12px; padding: 24px; color: white;">
-            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-              <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-mobile-alt" style="font-size: 24px;"></i>
-              </div>
-              <div>
-                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">Línea + Equipo</p>
-                <p style="margin: 0; font-size: 32px; font-weight: 700;" id="kpi-global-svc-equipo">-</p>
-              </div>
-            </div>
-          </div>
+  <header class="in-head">
+    <nav id="topnav" class="tn" aria-label="Menú principal"></nav>
+    <!-- Ajustes, chat, notificaciones y usuario: js/layout/topbar-acciones.js -->
+    <div id="topbar-acciones" class="in-iconos"></div>
+  </header>
 
-          <div class="kpi-global-card" style="background: linear-gradient(135deg, #0891b2 0%, #164e63 100%); border-radius: 12px; padding: 24px; color: white;">
-            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-              <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-sim-card" style="font-size: 24px;"></i>
-              </div>
-              <div>
-                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">eSIM Card</p>
-                <p style="margin: 0; font-size: 32px; font-weight: 700;" id="kpi-global-svc-esim">-</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="kpi-global-card" style="background: linear-gradient(135deg, #d97706 0%, #78350f 100%); border-radius: 12px; padding: 24px; color: white;">
-            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-              <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-stopwatch" style="font-size: 24px;"></i>
-              </div>
-              <div>
-                <p style="margin: 0; font-size: 14px; opacity: 0.9; font-weight: 500;">Wearable</p>
-                <p style="margin: 0; font-size: 32px; font-weight: 700;" id="kpi-global-svc-wearable">-</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Rendimiento por Agente -->
-        <div class="section-head">
-          <div>
-            <h2 class="section-title">Rendimiento por Agente</h2>
-            <p class="section-sub">Comparativa de ventas y líneas por agente</p>
-          </div>
-          <div class="view-toggle" id="view-toggle">
-            <span class="vt-caption">Modo Vista:</span>
-            <button class="vt-btn active" data-view="cards"><i class="fas fa-th-large"></i> Tarjetas</button>
-            <button class="vt-btn" data-view="table" disabled title="Próximamente"><i class="fas fa-table"></i> Tabla</button>
-          </div>
-        </div>
-
-        <!-- Tarjetas de teams (generadas por JS desde el array TEAMS) -->
-        <div class="teams-grid" id="teams-grid"></div>
-
+  <section class="pg-barra in-glass" aria-label="Mes de las estadísticas">
+    <div class="pg-titulo">
+      <span class="pg-ico"><i class="ph ph-chart-bar" aria-hidden="true"></i></span>
+      <div>
+        <h1>Estadísticas de Líneas</h1>
+        <p id="date-range-display">Clientes y líneas vendidas por team y agente</p>
       </div>
-    </main>
+    </div>
+    <div class="pg-acciones">
+      <div class="pg-periodo">
+        <button type="button" class="pg-paso" id="btn-prev-month" aria-label="Mes anterior"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
+        <span class="pg-periodo-lbl" id="current-month-display" aria-live="polite">Cargando…</span>
+        <button type="button" class="pg-paso" id="btn-next-month" aria-label="Mes siguiente"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
+      </div>
+      <button type="button" class="pg-boton" id="btn-current-month">Mes actual</button>
+      <button type="button" class="pg-boton es-colchon" id="btn-sumar-colchon" aria-pressed="false">Sumar colchón</button>
+    </div>
+  </section>
+
+  <!-- Indicadores: 5 de status y 3 de tipo de servicio -->
+  <div class="pg-tiles" style="--pg-cols:4">
+    <div class="pg-tile in-glass"><span class="pg-tico"><i class="ph ph-shopping-cart"></i></span><div class="pg-tile-val" id="kpi-global-ventas">-</div><div class="pg-tile-lbl">Cantidad de clientes</div></div>
+    <div class="pg-tile in-glass"><span class="pg-tico"><i class="ph ph-stack"></i></span><div class="pg-tile-val" id="kpi-global-ventas-lineas">-</div><div class="pg-tile-lbl">Cantidad de líneas</div></div>
+    <div class="pg-tile in-glass"><span class="pg-tico pg-tico-verde"><i class="ph ph-check-circle"></i></span><div class="pg-tile-val" id="kpi-global-activas">-</div><div class="pg-tile-lbl">Líneas activas</div></div>
+    <div class="pg-tile in-glass"><span class="pg-tico pg-tico-amarillo"><i class="ph ph-clock"></i></span><div class="pg-tile-val" id="kpi-global-lineas-pendientes">-</div><div class="pg-tile-lbl">Líneas pendientes</div></div>
+    <div class="pg-tile in-glass"><span class="pg-tico pg-tico-rojo"><i class="ph ph-x-circle"></i></span><div class="pg-tile-val" id="kpi-global-lineas-canceladas">-</div><div class="pg-tile-lbl">Líneas canceladas</div></div>
+    <div class="pg-tile in-glass"><span class="pg-tico"><i class="ph ph-device-mobile"></i></span><div class="pg-tile-val" id="kpi-global-svc-equipo">-</div><div class="pg-tile-lbl">Línea + equipo</div></div>
+    <div class="pg-tile in-glass"><span class="pg-tico"><i class="ph ph-credit-card"></i></span><div class="pg-tile-val" id="kpi-global-svc-esim">-</div><div class="pg-tile-lbl">eSIM card</div></div>
+    <div class="pg-tile in-glass"><span class="pg-tico"><i class="ph ph-clock"></i></span><div class="pg-tile-val" id="kpi-global-svc-wearable">-</div><div class="pg-tile-lbl">Wearable</div></div>
   </div>
 
+  <section class="pg-card in-glass" aria-labelledby="es-ag-t">
+    <div class="pg-card-head">
+      <div>
+        <h2 id="es-ag-t">Rendimiento por agente</h2>
+        <p>Comparativa de ventas y líneas por agente de cada team</p>
+      </div>
+    </div>
+    <!-- Tarjetas de teams (generadas por JS desde el array TEAMS) -->
+    <div class="teams-grid" id="teams-grid"></div>
+  </section>
+
+</div>
+</div>
+
+<script src="/js/layout/topnav.js?v=20261008c" defer></script>
+<script src="/js/layout/topbar-acciones.js?v=20261008b" defer></script>
+<script src="/js/componentes/llamadas-bloqueo.js" defer></script>
   <script src="/vendor/highcharts/highcharts.min.js"></script>
   <script src="/vendor/highcharts/highcharts-3d.min.js"></script>
   <script>if(typeof Highcharts!=='undefined'){Highcharts.setOptions({accessibility:{enabled:false}});}</script>
@@ -240,8 +155,8 @@
       grid.innerHTML = TEAMS.map(t => `
         <div class="team-card">
           <div class="team-card-head">
-            <div class="team-card-icon"><i class="fas fa-user-tie"></i></div>
-            <h3 class="team-card-title" id="team-title-${t.slug}">${t.title}</h3>
+            <div class="team-card-icon"><i class="ph ph-users-three" aria-hidden="true"></i></div>
+            <h3 class="team-card-title" id="team-title-${t.slug}">${String(t.title||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}</h3>
           </div>
           <div class="team-stat-strip">
             <div class="tstat"><span class="tstat-label">Clientes</span><span class="tstat-val" id="${t.kpiPrefix}ventas">-</span></div>
@@ -259,7 +174,7 @@
             <div class="loading" id="${t.loadingId}"><div class="spinner"></div></div>
             <div id="${t.chartId}" class="team-chart"></div>
           </div>
-          <a class="btn-detalle" href="/lineas/costumer.html?team=${encodeURIComponent(t.key)}">Ver Detalle Completo</a>
+          <a class="btn-detalle" href="/lineas/costumer.html?team=${encodeURIComponent(t.key)}">Ver detalle completo <i class="ph ph-caret-right" aria-hidden="true"></i></a>
         </div>
       `).join('');
     }
@@ -268,7 +183,7 @@
     function resetTeamCard(t) {
       const loadingEl = document.getElementById(t.loadingId);
       if (loadingEl) {
-        loadingEl.innerHTML = '<p style="color: rgba(15, 23, 42,0.5); font-size: 14px;">No hay datos para este mes</p>';
+        loadingEl.innerHTML = '<p class="es-sin-datos">No hay datos para este mes</p>';
         loadingEl.style.display = 'block';
       }
       if (window[t.chartId + 'Instance']) {
@@ -339,13 +254,8 @@
     function toggleSumarColchon() {
       sumarColchonActivo = !sumarColchonActivo;
       const btn = document.getElementById('btn-sumar-colchon');
-      if (sumarColchonActivo) {
-        btn.style.background = '#ec4899';
-        btn.textContent = '✓ Colchón Sumado';
-      } else {
-        btn.style.background = '#f59e0b';
-        btn.textContent = 'Sumar Colchón';
-      }
+      btn.setAttribute('aria-pressed', String(sumarColchonActivo));
+      btn.textContent = sumarColchonActivo ? 'Colchón sumado' : 'Sumar colchón';
       loadEstadisticas();
     }
 
@@ -839,14 +749,14 @@
             viewDistance: 35
           },
           backgroundColor: 'rgba(0,0,0,0)',
-          style: { fontFamily: "'Segoe UI', Roboto, sans-serif" }
+          style: { fontFamily: "'Inter', system-ui, sans-serif" }
         },
         title: {
           text: `Rendimiento por Agente - ${teamName}`,
           style: {
-            fontSize: '18px',
-            fontWeight: 'bold',
-            color: '#0f172a'
+            fontSize: '14px',
+            fontWeight: '600',
+            color: '#14212a'
           }
         },
         xAxis: {
@@ -871,9 +781,9 @@
         tooltip: {
           backgroundColor: '#ffffff',
           borderColor: 'rgba(13,20,32,0.12)',
-          borderRadius: 8,
+          borderRadius: 0,
           style: { color: '#0f172a', fontSize: '13px' },
-          headerFormat: '<b style="color:#6d28d9">{point.key}</b><br>',
+          headerFormat: '<b style="color:#007098">{point.key}</b><br>',
           pointFormat: '<span style="color:#64748b">{series.name}:</span> <b style="color:#0f172a">{point.y}</b>'
         },
         plotOptions: {
@@ -916,9 +826,9 @@
             color: {
               linearGradient: { x1: 0, x2: 0, y1: 0, y2: 1 },
               stops: [
-                [0, '#818cf8'],
-                [0.5, '#6366f1'],
-                [1, '#4f46e5']
+                [0, '#30a0c8'],
+                [0.5, '#1f88ad'],
+                [1, '#007098']
               ]
             }
           },
@@ -929,9 +839,9 @@
             color: {
               linearGradient: { x1: 0, x2: 0, y1: 0, y2: 1 },
               stops: [
-                [0, '#34d399'],
-                [0.5, '#10b981'],
-                [1, '#059669']
+                [0, '#4ade80'],
+                [0.5, '#22c55e'],
+                [1, '#16a34a']
               ]
             }
           },
@@ -941,21 +851,21 @@
             name: 'Línea + Equipo',
             data: equipoData,
             stack: 'servicios',
-            color: '#8b5cf6',
+            color: '#004e6b',
             dataLabels: { enabled: false }
           },
           {
             name: 'eSIM',
             data: esimData,
             stack: 'servicios',
-            color: '#22d3ee',
+            color: '#6cbfe0',
             dataLabels: { enabled: false }
           },
           {
             name: 'Wearable',
             data: wearableData,
             stack: 'servicios',
-            color: '#fbbf24',
+            color: '#eab308',
             dataLabels: { enabled: false }
           }
         ]

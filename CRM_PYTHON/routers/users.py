@@ -217,7 +217,9 @@ async def admin_list(user: dict = Depends(current_user)):
 @router.get("/agents")
 async def agents_list(seccion: str = "", user: dict = Depends(current_user)):
     async with AsyncSessionLocal() as s:
-        r = await s.execute(text("SELECT id, username, name, email, role, team, supervisor, avatar_url, permissions "
+        # active va en la consulta: sin él _serialize lo daba siempre como 1 y las
+        # páginas no podían distinguir a los usuarios suspendidos.
+        r = await s.execute(text("SELECT id, username, name, email, role, team, supervisor, avatar_url, permissions, active "
                                  "FROM users WHERE COALESCE(acceso_crm, 1) = 1 ORDER BY name"))
         users = [_row_to_user(row) for row in r.mappings().all()]
     sec = (seccion or "").strip().lower()

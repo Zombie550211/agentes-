@@ -1,0 +1,122 @@
+/* Piezas comunes de las páginas rediseñadas (sobre css/base/sistema.css):
+   barra de título con navegación de periodo, indicadores, tarjetas, pestañas,
+   chips, tablas y avatares. Es el mismo patrón de Llamadas y ventas, Estadísticas,
+   Productividad y El Semáforo, reunido en un sitio para no repetirlo en cada hoja.
+   Prefijo pg-. Cada página añade su hoja propia sólo con lo que es suyo. */
+
+:root{--pg-num:"Inter",system-ui,"Segoe UI",sans-serif}
+.in-hoja{display:flex;flex-direction:column;gap:var(--space-3)}
+.in-head{margin-bottom:calc(var(--space-3) * -1)}
+
+/* ═══ Barra: título, periodo y acciones ═══ */
+.pg-barra{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);padding:12px var(--space-4)}
+.pg-titulo{display:flex;align-items:center;gap:12px;min-width:0;flex:1 1 300px}
+.pg-ico{flex:none;width:36px;height:36px;display:grid;place-items:center;font-size:19px;color:#fff;background:var(--color-accent-2-500)}
+.pg-titulo h1{margin:0;font-size:20px;line-height:1.2;color:var(--color-text)}
+.pg-titulo p{margin:2px 0 0;max-width:72ch;font-size:11px;line-height:1.45;color:var(--color-neutral-600)}
+.pg-acciones{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.pg-periodo{display:flex;align-items:center;gap:6px}
+.pg-periodo-lbl{display:flex;align-items:center;justify-content:center;min-width:140px;height:36px;padding:0 12px;border:1px solid rgb(0 112 152 / .18);
+  background:rgb(255 255 255 / .8);font-family:var(--pg-num);font-size:12px;font-weight:600;color:var(--color-text);white-space:nowrap}
+.pg-paso,.pg-boton{height:36px;border:1px solid rgb(0 112 152 / .18);border-radius:0;background:rgb(255 255 255 / .8);color:var(--color-accent-2-600);
+  font:inherit;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.pg-paso{width:36px;display:grid;place-items:center;font-size:15px}
+.pg-boton{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:0 14px;font-family:var(--pg-num);font-size:12px;font-weight:600;
+  white-space:nowrap;text-decoration:none}
+.pg-boton i{font-size:15px}
+.pg-boton-pri{background:var(--color-accent-2-500);border-color:var(--color-accent-2-500);color:#fff}
+.pg-paso:hover:not(:disabled),.pg-boton:hover:not(:disabled){background:#fff;border-color:var(--color-accent-2-500);color:var(--color-accent-2-600)}
+.pg-boton-pri:hover:not(:disabled){background:var(--color-accent-2-600);border-color:var(--color-accent-2-600);color:#fff}
+.pg-paso:disabled,.pg-boton:disabled{opacity:.4;cursor:default}
+.pg-paso:focus-visible,.pg-boton:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:2px}
+
+/* Campos (selector, fecha, búsqueda) con el mismo alto que los botones */
+.pg-campo{display:flex;align-items:center;height:36px;border:1px solid rgb(0 112 152 / .18);background:rgb(255 255 255 / .8)}
+.pg-campo:focus-within{border-color:var(--color-accent-2-500)}
+.pg-campo > span{padding:0 4px 0 11px;font-size:11px;color:var(--color-neutral-600);white-space:nowrap}
+.pg-campo > i{padding-left:10px;font-size:15px;color:var(--color-neutral-500)}
+.pg-campo input,.pg-campo select{height:34px;min-width:0;margin:0;padding:0 10px;border:0;border-radius:0;background:transparent;font-family:var(--pg-num);
+  font-size:12px;font-weight:600;color:var(--color-text);outline:none}
+
+/* ═══ Indicadores ═══ */
+.pg-tiles{display:grid;grid-template-columns:repeat(var(--pg-cols,4),minmax(0,1fr));gap:var(--space-2)}
+@media (max-width:1200px){ .pg-tiles{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))} }
+@media (max-width:560px){ .pg-tiles{grid-template-columns:repeat(2,minmax(0,1fr))} }
+.pg-tile{display:flex;flex-direction:column;align-items:flex-start;min-width:0;padding:var(--space-3);--glass-fondo:rgb(255 255 255 / .85)}
+.pg-tico{width:28px;height:28px;display:grid;place-items:center;font-size:15px;color:var(--color-accent-2-500);border:1px solid rgb(0 112 152 / .22)}
+.pg-tico-verde{color:#15803d;border-color:rgb(22 163 74 / .3)}
+.pg-tico-amarillo{color:#a16207;border-color:rgb(234 179 8 / .4)}
+.pg-tico-rojo{color:var(--color-sem-rojo);border-color:rgb(220 38 38 / .3)}
+.pg-tile-val{margin-top:14px;min-height:22px;font-family:var(--pg-num);font-size:22px;font-weight:600;line-height:22px;letter-spacing:-.01em;
+  color:var(--color-neutral-900);font-variant-numeric:lining-nums tabular-nums;overflow-wrap:anywhere}
+.pg-tile-lbl{margin-top:8px;font-size:11px;color:var(--color-neutral-600)}
+.pg-tile-sub{margin-top:2px;font-size:10px;color:var(--color-neutral-500)}
+.pg-tile-dest .pg-tile-val{color:var(--color-accent-2-600)}
+
+/* ═══ Tarjetas ═══ */
+.pg-card{display:flex;flex-direction:column;min-width:0}
+.pg-card-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-2) var(--space-3);padding:var(--space-3) var(--space-4);
+  border-bottom:1px solid rgb(0 112 152 / .12)}
+.pg-card-head h2{display:flex;align-items:center;gap:7px;margin:0;font-size:16px;color:var(--color-text)}
+.pg-card-head h2 i{font-size:17px;color:var(--color-accent-2-500)}
+.pg-card-head p{margin:2px 0 0;font-size:11px;color:var(--color-neutral-600)}
+.pg-card-body{padding:var(--space-3) var(--space-4)}
+.pg-chip{flex:none;display:inline-flex;align-items:center;gap:5px;padding:3px 9px;font-family:var(--pg-num);font-size:11px;font-weight:600;
+  color:var(--color-accent-2-600);background:rgb(0 112 152 / .08);white-space:nowrap}
+.pg-chip-verde{color:#15803d;background:rgb(22 163 74 / .1)}
+.pg-chip-amarillo{color:#a16207;background:rgb(234 179 8 / .16)}
+.pg-chip-rojo{color:#b91c1c;background:rgb(220 38 38 / .1)}
+.pg-chip-gris{color:var(--color-neutral-700);background:rgb(143 156 166 / .14)}
+
+/* ═══ Pestañas / interruptores (como Llamadas y ventas) ═══ */
+.pg-tabs{display:inline-flex;flex-wrap:wrap;padding:3px;background:rgb(0 112 152 / .06);border:1px solid rgb(0 112 152 / .12)}
+.pg-tab{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 14px;border:0;border-radius:0;background:transparent;cursor:pointer;
+  font:inherit;font-size:12px;font-weight:600;color:var(--color-neutral-700);white-space:nowrap;transition:background .15s,color .15s}
+.pg-tab i{font-size:15px}
+.pg-tab:hover{color:var(--color-text)}
+.pg-tab[aria-selected="true"],.pg-tab[aria-pressed="true"],.pg-tab.active{background:#fff;color:var(--color-accent-2-600);box-shadow:0 1px 4px rgb(0 112 152 / .14)}
+.pg-tab:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:2px}
+
+/* ═══ Tablas ═══ */
+.pg-scroll{overflow:auto;overscroll-behavior:contain}
+.pg-tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:12px}
+.pg-tbl thead th{position:sticky;top:0;z-index:2;padding:9px 10px;background:#eef4f7;border-bottom:1px solid rgb(0 112 152 / .12);
+  font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;text-align:center;white-space:nowrap;color:var(--color-neutral-700)}
+.pg-tbl .pg-izq{text-align:left;padding-left:var(--space-4)}
+.pg-tbl tbody th,.pg-tbl tbody td{padding:8px 10px;border-bottom:1px solid rgb(0 112 152 / .06);font-weight:400;vertical-align:middle}
+.pg-tbl tbody tr:hover>*{background:rgb(0 112 152 / .03)}
+.pg-tbl tfoot th,.pg-tbl tfoot td{padding:10px;background:#e3edf2;border-top:1px solid rgb(0 112 152 / .2);font-weight:700;color:var(--color-neutral-900)}
+.pg-n{text-align:center;font-family:var(--pg-num);font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--color-neutral-800)}
+.pg-n-dest{font-weight:700;color:var(--color-accent-2-600)}
+
+/* Persona o equipo: avatar + nombre + subtítulo */
+.pg-persona{display:flex;align-items:center;gap:9px;min-width:0}
+.pg-avatar{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;overflow:hidden;font-family:var(--pg-num);font-size:10px;font-weight:700;
+  color:var(--color-accent-2-700);background:var(--color-accent-100);border:1px solid rgb(0 112 152 / .15)}
+.pg-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.pg-persona-txt{display:flex;flex-direction:column;min-width:0}
+.pg-persona-nom{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:600;color:var(--color-text)}
+.pg-persona-sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:var(--color-neutral-600)}
+
+/* Posición (1.º verde, 2.º y 3.º del semáforo; el resto neutro) */
+.pg-pos{flex:none;width:30px;height:30px;display:grid;place-items:center;font-family:var(--pg-num);font-size:12px;font-weight:700;
+  color:var(--color-neutral-700);background:#fff;border:1px solid rgb(0 112 152 / .2)}
+.pg-pos-1{color:#fff;background:var(--color-accent-2-500);border-color:var(--color-accent-2-500)}
+.pg-pos-2{color:var(--color-accent-2-700);background:var(--color-accent-200);border-color:var(--color-accent-300)}
+.pg-pos-3{color:var(--color-accent-2-700);background:var(--color-accent-100);border-color:var(--color-accent-200)}
+
+/* Barra de progreso fina */
+.pg-barrita{width:100%;height:4px;background:rgb(0 112 152 / .1)}
+.pg-barrita > span{display:block;width:0;height:100%;background:var(--color-accent-2-500);transition:width .5s ease}
+.pg-barrita-verde > span{background:#16a34a}
+
+.pg-vacio{display:flex;align-items:center;justify-content:center;gap:6px;padding:40px var(--space-3);font-size:12px;font-style:italic;color:var(--color-neutral-600)}
+
+@media (max-width:760px){
+  .pg-barra{padding:10px var(--space-2)}
+  .pg-acciones{width:100%}
+  .pg-periodo{flex:1 1 100%}
+  .pg-periodo-lbl{flex:1;min-width:0}
+  .pg-card-head,.pg-card-body{padding:var(--space-3)}
+}
+@media (prefers-reduced-motion:reduce){ .pg-barrita > span{transition:none} }

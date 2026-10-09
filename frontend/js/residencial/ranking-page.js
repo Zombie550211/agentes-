@@ -493,7 +493,12 @@
     window.__sumarColchon = false;
     btn.addEventListener('click', () => {
       window.__sumarColchon = !window.__sumarColchon;
-      if (window.__sumarColchon) {
+      if (btn.classList.contains('pg-boton')) {
+        // Rediseño: el aspecto lo pone la hoja según aria-pressed (css/componentes/pagina.css).
+        btn.setAttribute('aria-pressed', String(window.__sumarColchon));
+        const t = btn.querySelector('span');
+        if (t) t.textContent = window.__sumarColchon ? 'Colchón sumado' : 'Sumar colchón';
+      } else if (window.__sumarColchon) {
         btn.style.background = 'rgba(139,92,246,0.70)';
         btn.style.borderColor = 'rgba(139,92,246,0.90)';
         btn.textContent = '🛏 Colchón: ON';

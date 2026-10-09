@@ -110,6 +110,7 @@
             '</select>' +
           '</div>' +
         '</div>' +
+        '<div class="trf-kpis" id="trf-kpis" aria-live="polite"></div>' +
         '<div class="trf-hist-body" id="trf-hist-body"></div>' +
       '</section>';
 
@@ -159,15 +160,42 @@
       if (!r.ok) throw new Error(j.detail || 'Error');
       historial = j.transferencias || [];
     } catch (e) {
+      q('#trf-kpis').innerHTML = '';
       box.innerHTML = '<div class="trf-vacio">No se pudieron cargar tus transferencias</div>';
       return;
     }
     pintarHistorial();
   }
 
+  /** KPIs del periodo y del filtro (Todas / Enviadas / Recibidas) que se ven en la tabla. */
+  function pintarKpis(filas) {
+    const n = { total: filas.length, completada: 0, seguimiento: 0, no_realizada: 0, pendiente: 0 };
+    filas.forEach(function (f) {
+      if (RESULTADOS[f.resultado]) n[f.resultado]++;
+      else n.pendiente++;
+    });
+    const pct = (v) => (n.total ? Math.round(v * 100 / n.total) : 0) + '% del total';
+    const tarjetas = [
+      { cls: 'tot',  ic: 'fa-phone-volume',   label: 'Transferidas',   v: n.total,        sub: filtroTipo === 'enviada' ? 'Enviadas' : filtroTipo === 'recibida' ? 'Recibidas' : 'Enviadas y recibidas' },
+      { cls: 'ok',   ic: RESULTADOS.completada.ic,   label: 'Cerradas',       v: n.completada,   sub: pct(n.completada) },
+      { cls: 'seg',  ic: RESULTADOS.seguimiento.ic,  label: 'En seguimiento', v: n.seguimiento,  sub: pct(n.seguimiento) },
+      { cls: 'no',   ic: RESULTADOS.no_realizada.ic, label: 'No realizadas',  v: n.no_realizada, sub: pct(n.no_realizada) },
+      { cls: 'pend', ic: 'fa-hourglass-half', label: 'Pendientes',     v: n.pendiente,    sub: 'Sin resultado' },
+    ];
+    q('#trf-kpis').innerHTML = tarjetas.map(function (t) {
+      return '<div class="trf-kpi ' + t.cls + '">' +
+        '<div class="trf-kpi-head"><span class="trf-kpi-label">' + esc(t.label) + '</span>' +
+          '<span class="trf-kpi-ic"><i class="fas ' + t.ic + '"></i></span></div>' +
+        '<div class="trf-kpi-num">' + t.v + '</div>' +
+        '<div class="trf-kpi-sub">' + esc(t.sub) + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
   function pintarHistorial() {
     const box = q('#trf-hist-body');
     const filas = filtroTipo ? historial.filter((f) => f.direccion_tipo === filtroTipo) : historial;
+    pintarKpis(filas);
     if (!filas.length) {
       box.innerHTML = '<div class="trf-vacio">Sin transferencias en este periodo</div>';
       return;

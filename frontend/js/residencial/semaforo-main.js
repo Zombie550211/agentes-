@@ -33,11 +33,12 @@
     const puntos = row?.dataset?.ttPuntos || '0';
     const status = row?.dataset?.ttStatus || '—';
     const sub    = row?.dataset?.ttSub    || '';
-    return `<div class="tt-title">${name}</div>
-      ${sub ? `<div style="font-size:11px;color:var(--muted);margin-bottom:6px;">${sub}</div>` : ''}
-      <div class="tt-row"><span class="tt-label">Ventas</span><span class="tt-val">${ventas}</span></div>
-      <div class="tt-row"><span class="tt-label">Puntaje</span><span class="tt-val">${puntos}</span></div>
-      <div class="tt-row"><span class="tt-label">Estado</span><span class="tt-val">${status.toUpperCase()}</span></div>`;
+    // dataset devuelve el texto sin escapar: todo pasa por escapeAttr antes de ir a innerHTML.
+    return `<div class="tt-title">${escapeAttr(name)}</div>
+      ${sub ? `<div class="tt-sub" style="font-size:11px;color:var(--muted);margin-bottom:6px;">${escapeAttr(sub)}</div>` : ''}
+      <div class="tt-row"><span class="tt-label">Ventas</span><span class="tt-val">${escapeAttr(ventas)}</span></div>
+      <div class="tt-row"><span class="tt-label">Puntaje</span><span class="tt-val">${escapeAttr(puntos)}</span></div>
+      <div class="tt-row"><span class="tt-label">Estado</span><span class="tt-val">${escapeAttr(status.toUpperCase())}</span></div>`;
   }
 
   function attachTooltip(el, htmlBuilder) {
@@ -389,7 +390,7 @@
       row.innerHTML = `
         <div class="rank-number">${pos}</div>
         <div class="ranking-name">
-          <h3>${equipo?.nombre||'—'}</h3>
+          <h3>${escapeAttr(equipo?.nombre||'—')}</h3>
           <p>${getRowSub(status)}</p>
         </div>
         <div class="ranking-stat">
@@ -563,15 +564,17 @@
 
     const byUserId=new Map(), byUsername=new Map(), byName=new Map();
     semData.forEach(row=>{
+      // /api/semaforo devuelve {agente, ventas, puntaje, daysWithout}: sin leer «agente»
+      // y «puntaje» ningún agente casaba y la lista salía entera con 0 ventas.
       const payload={
         ventas:parseNumberFlexible(row?.ventas)??0,
-        puntos:parseNumberFlexible(row?.puntos)??0,
+        puntos:parseNumberFlexible(row?.puntos??row?.puntaje)??0,
         daysWithout:parseNumberFlexible(row?.daysWithout)??0,
         status:String(row?.status||'').trim()||computeStatusFromDays(row?.daysWithout)
       };
       const uk=normalizeKey(row?.userId); if (uk) byUserId.set(uk,payload);
       const unk=normalizeKey(row?.username); if (unk) byUsername.set(unk,payload);
-      const nk=normalizeKey(row?.name||row?.nombre); if (nk) byName.set(nk,payload);
+      const nk=normalizeKey(row?.name||row?.nombre||row?.agente); if (nk) byName.set(nk,payload);
     });
 
     const safeNoonFromYMD = (ymd) => {
@@ -678,7 +681,8 @@
         agView.classList.replace('is-hidden','is-visible');
         if (btnText) btnText.textContent='Ver semáforo';
         const icon=btn.querySelector('i');
-        if (icon) icon.className='fa-solid fa-traffic-light';
+        // Rediseño con Phosphor; la versión clásica (_clasico/) sigue con Font Awesome.
+        if (icon) icon.className=icon.classList.contains('ph')?'ph ph-chart-bar':'fa-solid fa-traffic-light';
 
         const now=Date.now(), mk=monthKeyFromDate(selectedMonthDate);
         if (!agentsCache.ts||(now-agentsCache.ts)>60000||agentsCache.monthKey!==mk) {
@@ -692,7 +696,7 @@
         semView.classList.replace('is-hidden','is-visible');
         if (btnText) btnText.textContent='Ver agentes';
         const icon=btn.querySelector('i');
-        if (icon) icon.className='fa-solid fa-users';
+        if (icon) icon.className=icon.classList.contains('ph')?'ph ph-users':'fa-solid fa-users';
       }
     };
 
