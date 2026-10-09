@@ -215,7 +215,7 @@
       .catch(function () { promoMensaje('No se pudo quitar el video.'); });
   }
 
-  // ── Agenda: calendario del mes (fecha real) y eventos del día ──
+  // ── Calendario de ventas: calendario del mes (fecha real) y eventos del día ──
   var MESES_LARGOS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   var HOY = new Date();
   var mesVista = new Date(HOY.getFullYear(), HOY.getMonth(), 1);

@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
   <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
   <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
-  <link rel="stylesheet" href="/css/residencial/estadisticas.css?v=20261009c">
+  <link rel="stylesheet" href="/css/residencial/estadisticas.css?v=20261009e">
   <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
   <script src="/js/layout/transicion.js?v=20261008b"></script>
   <script src="/vendor/chartjs/chart.umd.min.js"></script>
@@ -39,7 +39,7 @@
   </header>
 
   <!-- ══ Título y mes ══ -->
-  <section class="es-barra in-glass" aria-label="Mes consultado">
+  <section class="es-barra in-glass" aria-label="Día y mes consultados">
     <div class="es-titulo">
       <span class="es-ico"><i class="ph ph-chart-bar" aria-hidden="true"></i></span>
       <div>
@@ -48,10 +48,10 @@
       </div>
     </div>
     <div class="es-mes">
-      <button type="button" class="es-paso" id="btn-prev" aria-label="Mes anterior"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
-      <span class="es-mes-lbl" id="month-display" aria-live="polite">— —</span>
-      <button type="button" class="es-paso" id="btn-next" aria-label="Mes siguiente"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
-      <button type="button" class="es-hoy" id="btn-today">Mes actual</button>
+      <button type="button" class="es-paso" id="btn-prev" aria-label="Día anterior"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
+      <input type="date" class="es-mes-lbl es-dia" id="day-filter" aria-label="Día consultado">
+      <button type="button" class="es-paso" id="btn-next" aria-label="Día siguiente"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
+      <select class="es-hoy es-mes-sel" id="month-filter" aria-label="Mes consultado"></select>
     </div>
   </section>
 
@@ -72,7 +72,7 @@
     <section class="es-card es-equipos in-glass" aria-labelledby="es-eq-t">
       <div class="es-card-head">
         <div>
-          <h2 id="es-eq-t">Ventas por equipo</h2>
+          <h2 id="es-eq-t"><i class="ph ph-house-line" aria-hidden="true"></i> Ventas por equipo</h2>
           <p id="es-eq-sub">Producción acumulada del mes</p>
         </div>
         <div class="es-tabs" role="tablist" aria-label="Periodo">
@@ -147,7 +147,7 @@
       <div class="es-card-head">
         <div>
           <h2 id="es-tr-t">Tendencia de ventas</h2>
-          <p>Ventas registradas en los últimos 7 días</p>
+          <p id="es-tr-sub">Ventas registradas en los últimos 7 días</p>
         </div>
         <span class="es-chip" id="es-trend-total">0 ventas</span>
       </div>
@@ -174,15 +174,45 @@
   function setT(id,v){var e=$(id);if(e)e.textContent=v;}
   function esc(s){var d=document.createElement('div');d.textContent=String(s==null?'':s);return d.innerHTML;}
   function mStr(y,m){return y+'-'+String(m).padStart(2,'0');}
-  function esMesActual(){return cY===now.getFullYear()&&cM===now.getMonth()+1;}
-  function updateDisplay(){
-    setT('month-display',MN[cM-1]+' '+cY);
-    $('btn-next').disabled=esMesActual();
-    $('btn-today').disabled=esMesActual();
+  function fStr(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function aFecha(s){var p=String(s).split('-');return new Date(+p[0],+p[1]-1,+p[2]);}
+  // Día consultado (YYYY-MM-DD): es el "hoy" de las tablas del día, Team Líneas y la
+  // tendencia. El mes consultado (cY/cM) es siempre el de ese día.
+  var selDia=fStr(now);
+  function diaSel(){return selDia;}
+  function llenarMeses(){
+    var sel=$('month-filter'), y=now.getFullYear(), html='';
+    for(var m=now.getMonth()+1;m>=1;m--){html+='<option value="'+mStr(y,m)+'">'+MN[m-1]+' '+y+'</option>';}
+    sel.innerHTML=html;
   }
-  function prevMonth(){cM--;if(cM<1){cM=12;cY--;}updateDisplay();load();}
-  function nextMonth(){if(esMesActual())return;cM++;if(cM>12){cM=1;cY++;}updateDisplay();load();}
-  function todayMonth(){cY=now.getFullYear();cM=now.getMonth()+1;updateDisplay();load();}
+  function updateDisplay(){
+    var hoy=fStr(now), sel=$('month-filter'), ms=mStr(cY,cM);
+    $('day-filter').value=selDia;
+    $('day-filter').max=hoy;
+    $('day-filter').min=now.getFullYear()+'-01-01';
+    if(!sel.querySelector('option[value="'+ms+'"]')){
+      var o=document.createElement('option');o.value=ms;o.textContent=MN[cM-1]+' '+cY;sel.appendChild(o);
+    }
+    sel.value=ms;
+    $('btn-next').disabled=selDia>=hoy;
+    $('btn-prev').disabled=selDia<=$('day-filter').min;
+  }
+  function irADia(ds){
+    var hoy=fStr(now);
+    if(!ds)return;
+    if(ds>hoy)ds=hoy;
+    if(ds<now.getFullYear()+'-01-01')ds=now.getFullYear()+'-01-01';
+    var d=aFecha(ds), cambiaMes=(d.getFullYear()!==cY||d.getMonth()+1!==cM);
+    selDia=ds;cY=d.getFullYear();cM=d.getMonth()+1;
+    updateDisplay();refrescarSubtitulo();
+    loadWeekendRotation().then(function(){ if(cambiaMes)load(); else rerender(); });
+  }
+  function pasoDia(n){var d=aFecha(selDia);d.setDate(d.getDate()+n);irADia(fStr(d));}
+  function elegirMes(ms){
+    var p=ms.split('-'), y=+p[0], m=+p[1];
+    // Mes en curso: hoy. Mes pasado: su último día.
+    irADia((y===now.getFullYear()&&m===now.getMonth()+1)?fStr(now):fStr(new Date(y,m,0)));
+  }
 
   var TTL=2*60*1000;
   function ck(m){return 'res_stats_v13_'+m;}
@@ -202,7 +232,7 @@
   // claro para el top 5; el 6.º (gris) es siempre "Otros".
   var PAL=['#007098','#30a0c8','#16a34a','#eab308','#a3d7ec','#8f9ca6'];
   function teamInitials(n){return String(n||'').replace(/^TEAM\s+/i,'').split(/\s+/).filter(Boolean).map(function(w){return w[0];}).join('').toUpperCase().slice(0,2)||'??';}
-  function todayStr(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function todayStr(){return diaSel();}
 
   var NUM_FONT={family:'Inter',size:11,weight:500};
   var TIP={backgroundColor:'rgba(255,255,255,.97)',titleColor:'#14212a',bodyColor:'#3a464e',borderColor:'rgba(0,112,152,.18)',
@@ -468,10 +498,10 @@
     // Tendencia: últimos 7 días
     var dayL=[],dayD=[];
     for(var d=6;d>=0;d--){
-      var dt=new Date();dt.setDate(dt.getDate()-d);
+      var dt=aFecha(diaSel());dt.setDate(dt.getDate()-d);
       var ds=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
       var dN=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][dt.getDay()];
-      dayL.push(d===0?'Hoy':dN+' '+dt.getDate());
+      dayL.push(d===0?(diaSel()===fStr(new Date())?'Hoy':dN+' '+dt.getDate()):dN+' '+dt.getDate());
       dayD.push(leads.filter(function(l){return String(l.dia_venta||'').slice(0,10)===ds;}).length);
     }
     var t7=dayD.reduce(function(a,b){return a+b;},0);
@@ -524,11 +554,19 @@
       '<td class="es-n es-sep">'+suma('hoyC')+'</td><td class="es-n">'+suma('hoyL')+'</td></tr>';
   }
 
+  // Repinta con los últimos datos del mes (cambio de día dentro del mismo mes).
+  var _ult=null;
+  function rerender(){
+    if(_ult)render(_ult.leads,_ult.teams);
+    loadLineas();
+  }
+
   async function load(){
     var ms=mStr(cY,cM);
     var cached=cLoad(ms);
     if(cached&&cached.leads&&cached.leads.length>0){
       if(cached.renames)_renames=cached.renames;
+      _ult={leads:cached.leads,teams:cached.teams||[]};
       render(cached.leads,cached.teams||[]);
     }
     // Bootstrap y líneas en paralelo
@@ -539,14 +577,20 @@
       cSave(ms,{leads:data.leads,teams:data.teams||[],renames:data.renames||[]});
       var changed=!cached||!cached.leads||data.leads.length!==cached.leads.length||
         (data.leads[0]&&cached.leads&&cached.leads[0]&&data.leads[0].id!==cached.leads[0].id);
+      _ult={leads:data.leads,teams:data.teams||[]};
       if(changed||!cached)render(data.leads,data.teams||[]);
     }
   }
 
   // ── Pestañas Mes / Hoy (con teclado: ← →) ──
+  function refrescarSubtitulo(){
+    var d=aFecha(diaSel()), hoy=$('es-tab-hoy');
+    var txt=d.getDate()+'/'+(d.getMonth()+1)+'/'+d.getFullYear();
+    setT('es-eq-sub', hoy&&hoy.getAttribute('aria-selected')==='true' ? 'Ventas del '+txt : 'Producción acumulada del mes');
+    setT('es-tr-sub', diaSel()===fStr(new Date()) ? 'Ventas registradas en los últimos 7 días' : 'Ventas de los 7 días hasta el '+txt);
+  }
   function initTabs(){
     var tabs=[$('es-tab-mes'),$('es-tab-hoy')];
-    var SUB={ 'es-tab-mes':'Producción acumulada del mes', 'es-tab-hoy':'Producción de hoy' };
     function elegir(t,foco){
       tabs.forEach(function(x){
         var on=x===t;
@@ -554,8 +598,7 @@
         x.tabIndex=on?0:-1;
         $(x.getAttribute('aria-controls')).hidden=!on;
       });
-      var d=new Date();
-      setT('es-eq-sub', t.id==='es-tab-hoy' ? 'Ventas del '+d.getDate()+'/'+(d.getMonth()+1)+'/'+d.getFullYear() : SUB[t.id]);
+      refrescarSubtitulo();
       if(foco)t.focus();
     }
     tabs.forEach(function(t,i){
@@ -569,11 +612,13 @@
   }
 
   document.addEventListener('DOMContentLoaded',function(){
+    llenarMeses();
     updateDisplay();
     initTabs();
-    $('btn-prev').addEventListener('click',prevMonth);
-    $('btn-next').addEventListener('click',nextMonth);
-    $('btn-today').addEventListener('click',todayMonth);
+    $('btn-prev').addEventListener('click',function(){pasoDia(-1);});
+    $('btn-next').addEventListener('click',function(){pasoDia(1);});
+    $('day-filter').addEventListener('change',function(){irADia(this.value);});
+    $('month-filter').addEventListener('change',function(){elegirMes(this.value);});
     // Cargar el mapa supervisor->equipo ANTES del primer render (para agrupar bien)
     Promise.all([loadSupervisors(), loadWeekendRotation(), loadLineasTeams()]).then(load);
     // Tiempo real: refresca al cambiar datos de residencial o de líneas (esta

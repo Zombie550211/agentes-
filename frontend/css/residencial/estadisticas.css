@@ -23,6 +23,10 @@
 .es-paso:hover:not(:disabled),.es-hoy:hover:not(:disabled){background:#fff;border-color:var(--color-accent-2-500)}
 .es-paso:disabled,.es-hoy:disabled{opacity:.4;cursor:default}
 .es-paso:focus-visible,.es-hoy:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:2px}
+.es-dia{font:inherit;font-family:var(--es-num);font-size:12px;font-weight:600;border-radius:0;color-scheme:light;cursor:pointer}
+.es-dia:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:2px}
+.es-mes-sel{min-width:150px;padding:0 30px 0 12px;appearance:none;-webkit-appearance:none;color:var(--color-text);
+  background:rgb(255 255 255 / .8) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23007098' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 11px center}
 
 /* ═══ Indicadores ═══ */
 .es-tiles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:var(--space-2)}
@@ -47,6 +51,17 @@
 .es-card-head h2{display:flex;align-items:center;gap:6px;margin:0;font-size:16px;color:var(--color-text)}
 .es-card-head h2 i{font-size:17px;color:var(--color-accent-2-500)}
 .es-card-head p{margin:2px 0 0;font-size:11px;color:var(--color-neutral-600)}
+/* Cabeceras con color para distinguir las dos tablas: Residencial (azul del logo) y
+   Team Líneas (verde de los gráficos). */
+.es-equipos .es-card-head{background:linear-gradient(90deg,rgb(0 112 152 / .13),rgb(48 160 200 / .05));
+  border-left:4px solid #007098;border-bottom-color:rgb(0 112 152 / .22)}
+.es-equipos .es-card-head h2 i{color:#007098}
+.es-lineas .es-card-head{background:linear-gradient(90deg,rgb(22 163 74 / .13),rgb(22 163 74 / .04));
+  border-left:4px solid #16a34a;border-bottom-color:rgb(22 163 74 / .25)}
+.es-lineas .es-card-head h2 i{color:#15803d}
+.es-lineas .es-tbl thead th{background:#eef7f1;border-bottom-color:rgb(22 163 74 / .18)}
+.es-lineas .es-tbl th.es-grupo{color:#15803d;border-bottom-color:rgb(22 163 74 / .3)}
+.es-lineas .es-n-dest{color:#15803d}
 .es-chip{flex:none;padding:4px 10px;font-family:var(--es-num);font-size:11px;font-weight:600;color:var(--color-accent-2-600);background:rgb(0 112 152 / .08)}
 
 /* Pestañas Mes / Hoy (como las de Llamadas y ventas) */
@@ -118,6 +133,7 @@
   /* La columna del equipo queda fija al desplazar los números hacia los lados */
   .es-tbl .es-izq{position:sticky;left:0;z-index:1;background:#f6f9fb;box-shadow:1px 0 0 rgb(0 112 152 / .1)}
   .es-tbl thead th.es-izq{z-index:3;background:#eef4f7}
+  .es-lineas .es-tbl thead th.es-izq{background:#eef7f1}
   .es-tbl tr.es-total>th.es-izq{z-index:2;background:#e3edf2}
   .es-eq{min-width:0;max-width:170px}
   .es-tbl td.es-vacio{position:sticky;left:0}
