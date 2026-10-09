@@ -55,12 +55,32 @@ def es_agente(role: str) -> bool:
 
 # Equipos que Permisos (crear-cuenta.html, _HIDDEN_TEAMS) trata como "sin equipo".
 _EQUIPOS_OCULTOS = {"backoffice"}
+# Equipos de Permisos que no llevan horario: no salen en Horarios ni viajan a Cuadratura
+# (Cuadratura muestra exactamente lo que manda el CRM). Comparados con clave_equipo.
+_EQUIPOS_SIN_HORARIO = {"usa", "icon"}  # TEAM USA y TEAM ICON
 
 
 def tiene_equipo(team: str) -> bool:
-    """¿Tiene equipo según Permisos? Quien no lo tiene no sale en Horarios ni viaja a Cuadratura."""
+    """¿Tiene equipo según Permisos (y lleva horario)? Quien no, no sale en Horarios ni viaja a Cuadratura."""
     t = str(team or "").strip()
-    return bool(t) and t.lower() not in _EQUIPOS_OCULTOS
+    return bool(t) and t.lower() not in _EQUIPOS_OCULTOS and clave_equipo(t) not in _EQUIPOS_SIN_HORARIO
+
+
+# Los turnos de 4 h o menos (shortday) no llevan hora de comida.
+MAX_MINUTOS_SIN_COMIDA = 240
+
+
+def comida_minutos(start: str, end: str, break_minutes: int) -> int:
+    """Minutos de comida de un turno HH:MM–HH:MM: 0 si dura 4 h o menos (nocturno = cruza medianoche)."""
+    try:
+        h1, m1 = (int(x) for x in str(start)[:5].split(":"))
+        h2, m2 = (int(x) for x in str(end)[:5].split(":"))
+    except (TypeError, ValueError):
+        return int(break_minutes or 0)
+    dur = (h2 * 60 + m2) - (h1 * 60 + m1)
+    if dur <= 0:
+        dur += 24 * 60
+    return 0 if dur <= MAX_MINUTOS_SIN_COMIDA else int(break_minutes or 0)
 
 
 def clave_equipo(team: str) -> str:
@@ -168,8 +188,8 @@ async def armar_paquete(inicio: date) -> dict:
         if f["rest_day"]:
             turno["rest_day"] = True
         else:
-            turno.update(start=_hhmm(f["start_time"]), end=_hhmm(f["end_time"]),
-                         break_minutes=int(f["break_minutes"] or 0))
+            ini, fin_t = _hhmm(f["start_time"]), _hhmm(f["end_time"])
+            turno.update(start=ini, end=fin_t, break_minutes=comida_minutos(ini, fin_t, f["break_minutes"]))
         if f["notes"]:
             turno["notes"] = f["notes"][:500]
         por_usuario.setdefault(int(f["user_id"]), []).append(turno)

@@ -212,6 +212,8 @@ class DiaIn(BaseModel):
             raise ValueError(f"{self.date}: indique hora de entrada y salida (HH:MM) o marque día libre")
         if self.start == self.end:
             raise ValueError(f"{self.date}: la entrada y la salida no pueden ser iguales")
+        # Shortday (4 h o menos): sin hora de comida.
+        self.break_minutes = cs.comida_minutos(self.start, self.end, self.break_minutes)
         return self
 
 

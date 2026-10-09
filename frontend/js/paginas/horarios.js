@@ -107,10 +107,21 @@
   }
   function trabaja(t) { return !!(t && !t.rest_day && t.start && t.end); }
   function duracion(t) { var d = horas(t.end) - horas(t.start); return d <= 0 ? d + 24 : d; }
-  function horasTurno(t) { return trabaja(t) ? Math.max(duracion(t) - (t.break_minutes || 0) / 60, 0) : 0; }
+  // Horas que cuenta cada día (semana completa = 5 jornadas + 1 shortday = MAX_HORAS_SEMANA):
+  // los turnos fijos cuentan 8 h la jornada completa y 4 h el shortday (el 1–9 dura 8 h con
+  // la comida dentro y aun así son 8); «Otro horario», su duración menos la comida.
+  // Un turno de 4 h o menos es shortday y no lleva comida (= cuadratura_sync.comida_minutos).
+  var HORAS_JORNADA = 8, HORAS_SHORTDAY = 4;
+  function comidaDe(t) { return duracion(t) <= HORAS_SHORTDAY ? 0 : (t.break_minutes || 0); }
+  function horasTurno(t) {
+    if (!trabaja(t)) return 0;
+    var m = turnoDe(t);
+    if (m) return m.sd ? HORAS_SHORTDAY : HORAS_JORNADA;
+    return Math.max(duracion(t) - comidaDe(t) / 60, 0);
+  }
   function esShortday(t) {
     var m = turnoDe(t);
-    return m ? m.sd : (trabaja(t) && !t.break_minutes && duracion(t) <= 4.5);
+    return m ? m.sd : (trabaja(t) && !comidaDe(t) && duracion(t) <= 4.5);
   }
   function etiquetaCorta(t) {
     if (!t) return 'Sin horario';
@@ -418,7 +429,7 @@
       var m = turnoDe(t);
       var largo = (m ? (m.sd ? m.turno.sdCorto : m.turno.corto) + ' · ' : '') + ampm(t.start) + ' – ' + ampm(t.end) + (esShortday(t) ? ' · shortday' : '');
       var comida = '';
-      if (t.break_minutes && x1 > x0) {
+      if (comidaDe(t) && x1 > x0) {
         var c0 = m && !m.sd ? m.turno.comida : s + (duracion(t) - t.break_minutes / 60) / 2;
         comida = '<i title="Hora de comida" style="left:' + ((c0 - x0) / (x1 - x0) * 100) + '%;width:' + (t.break_minutes / 60 / (x1 - x0) * 100) + '%"></i>';
       }
@@ -538,7 +549,9 @@
 
     function hint() {
       var s = $('hp-start').value, e = $('hp-end').value;
-      $('hp-hint').textContent = s && e && horas(e) <= horas(s) ? 'Turno nocturno: termina el día siguiente.' : '';
+      var corto = s && e && duracion({ start: s, end: e }) <= HORAS_SHORTDAY;
+      $('hp-hint').textContent = (s && e && horas(e) <= horas(s) ? 'Turno nocturno: termina el día siguiente. ' : '') +
+        (corto ? 'Shortday (4 h o menos): sin hora de comida.' : '');
     }
     $('hp-start').addEventListener('input', hint);
     $('hp-end').addEventListener('input', hint);
@@ -570,7 +583,9 @@
         var s = $('hp-start').value, e = $('hp-end').value;
         if (!s || !e) return toast('Indique entrada y salida', true);
         if (s === e) return toast('La entrada y la salida no pueden ser iguales', true);
-        asignar(a, [f], { start: s, end: e, break_minutes: Math.max(0, Math.min(480, +$('hp-break').value || 0)), rest_day: false, notes: $('hp-notes').value.trim() || null });
+        var otro = { start: s, end: e, break_minutes: Math.max(0, Math.min(480, +$('hp-break').value || 0)), rest_day: false, notes: $('hp-notes').value.trim() || null };
+        otro.break_minutes = comidaDe(otro);
+        asignar(a, [f], otro);
       } else if (op === 'semana') {
         var n = asignar(a, state.data.dias.slice(0, 6), t);
         toast(n ? etiquetaCorta(t) + ' aplicado a ' + n + ' día(s). Recuerde guardar.' : 'Esos días ya pasaron y no se pueden editar.', !n);
