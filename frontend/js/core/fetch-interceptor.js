@@ -20,6 +20,7 @@
       const d = r.ok ? await r.json() : { authenticated: false };
       if (!d.authenticated) {
         _redirecting = true;
+        try { localStorage.setItem('crm_show_update_for_all', '1'); } catch (_) {}
         console.warn('Sesión inválida. Redirigiendo al login...');
         window.location.href = '/login.html';
       }

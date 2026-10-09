@@ -83,8 +83,15 @@
   if (urlMsg) showAlert('alertLogin', 'alertLoginIcon', 'alertLoginText', decodeURIComponent(urlMsg), 'info');
 
   function showLogoutTour() {
-    if (localStorage.getItem('crm_show_tour_after_logout') !== '1') return;
+    var shouldShow = (
+      localStorage.getItem('crm_show_tour_after_logout') === '1' ||
+      localStorage.getItem('crm_show_update_for_all') === '1' ||
+      sessionStorage.getItem('show_welcome') === '1'
+    );
+    if (!shouldShow) return;
     localStorage.removeItem('crm_show_tour_after_logout');
+    localStorage.removeItem('crm_show_update_for_all');
+    sessionStorage.removeItem('show_welcome');
     if (document.getElementById('tour-after-logout')) return;
 
     var style = document.createElement('style');
@@ -649,6 +656,7 @@
 
       showAlert('alertLogin', 'alertLoginIcon', 'alertLoginText', '¡Acceso concedido! Redirigiendo…', 'success');
       sessionStorage.setItem('show_welcome', '1');
+      try { localStorage.setItem('crm_show_update_for_all', '1'); } catch (_) {}
       preheatPages();
       setTimeout(function () { window.location.replace(redirectUrl); }, 500);
 

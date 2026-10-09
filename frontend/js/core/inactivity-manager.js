@@ -17,6 +17,7 @@
     localStorage.removeItem('user');
     localStorage.removeItem('username');
     localStorage.removeItem('role');
+    try { localStorage.setItem('crm_show_update_for_all', '1'); } catch (_) {}
     alert('Tu sesión ha expirado por inactividad. Por favor, inicia sesión nuevamente.');
     window.location.href = '/login.html';
   }
