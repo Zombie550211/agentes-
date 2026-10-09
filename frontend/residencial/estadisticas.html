@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
   <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
   <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
-  <link rel="stylesheet" href="/css/residencial/estadisticas.css?v=20261009i">
+  <link rel="stylesheet" href="/css/residencial/estadisticas.css?v=20261009j">
   <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
   <script src="/js/layout/transicion.js?v=20261008b"></script>
   <script src="/vendor/chartjs/chart.umd.min.js"></script>
@@ -128,7 +128,7 @@
       <div class="es-card-head">
         <div>
           <h2 id="es-ln-t"><i class="ph ph-device-mobile" aria-hidden="true"></i> Team Líneas</h2>
-          <p id="es-ln-sub">Clientes y líneas vendidas en el mes</p>
+          <p id="es-ln-sub">Ventas y líneas del mes</p>
         </div>
         <div class="es-tabs" role="tablist" aria-label="Periodo de Team Líneas">
           <button type="button" role="tab" class="es-tab" id="es-ln-tab-mes" aria-selected="true" aria-controls="es-ln-pan-mes">Mes</button>
@@ -137,20 +137,22 @@
       </div>
       <div class="es-scroll" id="es-ln-pan-mes" role="tabpanel" aria-labelledby="es-ln-tab-mes">
         <table class="es-tbl">
-          <thead>
-            <tr><th scope="col" rowspan="2" class="es-izq">Team</th><th scope="colgroup" colspan="2" class="es-grupo">BAMO</th><th scope="colgroup" colspan="2" class="es-grupo es-sep">ICON</th><th scope="colgroup" colspan="2" class="es-grupo es-sep">Total</th></tr>
-            <tr><th scope="col">Clientes</th><th scope="col">Líneas</th><th scope="col" class="es-sep">Clientes</th><th scope="col">Líneas</th><th scope="col" class="es-sep">Clientes</th><th scope="col">Líneas</th></tr>
-          </thead>
-          <tbody id="lineas-body"><tr><td colspan="7" class="es-vacio">Cargando…</td></tr></tbody>
+          <thead><tr>
+            <th scope="col" class="es-izq">Team</th>
+            <th scope="col">Ventas</th>
+            <th scope="col">Líneas</th>
+          </tr></thead>
+          <tbody id="lineas-body"><tr><td colspan="3" class="es-vacio">Cargando…</td></tr></tbody>
         </table>
       </div>
       <div class="es-scroll" id="es-ln-pan-hoy" role="tabpanel" aria-labelledby="es-ln-tab-hoy" hidden>
         <table class="es-tbl">
-          <thead>
-            <tr><th scope="col" rowspan="2" class="es-izq">Team</th><th scope="colgroup" colspan="2" class="es-grupo">BAMO hoy</th><th scope="colgroup" colspan="2" class="es-grupo es-sep">ICON hoy</th><th scope="colgroup" colspan="2" class="es-grupo es-sep">Total hoy</th></tr>
-            <tr><th scope="col">Clientes</th><th scope="col">Líneas</th><th scope="col" class="es-sep">Clientes</th><th scope="col">Líneas</th><th scope="col" class="es-sep">Clientes</th><th scope="col">Líneas</th></tr>
-          </thead>
-          <tbody id="lineas-hoy-body"><tr><td colspan="7" class="es-vacio">Cargando…</td></tr></tbody>
+          <thead><tr>
+            <th scope="col" class="es-izq">Team</th>
+            <th scope="col">Ventas hoy</th>
+            <th scope="col">Líneas hoy</th>
+          </tr></thead>
+          <tbody id="lineas-hoy-body"><tr><td colspan="3" class="es-vacio">Cargando…</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -326,13 +328,9 @@
       _lineasTeams=(j.teams||[]).map(function(t){return t.value||t;});
     }catch(_){}
   }
-  // Contadores de un team de Líneas: clientes (C) y líneas (L) por periodo y mercado
-  // (B = BAMO, I = ICON; sin sufijo = total de ambos mercados).
-  function equipoLineasVacio(t){
-    var o={team:t};
-    ['mes','hoy'].forEach(function(p){['','B','I'].forEach(function(m){o[p+m+'C']=0;o[p+m+'L']=0;});});
-    return o;
-  }
+  // Contadores de un team de Líneas: ventas (C, un cliente = una venta) y líneas (L),
+  // del mes y del día consultado, sumando los dos mercados.
+  function equipoLineasVacio(t){ return {team:t,mesC:0,mesL:0,hoyC:0,hoyL:0}; }
   function _lineasPlaceholder(){
     return _lineasTeams.map(function(t){return equipoLineasVacio(t);});
   }
@@ -547,12 +545,7 @@
         var lineas=parseInt(r.cantidad_lineas||1)||1;
         var dv=String(r.dia_venta||'').slice(0,7);
         var dvFull=String(r.dia_venta||'').slice(0,10);
-        var mk=String(r.mercado||'').toUpperCase();
-        var m=mk.indexOf('BAMO')>=0?'B':mk.indexOf('ICON')>=0?'I':'';
-        function sumar(p){
-          teams[t][p+'C']++;teams[t][p+'L']+=lineas;
-          if(m){teams[t][p+m+'C']++;teams[t][p+m+'L']+=lineas;}
-        }
+        function sumar(p){ teams[t][p+'C']++; teams[t][p+'L']+=lineas; }
         if(dv===ms)sumar('mes');
         if(dvFull===today)sumar('hoy');
       });
@@ -567,17 +560,14 @@
 
   // Dos tablas, como Ventas por equipo: la del mes y la del día consultado.
   function renderLineas(teams){
-    // Columnas: BAMO (clientes, líneas) · ICON · Total de ambos mercados.
+    // Columnas: ventas y líneas (ambos mercados juntos).
     function tabla(id,p,total){
       var body=$(id);
       if(!body)return;
-      if(!teams.length){ body.innerHTML='<tr><td colspan="7" class="es-vacio">Sin datos de Líneas</td></tr>'; return; }
+      if(!teams.length){ body.innerHTML='<tr><td colspan="3" class="es-vacio">Sin datos de Líneas</td></tr>'; return; }
       function suma(k){return teams.reduce(function(a,t){return a+t[k];},0);}
       function celdas(v){
-        return ['B','I',''].map(function(m,i){
-          var sep=i?' es-sep':'';
-          return '<td class="es-n'+(m?'':' es-n-dest')+sep+'">'+v(p+m+'C')+'</td><td class="es-n'+(m?'':' es-n-fuerte')+'">'+v(p+m+'L')+'</td>';
-        }).join('');
+        return '<td class="es-n es-n-dest">'+v(p+'C')+'</td><td class="es-n">'+v(p+'L')+'</td>';
       }
       body.innerHTML=teams.map(function(t){
         // La tarjeta ya dice «Team Líneas»: basta con el nombre propio (LUIS, VICTOR…).
@@ -624,7 +614,7 @@
     var txt=d.getDate()+'/'+(d.getMonth()+1)+'/'+d.getFullYear();
     setT('es-eq-sub', hoy&&hoy.getAttribute('aria-selected')==='true' ? 'Ventas del '+txt : 'Producción acumulada del mes');
     var lnHoy=$('es-ln-tab-hoy');
-    setT('es-ln-sub', lnHoy&&lnHoy.getAttribute('aria-selected')==='true' ? 'Clientes y líneas del '+txt : 'Clientes y líneas vendidas en el mes');
+    setT('es-ln-sub', lnHoy&&lnHoy.getAttribute('aria-selected')==='true' ? 'Ventas y líneas del '+txt : 'Ventas y líneas del mes');
     setT('es-tr-sub', diaSel()===fStr(new Date()) ? 'Ventas registradas en los últimos 7 días' : 'Ventas de los 7 días hasta el '+txt);
   }
   function initTabs(tabs){
