@@ -83,12 +83,9 @@
   if (urlMsg) showAlert('alertLogin', 'alertLoginIcon', 'alertLoginText', decodeURIComponent(urlMsg), 'info');
 
   function showLogoutTour() {
-    var shouldShow = (
-      localStorage.getItem('crm_show_tour_after_logout') === '1' ||
-      localStorage.getItem('crm_show_update_for_all') === '1' ||
-      sessionStorage.getItem('show_welcome') === '1'
-    );
-    if (!shouldShow) return;
+    // Misma marca que js/layout/topbar-acciones.js: la guía se ve una sola vez por actualización.
+    var VERSION_NOVEDADES = '20261009';
+    try { if (localStorage.getItem('crm_novedades_vistas') === VERSION_NOVEDADES) return; } catch (_) { return; }
     localStorage.removeItem('crm_show_tour_after_logout');
     localStorage.removeItem('crm_show_update_for_all');
     sessionStorage.removeItem('show_welcome');
@@ -174,7 +171,7 @@
           <article class="tour-card">
             <div class="tour-step">01</div>
             <h3>Qué cambia</h3>
-            <p>Se reorganizó la vista principal para mostrar ventas, puntos y rendimiento del equipo de manera más clara.</p>
+            <p>El menú pasa a la parte superior: ahí están todas las secciones, y a la derecha los ajustes, el chat, las notificaciones y tu usuario. La página de inicio muestra ventas, puntos y rendimiento del equipo de forma más clara.</p>
           </article>
           <article class="tour-card">
             <div class="tour-step">02</div>
@@ -197,6 +194,7 @@
     document.body.appendChild(panel);
 
     function removeTour() {
+      try { localStorage.setItem('crm_novedades_vistas', VERSION_NOVEDADES); } catch (_) {}
       var existing = document.getElementById('tour-after-logout');
       if (existing) existing.remove();
       var styleTag = document.querySelector('style[data-tour-after-logout]');
@@ -210,7 +208,7 @@
       }
     }, { once: true });
 
-    style.dataset.tourAfterLogout = '1';
+    style.setAttribute('data-tour-after-logout', '1');
     setTimeout(function () { panel.style.opacity = '1'; }, 10);
   }
 

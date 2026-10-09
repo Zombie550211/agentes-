@@ -133,6 +133,131 @@
       g.querySelector('.tb-menu').hidden = true;
     });
   }
+  function mostrarTourActualizacion() {
+    // Cada usuario la ve una vez por actualización: cambiar VERSION_NOVEDADES al publicar otra.
+    var VERSION_NOVEDADES = '20261009';
+    try { if (localStorage.getItem('crm_novedades_vistas') === VERSION_NOVEDADES) return; } catch (_) { return; }
+    if (document.getElementById('tour-after-login')) return;
+
+    var style = document.createElement('style');
+    style.textContent = `
+      #tour-after-login {
+        position: fixed; inset: 0; z-index: 99999;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(15, 23, 42, 0.18);
+        backdrop-filter: blur(2px);
+        padding: 20px;
+      }
+      #tour-after-login .tour-panel {
+        width: min(980px, 100%);
+        background: rgba(255,255,255,.92);
+        border: 1px solid rgba(148,163,184,.25);
+        border-radius: 18px;
+        box-shadow: 0 18px 42px rgba(15,23,42,.12);
+        overflow: hidden;
+      }
+      #tour-after-login .tour-header {
+        background: linear-gradient(135deg, rgba(176,225,245,.9), rgba(221,236,249,.85));
+        border-bottom: 1px solid rgba(148,163,184,.20);
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 12px; padding: 14px 18px;
+      }
+      #tour-after-login .tour-header .title {
+        font-size: 12px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase;
+        color: #1d4e89; font-family: 'Montserrat', 'Segoe UI', sans-serif;
+      }
+      #tour-after-login .tour-header .meta {
+        font-size: 12px; font-weight: 700; letter-spacing: .10em; text-transform: uppercase;
+        color: rgba(30,41,59,.72); font-family: 'Montserrat', 'Segoe UI', sans-serif;
+      }
+      #tour-after-login .tour-grid {
+        display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+        background: rgba(255,255,255,.8);
+      }
+      #tour-after-login .tour-card {
+        min-height: 205px; padding: 18px 18px 20px; border-right: 1px solid rgba(148,163,184,.22);
+        background: rgba(255,255,255,.22);
+      }
+      #tour-after-login .tour-card:last-child { border-right: none; }
+      #tour-after-login .tour-step {
+        width: 32px; height: 32px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;
+        background: rgba(169, 214, 255, .3); color: #1c6bbd; font-size: 11px; font-weight: 800;
+        margin-bottom: 12px; font-family: 'Montserrat', 'Segoe UI', sans-serif;
+      }
+      #tour-after-login .tour-card h3 {
+        margin: 0 0 10px; font-size: 22px; line-height: 1.15; font-weight: 800; color: #1f2937;
+        font-family: 'Montserrat', 'Segoe UI', sans-serif;
+      }
+      #tour-after-login .tour-card p {
+        margin: 0; font-size: 12px; line-height: 1.6; color: rgba(30,41,59,.76);
+        font-family: 'Montserrat', 'Segoe UI', sans-serif;
+      }
+      #tour-after-login .tour-close {
+        border: none; border-radius: 999px; background: rgba(15, 23, 42, 0.06); color: #334155;
+        width: 28px; height: 28px; font-size: 18px; cursor: pointer;
+      }
+      @media (max-width: 760px) {
+        #tour-after-login .tour-grid { grid-template-columns: 1fr; }
+        #tour-after-login .tour-card { border-right: none; border-bottom: 1px solid rgba(148,163,184,.22); }
+        #tour-after-login .tour-card:last-child { border-bottom: none; }
+      }
+    `;
+    style.setAttribute('data-tour-after-login', '1');
+    document.head.appendChild(style);
+
+    var panel = document.createElement('div');
+    panel.id = 'tour-after-login';
+    panel.innerHTML = `
+      <div class="tour-panel" role="dialog" aria-modal="true" aria-label="Guía rápida de la nueva actualización">
+        <div class="tour-header">
+          <span class="title">Guía rápida</span>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="meta">Nueva actualización</span>
+            <button type="button" class="tour-close" aria-label="Cerrar guía">×</button>
+          </div>
+        </div>
+        <div class="tour-grid">
+          <article class="tour-card">
+            <div class="tour-step">01</div>
+            <h3>Qué cambia</h3>
+            <p>El menú pasa a la parte superior: ahí están todas las secciones, y a la derecha los ajustes, el chat, las notificaciones y tu usuario. La página de inicio muestra ventas, puntos y rendimiento del equipo de forma más clara.</p>
+          </article>
+          <article class="tour-card">
+            <div class="tour-step">02</div>
+            <h3>Cómo funciona</h3>
+            <p>Los indicadores están agrupados por tendencia, actividades y semáforo para decidir rápidamente qué revisar.</p>
+          </article>
+          <article class="tour-card">
+            <div class="tour-step">03</div>
+            <h3>Qué revisar</h3>
+            <p>Fíjate en los casos pendientes, el mejor rendimiento del mes y los servicios más vendidos para actuar antes.</p>
+          </article>
+        </div>
+      </div>
+    `;
+
+    function removeTour() {
+      try { localStorage.setItem('crm_novedades_vistas', VERSION_NOVEDADES); } catch (_) {}
+      var existing = document.getElementById('tour-after-login');
+      if (existing) existing.remove();
+      var styleTag = document.querySelector('style[data-tour-after-login]');
+      if (styleTag) styleTag.remove();
+    }
+
+    panel.addEventListener('click', function (event) {
+      if (event.target === panel) removeTour();
+    });
+    panel.querySelector('.tour-close').addEventListener('click', removeTour);
+    document.body.appendChild(panel);
+
+    window.addEventListener('keydown', function onKey(e) {
+      if (e.key === 'Escape') {
+        removeTour();
+        window.removeEventListener('keydown', onKey);
+      }
+    }, { once: true });
+  }
+
   function iniciar(cont) {
     var sesion = window.__sesion || fetch('/api/auth/verify-server', { credentials: 'include' })
       .then(function (r) { return r.ok ? r.json() : {}; }).catch(function () { return {}; });
@@ -140,6 +265,7 @@
     Promise.resolve(sesion).then(function (s) {
       render(cont, s && s.user);
       cargarAvisos(cont);
+      mostrarTourActualizacion();
     });
 
     cont.addEventListener('click', function (e) {
