@@ -5,7 +5,7 @@
  * como una barra entre 8 a. m. y 9 p. m., con la hora de comida rayada. Arriba, cuántos
  * agentes hay en turno a cada hora (en naranja las horas con menos de MIN_TURNO).
  * Clic en la fila → turnos habituales (8–5, 10–7, 1–9, 9–6 y sus shortday de 4 h),
- * Libre, Vacaciones, Incapacidad u otro horario. «Aplicar a Lun–Sáb» copia el turno a la semana.
+ * Libre, Vacaciones, Incapacidad, No se presentó u otro horario. «Aplicar a Lun–Sáb» copia el turno a la semana.
  *
  * Supervisor / admin editan (el supervisor no toca días pasados); el agente solo ve
  * el suyo. Lo guardado se envía solo al Sistema de Cuadratura cada 15 min, o al
@@ -27,6 +27,7 @@
   var MAX_HORAS_SEMANA = 44;
   var VACACIONES = 'Vacaciones'; // se guardan como día libre con esta nota
   var INCAPACIDAD = 'Incapacidad';
+  var NO_PRESENTO = 'No se presentó';
 
   // Turnos habituales. sd = su versión shortday (4 h, sin comida).
   var TURNOS = [
@@ -91,7 +92,10 @@
   function esAusencia(t, nombre) { return !!(t && t.rest_day && (t.notes || '').trim().toLowerCase() === nombre.toLowerCase()); }
   function esVacaciones(t) { return esAusencia(t, VACACIONES); }
   function esIncapacidad(t) { return esAusencia(t, INCAPACIDAD); }
-  function esLibreConNota(t) { return esVacaciones(t) || esIncapacidad(t); }
+  function esNoPresento(t) { return esAusencia(t, NO_PRESENTO); }
+  function esLibreConNota(t) { return esVacaciones(t) || esIncapacidad(t) || esNoPresento(t); }
+  // Clase de color de la fila para las ausencias (amarillo, verde, rojo suaves).
+  function claseAusencia(t) { return esVacaciones(t) ? ' vac' : esIncapacidad(t) ? ' inc' : esNoPresento(t) ? ' nop' : ''; }
   function turnoDe(t) {        // → { turno, corto(bool) } o null si es un horario propio
     if (!t || t.rest_day || !t.start) return null;
     for (var i = 0; i < TURNOS.length; i++) {
@@ -112,6 +116,7 @@
     if (!t) return 'Sin horario';
     if (esVacaciones(t)) return VACACIONES;
     if (esIncapacidad(t)) return INCAPACIDAD;
+    if (esNoPresento(t)) return NO_PRESENTO;
     if (t.rest_day) return 'Libre';
     var m = turnoDe(t);
     if (m) return m.sd ? m.turno.sdCorto : m.turno.corto;
@@ -121,6 +126,7 @@
     if (!t) return '';
     if (esVacaciones(t)) return 'var(--hr-vac)';
     if (esIncapacidad(t)) return 'var(--hr-inc)';
+    if (esNoPresento(t)) return 'var(--hr-nop)';
     if (t.rest_day) return 'var(--hr-libre)';
     var m = turnoDe(t);
     return m ? m.turno.color : 'var(--hr-x)';
@@ -163,6 +169,7 @@
       var q = '/api/horarios/semana?inicio=' + encodeURIComponent(state.inicio || '') +
         '&equipo=' + encodeURIComponent(state.equipo);
       state.data = await api('GET', q);
+      document.documentElement.classList.toggle('hr-admin', !!state.data.es_administrador);
     } catch (e) {
       $('hr-board').innerHTML = '<div class="hr-empty">No se pudieron cargar los horarios: ' + esc(e.message) + '</div>';
       return false;
@@ -420,7 +427,7 @@
           (t.notes ? ' title="' + esc(t.notes) + '"' : '') + '><b>' + esc(largo) + (t.notes ? ' · 📝' : '') + '</b>' + comida + '</span>'
         : '<span class="hr-line-empty">' + esc(largo) + ' (fuera de 8a–9p)</span>';
     } else {
-      barra = '<span class="hr-line-empty' + (t ? '' : ' todo') + '">' +
+      barra = '<span class="hr-line-empty' + (t ? claseAusencia(t) : ' todo') + '">' +
         (t ? etiquetaCorta(t) : (ed && d.puede_editar ? 'Sin horario — clic para asignar' : 'Sin horario')) + '</span>';
     }
 
@@ -441,7 +448,11 @@
       '<button type="button" class="hr-line' + (a._dirtyDays && a._dirtyDays[f] ? ' dirty' : '') + '" data-u="' + a.id + '"' +
       (ed && d.puede_editar ? '' : ' disabled') + ' title="' + (d.puede_editar && !ed ? 'Día pasado: lo corrige RRHH en Cuadratura' : '') +
       '" aria-label="Turno de ' + esc(nombre) + ' el ' + DIAS_LARGOS[state.dia] + ': ' + esc(etiquetaCorta(t)) + '">' + barra + '</button>' +
-      '<div class="hr-wk"><div class="hr-sq">' + cuadros + '</div><span class="hr-tot' + (!tot ? ' zero' : tot > MAX_HORAS_SEMANA ? ' over' : '') + '">' + fmtHoras(tot) + '</span></div>' +
+      '<div class="hr-wk"><div class="hr-sq">' + cuadros + '</div><span class="hr-tot' + (!tot ? ' zero' : tot > MAX_HORAS_SEMANA ? ' over' : '') + '">' + fmtHoras(tot) + '</span>' +
+      (d.es_administrador && String(a.id) !== String(d.yo)
+        ? '<button type="button" class="hr-del" data-del="' + a.id + '" title="Eliminar empleado" aria-label="Eliminar a ' + esc(nombre) + '">' +
+          '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4h6v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
+        : '') + '</div>' +
       '</div>';
   }
 
@@ -501,6 +512,7 @@
       opcion('libre', 'Libre', '', 'var(--hr-libre)', libre) +
       opcion('vac', VACACIONES, '', 'var(--hr-vac)', esVacaciones(t)) +
       opcion('inc', INCAPACIDAD, '', 'var(--hr-inc)', esIncapacidad(t)) +
+      opcion('nop', NO_PRESENTO, '', 'var(--hr-nop)', esNoPresento(t)) +
       opcion('otro', 'Otro horario…', propio ? h12(t.start) + '–' + h12(t.end) : '', 'var(--hr-x)', propio) +
       '<div class="hr-custom" id="hp-custom" hidden>' +
       '<div class="row"><label>Entrada<input class="hr-input" type="time" id="hp-start" value="' + esc(trabaja(t) ? t.start : '09:00') + '"></label>' +
@@ -546,6 +558,8 @@
         asignar(a, [f], { rest_day: true, break_minutes: 0, notes: VACACIONES });
       } else if (op === 'inc') {
         asignar(a, [f], { rest_day: true, break_minutes: 0, notes: INCAPACIDAD });
+      } else if (op === 'nop') {
+        asignar(a, [f], { rest_day: true, break_minutes: 0, notes: NO_PRESENTO });
       } else if (op === 'otro') {
         $('hp-custom').hidden = false;
         // Al crecer puede salirse por abajo: se sube lo necesario.
@@ -737,6 +751,25 @@
     cargar().then(function (ok) { if (!ok) state.inicio = prev; });
   }
 
+  // Eliminar empleado (sólo administración): el mismo borrado que en Permisos.
+  async function eliminarEmpleado(id) {
+    var a = (state.data.agentes || []).find(function (x) { return String(x.id) === String(id); });
+    if (!a) return;
+    var nombre = nombreDe(a);
+    if (!confirm('¿Eliminar a ' + nombre + '?\n\nSe borra su usuario del CRM' + (a.sin_usuario ? '' : ' (pierde el acceso)') +
+      ' y deja de aparecer en Horarios. No se puede deshacer.')) return;
+    try {
+      await api('DELETE', '/api/users/' + encodeURIComponent(id));
+    } catch (err) {
+      toast('No se pudo eliminar: ' + err.message, true);
+      return;
+    }
+    // Sus cambios sin guardar ya no tienen a quién aplicarse.
+    delete state.dirty[id];
+    toast(nombre + ' eliminado.');
+    cargar();
+  }
+
   // ── Eventos ──
   function bind() {
     $('hr-prev').onclick = function () { irSemana(-7); };
@@ -782,6 +815,8 @@
       if (ed) { editarNombre(ed.dataset.nombre); return; }
       var ing = e.target.closest('[data-ingreso]');
       if (ing) { editarIngreso(ing.dataset.ingreso); return; }
+      var del = e.target.closest('[data-del]');
+      if (del) { eliminarEmpleado(del.dataset.del); return; }
       var linea = e.target.closest('.hr-line');
       if (linea && !linea.disabled && state.data.puede_editar) {
         window.__hrClickX = e.clientX || null;

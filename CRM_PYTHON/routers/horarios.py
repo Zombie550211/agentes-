@@ -50,7 +50,7 @@ from sqlalchemy.exc import IntegrityError
 import audit
 import cuadratura_sync as cs
 from database_mysql import AsyncSessionLocal
-from deps import current_user, team_seccion
+from deps import ADMIN_ROLES, current_user, team_seccion
 
 router = APIRouter(prefix="/api/horarios", tags=["Horarios"])
 
@@ -415,6 +415,9 @@ async def ver_semana(inicio: Optional[str] = Query(None), equipo: str = Query(""
         "puede_editar": puede_editar,
         "editable_desde": None if _es_admin_bo(user) else cs.hoy_sv().isoformat(),
         "es_admin": _es_admin_bo(user),
+        # Sólo administración (no backoffice): puede eliminar empleados, como en Permisos
+        # (DELETE /api/users/{id} exige ADMIN_ROLES).
+        "es_administrador": _rol(user).strip() in {r.lower() for r in ADMIN_ROLES},
         "yo": user.get("id"),
         "cuadratura_configurada": cs.configurado(),
         "equipos": equipos,
