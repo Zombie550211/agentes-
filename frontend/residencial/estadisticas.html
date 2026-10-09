@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
   <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
   <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
-  <link rel="stylesheet" href="/css/residencial/estadisticas.css?v=20261009b">
+  <link rel="stylesheet" href="/css/residencial/estadisticas.css?v=20261009c">
   <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
   <script src="/js/layout/transicion.js?v=20261008b"></script>
   <script src="/vendor/chartjs/chart.umd.min.js"></script>
@@ -96,11 +96,12 @@
         <table class="es-tbl">
           <thead><tr>
             <th scope="col" class="es-izq">Equipo</th>
-            <th scope="col">Ventas hoy</th>
-            <th scope="col">Puntos hoy</th>
+            <th scope="col">BAMO hoy</th>
             <th scope="col">ICON hoy</th>
+            <th scope="col" title="Total de puntos de ambos mercados">Puntos hoy</th>
+            <th scope="col" title="Total de ventas de ambos mercados">Ventas hoy</th>
           </tr></thead>
-          <tbody id="teams-daily-tbody"><tr><td colspan="4" class="es-vacio">Cargando…</td></tr></tbody>
+          <tbody id="teams-daily-tbody"><tr><td colspan="5" class="es-vacio">Cargando…</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -122,18 +123,6 @@
       </div>
     </section>
 
-    <!-- ══ Tendencia ══ -->
-    <section class="es-card es-tendencia in-glass" aria-labelledby="es-tr-t">
-      <div class="es-card-head">
-        <div>
-          <h2 id="es-tr-t">Tendencia de ventas</h2>
-          <p>Ventas registradas en los últimos 7 días</p>
-        </div>
-        <span class="es-chip" id="es-trend-total">0 ventas</span>
-      </div>
-      <div class="es-linea"><canvas id="line-chart" aria-label="Ventas de los últimos 7 días"></canvas></div>
-    </section>
-
     <!-- ══ Team Líneas ══ -->
     <section class="es-card es-lineas in-glass" aria-labelledby="es-ln-t">
       <div class="es-card-head">
@@ -151,6 +140,18 @@
           <tbody id="lineas-body"><tr><td colspan="5" class="es-vacio">Cargando…</td></tr></tbody>
         </table>
       </div>
+    </section>
+
+    <!-- ══ Tendencia ══ -->
+    <section class="es-card es-tendencia in-glass" aria-labelledby="es-tr-t">
+      <div class="es-card-head">
+        <div>
+          <h2 id="es-tr-t">Tendencia de ventas</h2>
+          <p>Ventas registradas en los últimos 7 días</p>
+        </div>
+        <span class="es-chip" id="es-trend-total">0 ventas</span>
+      </div>
+      <div class="es-linea"><canvas id="line-chart" aria-label="Ventas de los últimos 7 días"></canvas></div>
     </section>
 
   </div>
@@ -370,7 +371,7 @@
       var matched=resolveTeam(teamRaw,dv)||resolveTeam(l.supervisor,dv)||(teamRaw||null);
       if(!matched)return;
       var k=matched.toUpperCase();
-      if(!teams[k])teams[k]={v:0,pts:0,hoy:0,ptsH:0,icon:0,bamo:0,iconH:0,label:matched};
+      if(!teams[k])teams[k]={v:0,pts:0,hoy:0,ptsH:0,icon:0,bamo:0,iconH:0,bamoH:0,label:matched};
       teams[k].v++;
       teams[k].pts+=(parseFloat(l.puntaje||0)||0);
       var mkt=String(l.mercado||'').toUpperCase();
@@ -380,6 +381,7 @@
         teams[k].hoy++;
         teams[k].ptsH+=(parseFloat(l.puntaje||0)||0);
         if(mkt.includes('ICON'))teams[k].iconH++;
+        if(mkt.includes('BAMO'))teams[k].bamoH++;
       }
     });
     var tNames=Object.keys(teams).sort(function(a,b){
@@ -423,16 +425,18 @@
     var tH=dayTNames.reduce(function(a,s){return a+teams[s].hoy;},0);
     var tPH=dayTNames.reduce(function(a,s){return a+teams[s].ptsH;},0);
     var tIH=dayTNames.reduce(function(a,s){return a+teams[s].iconH;},0);
+    var tBH=dayTNames.reduce(function(a,s){return a+teams[s].bamoH;},0);
     var rowsDay=dayTNames.length ? dayTNames.map(function(s){
       var t=teams[s];
       return '<tr>'+celdaEquipo(t.label||s)+
-        '<td class="es-n"><span class="es-num'+(t.hoy?' es-num-on':'')+'">'+t.hoy+'</span></td>'+
-        '<td class="es-n">'+t.ptsH.toFixed(2)+'</td>'+
+        '<td class="es-n">'+t.bamoH+'</td>'+
         '<td class="es-n">'+t.iconH+'</td>'+
+        '<td class="es-n">'+t.ptsH.toFixed(2)+'</td>'+
+        '<td class="es-n"><span class="es-num'+(t.hoy?' es-num-on':'')+'">'+t.hoy+'</span></td>'+
       '</tr>';
-    }) : ['<tr><td colspan="4" class="es-vacio">'+(tNames.length?'Ningún equipo trabaja hoy':'Sin ventas hoy')+'</td></tr>'];
+    }) : ['<tr><td colspan="5" class="es-vacio">'+(tNames.length?'Ningún equipo trabaja hoy':'Sin ventas hoy')+'</td></tr>'];
     rowsDay.push('<tr class="es-total"><th scope="row" class="es-izq">Total hoy</th>'+
-      '<td class="es-n">'+tH+'</td><td class="es-n">'+tPH.toFixed(2)+'</td><td class="es-n">'+tIH+'</td></tr>');
+      '<td class="es-n">'+tBH+'</td><td class="es-n">'+tIH+'</td><td class="es-n">'+tPH.toFixed(2)+'</td><td class="es-n">'+tH+'</td></tr>');
     $('teams-daily-tbody').innerHTML=rowsDay.join('');
     setT('s-hoy',tH);   // coherente con la tabla del día
 
