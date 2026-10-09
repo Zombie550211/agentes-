@@ -10,13 +10,9 @@ Quién ve qué:
   ni la fecha de ingreso (solo los suyos).
 El team se lee de la BD en cada petición (el de la sesión puede estar desactualizado).
 
-Empleados sin usuario (POST /empleados): cualquier rol que no sea agente puede dar de alta
-a un empleado nuevo con su nombre y su equipo (el supervisor, solo en el suyo) para cargarle
-turnos antes de que tenga usuario del CRM (los agentes nuevos no entran al CRM hasta sus
-primeras ventas). Es un registro de users con acceso_crm = 0: no puede iniciar sesión, sale
-en su equipo con la etiqueta "Sin usuario" y viaja a Cuadratura como los demás. Cuando le
-toca entrar, administración le da acceso desde Permisos (mismo registro: conserva horarios
-y su enlace con Cuadratura).
+Solo salen usuarios del CRM (los de Permisos): los registros con acceso_crm = 0 (empleados
+dados de alta sin usuario) no aparecen ni viajan a Cuadratura. Los empleados nuevos se
+crean en Permisos.
 
 Reglas de edición:
 - El supervisor no puede modificar días pasados (lo ya trabajado lo corrige RRHH en
@@ -37,7 +33,6 @@ El envío a Cuadratura está en cuadratura_sync.py.
 """
 import hashlib
 import re
-import secrets
 import unicodedata
 from datetime import date, time, timedelta
 from typing import List, Optional
@@ -77,11 +72,6 @@ def _es_admin_bo(user: dict) -> bool:
 def _es_supervisor(user: dict) -> bool:
     return "supervisor" in _rol(user) and not _es_admin_bo(user)
 
-def _puede_alta(user: dict) -> bool:
-    """Dar de alta empleados sin usuario: cualquier rol que no sea de agente."""
-    return not cs.es_agente(user.get("role"))
-
-
 
 # Orden de las secciones en la tabla.
 _ORDEN_SECCION = {"residencial": 0, "lineas": 1, "apoyo": 2}
@@ -111,10 +101,10 @@ def _teams_venta(usuarios) -> set[str]:
 
 async def _agentes_visibles(s, user: dict, equipo: str = "") -> list[dict]:
     r = await s.execute(text("""
-        SELECT id, username, name, nombre_completo, fecha_ingreso, role, team, supervisor, reloj_id,
-               COALESCE(acceso_crm, 1) AS acceso_crm
-        FROM users WHERE COALESCE(active, 1) = 1 ORDER BY name
+        SELECT id, username, name, nombre_completo, fecha_ingreso, role, team, supervisor, reloj_id
+        FROM users WHERE COALESCE(active, 1) = 1 AND COALESCE(acceso_crm, 1) = 1 ORDER BY name
     """))
+    # Solo usuarios del CRM (acceso_crm = 0 = empleado sin usuario: no sale).
     # Horarios refleja los equipos de Permisos: entra todo el personal activo que tenga
     # equipo, sea cual sea su rol; quien no tiene equipo no aparece en ningún caso. Los
     # equipos sin supervisor solo los ve (y edita) administración / back office. A
@@ -293,68 +283,6 @@ class EnviarIn(BaseModel):
 
 
 # ── Endpoints ───────────────────────────────────────────────────
-class EmpleadoIn(BaseModel):
-    nombre: str = Field(..., max_length=160)
-    team: str = Field(..., max_length=100)
-
-    @field_validator("nombre")
-    @classmethod
-    def _v(cls, v):
-        v = " ".join(str(v or "").split())
-        if len(v) < 5 or " " not in v:
-            raise ValueError("Escribe nombre y apellido")
-        if not re.fullmatch(r"[^\W\d_]+(?:[ '.-][^\W\d_]+)*", v):
-            raise ValueError("El nombre solo admite letras, espacios, guion y apóstrofo")
-        return v
-
-
-@router.post("/empleados")
-async def alta_empleado(body: EmpleadoIn, request: Request, user: dict = Depends(current_user)):
-    """Empleado nuevo SIN usuario del CRM, para cargarle el horario (ver docstring del módulo)."""
-    if not _puede_alta(user):
-        raise HTTPException(403, "Los agentes no pueden dar de alta empleados")
-    async with AsyncSessionLocal() as s:
-        r = await s.execute(text("""
-            SELECT id, role, TRIM(team) AS team, supervisor FROM users
-            WHERE COALESCE(active, 1) = 1 AND TRIM(COALESCE(team, '')) <> ''
-        """))
-        usuarios = [dict(u) for u in r.mappings().all() if cs.tiene_equipo(u["team"])]
-        # El equipo tiene que existir (lo crea Permisos, no esta pantalla).
-        miembros = [u for u in usuarios if _norm(u["team"]) == _norm(body.team)]
-        if not miembros:
-            raise HTTPException(400, "Ese equipo no existe")
-        team = miembros[0]["team"]
-        if not _es_admin_bo(user):
-            yo = next((u for u in usuarios if str(u["id"]) == str(user.get("id"))), None)
-            if _norm((yo or {}).get("team") or user.get("team")) != _norm(team):
-                raise HTTPException(403, "Solo puede agregar empleados a su propio equipo")
-        r = await s.execute(text("""
-            SELECT id FROM users WHERE COALESCE(active, 1) = 1
-              AND (LOWER(TRIM(name)) = LOWER(:n) OR LOWER(TRIM(nombre_completo)) = LOWER(:n)) LIMIT 1
-        """), {"n": body.nombre})
-        if r.first():
-            raise HTTPException(409, f"Ya existe un usuario activo llamado {body.nombre}")
-        # Supervisor: el que más se repite entre los agentes del equipo (como en Permisos).
-        claves = [str(u["supervisor"] or "").strip() for u in miembros if str(u["supervisor"] or "").strip()]
-        supervisor = max(set(claves), key=claves.count) if claves else ""
-        rol = "Lineas-Agentes" if team_seccion(team) == "lineas" else "Agente"
-        # Usuario y contraseña de relleno: nadie los conoce y el login ignora acceso_crm = 0.
-        # Permisos los sustituye al darle acceso.
-        username = "sin-usuario-" + secrets.token_hex(5)
-        import bcrypt as _bcrypt
-        relleno = _bcrypt.hashpw(secrets.token_bytes(32), _bcrypt.gensalt(rounds=10)).decode()
-        res = await s.execute(text("""
-            INSERT INTO users (username, password_hash, name, nombre_completo, role, team, supervisor,
-                               active, acceso_crm)
-            VALUES (:u, :p, :n, :n, :r, :t, :sup, 1, 0)
-        """), {"u": username, "p": relleno, "n": body.nombre, "r": rol, "t": team, "sup": supervisor})
-        nuevo_id = res.lastrowid
-        await s.commit()
-    audit._log("horarios_alta_empleado", user.get("username", ""), _ip(request),
-               {"empleado": nuevo_id, "nombre": body.nombre, "team": team})
-    return {"success": True, "id": nuevo_id, "nombre": body.nombre, "team": team}
-
-
 @router.get("/semana")
 async def ver_semana(inicio: Optional[str] = Query(None), equipo: str = Query(""),
                      user: dict = Depends(current_user)):
@@ -386,8 +314,7 @@ async def ver_semana(inicio: Optional[str] = Query(None), equipo: str = Query(""
     for a in agentes:
         clave = _grupo(a)
         grupos.setdefault(clave, {"clave": clave, "team": _grupo_label(a),
-                                  "seccion": _seccion(a, teams_venta), "supervisor": sups.get(clave),
-                                  "puede_alta": _puede_alta(user) and (_es_admin_bo(user) or clave == mi_clave)})
+                                  "seccion": _seccion(a, teams_venta), "supervisor": sups.get(clave)})
     # Residencial, Líneas y Administración y apoyo; dentro, por nombre de equipo.
     grupos_ordenados = sorted(grupos.values(),
                               key=lambda g: (_ORDEN_SECCION.get(g["seccion"], 9), g["team"].lower()))
@@ -431,7 +358,6 @@ async def ver_semana(inicio: Optional[str] = Query(None), equipo: str = Query(""
             "username": a["username"],
             "team": a["team"],
             "grupo": _grupo(a),
-            "sin_usuario": not int(a.get("acceso_crm", 1)),
             "es_supervisor": cs._es_supervisor_rol(a["role"]),
             "supervisor": a["supervisor"],
             "reloj_id": _privado(a, a["reloj_id"]),

@@ -169,9 +169,9 @@ async def armar_paquete(inicio: date) -> dict:
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
             SELECT id, username, name, nombre_completo, fecha_ingreso, role, team, supervisor, reloj_id
-            FROM users WHERE COALESCE(active, 1) = 1
+            FROM users WHERE COALESCE(active, 1) = 1 AND COALESCE(acceso_crm, 1) = 1
         """))
-        # Todo el personal activo CON equipo, igual que /horarios.html (los equipos de
+        # Todo el personal activo CON equipo y usuario del CRM, igual que /horarios.html (los equipos de
         # Permisos): Horarios del CRM y de Cuadratura muestran a las mismas personas. Quien
         # no tiene equipo no viaja.
         usuarios = [dict(u) for u in r.mappings().all() if tiene_equipo(u["team"])]
