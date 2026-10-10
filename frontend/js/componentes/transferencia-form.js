@@ -292,7 +292,8 @@
           '<td><span class="trf-chip ' + (env ? 'env' : 'rec') + '">' + (env ? 'Enviada' : 'Recibida') + '</span></td>' +
           '<td>' + esc(f.nombre_cliente) + '<small>' + esc(f.direccion) + '</small></td>' +
           '<td class="trf-nw">' + esc(fmtTel(f.telefono)) + '</td>' +
-          '<td class="trf-motivo">' + esc(f.motivo) + '</td>' +
+          // Motivo largo: caja de alto fijo con scroll propio, para que la fila no crezca.
+          '<td class="trf-motivo"><div class="trf-motivo-txt" tabindex="0" aria-label="Motivo de la llamada">' + esc(f.motivo) + '</div></td>' +
           '<td>' + esc(f.created_by_nombre || f.created_by) + '<small>' + esc(f.created_by_team || '') + '</small></td>' +
           '<td>' + esc(f.agente_destino_nombre) + '<small>' + esc(f.team_destino) + '</small></td>' +
           '<td class="trf-res-cel">' + celdaResultado(f) + '</td>' +
