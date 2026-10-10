@@ -24,6 +24,7 @@
     { label: 'Clientes y ventas', items: [
       { label: 'Inicio', href: '/residencial/inicio.html', seccion: 'res' },
       { label: 'Formulario', href: '/residencial/formulario-registro.html', seccion: 'res' },
+      { label: 'Transferir llamada', href: '/residencial/transferencia.html', seccion: 'res' },
       { label: 'Lista de Clientes', href: '/residencial/costumer.html', seccion: 'res' },
       { label: 'Tipificación', href: '/residencial/normativas-tipificacion.html', seccion: 'res' },
       { label: 'Promociones activas', href: '/residencial/promociones-validas.html', seccion: 'res' },
@@ -55,6 +56,7 @@
     { label: 'Servicios móviles', items: [
       { label: 'Inicio de móviles', href: '/lineas/inicio.html', seccion: 'lin' },
       { label: 'Nuevo Lead', href: '/lineas/lead.html', seccion: 'lin' },
+      { label: 'Transferir llamada', href: '/lineas/transferencia.html', seccion: 'lin' },
       { label: 'Customer Líneas', href: '/lineas/costumer.html', seccion: 'lin' },
       { label: 'Estadísticas Líneas', href: '/lineas/estadisticas.html', seccion: 'lin' },
       { label: 'Ranking Líneas', href: '/lineas/ranking.html', seccion: 'lin' },

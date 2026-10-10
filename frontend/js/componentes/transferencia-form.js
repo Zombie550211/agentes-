@@ -1,11 +1,10 @@
 /**
- * Transferencia de llamada — formulario acoplado a las páginas de registro
- * (residencial/formulario-registro.html y lineas/lead.html) mediante pestañas.
+ * Transferencia de llamada — página propia (residencial/transferencia.html y
+ * lineas/transferencia.html, en el menú «Clientes y ventas» / «Servicios móviles»).
  *
- * La página aporta:
- *   - botones  [data-trf-tab="lead"]  y  [data-trf-tab="transferencia"]
- *   - lo que se ve en la pestaña de lead:  [data-trf-panel="lead"]  (uno o varios)
- *   - el hueco del formulario:             <div id="trf-panel" data-trf-panel="transferencia">
+ * La página aporta el hueco del formulario:  <main id="trf-panel">
+ * (Sigue admitiendo el modo antiguo con pestañas: botones [data-trf-tab="lead"|"transferencia"]
+ *  y paneles [data-trf-panel]; sin botones de pestaña, el formulario se muestra directamente.)
  *
  * La sección de origen sale de la ruta (/lineas/… o /residencial/…) y el backend
  * devuelve los teams y agentes de la sección CONTRARIA. Con #transferencia en la
@@ -34,6 +33,8 @@
   let panel = null;
   let historial = [];    // última carga de "Mis transferencias"
   let filtroTipo = '';   // '' | 'enviada' | 'recibida'
+  let periodo = 0;       // días hacia atrás: 0 = hoy, 7, 30
+  const PAGO_POR_VENTA = 1;   // US$ por cada transferencia enviada que termina en venta completada
 
   const RESULTADOS = {
     completada:   { label: 'Venta completada',       ic: 'fa-circle-check',   cls: 'ok' },
@@ -51,6 +52,40 @@
 
   function render() {
     panel.innerHTML =
+      // Resumen arriba del todo: KPIs con los filtros de periodo (Hoy por defecto) y tipo.
+      '<section class="trf-card trf-resumen" aria-labelledby="trf-res-title">' +
+        '<div class="trf-head">' +
+          '<div class="trf-ic"><i class="ph ph-chart-bar"></i></div>' +
+          '<div class="trf-head-txt">' +
+            '<h2 class="trf-title" id="trf-res-title">Resumen de transferencias</h2>' +
+            '<p class="trf-sub" id="trf-res-sub">Las que enviaste y las que te transfirieron hoy.</p>' +
+          '</div>' +
+          '<div class="trf-hist-filtros">' +
+            '<div class="trf-seg" role="group" aria-label="Periodo">' +
+              '<button type="button" data-dias="0" class="trf-seg-on" aria-pressed="true">Hoy</button>' +
+              '<button type="button" data-dias="7" aria-pressed="false">7 días</button>' +
+              '<button type="button" data-dias="30" aria-pressed="false">30 días</button>' +
+            '</div>' +
+            '<div class="trf-seg" role="group" aria-label="Tipo">' +
+              '<button type="button" data-tipo="" class="trf-seg-on" aria-pressed="true">Todas</button>' +
+              '<button type="button" data-tipo="enviada" aria-pressed="false">Enviadas</button>' +
+              '<button type="button" data-tipo="recibida" aria-pressed="false">Recibidas</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="trf-kpis" id="trf-kpis" aria-live="polite"></div>' +
+      '</section>' +
+      // Ranking: transferencias hechas por cada agente de la sección en el periodo.
+      '<section class="trf-card trf-rank" aria-labelledby="trf-rank-title">' +
+        '<div class="trf-head">' +
+          '<div class="trf-ic"><i class="ph ph-trophy"></i></div>' +
+          '<div class="trf-head-txt">' +
+            '<h2 class="trf-title" id="trf-rank-title">Transferencias por agente</h2>' +
+            '<p class="trf-sub" id="trf-rank-sub">Quién lleva más y quién lleva menos hoy.</p>' +
+          '</div>' +
+        '</div>' +
+        '<div class="trf-rank-body" id="trf-rank-body" aria-live="polite"></div>' +
+      '</section>' +
       '<section class="trf-card" aria-labelledby="trf-title">' +
         '<div class="trf-head">' +
           '<div class="trf-ic"><i class="fas fa-phone-volume"></i></div>' +
@@ -95,37 +130,35 @@
           '<div class="trf-ic"><i class="fas fa-clock-rotate-left"></i></div>' +
           '<div class="trf-head-txt">' +
             '<h2 class="trf-title" id="trf-hist-title">Mis transferencias</h2>' +
-            '<p class="trf-sub">Las que enviaste y las que te transfirieron.</p>' +
-          '</div>' +
-          '<div class="trf-hist-filtros">' +
-            '<div class="trf-seg" role="group" aria-label="Tipo">' +
-              '<button type="button" data-tipo="" class="trf-seg-on" aria-pressed="true">Todas</button>' +
-              '<button type="button" data-tipo="enviada" aria-pressed="false">Enviadas</button>' +
-              '<button type="button" data-tipo="recibida" aria-pressed="false">Recibidas</button>' +
-            '</div>' +
-            '<select id="trf-periodo" aria-label="Periodo">' +
-              '<option value="0">Hoy</option>' +
-              '<option value="7" selected>Últimos 7 días</option>' +
-              '<option value="30">Últimos 30 días</option>' +
-            '</select>' +
+            '<p class="trf-sub" id="trf-hist-sub">Las de hoy, según los filtros del resumen.</p>' +
           '</div>' +
         '</div>' +
-        '<div class="trf-kpis" id="trf-kpis" aria-live="polite"></div>' +
         '<div class="trf-hist-body" id="trf-hist-body"></div>' +
       '</section>';
 
     q('#trf-team').addEventListener('change', onTeamChange);
     q('form').addEventListener('submit', onSubmit);
-    q('#trf-periodo').addEventListener('change', cargarHistorial);
-    panel.querySelectorAll('.trf-seg button').forEach(function (b) {
-      b.addEventListener('click', function () {
-        filtroTipo = b.getAttribute('data-tipo');
-        panel.querySelectorAll('.trf-seg button').forEach(function (x) {
-          const on = x === b;
-          x.classList.toggle('trf-seg-on', on);
-          x.setAttribute('aria-pressed', on ? 'true' : 'false');
+    // Dos grupos de botones: periodo (recarga del servidor) y tipo (filtra lo cargado).
+    panel.querySelectorAll('.trf-seg').forEach(function (grupo) {
+      grupo.querySelectorAll('button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          grupo.querySelectorAll('button').forEach(function (x) {
+            const on = x === b;
+            x.classList.toggle('trf-seg-on', on);
+            x.setAttribute('aria-pressed', on ? 'true' : 'false');
+          });
+          if (b.hasAttribute('data-dias')) {
+            periodo = parseInt(b.getAttribute('data-dias'), 10) || 0;
+            const txt = periodo ? 'de los últimos ' + periodo + ' días' : 'de hoy';
+            q('#trf-res-sub').textContent = 'Las que enviaste y las que te transfirieron ' + (periodo ? 'en los últimos ' + periodo + ' días' : 'hoy') + '.';
+            q('#trf-hist-sub').textContent = 'Las ' + txt + ', según los filtros del resumen.';
+            q('#trf-rank-sub').textContent = 'Quién lleva más y quién lleva menos ' + (periodo ? 'en los últimos ' + periodo + ' días' : 'hoy') + '.';
+            cargarHistorial();
+          } else {
+            filtroTipo = b.getAttribute('data-tipo');
+            pintarHistorial();
+          }
         });
-        pintarHistorial();
       });
     });
   }
@@ -149,10 +182,53 @@
     return s.length === 10 ? '(' + s.slice(0, 3) + ') ' + s.slice(3, 6) + '-' + s.slice(6) : s;
   }
 
+  // ── Transferencias por agente (barras ordenadas de más a menos) ──
+  let rankPedido = 0;
+  async function cargarRanking() {
+    const box = q('#trf-rank-body');
+    if (!box) return;
+    const pedido = ++rankPedido;
+    const qs = new URLSearchParams({ seccion: ORIGEN, desde: fechaISO(periodo), hasta: fechaISO(0) });
+    try {
+      const r = await fetch('/api/transferencias/ranking?' + qs);
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.detail || 'Error');
+      if (pedido === rankPedido) pintarRanking(j.agentes || []);
+    } catch (e) {
+      if (pedido === rankPedido) box.innerHTML = '<div class="trf-vacio">No se pudo cargar el ranking</div>';
+    }
+  }
+  function pintarRanking(filas) {
+    const box = q('#trf-rank-body');
+    if (!filas.length) { box.innerHTML = '<div class="trf-vacio">Sin agentes en esta sección</div>'; return; }
+    const max = filas.reduce((m, f) => Math.max(m, f.total), 0);
+    const min = filas.reduce((m, f) => Math.min(m, f.total), Infinity);
+    // Si el mínimo lo comparten muchos, se resume en una nota en vez de etiquetar cada fila.
+    const enMin = filas.filter((f) => f.total === min).length;
+    const marcarMin = max > min && enMin <= 3;
+    const nota = !max ? '<div class="trf-rank-nota">Nadie ha transferido llamadas en este periodo.</div>'
+      : (max > min && !marcarMin ? '<div class="trf-rank-nota">' + enMin + ' agentes empatan con lo mínimo: ' + min + '.</div>' : '');
+    box.innerHTML = nota + '<ol class="trf-rank-lista">' + filas.map(function (f, i) {
+      const tags = [];
+      if (max && f.total === max) tags.push('<span class="trf-rank-tag mas"><i class="ph ph-caret-up"></i> Más</span>');
+      if (marcarMin && f.total === min) tags.push('<span class="trf-rank-tag menos"><i class="ph ph-caret-down"></i> Menos</span>');
+      const ancho = max ? Math.round(f.total * 100 / max) : 0;
+      const tip = f.nombre + ' · ' + f.team + ': ' + f.total + (f.total === 1 ? ' transferencia' : ' transferencias') +
+        ', ' + f.cerradas + (f.cerradas === 1 ? ' cerrada' : ' cerradas');
+      return '<li class="trf-rank-fila" title="' + esc(tip) + '">' +
+        '<span class="trf-rank-pos">' + (i + 1) + '</span>' +
+        '<span class="trf-rank-nom"><b>' + esc(f.nombre) + '</b>' + tags.join('') +
+          '<small>' + esc(String(f.team).replace(/^TEAM\s+/i, '')) + '</small></span>' +
+        '<span class="trf-rank-barra" aria-hidden="true"><i style="width:' + ancho + '%"></i></span>' +
+        '<span class="trf-rank-num">' + f.total + '</span>' +
+      '</li>';
+    }).join('') + '</ol>';
+  }
+
   async function cargarHistorial() {
+    cargarRanking();
     const box = q('#trf-hist-body');
-    const dias = parseInt(q('#trf-periodo').value, 10) || 0;
-    const qs = new URLSearchParams({ seccion: ORIGEN, desde: fechaISO(dias), hasta: fechaISO(0) });
+    const qs = new URLSearchParams({ seccion: ORIGEN, desde: fechaISO(periodo), hasta: fechaISO(0) });
     box.innerHTML = '<div class="trf-vacio">Cargando…</div>';
     try {
       const r = await fetch('/api/transferencias?' + qs);
@@ -175,17 +251,23 @@
       else n.pendiente++;
     });
     const pct = (v) => (n.total ? Math.round(v * 100 / n.total) : 0) + '% del total';
+    // Monedero: transferencias ENVIADAS del periodo que el receptor cerró como venta
+    // completada (no depende del filtro Todas / Enviadas / Recibidas).
+    const vendidas = historial.filter((f) => f.direccion_tipo === 'enviada' && f.resultado === 'completada').length;
+    const dinero = '$' + (vendidas * PAGO_POR_VENTA).toFixed(2);
     const tarjetas = [
       { cls: 'tot',  ic: 'fa-phone-volume',   label: 'Transferidas',   v: n.total,        sub: filtroTipo === 'enviada' ? 'Enviadas' : filtroTipo === 'recibida' ? 'Recibidas' : 'Enviadas y recibidas' },
       { cls: 'ok',   ic: RESULTADOS.completada.ic,   label: 'Cerradas',       v: n.completada,   sub: pct(n.completada) },
       { cls: 'seg',  ic: RESULTADOS.seguimiento.ic,  label: 'En seguimiento', v: n.seguimiento,  sub: pct(n.seguimiento) },
       { cls: 'no',   ic: RESULTADOS.no_realizada.ic, label: 'No realizadas',  v: n.no_realizada, sub: pct(n.no_realizada) },
       { cls: 'pend', ic: 'fa-hourglass-half', label: 'Pendientes',     v: n.pendiente,    sub: 'Sin resultado' },
+      { cls: 'mon',  ic: 'ph-coins',         label: 'Monedero',       v: dinero,
+        sub: vendidas + (vendidas === 1 ? ' venta' : ' ventas') + ' × $' + PAGO_POR_VENTA.toFixed(2) },
     ];
     q('#trf-kpis').innerHTML = tarjetas.map(function (t) {
       return '<div class="trf-kpi ' + t.cls + '">' +
         '<div class="trf-kpi-head"><span class="trf-kpi-label">' + esc(t.label) + '</span>' +
-          '<span class="trf-kpi-ic"><i class="fas ' + t.ic + '"></i></span></div>' +
+          '<span class="trf-kpi-ic"><i class="' + (t.ic.indexOf('ph-') === 0 ? 'ph ' : 'fas ') + t.ic + '"></i></span></div>' +
         '<div class="trf-kpi-num">' + t.v + '</div>' +
         '<div class="trf-kpi-sub">' + esc(t.sub) + '</div>' +
       '</div>';
@@ -563,6 +645,13 @@
     panel = document.getElementById('trf-panel');
     if (!panel) return;
     render();
+    // Página propia (sin pestañas): el formulario se ve directamente.
+    if (!document.querySelector('[data-trf-tab]')) {
+      panel.classList.remove('trf-oculto');
+      cargarDestinos();
+      cargarHistorial();
+      return;
+    }
     document.querySelectorAll('[data-trf-tab]').forEach(function (b) {
       b.addEventListener('click', function () { activar(b.getAttribute('data-trf-tab'), true); });
     });

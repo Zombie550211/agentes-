@@ -357,22 +357,24 @@
       }).join('');
     $('in-gauge-valor').textContent = teams.length ? fmtN(prom, 1) : '—';
     $('in-gauge-sub').textContent = fmtN(teams.length) + (teams.length === 1 ? ' team · ' : ' teams · ') + fmtN(ventas) + ' ventas';
-    // Filas: nombre del team, ventas y puntos, y su barra (0 → puntos) sobre la escala del medidor.
+    // Filas: nombre del team (con sus puntos a la derecha), ventas debajo y, debajo de
+    // todo, su barra (0 → puntos) a lo ancho, sobre la escala del medidor.
     var tope = Math.max(GAUGE_MAX, techo(Math.max.apply(null, teams.map(function (t) { return +t.puntos || 0; }).concat([1]))));
-    var grid = 'display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:var(--space-2)';
     $('in-satis').innerHTML = teams.length ? teams.map(function (t) {
       var pts = +t.puntos || 0;
-      return '<div style="' + grid + ';align-items:center" title="' + esc(t.team) + ': ' + fmtN(pts, 1) + ' pts">' +
-        '<div style="min-width:0"><div style="font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(t.team) + '</div>' +
-          '<div style="font-size:7px;color:var(--color-neutral-500)">' + fmtN(t.ventas) + ' ventas · ' + fmtN(pts, 1) + ' pts</div></div>' +
-        '<div style="position:relative;height:6px">' +
-          '<div style="position:absolute;top:2px;left:0;right:0;height:1px;background:var(--color-neutral-200)"></div>' +
-          '<div style="position:absolute;top:0;bottom:0;left:0;width:' + (pts / tope * 100).toFixed(1) + '%;background:' + COLOR_CASO[colorTeam(pts)] + ';border-radius:1px"></div>' +
+      return '<div style="display:flex;flex-direction:column;gap:4px" title="' + esc(t.team) + ': ' + fmtN(pts, 1) + ' pts">' +
+        '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-2)">' +
+          '<span style="min-width:0;font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(t.team) + '</span>' +
+          '<span style="flex:none;font-size:11px;color:var(--color-neutral-600)">' + fmtN(t.ventas) + (t.ventas === 1 ? ' venta' : ' ventas') +
+            ' · <b style="font-size:12px;color:var(--color-text)">' + fmtN(pts, 1) + ' pts</b></span>' +
+        '</div>' +
+        '<div style="position:relative;height:6px;background:var(--color-neutral-200)">' +
+          '<div style="position:absolute;top:0;bottom:0;left:0;width:' + (pts / tope * 100).toFixed(1) + '%;background:' + COLOR_CASO[colorTeam(pts)] + '"></div>' +
         '</div></div>';
-    }).join('') : '<div style="font-size:10px;font-style:italic;color:var(--color-neutral-600)">Sin ventas de equipo este mes aún.</div>';
+    }).join('') : '<div style="font-size:12px;font-style:italic;color:var(--color-neutral-600)">Sin ventas de equipo este mes aún.</div>';
     $('in-satis-eje').innerHTML = teams.length
-      ? '<div style="' + grid + '"><span></span><div style="display:flex;justify-content:space-between;font-size:6px;color:var(--color-neutral-500)">' +
-          [0, 0.25, 0.5, 0.75, 1].map(function (f) { return '<span>' + fmtN(tope * f) + '</span>'; }).join('') + '</div></div>'
+      ? '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--color-neutral-500)">' +
+          [0, 0.25, 0.5, 0.75, 1].map(function (f) { return '<span>' + fmtN(tope * f) + '</span>'; }).join('') + '</div>'
       : '';
   }
 

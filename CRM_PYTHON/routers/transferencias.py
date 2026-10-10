@@ -109,6 +109,47 @@ async def destinos(origen: str, user: dict = Depends(current_user)):
     }
 
 
+# ── GET /api/transferencias/ranking?seccion=residencial&desde=…&hasta=… ──
+@router.get("/ranking")
+async def ranking(seccion: str, desde: str = "", hasta: str = "",
+                  user: dict = Depends(current_user)):
+    """Transferencias HECHAS por cada agente de la sección en el periodo (gráfica de la
+    página de transferencias). Lo ve cualquier usuario: solo nombres y cantidades, como
+    los rankings. Entran todos los agentes de los teams de la sección, también con 0."""
+    seccion = _validar_seccion(seccion)
+    where = ["t.seccion_origen = :sec"]
+    params: dict = {"sec": seccion}
+    for nombre, valor in (("desde", desde), ("hasta", hasta)):
+        if valor:
+            try:
+                params[nombre] = datetime.strptime(valor, "%Y-%m-%d")
+            except ValueError:
+                raise HTTPException(400, f"{nombre} debe ser YYYY-MM-DD")
+    if "desde" in params:
+        where.append("t.created_at >= :desde")
+    if "hasta" in params:
+        where.append("t.created_at < DATE_ADD(:hasta, INTERVAL 1 DAY)")
+    async with AsyncSessionLocal() as s:
+        teams = await _agentes_por_team(s, seccion)
+        r = await s.execute(text(f"""
+            SELECT t.created_by AS username, COUNT(*) AS total,
+                   SUM(t.resultado = 'completada') AS cerradas
+            FROM transferencias_llamadas t
+            WHERE {' AND '.join(where)}
+            GROUP BY t.created_by
+        """), params)
+        cuenta = {str(x["username"] or "").lower(): x for x in r.mappings().all()}
+    filas = []
+    for team, agentes in teams.items():
+        for a in agentes:
+            c = cuenta.get(str(a["username"] or "").lower())
+            filas.append({"nombre": a["nombre"], "team": team,
+                          "total": int(c["total"]) if c else 0,
+                          "cerradas": int(c["cerradas"] or 0) if c else 0})
+    filas.sort(key=lambda f: (-f["total"], -f["cerradas"], f["nombre"].lower()))
+    return {"success": True, "agentes": filas}
+
+
 class TransferenciaIn(BaseModel):
     origen: str
     telefono: str = Field(..., max_length=30)

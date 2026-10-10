@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transferir llamada · Residencial</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <!-- Sesión: la cabecera (menú e iconos) la reutiliza; sin sesión, al login. -->
+  <script>
+    window.__sesion = fetch('/api/auth/verify-server', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : { authenticated: false }; })
+      .then(function (d) { if (!d.authenticated) { location.replace('/login.html'); } return d; })
+      .catch(function () { location.replace('/login.html'); return {}; });
+  </script>
+  <link rel="stylesheet" href="/css/base/scroll.css?v=20261008a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
+  <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
+  <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
+  <!-- Formulario de transferencia (js/componentes/transferencia-form.js) y sus iconos. -->
+  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
+  <link rel="stylesheet" href="/css/componentes/transferencia-form.css?v=20261009b">
+  <link rel="stylesheet" href="/css/componentes/transferencia-rediseno.css?v=20261009e">
+  <link rel="stylesheet" href="/css/componentes/selector.css?v=20261008a">
+  <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
+  <script src="/js/layout/transicion.js?v=20261008b"></script>
+  <script src="/js/core/fetch-interceptor.js" defer></script>
+  <script src="/js/core/logout-handler.js" defer></script>
+  <script src="/js/core/user-info.js?v=20260602" defer></script>
+</head>
+<body>
+<div class="in-marco">
+<div class="in-hoja">
+
+  <header class="in-head">
+    <nav id="topnav" class="tn" aria-label="Menú principal"></nav>
+    <!-- Ajustes, chat, notificaciones y usuario: js/layout/topbar-acciones.js -->
+    <div id="topbar-acciones" class="in-iconos"></div>
+  </header>
+
+  <!-- Transferencia de llamada (página propia, sin pestañas) — la pinta transferencia-form.js.
+       La sección de origen (residencial) sale de la ruta de esta página. -->
+  <main id="trf-panel" class="trf-sola"></main>
+
+</div>
+</div>
+
+<script src="/js/layout/topnav.js?v=20261009a" defer></script>
+<script src="/js/layout/topbar-acciones.js?v=20261009a" defer></script>
+<script src="/js/componentes/llamadas-bloqueo.js" defer></script>
+<script src="/js/componentes/transferencia-form.js?v=20261009i" defer></script>
+<script src="/js/componentes/selector.js?v=20261008a" defer></script>
+<script>
+  // Listas desplegables con estilo propio (también las que pinta después el formulario).
+  document.addEventListener('DOMContentLoaded', function () { if (window.Selector) Selector.auto(document.body); });
+</script>
+</body>
+</html>
