@@ -157,6 +157,7 @@
           } else {
             filtroTipo = b.getAttribute('data-tipo');
             pintarHistorial();
+            pintarRanking();
           }
         });
       });
@@ -184,6 +185,7 @@
 
   // ── Transferencias por agente (barras ordenadas de más a menos) ──
   let rankPedido = 0;
+  let rankDatos = [];   // última respuesta de /ranking (enviadas y recibidas por agente)
   async function cargarRanking() {
     const box = q('#trf-rank-body');
     if (!box) return;
@@ -193,20 +195,30 @@
       const r = await fetch('/api/transferencias/ranking?' + qs);
       const j = await r.json();
       if (!r.ok) throw new Error(j.detail || 'Error');
-      if (pedido === rankPedido) pintarRanking(j.agentes || []);
+      if (pedido === rankPedido) { rankDatos = j.agentes || []; pintarRanking(); }
     } catch (e) {
       if (pedido === rankPedido) box.innerHTML = '<div class="trf-vacio">No se pudo cargar el ranking</div>';
     }
   }
-  function pintarRanking(filas) {
+  // Según el filtro de tipo: Enviadas (las que hizo), Recibidas (las que le llegaron) o
+  // Todas (la suma). Ordenadas de más a menos.
+  function pintarRanking() {
     const box = q('#trf-rank-body');
+    const filas = rankDatos.map(function (a) {
+      const env = filtroTipo !== 'recibida', rec = filtroTipo !== 'enviada';
+      return { nombre: a.nombre, team: a.team,
+        total: (env ? a.enviadas : 0) + (rec ? a.recibidas : 0),
+        cerradas: (env ? a.enviadas_cerradas : 0) + (rec ? a.recibidas_cerradas : 0) };
+    }).sort(function (x, y) { return y.total - x.total || y.cerradas - x.cerradas || x.nombre.localeCompare(y.nombre); });
+    const que = filtroTipo === 'enviada' ? 'hechas' : filtroTipo === 'recibida' ? 'recibidas' : 'hechas y recibidas';
+    q('#trf-rank-title').textContent = 'Transferencias por agente · ' + que;
     if (!filas.length) { box.innerHTML = '<div class="trf-vacio">Sin agentes en esta sección</div>'; return; }
     const max = filas.reduce((m, f) => Math.max(m, f.total), 0);
     const min = filas.reduce((m, f) => Math.min(m, f.total), Infinity);
     // Si el mínimo lo comparten muchos, se resume en una nota en vez de etiquetar cada fila.
     const enMin = filas.filter((f) => f.total === min).length;
     const marcarMin = max > min && enMin <= 3;
-    const nota = !max ? '<div class="trf-rank-nota">Nadie ha transferido llamadas en este periodo.</div>'
+    const nota = !max ? '<div class="trf-rank-nota">Sin transferencias ' + que + ' en este periodo.</div>'
       : (max > min && !marcarMin ? '<div class="trf-rank-nota">' + enMin + ' agentes empatan con lo mínimo: ' + min + '.</div>' : '');
     box.innerHTML = nota + '<ol class="trf-rank-lista">' + filas.map(function (f, i) {
       const tags = [];
@@ -251,9 +263,9 @@
       else n.pendiente++;
     });
     const pct = (v) => (n.total ? Math.round(v * 100 / n.total) : 0) + '% del total';
-    // Monedero: transferencias ENVIADAS del periodo que el receptor cerró como venta
-    // completada (no depende del filtro Todas / Enviadas / Recibidas).
-    const vendidas = historial.filter((f) => f.direccion_tipo === 'enviada' && f.resultado === 'completada').length;
+    // Monedero: transferencias del periodo y del filtro (Todas / Enviadas / Recibidas)
+    // cerradas como venta completada, a PAGO_POR_VENTA cada una.
+    const vendidas = n.completada;
     const dinero = '$' + (vendidas * PAGO_POR_VENTA).toFixed(2);
     const tarjetas = [
       { cls: 'tot',  ic: 'fa-phone-volume',   label: 'Transferidas',   v: n.total,        sub: filtroTipo === 'enviada' ? 'Enviadas' : filtroTipo === 'recibida' ? 'Recibidas' : 'Enviadas y recibidas' },

@@ -113,11 +113,13 @@ async def destinos(origen: str, user: dict = Depends(current_user)):
 @router.get("/ranking")
 async def ranking(seccion: str, desde: str = "", hasta: str = "",
                   user: dict = Depends(current_user)):
-    """Transferencias HECHAS por cada agente de la sección en el periodo (gráfica de la
-    página de transferencias). Lo ve cualquier usuario: solo nombres y cantidades, como
-    los rankings. Entran todos los agentes de los teams de la sección, también con 0."""
+    """Por cada agente de la sección, en el periodo: transferencias que HIZO (enviadas) y
+    que RECIBIÓ de la otra sección (recibidas), con las cerradas como venta de cada una.
+    Lo ve cualquier usuario: solo nombres y cantidades, como los rankings. Entran todos los
+    agentes de los teams de la sección, también con 0. La página elige qué contar según su
+    filtro Todas / Enviadas / Recibidas."""
     seccion = _validar_seccion(seccion)
-    where = ["t.seccion_origen = :sec"]
+    where = []
     params: dict = {"sec": seccion}
     for nombre, valor in (("desde", desde), ("hasta", hasta)):
         if valor:
@@ -129,24 +131,37 @@ async def ranking(seccion: str, desde: str = "", hasta: str = "",
         where.append("t.created_at >= :desde")
     if "hasta" in params:
         where.append("t.created_at < DATE_ADD(:hasta, INTERVAL 1 DAY)")
+    rango = "".join(" AND " + w for w in where)
     async with AsyncSessionLocal() as s:
         teams = await _agentes_por_team(s, seccion)
         r = await s.execute(text(f"""
-            SELECT t.created_by AS username, COUNT(*) AS total,
+            SELECT LOWER(t.created_by) AS clave, COUNT(*) AS total,
                    SUM(t.resultado = 'completada') AS cerradas
             FROM transferencias_llamadas t
-            WHERE {' AND '.join(where)}
-            GROUP BY t.created_by
+            WHERE t.seccion_origen = :sec{rango}
+            GROUP BY LOWER(t.created_by)
         """), params)
-        cuenta = {str(x["username"] or "").lower(): x for x in r.mappings().all()}
+        enviadas = {str(x["clave"] or ""): x for x in r.mappings().all()}
+        r = await s.execute(text(f"""
+            SELECT t.agente_destino_id AS clave, COUNT(*) AS total,
+                   SUM(t.resultado = 'completada') AS cerradas
+            FROM transferencias_llamadas t
+            WHERE t.seccion_origen <> :sec{rango}
+            GROUP BY t.agente_destino_id
+        """), params)
+        recibidas = {int(x["clave"] or 0): x for x in r.mappings().all()}
     filas = []
     for team, agentes in teams.items():
         for a in agentes:
-            c = cuenta.get(str(a["username"] or "").lower())
-            filas.append({"nombre": a["nombre"], "team": team,
-                          "total": int(c["total"]) if c else 0,
-                          "cerradas": int(c["cerradas"] or 0) if c else 0})
-    filas.sort(key=lambda f: (-f["total"], -f["cerradas"], f["nombre"].lower()))
+            e = enviadas.get(str(a["username"] or "").lower())
+            rc = recibidas.get(a["id"])
+            filas.append({
+                "nombre": a["nombre"], "team": team,
+                "enviadas": int(e["total"]) if e else 0,
+                "enviadas_cerradas": int(e["cerradas"] or 0) if e else 0,
+                "recibidas": int(rc["total"]) if rc else 0,
+                "recibidas_cerradas": int(rc["cerradas"] or 0) if rc else 0,
+            })
     return {"success": True, "agentes": filas}
 
 
