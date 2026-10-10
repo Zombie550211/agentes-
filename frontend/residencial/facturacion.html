@@ -99,11 +99,11 @@
             </tr>
             <tr>
               <th>Fecha</th>
-              <th>Ventas</th><th>Valor venta</th><th>Monto</th>
-              <th>Ventas</th><th>Valor venta</th><th>Monto</th>
-              <th>Ventas</th><th>Valor venta</th><th>Monto</th>
-              <th>Ventas</th><th>Valor venta</th><th>Monto</th>
-              <th>Ventas</th><th>Valor venta</th><th>Monto</th>
+              <th>Monto</th><th>Ventas</th><th>Valor venta</th>
+              <th>Monto</th><th>Ventas</th><th>Valor venta</th>
+              <th>Monto</th><th>Ventas</th><th>Valor venta</th>
+              <th>Monto</th><th>Ventas</th><th>Valor venta</th>
+              <th>Monto</th><th>Ventas</th><th>Valor venta</th>
               <th>Total día</th><th>Total ventas</th><th>Valor venta</th><th>Puntos</th><th>CPA puntos</th>
             </tr>
           </thead>
@@ -301,21 +301,22 @@ function showToast(msg) {
   setTimeout(() => el.classList.remove('show'), 2800);
 }
 
-/* Columnas (td index): 1 Alexis Ventas, 2 Alexis ValorVenta(calc), 3 Alexis Monto,
-   4 Alexis 2 Ventas, 5 Alexis 2 ValorVenta(calc), 6 Alexis 2 Monto,
-   7 Garay Líneas Ventas, 8 Garay Líneas ValorVenta(calc), 9 Garay Líneas Monto,
-   10 Tito Ventas, 11 Tito ValorVenta(calc), 12 Tito Monto,
-   13 Tito Líneas Ventas, 14 Tito Líneas ValorVenta(calc), 15 Tito Líneas Monto,
+/* Columnas (td index), cada publicista en el orden Monto · Ventas · Valor venta:
+   1 Alexis Monto, 2 Alexis Ventas, 3 Alexis ValorVenta(calc),
+   4 Alexis 2 Monto, 5 Alexis 2 Ventas, 6 Alexis 2 ValorVenta(calc),
+   7 Garay Líneas Monto, 8 Garay Líneas Ventas, 9 Garay Líneas ValorVenta(calc),
+   10 Tito Monto, 11 Tito Ventas, 12 Tito ValorVenta(calc),
+   13 Tito Líneas Monto, 14 Tito Líneas Ventas, 15 Tito Líneas ValorVenta(calc),
    16 Total día(calc), 17 Total ventas(calc), 18 Valor venta(calc), 19 Puntos, 20 CPA puntos(calc)
    El orden de las celdas NO es el de `campos` en el servidor: ver renderTablaDias y
    guardarTodoFacturacion (Alexis 2 va en campos[17..19], añadidos al final). */
-const COL = { aVentas:1, aValor:2, aMonto:3, a2Ventas:4, a2Valor:5, a2Monto:6,
-              jVentas:7, jValor:8, jMonto:9, tVentas:10, tValor:11, tMonto:12,
-              tlVentas:13, tlValor:14, tlMonto:15,
+const COL = { aMonto:1, aVentas:2, aValor:3, a2Monto:4, a2Ventas:5, a2Valor:6,
+              jMonto:7, jVentas:8, jValor:9, tMonto:10, tVentas:11, tValor:12,
+              tlMonto:13, tlVentas:14, tlValor:15,
               totalDia:16, totalVentas:17, valorVenta:18, puntos:19, cpa:20 };
-const EDIT_COLS = [1,3,4,6,7,9,10,12,13,15,19];              // editables
-const CALC_COLS = [2,5,8,11,14,16,17,18,20];                 // calculadas
-const MONEY_COLS = [2,3,5,6,8,9,11,12,14,15,16,18,20];       // se muestran con $
+const EDIT_COLS = [1,2,4,5,7,8,10,11,13,14,19];              // editables
+const CALC_COLS = [3,6,9,12,15,16,17,18,20];                 // calculadas
+const MONEY_COLS = [1,3,4,6,7,9,10,12,13,15,16,18,20];       // se muestran con $
 const NUM_COLS = 21;                                         // 0..20
 const NUM_CAMPOS = 20;                                       // largo de `campos` en el servidor
 
