@@ -18,6 +18,7 @@
   <script src="/js/layout/sidebar-ui.js" defer></script>
   <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
   <script src="/js/layout/sidebar-user.js" defer></script>
+  <script src="/js/componentes/celdas-navegacion.js?v=20261010a"></script>
 <nav class="sidebar" id="app-sidebar"></nav>
     <div class="layout">
         <div class="main-content">
@@ -226,6 +227,9 @@
             tds[totBase + 1].textContent = totalVentas > 0 ? totalVentas.toString() : "";
             tds[totBase + 2].textContent = totalVentas > 0 ? formatMoneyTrunc(totalDia / totalVentas) : "";
         }
+
+        // Enter baja, Tab avanza; la celda nunca crece con un salto de línea.
+        navegacionCeldas(excelBody);
 
         excelBody.addEventListener('input', function(e) {
             const td = e.target;

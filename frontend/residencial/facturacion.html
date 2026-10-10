@@ -210,6 +210,7 @@
 <script src="/js/layout/topnav.js?v=20261009a" defer></script>
 <script src="/js/layout/topbar-acciones.js?v=20261009a" defer></script>
 <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
+<script src="/js/componentes/celdas-navegacion.js?v=20261010a"></script>
 <script>
 /* =====================================================================
    AUTH GUARD (solo administradores)
@@ -486,6 +487,9 @@ function recalcularFila(tr) {
   const puntos = raw(COL.puntos);
   tds[COL.cpa].textContent = puntos > 0 ? money(valorVenta / puntos) : "";
 }
+
+// Enter baja, Tab avanza; la celda nunca crece con un salto de línea.
+navegacionCeldas(excelBody);
 
 excelBody.addEventListener('input', function(e) {
   const td = e.target;
@@ -820,6 +824,8 @@ function recalcularFilaL(tr) {
   // Literal-paralelo: (costo línea Garay + costo línea Connecting) / total líneas
   tds[COLL.valL].textContent = totL > 0 ? money((costoLineaG + costoLineaC) / totL) : "";
 }
+
+navegacionCeldas(excelBodyL);
 
 excelBodyL.addEventListener('input', function(e) {
   const td = e.target;
