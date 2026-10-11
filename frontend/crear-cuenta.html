@@ -1551,6 +1551,8 @@ const ALL_PERMS = [
   { key:'export:data',       label:'Exportar datos',           group:'Admin' },
   { key:'manage:users',      label:'Gestionar usuarios',       group:'Admin' },
   { key:'manage:employees',  label:'Gestionar empleados',      group:'Admin' },
+  // Entra como Administrador sin cambiar su rol (ver deps.rol_efectivo). Fuera de "Seleccionar todo".
+  { key:'admin:full',        label:'Permisos de administrador (conserva su rol)', group:'Acceso total', critico:true },
 ];
 
 /* ── State ── */
@@ -2936,14 +2938,14 @@ function openPermsModal(userId){
   let html=`<p style="font-size:.78rem;color:var(--ink2);margin-bottom:16px">Usuario: <strong>${u.username||u.name} (@${u.username})</strong></p>`;
   Object.entries(groups).forEach(([grp,perms])=>{
     html+=`<div class="perm-group"><div class="perm-group-title">${grp}</div><div class="perm-grid">
-      ${perms.map(p=>{ const on=currentPerms.includes(p.key); return `<label class="perm-item ${on?'checked':''}" onclick="togglePermItem(this)"><input type="checkbox" value="${p.key}" ${on?'checked':''} onclick="event.stopPropagation();this.parentElement.classList.toggle('checked',this.checked)"/><span class="perm-item-label">${p.label}</span></label>`; }).join('')}
+      ${perms.map(p=>{ const on=currentPerms.includes(p.key); return `<label class="perm-item ${on?'checked':''}" onclick="togglePermItem(this)"><input type="checkbox" value="${p.key}" ${on?'checked':''} ${p.critico?'data-critico="1"':''} onclick="event.stopPropagation();this.parentElement.classList.toggle('checked',this.checked)"/><span class="perm-item-label">${p.label}</span></label>`; }).join('')}
     </div></div>`;
   });
   document.getElementById('modal-perms-body').innerHTML=html;
   openModal('modal-perms');
 }
 function togglePermItem(el){ const cb=el.querySelector('input[type=checkbox]'); cb.checked=!cb.checked; el.classList.toggle('checked',cb.checked); }
-function selectAllPerms(val){ document.querySelectorAll('#modal-perms-body input[type=checkbox]').forEach(cb=>{ cb.checked=val; cb.closest('.perm-item').classList.toggle('checked',val); }); }
+function selectAllPerms(val){ document.querySelectorAll('#modal-perms-body input[type=checkbox]:not([data-critico])').forEach(cb=>{ cb.checked=val; cb.closest('.perm-item').classList.toggle('checked',val); }); }
 async function savePerms(){ const perms=Array.from(document.querySelectorAll('#modal-perms-body input[type=checkbox]:checked')).map(cb=>cb.value); const res=await AUTH.sf(`/api/users/${_editingId}/permissions`,{ method:'PUT', body:JSON.stringify({ permissions:perms }) }); if(!res){ toast('Error de conexión','err'); return; } const data=await res.json(); if(res.ok&&data.success!==false){ toast('Permisos actualizados','ok'); closeModal('modal-perms'); loadUsers(); } else toast(data.message||'Error','err'); }
 
 /* ── Password modal ── */

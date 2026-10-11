@@ -107,7 +107,7 @@ async def _user_state_of(user_id: str) -> dict | None:
     try:
         async with AsyncSessionLocal() as s:
             r = await s.execute(
-                text("SELECT active, role FROM users WHERE id = :id LIMIT 1"), {"id": int(uid)}
+                text("SELECT active, role, permissions FROM users WHERE id = :id LIMIT 1"), {"id": int(uid)}
             )
             row = r.first()
     except Exception:
@@ -117,7 +117,10 @@ async def _user_state_of(user_id: str) -> dict | None:
         state = {"ts": now, "active": False, "role": ""}   # usuario borrado
     else:
         active = True if row[0] is None else bool(row[0])
-        state = {"ts": now, "active": active, "role": str(row[1] or "")}
+        # Rol efectivo (el del token): con el permiso admin:full es "Administrador".
+        # Dar o quitar ese permiso cambia el rol efectivo y obliga a reloguear.
+        from deps import rol_efectivo
+        state = {"ts": now, "active": active, "role": rol_efectivo(row[1], row[2])}
 
     _user_state[uid] = state
     return state

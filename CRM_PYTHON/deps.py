@@ -27,6 +27,25 @@ COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax").lower()
 
 ADMIN_ROLES  = ("Administrador", "admin", "administrador", "Administrativo", "administrador general")
 
+# Permiso por usuario (users.permissions) que da acceso de administrador sin cambiar el
+# rol: p.ej. un supervisor sigue siendo supervisor de su equipo en Permisos, Horarios y
+# Cuadratura (que leen users.role), pero su sesión entra con rol "Administrador".
+PERM_ADMIN_TOTAL = "admin:full"
+
+
+def rol_efectivo(role: str | None, permissions=None) -> str:
+    """Rol con el que el usuario usa el CRM (el que viaja en el token)."""
+    perms = permissions
+    if isinstance(perms, str):
+        try:
+            import json
+            perms = json.loads(perms)
+        except ValueError:
+            perms = []
+    if isinstance(perms, list) and PERM_ADMIN_TOTAL in perms:
+        return "Administrador"
+    return str(role or "")
+
 
 def _normalize_role(value: str | None) -> str:
     """Normaliza roles para comparar sin depender de mayúsculas, espacios o variantes."""
@@ -76,7 +95,7 @@ def make_token(user: dict, remember: bool = False) -> str:
         "id":         str(user.get("_id") or user.get("id")),
         "username":   user.get("username", ""),
         "name":       user.get("name", "") or user.get("username", ""),
-        "role":       user.get("role", ""),
+        "role":       rol_efectivo(user.get("role", ""), user.get("permissions")),
         "team":       user.get("team", ""),
         "supervisor": user.get("supervisor", ""),
         "remember":   bool(remember),

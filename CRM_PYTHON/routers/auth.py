@@ -10,7 +10,7 @@ from audit import log_login_ok, log_login_fail, log_logout, log_password_reset_r
 # Auth/JWT: fuente única en deps.py — no redefinir aquí (ver mejora #5).
 from deps import (
     JWT_EXPIRES, JWT_EXPIRES_REMEMBER, COOKIE_SAMESITE, ADMIN_ROLES,
-    current_user, require_roles, _get_token,
+    current_user, require_roles, _get_token, rol_efectivo,
     make_token as _make_token,
     decode_token as _decode_token,
     set_token_cookie as _set_token_cookie,
@@ -227,7 +227,8 @@ async def login(request: Request, body: LoginBody, response: Response):
         "user": {
             "id":         str(user.get("_id") or user.get("id")),
             "username":   user.get("username"),
-            "role":       user.get("role"),
+            "role":       rol_efectivo(user.get("role"), user.get("permissions")),
+            "rolReal":    user.get("role"),
             "team":       user.get("team"),
             "supervisor": user.get("supervisor"),
             "name":       user.get("name"),
@@ -255,6 +256,8 @@ async def me(user: dict = Depends(current_user)):
         raise HTTPException(404, "Usuario no encontrado")
     doc.pop("password", None)
     doc["id"] = doc.get("_id")
+    doc["rolReal"] = doc.get("role")
+    doc["role"] = rol_efectivo(doc.get("role"), doc.get("permissions"))
     return {"success": True, "user": doc}
 
 
@@ -313,7 +316,9 @@ async def verify_server(request: Request, response: Response):
         # name: siempre incluir (fallback a username si no hay nombre)
         user_data["name"]       = doc.get("name") or doc.get("username") or decoded.get("username", "")
         if doc.get("team"):       user_data["team"]       = doc["team"]
-        if doc.get("role"):       user_data["role"]       = doc["role"]
+        if doc.get("role"):
+            user_data["role"]    = rol_efectivo(doc["role"], doc.get("permissions"))
+            user_data["rolReal"] = doc["role"]
         if doc.get("supervisor"): user_data["supervisor"] = doc["supervisor"]
         if doc.get("avatar_url"): user_data["avatarUrl"]  = doc["avatar_url"]
         # El sidebar muestra el correo del propio usuario bajo su nombre. La columna

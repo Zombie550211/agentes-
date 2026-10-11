@@ -48,7 +48,7 @@
     const initialsEl = document.getElementById('sb-user-initials');
     const displayName = (user.name || user.username || '').trim() || 'Usuario';
     if (nameEl) nameEl.textContent = displayName;
-    if (roleEl) roleEl.textContent = roleLabel(user.role);
+    if (roleEl) roleEl.textContent = roleLabel(user.rolReal || user.role);
     if (initialsEl) initialsEl.textContent = initials(displayName);
     // El correo puede no estar (la columna admite NULL, y el objeto de
     // localStorage de sesiones viejas no lo trae). En ese caso la fila queda

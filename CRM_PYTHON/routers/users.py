@@ -415,6 +415,9 @@ async def update_permissions(user_id: str, body: UpdatePermissionsBody, user: di
         if r.rowcount == 0:
             raise HTTPException(404, "Usuario no encontrado")
 
+    # admin:full cambia el rol efectivo: sin esto la sesión abierta lo notaría al
+    # caducar la caché de session_guard en vez de al momento.
+    session_guard.invalidate_user(uid)
     return {"success": True, "message": "Permisos actualizados", "permissions": body.permissions}
 
 

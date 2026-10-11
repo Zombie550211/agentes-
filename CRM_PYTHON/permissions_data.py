@@ -38,6 +38,10 @@ PERMISSION_DEFS_SEED = [
     ("export:data",       "Exportar datos",         "", "Admin",   "user", True, True),
     ("manage:users",      "Gestionar usuarios",     "", "Admin",   "user", True, True),
     ("manage:employees",  "Gestionar empleados",    "", "Admin",   "user", True, True),
+    ("admin:full",        "Permisos de administrador",
+     "Entra al CRM como Administrador sin cambiar su rol (sigue siendo supervisor de su "
+     "equipo en Permisos, Horarios y Cuadratura). Ver deps.rol_efectivo.",
+     "Admin", "user", True, True),
     # ── Permisos dinámicos con lógica real conectada ──
     ("market:restrict_view", "Restringir a un solo mercado",
      "El equipo (o usuario) solo ve leads, estadísticas y productividad del mercado "
