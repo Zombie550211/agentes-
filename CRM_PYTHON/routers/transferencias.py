@@ -5,7 +5,7 @@ agente de un team de Residencial. La sección de cada team sale de
 deps.team_seccion (fuente única), así que el destino es siempre la sección
 contraria a la de origen.
 
-Resultado: el agente que RECIBIÓ la transferencia la cierra con uno de los
+Resultado: el agente que RECIBIÓ la transferencia (o el supervisor de su team) la cierra con uno de los
 estados de RESULTADOS y una captura (obligatoria para "Venta completada"). Si la transferencia
 llegó a Líneas, la venta completada lleva además cuántas líneas se vendieron (1-5),
 porque la promoción paga por línea. Una vez completada
@@ -80,6 +80,22 @@ def _validar_seccion(seccion: str) -> str:
     if s not in _SECCIONES:
         raise HTTPException(400, "Sección inválida (residencial o lineas)")
     return s
+
+
+async def _mi_team(s, user: dict) -> str:
+    """Team actual del usuario según la BD (el del token puede estar desfasado)."""
+    r = await s.execute(text("SELECT team FROM users WHERE id = :id"), {"id": _uid(user)})
+    return ((r.scalar() or user.get("team") or "")).strip()
+
+
+async def _puede_cerrar(s, user: dict, row) -> bool:
+    """Quien recibió la transferencia, o el supervisor del team que la recibió."""
+    if row["agente_destino_id"] == _uid(user):
+        return True
+    if not _es_supervisor(user.get("role", "")):
+        return False
+    mi_team = await _mi_team(s, user)
+    return bool(mi_team) and mi_team.lower() == str(row["team_destino"] or "").strip().lower()
 
 
 async def _agentes_por_team(s, seccion_destino: str) -> dict[str, list[dict]]:
@@ -248,11 +264,10 @@ async def listar(seccion: str, desde: str = "", hasta: str = "",
         where.append("t.created_at < DATE_ADD(:hasta, INTERVAL 1 DAY)")
 
     role = user.get("role", "")
+    mi_team = ""
     if not _es_admin_bo(role):
         async with AsyncSessionLocal() as s:
-            r = await s.execute(text("SELECT team FROM users WHERE id = :id"),
-                                {"id": _uid(user)})
-            mi_team = ((r.scalar() or user.get("team") or "")).strip()
+            mi_team = await _mi_team(s, user)
         if _es_supervisor(role) and mi_team:
             where.append("(t.created_by_team = :team OR t.team_destino = :team)")
             params["team"] = mi_team
@@ -279,12 +294,17 @@ async def listar(seccion: str, desde: str = "", hasta: str = "",
 
     gestion = _es_admin_bo(role)
     yo_id = _uid(user)
+    mi_team_sup = mi_team.lower() if _es_supervisor(role) else ""
     for f in filas:
         f["direccion_tipo"] = "enviada" if f["seccion_origen"] == seccion else "recibida"
         fid = f.pop("captura_file_id", None)
         f["captura_url"] = f"/api/files/{fid}/image" if fid else None
-        f["puede_registrar"] = gestion or (
-            f["agente_destino_id"] == yo_id and f["resultado"] != "completada")
+        receptor = f["agente_destino_id"] == yo_id or (
+            bool(mi_team_sup) and str(f["team_destino"] or "").strip().lower() == mi_team_sup)
+        f["puede_registrar"] = gestion or (receptor and f["resultado"] != "completada")
+        # Supervisor: puede poner las líneas que falten en las ventas de su team.
+        f["puede_lineas"] = (gestion or receptor) and f["resultado"] == "completada" and \
+            f["seccion_origen"] == "residencial" and not f["lineas"]
     return {"success": True, "transferencias": filas}
 
 
@@ -320,13 +340,13 @@ class LineasIn(BaseModel):
 @router.put("/{tid}/lineas")
 async def registrar_lineas(tid: int, body: LineasIn, user: dict = Depends(current_user)):
     """Solo la cantidad de líneas de una venta completada que llegó a Líneas. El agente que
-    la recibió puede ponerla una vez (si aún falta); admin / back office, siempre."""
+    la recibió o su supervisor pueden ponerla una vez (si aún falta); admin / back office, siempre."""
     if not 1 <= body.lineas <= _MAX_LINEAS:
         raise HTTPException(400, f"La cantidad de líneas va de 1 a {_MAX_LINEAS}")
     gestion = _es_admin_bo(user.get("role", ""))
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
-            SELECT seccion_origen, agente_destino_id, resultado, lineas
+            SELECT seccion_origen, agente_destino_id, team_destino, resultado, lineas
             FROM transferencias_llamadas WHERE id = :id
         """), {"id": tid})
         row = r.mappings().first()
@@ -335,8 +355,8 @@ async def registrar_lineas(tid: int, body: LineasIn, user: dict = Depends(curren
         if row["resultado"] != "completada" or _contraria(row["seccion_origen"]) != "lineas":
             raise HTTPException(400, "Solo las ventas completadas que llegaron a Líneas llevan líneas")
         if not gestion:
-            if row["agente_destino_id"] != _uid(user):
-                raise HTTPException(403, "Solo el agente que recibió la transferencia puede indicar las líneas")
+            if not await _puede_cerrar(s, user, row):
+                raise HTTPException(403, "Solo el agente que recibió la transferencia o su supervisor pueden indicar las líneas")
             if row["lineas"] is not None:
                 raise HTTPException(403, "Las líneas ya están registradas; solo administración o back office pueden cambiarlas")
         await s.execute(text("UPDATE transferencias_llamadas SET lineas = :n WHERE id = :id"),
@@ -363,14 +383,14 @@ async def registrar_resultado(tid: int, body: ResultadoIn, user: dict = Depends(
 
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
-            SELECT seccion_origen, agente_destino_id, resultado, captura_file_id
+            SELECT seccion_origen, agente_destino_id, team_destino, resultado, captura_file_id
             FROM transferencias_llamadas WHERE id = :id
         """), {"id": tid})
         row = r.mappings().first()
         if not row:
             raise HTTPException(404, "Transferencia no encontrada")
-        if not gestion and row["agente_destino_id"] != _uid(user):
-            raise HTTPException(403, "Solo el agente que recibió la transferencia puede registrar el resultado")
+        if not gestion and not await _puede_cerrar(s, user, row):
+            raise HTTPException(403, "Solo el agente que recibió la transferencia o su supervisor pueden registrar el resultado")
         if not gestion and row["resultado"] == "completada":
             raise HTTPException(403, "Ya está registrada como venta completada; solo administración o back office pueden cambiarla")
 

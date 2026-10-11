@@ -14,7 +14,7 @@
  * (agente → las suyas, supervisor → su team, admin/BO → todas), así cada agente
  * consulta lo que envió y lo que recibió sin salir del formulario.
  *
- * Resultado: quien RECIBIÓ la transferencia la cierra desde su fila de "Mis
+ * Resultado: quien RECIBIÓ la transferencia (o el supervisor de su team) la cierra desde su fila de "Mis
  * transferencias" con Venta completada / Fraude / Balance / Pago full / No
  * interesado y la captura de la venta (obligatoria para "completada"). Si la venta
  * completada llegó a Líneas, también la cantidad de líneas (1-5): se paga por línea.
@@ -337,6 +337,12 @@
         if (f) abrirResultado(f);
       });
     });
+    box.querySelectorAll('[data-trf-lin]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        const f = historial.find((x) => String(x.id) === b.getAttribute('data-trf-lin'));
+        if (f) dialogoLineas([f], false);
+      });
+    });
   }
 
   function celdaResultado(f) {
@@ -352,6 +358,10 @@
     }
     if (f.resultado_nota) html += '<small>' + esc(f.resultado_nota) + '</small>';
     if (f.resultado_por) html += '<small>' + esc(f.resultado_por) + ' · ' + esc(fmtFecha(f.resultado_at)) + '</small>';
+    if (f.puede_lineas && !f.puede_registrar) {
+      html += '<button type="button" class="trf-res-btn" data-trf-lin="' + esc(f.id) + '" title="Indicar la cantidad de líneas vendidas">' +
+        '<i class="fas fa-list-ol"></i> Indicar líneas</button>';
+    }
     if (f.puede_registrar) {
       html += '<button type="button" class="trf-res-btn" data-trf-res="' + esc(f.id) + '" title="Registrar el resultado de la transferencia">' +
         '<i class="fas fa-pen-to-square"></i> ' + (f.resultado ? 'Actualizar' : 'Registrar') + '</button>';
@@ -564,7 +574,12 @@
       if (!r.ok) return;
       filas = j.transferencias || [];
     } catch (e) { return; }
-    if (!filas.length) return;
+    if (filas.length) dialogoLineas(filas, true);
+  }
+
+  /** Diálogo para indicar las líneas de una o varias ventas completadas. Obligatorio (el
+   *  aviso) no se puede cerrar; si no, lleva Cancelar (botón "Indicar líneas" de la fila). */
+  function dialogoLineas(filas, obligatorio) {
 
     const fondo = document.createElement('div');
     fondo.className = 'trf-dlg-fondo';
@@ -573,14 +588,16 @@
     fondo.innerHTML =
       '<form class="trf-dlg trf-aviso" role="alertdialog" aria-modal="true" aria-labelledby="trf-aviso-t" aria-describedby="trf-aviso-sub" novalidate>' +
         '<h3 class="trf-dlg-t" id="trf-aviso-t"><i class="fas fa-triangle-exclamation"></i> Completa la cantidad de líneas</h3>' +
-        '<p class="trf-dlg-sub" id="trf-aviso-sub">Tienes ' + filas.length + (filas.length === 1 ? ' venta completada' : ' ventas completadas') +
-          ' de transferencias sin la cantidad de líneas. Ahora se paga $' + PAGO_POR_VENTA.toFixed(2) +
-          ' por línea al agente que transfirió: indica las líneas de cada cliente para recalcularlo.</p>' +
+        '<p class="trf-dlg-sub" id="trf-aviso-sub">' + (obligatorio
+          ? 'Tienes ' + filas.length + (filas.length === 1 ? ' venta completada' : ' ventas completadas') + ' de transferencias sin la cantidad de líneas. '
+          : 'Esta venta completada no tiene la cantidad de líneas. ') +
+          'Se paga $' + PAGO_POR_VENTA.toFixed(2) + ' por línea al agente que transfirió: indica las líneas de cada cliente para recalcularlo.</p>' +
         '<ul class="trf-aviso-lista">' + filas.map(function (f) {
           return '<li class="trf-aviso-fila">' +
             '<div class="trf-aviso-cli"><b>' + esc(f.nombre_cliente) + '</b>' +
               '<small>' + esc(fmtTel(f.telefono)) + ' · ' + esc(fmtFecha(f.created_at)) + '</small>' +
-              '<small>Transferida por ' + esc(f.created_by_nombre || '') + '</small>' +
+              '<small>Transferida por ' + esc(f.created_by_nombre || '') +
+                (f.agente_destino_nombre ? ' a ' + esc(f.agente_destino_nombre) : '') + '</small>' +
               (f.captura_url ? '<a class="trf-res-cap" href="' + esc(f.captura_url) + '" target="_blank" rel="noopener"><i class="fas fa-image"></i> Ver captura</a>' : '') +
             '</div>' +
             '<select data-trf-lineas="' + esc(f.id) + '" aria-label="Cantidad de líneas de ' + esc(f.nombre_cliente) + '">' + opciones + '</select>' +
@@ -588,12 +605,19 @@
         }).join('') + '</ul>' +
         '<div class="trf-msg" role="status" aria-live="polite"></div>' +
         '<div class="trf-dlg-acc">' +
+          (obligatorio ? '' : '<button type="button" class="trf-btn-sec" data-trf-cerrar>Cancelar</button>') +
           '<button type="submit" class="trf-btn"><i class="fas fa-floppy-disk"></i> Guardar líneas</button>' +
         '</div>' +
       '</form>';
     document.body.appendChild(fondo);
-    // Sin Cancelar ni cierre con Esc o clic fuera: es obligatorio.
-    fondo.addEventListener('keydown', function (e) { if (e.key === 'Escape') e.stopPropagation(); }, true);
+    if (obligatorio) {
+      // Sin Cancelar ni cierre con Esc o clic fuera: es obligatorio.
+      fondo.addEventListener('keydown', function (e) { if (e.key === 'Escape') e.stopPropagation(); }, true);
+    } else {
+      fondo.querySelector('[data-trf-cerrar]').addEventListener('click', () => fondo.remove());
+      fondo.addEventListener('click', (e) => { if (e.target === fondo) fondo.remove(); });
+      fondo.addEventListener('keydown', (e) => { if (e.key === 'Escape') fondo.remove(); });
+    }
     const msg = fondo.querySelector('.trf-msg');
     fondo.querySelector('select').focus();
 
