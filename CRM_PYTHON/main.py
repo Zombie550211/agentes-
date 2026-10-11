@@ -429,6 +429,9 @@ _MIGRATIONS: list[tuple[str, str]] = [
     # cargarle turnos antes de tener usuario (los agentes nuevos no entran al CRM hasta
     # sus primeras ventas). No puede iniciar sesión; se activa desde Permisos.
     ("0070_users_acceso_crm", "ALTER TABLE users ADD COLUMN acceso_crm TINYINT(1) NOT NULL DEFAULT 1"),
+    # Líneas vendidas (1-5) en una transferencia a Líneas cerrada como venta completada:
+    # la promoción paga por línea. NULL en el resto (las de Residencial se pagan por venta).
+    ("0071_transferencias_lineas", "ALTER TABLE transferencias_llamadas ADD COLUMN lineas TINYINT UNSIGNED NULL"),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración

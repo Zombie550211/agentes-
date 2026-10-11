@@ -65,7 +65,7 @@
 .trf-seg button:focus-visible{outline:2px solid #0d9488;outline-offset:1px}
 #trf-periodo{width:auto;margin:0;height:auto;padding:7px 32px 7px 10px;border:1px solid var(--linea-fuerte,#cbd5e1);border-radius:10px;background-color:var(--sup-1,#fff);color:var(--texto-2,#334155);font:inherit;font-size:.76rem}
 /* KPIs del periodo: mismos colores que las etiquetas de resultado (.trf-res) */
-.trf-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;padding:16px 22px;border-bottom:1px solid var(--linea,#e2e8f0)}
+.trf-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:16px 22px;border-bottom:1px solid var(--linea,#e2e8f0)}
 .trf-kpis:empty{display:none}
 .trf-kpi{display:flex;flex-direction:column;gap:6px;min-width:0;padding:12px 14px;border:1px solid var(--linea,#e2e8f0);border-radius:12px;background:var(--sup-2,#f8fafc)}
 .trf-kpi-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
@@ -77,6 +77,10 @@
 .trf-kpi.ok .trf-kpi-ic{background:#dcfce7;color:#166534}
 .trf-kpi.seg .trf-kpi-ic{background:#fef3c7;color:#92400e}
 .trf-kpi.no .trf-kpi-ic{background:#fee2e2;color:#991b1b}
+.trf-kpi.fra .trf-kpi-ic{background:#fee2e2;color:#991b1b}
+.trf-kpi.bal .trf-kpi-ic{background:#fef3c7;color:#92400e}
+.trf-kpi.full .trf-kpi-ic{background:#dbeafe;color:#1e40af}
+.trf-kpi.noi .trf-kpi-ic{background:#e2e8f0;color:#475569}
 .trf-kpi.pend .trf-kpi-ic{background:var(--sup-3,#f1f5f9);color:var(--texto-3,#64748b)}
 .trf-tabla-wrap{overflow-x:auto}
 .trf-tabla{width:100%;border-collapse:collapse;font-size:.8rem}
@@ -98,6 +102,10 @@
 .trf-res.ok{background:#dcfce7;color:#166534}
 .trf-res.seg{background:#fef3c7;color:#92400e}
 .trf-res.no{background:#fee2e2;color:#991b1b}
+.trf-res.fra{background:#fee2e2;color:#991b1b}
+.trf-res.bal{background:#fef3c7;color:#92400e}
+.trf-res.full{background:#dbeafe;color:#1e40af}
+.trf-res.noi{background:#e2e8f0;color:#475569}
 .trf-res-cap{display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-size:.72rem;font-weight:700;color:#0f766e;text-decoration:none}
 .trf-res-cap:hover{text-decoration:underline}
 .trf-res-cel .trf-res-cap{display:flex;width:max-content}
@@ -112,17 +120,22 @@
   border-radius:16px;background:var(--sup-1,#fff);color:var(--texto-1,#0f172a);box-shadow:0 20px 50px rgba(15,23,42,.3);text-align:left}
 .trf-dlg-t{margin:0;font-size:1rem;font-weight:800;color:var(--texto-1,#0f172a)}
 .trf-dlg-sub{margin:-10px 0 0;font-size:.78rem;color:var(--texto-3,#64748b)}
-.trf-dlg-ops{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0;padding:0;border:none;min-width:0}
+.trf-dlg-ops{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:0;padding:0;border:none;min-width:0}
+/* 5 status: 3 arriba y 2 más anchos abajo */
+.trf-dlg-ops .trf-op{grid-column:span 2}
+.trf-dlg-ops .trf-op:nth-of-type(n+4){grid-column:span 3}
 .trf-dlg-ops legend{margin-bottom:6px;padding:0;font-size:.68rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--texto-3,#64748b)}
 .trf-op{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 8px;border:2px solid var(--linea,#e2e8f0);border-radius:12px;
   font-size:.74rem;font-weight:700;text-align:center;color:var(--texto-2,#334155);cursor:pointer;transition:border-color .15s,background .15s}
 .trf-op input{position:absolute;opacity:0;pointer-events:none}
 .trf-op i{font-size:1.25rem}
-.trf-op.ok i{color:#16a34a}.trf-op.seg i{color:#d97706}.trf-op.no i{color:#dc2626}
+.trf-op.ok i{color:#16a34a}.trf-op.fra i{color:#dc2626}.trf-op.bal i{color:#d97706}.trf-op.full i{color:#2563eb}.trf-op.noi i{color:#64748b}
 .trf-op:has(input:focus-visible){outline:2px solid #0d9488;outline-offset:2px}
 .trf-op.ok:has(input:checked){border-color:#16a34a;background:#f0fdf4}
-.trf-op.seg:has(input:checked){border-color:#d97706;background:#fffbeb}
-.trf-op.no:has(input:checked){border-color:#dc2626;background:#fef2f2}
+.trf-op.fra:has(input:checked){border-color:#dc2626;background:#fef2f2}
+.trf-op.bal:has(input:checked){border-color:#d97706;background:#fffbeb}
+.trf-op.full:has(input:checked){border-color:#2563eb;background:#eff6ff}
+.trf-op.noi:has(input:checked){border-color:#64748b;background:#f1f5f9}
 .trf-drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:96px;padding:14px;border:2px dashed var(--linea-fuerte,#cbd5e1);
   border-radius:12px;background:var(--sup-2,#f8fafc);cursor:pointer;text-align:center}
 .trf-drop:hover,.trf-drop:focus-visible{border-color:#14b8a6;outline:none}
@@ -135,6 +148,19 @@
 .trf-btn-sec{padding:11px 18px;border:1px solid var(--linea-fuerte,#cbd5e1);border-radius:12px;background:var(--sup-1,#fff);color:var(--texto-2,#334155);
   font:inherit;font-size:.78rem;font-weight:700;cursor:pointer}
 .trf-btn-sec:hover{background:var(--sup-3,#f1f5f9)}
+
+/* Aviso obligatorio: ventas completadas sin cantidad de líneas */
+.trf-falta{color:#b45309 !important;font-weight:700}
+.trf-aviso{width:min(100%,560px)}
+.trf-aviso .trf-dlg-t i{color:#d97706;margin-right:4px}
+.trf-aviso .trf-dlg-sub{margin:-6px 0 0;line-height:1.45}
+.trf-aviso-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.trf-aviso-fila{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid var(--linea,#e2e8f0);border-radius:12px;background:var(--sup-2,#f8fafc)}
+.trf-aviso-cli{display:flex;flex-direction:column;gap:2px;min-width:0;font-size:.8rem}
+.trf-aviso-cli small{font-size:.7rem;color:var(--texto-3,#64748b)}
+.trf-aviso-cli .trf-res-cap{margin-top:2px}
+.trf-aviso-fila select{flex:none;width:96px;padding:8px 10px;border:1px solid var(--linea-fuerte,#cbd5e1);border-radius:10px;background:var(--sup-1,#fff);color:var(--texto-1,#0f172a);font:inherit;font-size:.8rem}
+.trf-aviso-fila select:focus{outline:none;border-color:#14b8a6;box-shadow:0 0 0 3px rgba(20,184,166,.15)}
 
 @media (prefers-reduced-motion:reduce){
   .trf-sale,.trf-entra{animation:none}
@@ -149,5 +175,6 @@
   .trf-head{flex-wrap:wrap}
   .trf-btn{align-self:stretch;justify-content:center}
   .trf-dlg-ops{grid-template-columns:1fr}
+  .trf-dlg-ops .trf-op,.trf-dlg-ops .trf-op:nth-of-type(n+4){grid-column:auto}
   .trf-op{flex-direction:row;justify-content:flex-start}
 }

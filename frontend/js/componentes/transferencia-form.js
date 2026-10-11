@@ -15,8 +15,12 @@
  * consulta lo que envió y lo que recibió sin salir del formulario.
  *
  * Resultado: quien RECIBIÓ la transferencia la cierra desde su fila de "Mis
- * transferencias" con Venta completada / Cliente en seguimiento / Venta no
- * realizada y la captura de la venta (obligatoria para "completada"). La captura
+ * transferencias" con Venta completada / Fraude / Balance / Pago full / No
+ * interesado y la captura de la venta (obligatoria para "completada"). Si la venta
+ * completada llegó a Líneas, también la cantidad de líneas (1-5): se paga por línea.
+ * Las ventas completadas antes de existir ese campo salen en un aviso bloqueante al
+ * agente de Líneas que las recibió, hasta que indique las líneas de cada una.
+ * La captura
  * se sube primero a /api/files/upload y luego se envía su URL con el resultado.
  *
  * Un panel con data-trf-reserve (el botón "Guardar Lead" de la cabecera) se
@@ -34,13 +38,21 @@
   let historial = [];    // última carga de "Mis transferencias"
   let filtroTipo = '';   // '' | 'enviada' | 'recibida'
   let periodo = 0;       // días hacia atrás: 0 = hoy, 7, 30
-  const PAGO_POR_VENTA = 1;   // US$ por cada transferencia enviada que termina en venta completada
+  const PAGO_POR_VENTA = 1;   // US$ por venta completada; si llegó a Líneas, por cada línea
+  const MAX_LINEAS = 5;
 
+  // Los "antiguo" ya no se ofrecen en el diálogo: solo se muestran en las transferencias
+  // que los tienen, cuentan como pendientes y se pueden actualizar a un status vigente.
   const RESULTADOS = {
-    completada:   { label: 'Venta completada',       ic: 'fa-circle-check',   cls: 'ok' },
-    seguimiento:  { label: 'Cliente en seguimiento', ic: 'fa-clock',          cls: 'seg' },
-    no_realizada: { label: 'Venta no realizada',     ic: 'fa-circle-xmark',   cls: 'no' },
+    completada:    { label: 'Venta completada',       ic: 'fa-circle-check',       cls: 'ok' },
+    fraude:        { label: 'Fraude',                 ic: 'fa-user-secret',        cls: 'fra' },
+    balance:       { label: 'Balance',                ic: 'fa-scale-unbalanced',   cls: 'bal' },
+    pago_full:     { label: 'Pago full',              ic: 'fa-money-bill-wave',    cls: 'full' },
+    no_interesado: { label: 'No interesado',          ic: 'fa-circle-xmark',       cls: 'noi' },
+    seguimiento:   { label: 'Cliente en seguimiento', ic: 'fa-clock',              cls: 'seg', antiguo: true },
+    no_realizada:  { label: 'Venta no realizada',     ic: 'fa-circle-xmark',       cls: 'no',  antiguo: true },
   };
+  const VIGENTES = Object.keys(RESULTADOS).filter((k) => !RESULTADOS[k].antiguo);
 
   function esc(s) {
     const d = document.createElement('div');
@@ -257,25 +269,32 @@
 
   /** KPIs del periodo y del filtro (Todas / Enviadas / Recibidas) que se ven en la tabla. */
   function pintarKpis(filas) {
-    const n = { total: filas.length, completada: 0, seguimiento: 0, no_realizada: 0, pendiente: 0 };
+    const n = { total: filas.length, pendiente: 0 };
+    VIGENTES.forEach((k) => { n[k] = 0; });
     filas.forEach(function (f) {
-      if (RESULTADOS[f.resultado]) n[f.resultado]++;
-      else n.pendiente++;
+      if (VIGENTES.indexOf(f.resultado) >= 0) n[f.resultado]++;
+      else n.pendiente++;   // sin resultado o con un status antiguo
     });
     const pct = (v) => (n.total ? Math.round(v * 100 / n.total) : 0) + '% del total';
     // Monedero: transferencias del periodo y del filtro (Todas / Enviadas / Recibidas)
-    // cerradas como venta completada, a PAGO_POR_VENTA cada una.
-    const vendidas = n.completada;
+    // cerradas como venta completada, a PAGO_POR_VENTA cada una o cada línea si llegó a Líneas.
+    const vendidas = filas.reduce(function (t, f) {
+      return t + (f.resultado === 'completada' ? (f.lineas || 1) : 0);
+    }, 0);
+    const conLineas = filas.some((f) => f.resultado === 'completada' && f.lineas);
     const dinero = '$' + (vendidas * PAGO_POR_VENTA).toFixed(2);
     const tarjetas = [
       { cls: 'tot',  ic: 'fa-phone-volume',   label: 'Transferidas',   v: n.total,        sub: filtroTipo === 'enviada' ? 'Enviadas' : filtroTipo === 'recibida' ? 'Recibidas' : 'Enviadas y recibidas' },
       { cls: 'ok',   ic: RESULTADOS.completada.ic,   label: 'Cerradas',       v: n.completada,   sub: pct(n.completada) },
-      { cls: 'seg',  ic: RESULTADOS.seguimiento.ic,  label: 'En seguimiento', v: n.seguimiento,  sub: pct(n.seguimiento) },
-      { cls: 'no',   ic: RESULTADOS.no_realizada.ic, label: 'No realizadas',  v: n.no_realizada, sub: pct(n.no_realizada) },
+    ].concat(VIGENTES.filter((k) => k !== 'completada').map(function (k) {
+      const r = RESULTADOS[k];
+      return { cls: r.cls, ic: r.ic, label: r.label, v: n[k], sub: pct(n[k]) };
+    })).concat([
       { cls: 'pend', ic: 'fa-hourglass-half', label: 'Pendientes',     v: n.pendiente,    sub: 'Sin resultado' },
       { cls: 'mon',  ic: 'ph-coins',         label: 'Monedero',       v: dinero,
-        sub: vendidas + (vendidas === 1 ? ' venta' : ' ventas') + ' × $' + PAGO_POR_VENTA.toFixed(2) },
-    ];
+        sub: vendidas + (conLineas ? (vendidas === 1 ? ' línea/venta' : ' líneas/ventas') : (vendidas === 1 ? ' venta' : ' ventas')) +
+          ' × $' + PAGO_POR_VENTA.toFixed(2) },
+    ]);
     q('#trf-kpis').innerHTML = tarjetas.map(function (t) {
       return '<div class="trf-kpi ' + t.cls + '">' +
         '<div class="trf-kpi-head"><span class="trf-kpi-label">' + esc(t.label) + '</span>' +
@@ -325,6 +344,8 @@
     let html = r
       ? '<span class="trf-res ' + r.cls + '"><i class="fas ' + r.ic + '"></i> ' + esc(r.label) + '</span>'
       : '<span class="trf-res pend"><i class="fas fa-hourglass-half"></i> Pendiente</span>';
+    if (f.lineas) html += '<small>' + f.lineas + (f.lineas === 1 ? ' línea' : ' líneas') + '</small>';
+    else if (faltanLineas(f)) html += '<small class="trf-falta"><i class="fas fa-triangle-exclamation"></i> Faltan las líneas</small>';
     if (f.captura_url) {
       html += '<a class="trf-res-cap" href="' + esc(f.captura_url) + '" target="_blank" rel="noopener">' +
         '<i class="fas fa-image"></i> Ver captura</a>';
@@ -352,12 +373,19 @@
         '<h3 class="trf-dlg-t" id="trf-dlg-t">Resultado de la transferencia</h3>' +
         '<p class="trf-dlg-sub" id="trf-dlg-sub"></p>' +
         '<fieldset class="trf-dlg-ops"><legend>Status <span class="trf-req">*</span></legend>' +
-          Object.keys(RESULTADOS).map(function (k) {
+          VIGENTES.map(function (k) {
             const r = RESULTADOS[k];
             return '<label class="trf-op ' + r.cls + '"><input type="radio" name="trf-res" value="' + k + '">' +
               '<i class="fas ' + r.ic + '"></i><span>' + esc(r.label) + '</span></label>';
           }).join('') +
         '</fieldset>' +
+        '<div class="trf-field trf-oculto" id="trf-lineas-campo">' +
+          '<label for="trf-lineas">Cantidad de líneas <span class="trf-req" id="trf-lineas-req">*</span></label>' +
+          '<select id="trf-lineas"><option value="">Selecciona</option>' +
+            Array.from({ length: MAX_LINEAS }, (_, i) => '<option value="' + (i + 1) + '">' + (i + 1) + '</option>').join('') +
+          '</select>' +
+          '<small class="trf-dlg-ayuda">Obligatoria para "Venta completada": se paga $' + PAGO_POR_VENTA.toFixed(2) + ' por línea al agente que transfirió.</small>' +
+        '</div>' +
         '<div class="trf-field">' +
           '<label>Captura de la venta <span class="trf-req" id="trf-cap-req">*</span></label>' +
           '<label class="trf-drop" tabindex="0">' +
@@ -424,7 +452,18 @@
     return r ? r.value : '';
   }
 
+  /** Las transferencias que llegaron a Líneas muestran la cantidad de líneas; solo la
+   *  venta completada la exige (y es la única que la guarda). */
+  function llegoALineas() {
+    return !!dlgFila && dlgFila.seccion_origen === 'residencial';
+  }
+  function pideLineas() {
+    return resultadoElegido() === 'completada' && llegoALineas();
+  }
+
   function pintarRequisitoCaptura() {
+    dlg.querySelector('#trf-lineas-campo').classList.toggle('trf-oculto', !llegoALineas());
+    dlg.querySelector('#trf-lineas-req').style.visibility = pideLineas() ? 'visible' : 'hidden';
     const obligatoria = resultadoElegido() === 'completada' && !(dlgFila && dlgFila.captura_url);
     dlg.querySelector('#trf-cap-req').style.visibility = obligatoria ? 'visible' : 'hidden';
     dlg.querySelector('#trf-cap-ayuda').textContent = dlgFila && dlgFila.captura_url
@@ -446,6 +485,7 @@
       if (r) r.checked = true;
     }
     dlg.querySelector('#trf-res-nota').value = f.resultado_nota || '';
+    dlg.querySelector('#trf-lineas').value = f.lineas ? String(f.lineas) : '';
     msgDlg('', '');
     pintarRequisitoCaptura();
     dlg.classList.remove('trf-oculto');
@@ -465,6 +505,12 @@
     ev.preventDefault();
     const resultado = resultadoElegido();
     if (!resultado) { msgDlg('err', 'Elige el status'); return; }
+    const lineas = pideLineas() ? parseInt(dlg.querySelector('#trf-lineas').value, 10) || 0 : null;
+    if (lineas === 0) {
+      msgDlg('err', 'Elige la cantidad de líneas vendidas');
+      dlg.querySelector('#trf-lineas').focus();
+      return;
+    }
     if (resultado === 'completada' && !dlgArchivo && !dlgFila.captura_url) {
       msgDlg('err', 'Sube la captura donde se ve la venta cerrada');
       return;
@@ -489,6 +535,7 @@
           resultado: resultado,
           captura_url: capturaUrl,
           nota: dlg.querySelector('#trf-res-nota').value.trim(),
+          lineas: lineas,
         }),
       });
       const j = await r.json().catch(() => ({}));
@@ -500,6 +547,88 @@
     } finally {
       btn.disabled = false;
     }
+  }
+
+  // ── Aviso: ventas completadas sin cantidad de líneas ───────────
+  function faltanLineas(f) {
+    return f.resultado === 'completada' && f.seccion_origen === 'residencial' && !f.lineas;
+  }
+
+  /** Bloquea la página hasta que el agente de Líneas indique las líneas de cada venta
+   *  completada que recibió sin ellas (registradas antes de existir el campo). */
+  async function avisoLineasPendientes() {
+    let filas;
+    try {
+      const r = await fetch('/api/transferencias/lineas-pendientes');
+      const j = await r.json();
+      if (!r.ok) return;
+      filas = j.transferencias || [];
+    } catch (e) { return; }
+    if (!filas.length) return;
+
+    const fondo = document.createElement('div');
+    fondo.className = 'trf-dlg-fondo';
+    const opciones = '<option value="">Líneas</option>' +
+      Array.from({ length: MAX_LINEAS }, (_, i) => '<option value="' + (i + 1) + '">' + (i + 1) + '</option>').join('');
+    fondo.innerHTML =
+      '<form class="trf-dlg trf-aviso" role="alertdialog" aria-modal="true" aria-labelledby="trf-aviso-t" aria-describedby="trf-aviso-sub" novalidate>' +
+        '<h3 class="trf-dlg-t" id="trf-aviso-t"><i class="fas fa-triangle-exclamation"></i> Completa la cantidad de líneas</h3>' +
+        '<p class="trf-dlg-sub" id="trf-aviso-sub">Tienes ' + filas.length + (filas.length === 1 ? ' venta completada' : ' ventas completadas') +
+          ' de transferencias sin la cantidad de líneas. Ahora se paga $' + PAGO_POR_VENTA.toFixed(2) +
+          ' por línea al agente que transfirió: indica las líneas de cada cliente para recalcularlo.</p>' +
+        '<ul class="trf-aviso-lista">' + filas.map(function (f) {
+          return '<li class="trf-aviso-fila">' +
+            '<div class="trf-aviso-cli"><b>' + esc(f.nombre_cliente) + '</b>' +
+              '<small>' + esc(fmtTel(f.telefono)) + ' · ' + esc(fmtFecha(f.created_at)) + '</small>' +
+              '<small>Transferida por ' + esc(f.created_by_nombre || '') + '</small>' +
+              (f.captura_url ? '<a class="trf-res-cap" href="' + esc(f.captura_url) + '" target="_blank" rel="noopener"><i class="fas fa-image"></i> Ver captura</a>' : '') +
+            '</div>' +
+            '<select data-trf-lineas="' + esc(f.id) + '" aria-label="Cantidad de líneas de ' + esc(f.nombre_cliente) + '">' + opciones + '</select>' +
+          '</li>';
+        }).join('') + '</ul>' +
+        '<div class="trf-msg" role="status" aria-live="polite"></div>' +
+        '<div class="trf-dlg-acc">' +
+          '<button type="submit" class="trf-btn"><i class="fas fa-floppy-disk"></i> Guardar líneas</button>' +
+        '</div>' +
+      '</form>';
+    document.body.appendChild(fondo);
+    // Sin Cancelar ni cierre con Esc o clic fuera: es obligatorio.
+    fondo.addEventListener('keydown', function (e) { if (e.key === 'Escape') e.stopPropagation(); }, true);
+    const msg = fondo.querySelector('.trf-msg');
+    fondo.querySelector('select').focus();
+
+    fondo.querySelector('form').addEventListener('submit', async function (ev) {
+      ev.preventDefault();
+      const sels = Array.prototype.slice.call(fondo.querySelectorAll('[data-trf-lineas]'));
+      const vacio = sels.find((x) => !x.value);
+      if (vacio) {
+        msg.className = 'trf-msg err';
+        msg.textContent = 'Indica la cantidad de líneas de todos los clientes';
+        vacio.focus();
+        return;
+      }
+      const btn = fondo.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      msg.className = 'trf-msg';
+      try {
+        for (const sel of sels) {
+          const r = await fetch('/api/transferencias/' + encodeURIComponent(sel.getAttribute('data-trf-lineas')) + '/lineas', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lineas: parseInt(sel.value, 10) }),
+          });
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(typeof j.detail === 'string' ? j.detail : 'No se pudieron guardar las líneas');
+          sel.closest('li').remove();   // guardada: si falla otra, no se reenvía
+        }
+        fondo.remove();
+        cargarHistorial();
+      } catch (e) {
+        msg.className = 'trf-msg err';
+        msg.textContent = e.message;
+        btn.disabled = false;
+      }
+    });
   }
 
   function mensaje(tipo, texto) {
@@ -663,8 +792,10 @@
       panel.classList.remove('trf-oculto');
       cargarDestinos();
       cargarHistorial();
+      if (ORIGEN === 'lineas') avisoLineasPendientes();
       return;
     }
+    if (ORIGEN === 'lineas') avisoLineasPendientes();
     document.querySelectorAll('[data-trf-tab]').forEach(function (b) {
       b.addEventListener('click', function () { activar(b.getAttribute('data-trf-tab'), true); });
     });

@@ -5,8 +5,10 @@ agente de un team de Residencial. La sección de cada team sale de
 deps.team_seccion (fuente única), así que el destino es siempre la sección
 contraria a la de origen.
 
-Resultado: el agente que RECIBIÓ la transferencia la cierra con uno de tres
-estados y una captura (obligatoria para "Venta completada"). Una vez completada
+Resultado: el agente que RECIBIÓ la transferencia la cierra con uno de los
+estados de RESULTADOS y una captura (obligatoria para "Venta completada"). Si la transferencia
+llegó a Líneas, la venta completada lleva además cuántas líneas se vendieron (1-5),
+porque la promoción paga por línea. Una vez completada
 solo admin / back office pueden cambiarla, porque es lo que cuenta para la
 promoción de transferencias.
 
@@ -37,11 +39,16 @@ _TEAM_EXCLUIDO = re.compile(r"backoffice|back office|icon|usa|administra|monitor
 
 RESULTADOS = {
     "completada": "Venta completada",
-    "seguimiento": "Cliente en seguimiento",
-    "no_realizada": "Venta no realizada",
+    "fraude": "Fraude",
+    "balance": "Balance",
+    "pago_full": "Pago full",
+    "no_interesado": "No interesado",
 }
+# Antes también había "seguimiento" y "no_realizada": las filas que los tienen se siguen
+# mostrando, pero ya no se pueden registrar.
 # Solo capturas subidas al propio CRM como imagen (/api/files/upload las guarda en BD).
 _URL_CAPTURA = re.compile(r"^/api/files/(\d+)/image$")
+_MAX_LINEAS = 5
 
 
 def _utcnow() -> datetime:
@@ -259,7 +266,7 @@ async def listar(seccion: str, desde: str = "", hasta: str = "",
             SELECT t.id, t.seccion_origen, t.telefono, t.motivo, t.nombre_cliente,
                    t.direccion, t.team_destino, t.agente_destino_id,
                    t.agente_destino_nombre, t.created_by, t.created_by_nombre,
-                   t.created_by_team, t.resultado, t.resultado_nota,
+                   t.created_by_team, t.resultado, t.resultado_nota, t.lineas,
                    t.captura_file_id, t.resultado_por,
                    DATE_FORMAT(t.resultado_at, '%Y-%m-%dT%H:%i:%sZ') AS resultado_at,
                    DATE_FORMAT(t.created_at, '%Y-%m-%dT%H:%i:%sZ') AS created_at
@@ -281,10 +288,68 @@ async def listar(seccion: str, desde: str = "", hasta: str = "",
     return {"success": True, "transferencias": filas}
 
 
+# ── GET /api/transferencias/lineas-pendientes ───────────────────────
+@router.get("/lineas-pendientes")
+async def lineas_pendientes(user: dict = Depends(current_user)):
+    """Ventas completadas que el usuario RECIBIÓ en Líneas antes de que existiera el campo
+    de líneas (lineas NULL), de cualquier fecha: la página le obliga a completarlas para
+    recalcular lo que se paga por línea."""
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            SELECT t.id, t.telefono, t.nombre_cliente, t.direccion, t.created_by_nombre,
+                   t.created_by_team, t.captura_file_id,
+                   DATE_FORMAT(t.created_at, '%Y-%m-%dT%H:%i:%sZ') AS created_at
+            FROM transferencias_llamadas t
+            WHERE t.agente_destino_id = :yo AND t.seccion_origen = 'residencial'
+              AND t.resultado = 'completada' AND t.lineas IS NULL
+            ORDER BY t.created_at
+            LIMIT 200
+        """), {"yo": _uid(user)})
+        filas = [dict(x) for x in r.mappings().all()]
+    for f in filas:
+        fid = f.pop("captura_file_id", None)
+        f["captura_url"] = f"/api/files/{fid}/image" if fid else None
+    return {"success": True, "transferencias": filas}
+
+
+class LineasIn(BaseModel):
+    lineas: int
+
+
+# ── PUT /api/transferencias/{id}/lineas ─────────────────────────────
+@router.put("/{tid}/lineas")
+async def registrar_lineas(tid: int, body: LineasIn, user: dict = Depends(current_user)):
+    """Solo la cantidad de líneas de una venta completada que llegó a Líneas. El agente que
+    la recibió puede ponerla una vez (si aún falta); admin / back office, siempre."""
+    if not 1 <= body.lineas <= _MAX_LINEAS:
+        raise HTTPException(400, f"La cantidad de líneas va de 1 a {_MAX_LINEAS}")
+    gestion = _es_admin_bo(user.get("role", ""))
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            SELECT seccion_origen, agente_destino_id, resultado, lineas
+            FROM transferencias_llamadas WHERE id = :id
+        """), {"id": tid})
+        row = r.mappings().first()
+        if not row:
+            raise HTTPException(404, "Transferencia no encontrada")
+        if row["resultado"] != "completada" or _contraria(row["seccion_origen"]) != "lineas":
+            raise HTTPException(400, "Solo las ventas completadas que llegaron a Líneas llevan líneas")
+        if not gestion:
+            if row["agente_destino_id"] != _uid(user):
+                raise HTTPException(403, "Solo el agente que recibió la transferencia puede indicar las líneas")
+            if row["lineas"] is not None:
+                raise HTTPException(403, "Las líneas ya están registradas; solo administración o back office pueden cambiarlas")
+        await s.execute(text("UPDATE transferencias_llamadas SET lineas = :n WHERE id = :id"),
+                        {"n": body.lineas, "id": tid})
+        await s.commit()
+    return {"success": True, "message": "Líneas registradas"}
+
+
 class ResultadoIn(BaseModel):
     resultado: str
     captura_url: Optional[str] = Field(None, max_length=200)
     nota: Optional[str] = Field(None, max_length=500)
+    lineas: Optional[int] = None
 
 
 # ── PUT /api/transferencias/{id}/resultado ──────────────────────────
@@ -298,7 +363,7 @@ async def registrar_resultado(tid: int, body: ResultadoIn, user: dict = Depends(
 
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
-            SELECT agente_destino_id, resultado, captura_file_id
+            SELECT seccion_origen, agente_destino_id, resultado, captura_file_id
             FROM transferencias_llamadas WHERE id = :id
         """), {"id": tid})
         row = r.mappings().first()
@@ -329,13 +394,20 @@ async def registrar_resultado(tid: int, body: ResultadoIn, user: dict = Depends(
         if resultado == "completada" and not captura_id:
             raise HTTPException(400, "Para registrar la venta completada sube la captura de la venta cerrada")
 
+        # Solo una venta completada que llegó a Líneas (origen residencial) lleva líneas.
+        lineas = None
+        if resultado == "completada" and _contraria(row["seccion_origen"]) == "lineas":
+            lineas = body.lineas
+            if not isinstance(lineas, int) or not 1 <= lineas <= _MAX_LINEAS:
+                raise HTTPException(400, f"Indica la cantidad de líneas vendidas (1 a {_MAX_LINEAS})")
+
         nota = (body.nota or "").strip() or None
         await s.execute(text("""
             UPDATE transferencias_llamadas
                SET resultado = :res, resultado_nota = :nota, captura_file_id = :cap,
-                   resultado_por = :por, resultado_at = :now
+                   lineas = :lineas, resultado_por = :por, resultado_at = :now
              WHERE id = :id
-        """), {"res": resultado, "nota": nota, "cap": captura_id,
+        """), {"res": resultado, "nota": nota, "cap": captura_id, "lineas": lineas,
                "por": (user.get("name") or username).strip(), "now": _utcnow(), "id": tid})
         await s.commit()
     return {"success": True, "message": RESULTADOS[resultado]}
