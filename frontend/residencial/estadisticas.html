@@ -98,8 +98,8 @@
             <th scope="col" class="es-izq">Equipo</th>
             <th scope="col">BAMO hoy</th>
             <th scope="col">ICON hoy</th>
-            <th scope="col" title="Total de puntos de ambos mercados">Puntos hoy</th>
             <th scope="col" title="Total de ventas de ambos mercados">Ventas hoy</th>
+            <th scope="col" title="Total de puntos de ambos mercados">Puntos hoy</th>
           </tr></thead>
           <tbody id="teams-daily-tbody"><tr><td colspan="5" class="es-vacio">Cargando…</td></tr></tbody>
         </table>
@@ -489,12 +489,12 @@
       return '<tr>'+celdaEquipo(t.label||s)+
         '<td class="es-n">'+t.bamoH+'</td>'+
         '<td class="es-n">'+t.iconH+'</td>'+
-        '<td class="es-n">'+t.ptsH.toFixed(2)+'</td>'+
         '<td class="es-n"><span class="es-num'+(t.hoy?' es-num-on':'')+'">'+t.hoy+'</span></td>'+
+        '<td class="es-n">'+t.ptsH.toFixed(2)+'</td>'+
       '</tr>';
     }) : ['<tr><td colspan="5" class="es-vacio">'+(tNames.length?'Ningún equipo trabaja hoy':'Sin ventas hoy')+'</td></tr>'];
     rowsDay.push('<tr class="es-total"><th scope="row" class="es-izq">Total hoy</th>'+
-      '<td class="es-n">'+tBH+'</td><td class="es-n">'+tIH+'</td><td class="es-n">'+tPH.toFixed(2)+'</td><td class="es-n">'+tH+'</td></tr>');
+      '<td class="es-n">'+tBH+'</td><td class="es-n">'+tIH+'</td><td class="es-n">'+tH+'</td><td class="es-n">'+tPH.toFixed(2)+'</td></tr>');
     $('teams-daily-tbody').innerHTML=rowsDay.join('');
     setT('s-hoy',tH);   // coherente con la tabla del día
 
