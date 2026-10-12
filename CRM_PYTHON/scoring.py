@@ -8,13 +8,14 @@ El frontend NO tiene tabla de puntajes hardcodeada: consulta /api/productos.
 - service_meta(): deriva tipo_servicio y sistema por categoría.
 - Reglas especiales XFINITY / DOUBLE PLAY se aplican en el router (lógica de negocio del backend).
 - ensure_productos(): crea la tabla y siembra si está vacía (no pisa ediciones del admin).
+- equivalentes: otros nombres con los que llega el mismo servicio en las ventas (p. ej.
+  ATT AIR ← AIR, AT&T AIR). Puntúan como el servicio y Estadísticas los suma bajo su nombre.
 """
 
 # ── Catálogo inicial (por nombre de servicio, incluye la velocidad) ──
 SCORING_SEED = {
     'VIDEO DIRECTV VIA INTERNET': {'categoria': 'VIDEO', 'byRisk': {'LOW': 1.0, 'MEDIUM': 0.35, 'HIGH': 0.35, 'N/A': 1.0}},
     'VIDEO DIRECTV VIA SATELITE': {'categoria': 'VIDEO', 'byRisk': {'LOW': 1.0, 'MEDIUM': 0.35, 'HIGH': 1.0, 'N/A': 1.0}},
-    'AIR': {'categoria': 'ATT', 'base': 0.45},
     'ATT AIR': {'categoria': 'ATT', 'base': 0.45},
     'ATT 18 - 25 MB': {'categoria': 'ATT', 'base': 0.25},
     'ATT 50 - 100 MB': {'categoria': 'ATT', 'base': 0.35},
@@ -175,6 +176,13 @@ async def score_for(session, servicio: str, riesgo: str = "", tipo_servicio: str
     """), {"s": svc})
     row = r.mappings().first()
     if not row:
+        # Nombre equivalente de un servicio del catálogo (se guardan en mayúsculas).
+        r = await session.execute(text("""
+            SELECT score_base, score_low, score_medium, score_high, score_na
+            FROM productos WHERE JSON_CONTAINS(equivalentes, JSON_QUOTE(:s)) LIMIT 1
+        """), {"s": svc})
+        row = r.mappings().first()
+    if not row:
         return 0.0
     if row["score_base"] is not None:
         return float(row["score_base"])
@@ -199,6 +207,7 @@ async def ensure_productos(session) -> None:
             score_medium DECIMAL(4,2) NULL,
             score_high   DECIMAL(4,2) NULL,
             score_na     DECIMAL(4,2) NULL,
+            equivalentes JSON NULL,
             activo       BOOLEAN DEFAULT TRUE,
             updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             INDEX idx_categoria (categoria)

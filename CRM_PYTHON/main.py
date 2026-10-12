@@ -432,6 +432,14 @@ _MIGRATIONS: list[tuple[str, str]] = [
     # Líneas vendidas (1-5) en una transferencia a Líneas cerrada como venta completada:
     # la promoción paga por línea. NULL en el resto (las de Residencial se pagan por venta).
     ("0071_transferencias_lineas", "ALTER TABLE transferencias_llamadas ADD COLUMN lineas TINYINT UNSIGNED NULL"),
+    # Nombres equivalentes de cada servicio del catálogo (se editan en Permisos →
+    # Servicios y Puntajes): las ventas guardadas con otro nombre del mismo servicio
+    # puntúan como él y Estadísticas las suma bajo su nombre.
+    ("0072_productos_equivalentes", "ALTER TABLE productos ADD COLUMN equivalentes JSON NULL"),
+    # AIR / AT&T AIR / att-air son el servicio ATT AIR del catálogo.
+    ("0073_seed_equivalentes_att_air", """UPDATE productos
+        SET equivalentes = JSON_ARRAY('AIR', 'AT&T AIR', 'ATT-AIR')
+        WHERE servicio = 'ATT AIR' AND equivalentes IS NULL"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración

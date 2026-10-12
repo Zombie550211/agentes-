@@ -893,6 +893,13 @@
           <div class="form-group"><label class="form-label">Sistema</label><input class="form-input" id="prod-sistema" type="text" placeholder="Ej. SARA"/></div>
           <div class="form-group"><label class="form-label">Puntaje</label><input class="form-input" id="prod-score" type="number" step="0.05" placeholder="0.35"/></div>
         </div>
+        <div class="form-row" style="grid-template-columns:1fr">
+          <div class="form-group">
+            <label class="form-label" for="prod-equivalentes">Nombres equivalentes</label>
+            <input class="form-input" id="prod-equivalentes" type="text" placeholder="Ej. AIR, AT&amp;T AIR" aria-describedby="prod-equivalentes-ayuda"/>
+            <span class="form-hint" id="prod-equivalentes-ayuda">Otros nombres con los que aparece este mismo servicio en las ventas, separados por comas. Puntúan igual y en Estadísticas se suman como este servicio.</span>
+          </div>
+        </div>
         <div style="display:flex;gap:8px">
           <button class="btn btn-primary btn-sm" onclick="saveProducto()"><i class="fas fa-save"></i> Guardar</button>
           <button class="btn btn-ghost btn-sm" onclick="resetProdForm()">Limpiar</button>
@@ -905,7 +912,7 @@
       </div>
       <div class="table-wrap">
         <table class="ptable">
-          <thead><tr><th>Servicio</th><th>Categoría</th><th>Tipo</th><th>Sistema</th><th style="text-align:right">Puntaje</th><th></th></tr></thead>
+          <thead><tr><th>Servicio</th><th>Equivalentes</th><th>Categoría</th><th>Tipo</th><th>Sistema</th><th style="text-align:right">Puntaje</th><th></th></tr></thead>
           <tbody id="prod-list"></tbody>
         </table>
       </div>
@@ -3203,16 +3210,17 @@ async function loadProductos(){
 }
 function renderProductos(){
   const q = (document.getElementById('prod-search').value||'').toLowerCase();
-  const list = _prodItems.filter(p => !q || String(p.servicio||'').toLowerCase().includes(q));
+  const list = _prodItems.filter(p => !q || [p.servicio].concat(p.equivalentes||[]).some(n => String(n||'').toLowerCase().includes(q)));
   document.getElementById('prod-count').textContent = list.length;
   if(!list.length){
-    document.getElementById('prod-list').innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--ink3);padding:24px">Sin servicios que coincidan</td></tr>';
+    document.getElementById('prod-list').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--ink3);padding:24px">Sin servicios que coincidan</td></tr>';
     return;
   }
   document.getElementById('prod-list').innerHTML = list.map(function(p){
     const sc = p.score_base!=null ? p.score_base : ('LOW '+p.score_low+' MED '+p.score_medium+' HIGH '+p.score_high+' N/A '+p.score_na);
     return '<tr>'
       +'<td style="font-weight:700;color:var(--ink)">'+_escP(p.servicio)+'</td>'
+      +'<td style="color:var(--ink3)">'+_escP((p.equivalentes||[]).join(', ')||'—')+'</td>'
       +'<td>'+_escP(p.categoria||'—')+'</td>'
       +'<td>'+_escP(p.tipo||'—')+'</td>'
       +'<td>'+_escP(p.sistema||'—')+'</td>'
@@ -3232,11 +3240,12 @@ function editProducto(id){
   document.getElementById('prod-tipo').value = p.tipo||'';
   document.getElementById('prod-sistema').value = p.sistema||'';
   document.getElementById('prod-score').value = p.score_base!=null ? p.score_base : '';
+  document.getElementById('prod-equivalentes').value = (p.equivalentes||[]).join(', ');
   document.getElementById('prod-form-title').textContent = 'Editar: '+p.servicio;
 }
 function resetProdForm(){
   _prodEditingId = null;
-  ['prod-servicio','prod-categoria','prod-tipo','prod-sistema','prod-score'].forEach(function(id){ document.getElementById(id).value=''; });
+  ['prod-servicio','prod-categoria','prod-tipo','prod-sistema','prod-score','prod-equivalentes'].forEach(function(id){ document.getElementById(id).value=''; });
   document.getElementById('prod-form-title').textContent = 'Agregar servicio';
 }
 async function saveProducto(){
@@ -3247,7 +3256,8 @@ async function saveProducto(){
     categoria: document.getElementById('prod-categoria').value.trim(),
     tipo: document.getElementById('prod-tipo').value.trim(),
     sistema: document.getElementById('prod-sistema').value.trim(),
-    score_base: parseFloat(document.getElementById('prod-score').value) || 0
+    score_base: parseFloat(document.getElementById('prod-score').value) || 0,
+    equivalentes: document.getElementById('prod-equivalentes').value.split(',').map(n => n.trim()).filter(Boolean)
   };
   const res = _prodEditingId
     ? await AUTH.sf('/api/productos/'+_prodEditingId,{ method:'PUT', body:JSON.stringify(body) })
@@ -3255,7 +3265,7 @@ async function saveProducto(){
   if(!res){ toast('Error de conexión','err'); return; }
   const data = await res.json();
   if(res.ok && data.success!==false){ toast('Guardado','ok'); resetProdForm(); loadProductos(); }
-  else toast(data.message||'Error al guardar','err');
+  else toast(data.message||(typeof data.detail==='string'?data.detail:'')||'Error al guardar','err');
 }
 async function deleteProducto(id){
   if(!confirm('¿Eliminar este servicio del catálogo?')) return;
