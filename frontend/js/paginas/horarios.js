@@ -5,7 +5,7 @@
  * como una barra entre 8 a. m. y 9 p. m., con la hora de comida rayada. Arriba, cuántos
  * agentes hay en turno a cada hora (en naranja las horas con menos de MIN_TURNO).
  * Clic en la fila → turnos habituales (8–5, 10–7, 1–9, 9–6 y sus shortday de 4 h),
- * Libre, Vacaciones, Incapacidad, No se presentó u otro horario. «Aplicar a Lun–Sáb» copia el turno a la semana.
+ * Libre, Compensatorio, Vacaciones, Incapacidad, No se presentó u otro horario. «Aplicar a Lun–Sáb» copia el turno a la semana.
  *
  * Supervisor / admin editan (el supervisor no toca días pasados); el agente solo ve
  * el suyo. Lo guardado se envía solo al Sistema de Cuadratura cada 15 min, o al
@@ -28,6 +28,7 @@
   var VACACIONES = 'Vacaciones'; // se guardan como día libre con esta nota
   var INCAPACIDAD = 'Incapacidad';
   var NO_PRESENTO = 'No se presentó';
+  var COMPENSATORIO = 'Compensatorio'; // día libre que compensa horas trabajadas de más
 
   // Turnos habituales. sd = su versión shortday (4 h, sin comida).
   var TURNOS = [
@@ -93,9 +94,10 @@
   function esVacaciones(t) { return esAusencia(t, VACACIONES); }
   function esIncapacidad(t) { return esAusencia(t, INCAPACIDAD); }
   function esNoPresento(t) { return esAusencia(t, NO_PRESENTO); }
-  function esLibreConNota(t) { return esVacaciones(t) || esIncapacidad(t) || esNoPresento(t); }
-  // Clase de color de la fila para las ausencias (amarillo, verde, rojo suaves).
-  function claseAusencia(t) { return esVacaciones(t) ? ' vac' : esIncapacidad(t) ? ' inc' : esNoPresento(t) ? ' nop' : ''; }
+  function esCompensatorio(t) { return esAusencia(t, COMPENSATORIO); }
+  function esLibreConNota(t) { return esVacaciones(t) || esIncapacidad(t) || esNoPresento(t) || esCompensatorio(t); }
+  // Clase de color de la fila para las ausencias (amarillo, verde, rojo suaves; compensatorio amarillo claro).
+  function claseAusencia(t) { return esVacaciones(t) ? ' vac' : esIncapacidad(t) ? ' inc' : esNoPresento(t) ? ' nop' : esCompensatorio(t) ? ' comp' : ''; }
   function turnoDe(t) {        // → { turno, corto(bool) } o null si es un horario propio
     if (!t || t.rest_day || !t.start) return null;
     for (var i = 0; i < TURNOS.length; i++) {
@@ -128,6 +130,7 @@
     if (esVacaciones(t)) return VACACIONES;
     if (esIncapacidad(t)) return INCAPACIDAD;
     if (esNoPresento(t)) return NO_PRESENTO;
+    if (esCompensatorio(t)) return COMPENSATORIO;
     if (t.rest_day) return 'Libre';
     var m = turnoDe(t);
     if (m) return m.sd ? m.turno.sdCorto : m.turno.corto;
@@ -138,6 +141,7 @@
     if (esVacaciones(t)) return 'var(--hr-vac)';
     if (esIncapacidad(t)) return 'var(--hr-inc)';
     if (esNoPresento(t)) return 'var(--hr-nop)';
+    if (esCompensatorio(t)) return 'var(--hr-comp)';
     if (t.rest_day) return 'var(--hr-libre)';
     var m = turnoDe(t);
     return m ? m.turno.color : 'var(--hr-x)';
@@ -519,6 +523,7 @@
       grupos +
       '<div class="hr-pop-group">Otros</div>' +
       opcion('libre', 'Libre', '', 'var(--hr-libre)', libre) +
+      opcion('comp', COMPENSATORIO, '', 'var(--hr-comp)', esCompensatorio(t)) +
       opcion('vac', VACACIONES, '', 'var(--hr-vac)', esVacaciones(t)) +
       opcion('inc', INCAPACIDAD, '', 'var(--hr-inc)', esIncapacidad(t)) +
       opcion('nop', NO_PRESENTO, '', 'var(--hr-nop)', esNoPresento(t)) +
@@ -565,6 +570,8 @@
         asignar(a, [f], { start: corto ? T.sd[0] : T.s, end: corto ? T.sd[1] : T.e, break_minutes: corto ? 0 : 60, rest_day: false, notes: nota });
       } else if (op === 'libre') {
         asignar(a, [f], { rest_day: true, break_minutes: 0, notes: nota });
+      } else if (op === 'comp') {
+        asignar(a, [f], { rest_day: true, break_minutes: 0, notes: COMPENSATORIO });
       } else if (op === 'vac') {
         asignar(a, [f], { rest_day: true, break_minutes: 0, notes: VACACIONES });
       } else if (op === 'inc') {
