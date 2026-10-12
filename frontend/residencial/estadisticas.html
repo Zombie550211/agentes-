@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
   <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
   <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
-  <link rel="stylesheet" href="/css/residencial/estadisticas.css?v=20261012a">
+  <link rel="stylesheet" href="/css/residencial/estadisticas.css?v=20261012b">
   <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
   <script src="/js/layout/transicion.js?v=20261008b"></script>
   <script src="/vendor/chartjs/chart.umd.min.js"></script>
@@ -161,23 +161,6 @@
       </div>
     </section>
 
-    <!-- ══ Tendencia ══ -->
-    <section class="es-card es-tendencia in-glass" aria-labelledby="es-tr-t">
-      <div class="es-card-head">
-        <div>
-          <h2 id="es-tr-t">Tendencia de ventas</h2>
-          <p id="es-tr-sub">Ventas registradas en los últimos 7 días</p>
-        </div>
-        <div class="es-head-der">
-          <span class="es-chip" id="es-trend-total">0 ventas</span>
-          <div class="es-tabs" role="tablist" aria-label="Periodo de la tendencia">
-            <button type="button" role="tab" class="es-tab" id="es-tr-tab-sem" aria-selected="true" aria-controls="es-tr-pan">7 días</button>
-            <button type="button" role="tab" class="es-tab" id="es-tr-tab-mes" aria-selected="false" aria-controls="es-tr-pan" tabindex="-1">Mes</button>
-          </div>
-        </div>
-      </div>
-      <div class="es-linea" id="es-tr-pan" role="tabpanel" aria-labelledby="es-tr-tab-sem"><canvas id="line-chart" aria-label="Tendencia de ventas"></canvas></div>
-    </section>
 
   </div>
 
@@ -263,7 +246,7 @@
   var TIP={backgroundColor:'rgba(255,255,255,.97)',titleColor:'#14212a',bodyColor:'#3a464e',borderColor:'rgba(0,112,152,.18)',
     borderWidth:1,cornerRadius:0,padding:10,titleFont:{family:'Inter',size:11,weight:600},bodyFont:{family:'Inter',size:11}};
 
-  var _donut=null,_line=null;
+  var _donut=null;
   function renderDonut(labels,data,colors,total){
     var ctx=$('donut-chart');if(!ctx)return;
     if(_donut){_donut.destroy();_donut=null;}
@@ -275,21 +258,23 @@
           callbacks:{label:function(c){return ' '+c.label+': '+c.raw+' ('+(total>0?(c.raw/total*100).toFixed(1):0)+'%)';}}})}}});
   }
 
-  function renderLine(labels,data){
-    var ctx=$('line-chart');if(!ctx)return;
-    if(_line){_line.destroy();_line=null;}
-    _line=new Chart(ctx,{type:'line',
-      data:{labels:labels,datasets:[{data:data,
-        borderColor:'#007098',backgroundColor:'rgba(48,160,200,.12)',
-        borderWidth:2,pointBackgroundColor:'#007098',pointBorderColor:'#fff',
-        pointBorderWidth:2,pointRadius:4,pointHoverRadius:6,fill:true,tension:.35}]},
-      options:{responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{display:false},tooltip:Object.assign({},TIP,{displayColors:false,
-          callbacks:{label:function(c){return ' '+c.raw+(c.raw===1?' venta':' ventas');}}})},
-        scales:{
-          x:{grid:{display:false},border:{color:'rgba(0,112,152,.18)'},ticks:{color:'#62707a',font:NUM_FONT}},
-          y:{grid:{color:'rgba(0,112,152,.07)'},border:{display:false},ticks:{color:'#62707a',font:NUM_FONT,precision:0},beginAtZero:true}
-        }}});
+
+  // ── Servicios: nombre del catálogo (Permisos → Servicios y Puntajes) ──
+  // Cada servicio y sus nombres equivalentes (AIR, AT&T AIR… → ATT AIR) apuntan al
+  // nombre del catálogo, para que el desglose no muestre el mismo servicio dos veces.
+  var _svcCanon={};
+  function normSvc(x){ return String(x||'').trim().replace(/\s+/g,' ').toUpperCase(); }
+  async function loadServicios(){
+    try{
+      var res=await fetch('/api/productos',{credentials:'include'});
+      if(!res||!res.ok)return;
+      var j=await res.json();
+      (j.productos||[]).forEach(function(p){
+        if(!p.servicio)return;
+        _svcCanon[normSvc(p.servicio)]=p.servicio;
+        (p.equivalentes||[]).forEach(function(e){ _svcCanon[normSvc(e)]=p.servicio; });
+      });
+    }catch(_){}
   }
 
   // ── Equipos: fuente ÚNICA = backend ──
@@ -507,6 +492,7 @@
       var s=l.servicios||l.tipo_servicio;
       if(Array.isArray(s))s=s[0]||'Otro';
       s=String(s||'Otro').trim()||'Otro';
+      s=_svcCanon[normSvc(s)]||s;
       svc[s]=(svc[s]||0)+1;
     });
     var svcS=Object.keys(svc).sort(function(a,b){return svc[b]-svc[a];});
@@ -526,20 +512,6 @@
         '<span class="es-leg-p">'+pct+'%</span></div>';
     }).join('') : '<div class="es-vacio">'+(svHoy?'Sin ventas este día':'Sin ventas en este mes')+'</div>';
 
-    // Tendencia: los 7 días hasta el consultado, o del día 1 del mes hasta él (pestaña Mes)
-    var dayL=[],dayD=[];
-    var trMes=tabOn('es-tr-tab-mes');
-    var nDias=trMes?aFecha(diaSel()).getDate():7;
-    for(var d=nDias-1;d>=0;d--){
-      var dt=aFecha(diaSel());dt.setDate(dt.getDate()-d);
-      var ds=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
-      var dN=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][dt.getDay()];
-      dayL.push(d===0&&diaSel()===fStr(new Date())?'Hoy':(trMes?String(dt.getDate()):dN+' '+dt.getDate()));
-      dayD.push(leads.filter(function(l){return String(l.dia_venta||'').slice(0,10)===ds;}).length);
-    }
-    var t7=dayD.reduce(function(a,b){return a+b;},0);
-    setT('es-trend-total',t7+(t7===1?' venta':' ventas'));
-    renderLine(dayL,dayD);
   }
 
   // ── Team Líneas — /api/lineas-stats ────────────
@@ -632,13 +604,9 @@
     var lnHoy=$('es-ln-tab-hoy');
     setT('es-ln-sub', lnHoy&&lnHoy.getAttribute('aria-selected')==='true' ? 'Ventas y líneas del '+txt : 'Ventas y líneas del mes');
     setT('es-sv-sub', tabOn('es-sv-tab-hoy') ? 'Ventas del '+txt+' por tipo de servicio' : 'Ventas del mes por tipo de servicio');
-    var esHoy=diaSel()===fStr(new Date());
-    setT('es-tr-sub', tabOn('es-tr-tab-mes')
-      ? (esHoy ? 'Ventas de cada día del mes hasta hoy' : 'Ventas de cada día del mes hasta el '+txt)
-      : (esHoy ? 'Ventas registradas en los últimos 7 días' : 'Ventas de los 7 días hasta el '+txt));
   }
   // alCambiar: para las pestañas que no cambian de panel sino que repintan el mismo
-  // (desglose por servicio y tendencia).
+  // (desglose por servicio).
   function initTabs(tabs,alCambiar){
     function elegir(t,foco){
       tabs.forEach(function(x){
@@ -669,13 +637,12 @@
     initTabs([$('es-ln-tab-mes'),$('es-ln-tab-hoy')]);
     function repintar(){ if(_ult)render(_ult.leads,_ult.teams); }
     initTabs([$('es-sv-tab-mes'),$('es-sv-tab-hoy')],repintar);
-    initTabs([$('es-tr-tab-sem'),$('es-tr-tab-mes')],repintar);
     $('btn-prev').addEventListener('click',function(){pasoDia(-1);});
     $('btn-next').addEventListener('click',function(){pasoDia(1);});
     $('day-filter').addEventListener('change',function(){irADia(this.value);});
     $('month-filter').addEventListener('change',function(){elegirMes(this.value);});
     // Cargar el mapa supervisor->equipo ANTES del primer render (para agrupar bien)
-    Promise.all([loadSupervisors(), loadWeekendRotation(), loadLineasTeams()]).then(load);
+    Promise.all([loadSupervisors(), loadWeekendRotation(), loadLineasTeams(), loadServicios()]).then(load);
     // Tiempo real: refresca al cambiar datos de residencial o de líneas (esta
     // página muestra ambos). load() solo re-renderiza si los datos cambiaron.
     if (window.CRMRealtime) {
