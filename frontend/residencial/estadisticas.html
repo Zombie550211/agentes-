@@ -449,11 +449,18 @@
         if(mkt.includes('BAMO'))teams[k].bamoH++;
       }
     });
+    // Todos los equipos de venta (los que tienen supervisor, desde el backend) salen
+    // aunque aún no tengan ventas: un equipo nuevo aparece en cuanto se crea en Permisos
+    // y se le asigna supervisor, con 0 hasta su primera venta.
+    _configTeams.forEach(function(t){
+      var k=String(t).toUpperCase();
+      if(!teams[k])teams[k]={v:0,pts:0,hoy:0,ptsH:0,icon:0,bamo:0,iconH:0,bamoH:0,label:t};
+    });
     var tNames=Object.keys(teams).sort(function(a,b){
       var diff=teams[b].v-teams[a].v;
       return diff!==0?diff:(teams[a].label||a).localeCompare(teams[b].label||b);
     });
-    setT('s-equipos',tNames.length);
+    setT('s-equipos',tNames.filter(function(k){return teams[k].v>0;}).length);
     var maxV=tNames.reduce(function(a,s){return Math.max(a,teams[s].v);},0);
 
     // Tabla mensual (con barra proporcional a las ventas)
@@ -572,8 +579,13 @@
         if(dvFull===today)sumar('hoy');
       });
 
-      var arr=Object.values(teams).sort(function(a,b){return b.mesC-a.mesC;});
-      if(!arr.length) arr=_lineasPlaceholder();
+      // Igual que en Residencial: todos los teams de Líneas con supervisor, aunque
+      // todavía no tengan ventas (un team nuevo sale en cuanto se crea).
+      _lineasTeams.forEach(function(t){
+        var k=String(t).toUpperCase();
+        if(!teams[k])teams[k]=equipoLineasVacio(k);
+      });
+      var arr=Object.values(teams).sort(function(a,b){return b.mesC-a.mesC||String(a.team).localeCompare(String(b.team));});
       renderLineas(arr);
     }catch(_){
       renderLineas(_lineasPlaceholder());
