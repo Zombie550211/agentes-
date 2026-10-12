@@ -43,9 +43,10 @@ RESULTADOS = {
     "balance": "Balance",
     "pago_full": "Pago full",
     "no_interesado": "No interesado",
+    "seguimiento": "En seguimiento",
 }
-# Antes también había "seguimiento" y "no_realizada": las filas que los tienen se siguen
-# mostrando, pero ya no se pueden registrar.
+# Antes también había "no_realizada": las filas que lo tienen se siguen mostrando, pero
+# ya no se puede registrar.
 # Solo capturas subidas al propio CRM como imagen (/api/files/upload las guarda en BD).
 _URL_CAPTURA = re.compile(r"^/api/files/(\d+)/image$")
 _MAX_LINEAS = 5

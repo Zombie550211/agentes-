@@ -16,7 +16,7 @@
  *
  * Resultado: quien RECIBIÓ la transferencia (o el supervisor de su team) la cierra desde su fila de "Mis
  * transferencias" con Venta completada / Fraude / Balance / Pago full / No
- * interesado y la captura de la venta (obligatoria para "completada"). Si la venta
+ * interesado / En seguimiento y la captura de la venta (obligatoria para "completada"). Si la venta
  * completada llegó a Líneas, también la cantidad de líneas (1-5): se paga por línea.
  * Las ventas completadas antes de existir ese campo salen en un aviso bloqueante al
  * agente de Líneas que las recibió, hasta que indique las líneas de cada una.
@@ -49,7 +49,7 @@
     balance:       { label: 'Balance',                ic: 'fa-scale-unbalanced',   cls: 'bal' },
     pago_full:     { label: 'Pago full',              ic: 'fa-money-bill-wave',    cls: 'full' },
     no_interesado: { label: 'No interesado',          ic: 'fa-circle-xmark',       cls: 'noi' },
-    seguimiento:   { label: 'Cliente en seguimiento', ic: 'fa-clock',              cls: 'seg', antiguo: true },
+    seguimiento:   { label: 'En seguimiento',         ic: 'fa-clock',              cls: 'seg' },
     no_realizada:  { label: 'Venta no realizada',     ic: 'fa-circle-xmark',       cls: 'no',  antiguo: true },
   };
   const VIGENTES = Object.keys(RESULTADOS).filter((k) => !RESULTADOS[k].antiguo);
