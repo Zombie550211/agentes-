@@ -119,29 +119,14 @@ async function loadRankingData() {
 }
 
 function renderPodium(ranking) {
-  const container = document.querySelector('.ranking-main-card');
-  if (!container) return;
-
-  const top3 = ranking.slice(0, 3);
-
-  // Actualizar labels del podio
-  if (top3[0]) {
-    document.querySelector('.first-pos .astronaut-name').textContent = top3[0].name;
-    const score = includeColchon ? top3[0].lineasTotal + top3[0].colchonVentas : top3[0].lineasTotal;
-    document.querySelector('.first-pos .astronaut-score').textContent = score;
-  }
-
-  if (top3[1]) {
-    document.querySelector('.second-pos .astronaut-name').textContent = top3[1].name;
-    const score = includeColchon ? top3[1].lineasTotal + top3[1].colchonVentas : top3[1].lineasTotal;
-    document.querySelector('.second-pos .astronaut-score').textContent = score;
-  }
-
-  if (top3[2]) {
-    document.querySelector('.third-pos .astronaut-name').textContent = top3[2].name;
-    const score = includeColchon ? top3[2].lineasTotal + top3[2].colchonVentas : top3[2].lineasTotal;
-    document.querySelector('.third-pos .astronaut-score').textContent = score;
-  }
+  // Escribe en los escalones del podio; si hay menos de tres agentes, el resto queda vacío.
+  ['first', 'second', 'third'].forEach((pos, i) => {
+    const agent = ranking[i];
+    const nom = document.getElementById(`label-${pos}-name`);
+    const pts = document.getElementById(`label-${pos}-score`);
+    if (nom) { nom.textContent = agent ? agent.name : '—'; nom.title = agent ? agent.name : ''; }
+    if (pts) pts.textContent = agent ? (includeColchon ? agent.lineasTotal + agent.colchonVentas : agent.lineasTotal) : 0;
+  });
 }
 
 function renderRankList(ranking) {
@@ -150,12 +135,13 @@ function renderRankList(ranking) {
 
   listContainer.innerHTML = '';
 
-  ranking.forEach((agent, idx) => {
+  // Los tres primeros ya están en el podio: la lista sigue desde el 4.º puesto.
+  ranking.slice(3).forEach((agent, idx) => {
     const item = document.createElement('div');
     item.className = 'rank-item';
     const score = includeColchon ? agent.lineasTotal + agent.colchonVentas : agent.lineasTotal;
     item.innerHTML = `
-      <div class="rank-number">${idx + 1}</div>
+      <div class="rank-number">${idx + 4}</div>
       <div class="agent-info">
         <div class="agent-avatar">
           <i class="fas fa-user"></i>

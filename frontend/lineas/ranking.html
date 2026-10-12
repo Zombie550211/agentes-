@@ -84,13 +84,6 @@
         <div class="rk-escalon-bloque"><span>3</span></div>
       </div>
     </div>
-    <!-- Elementos ocultos que rellena el script del ranking -->
-    <div hidden>
-      <div class="first-pos"><div class="astronaut-name">—</div><div class="astronaut-score">0</div></div>
-      <div class="second-pos"><div class="astronaut-name">—</div><div class="astronaut-score">0</div></div>
-      <div class="third-pos"><div class="astronaut-name">—</div><div class="astronaut-score">0</div></div>
-      <div class="circular-podium"></div>
-    </div>
   </section>
 
   <section class="pg-card in-glass ranking-panel" aria-labelledby="rk-otros-t">
@@ -128,26 +121,7 @@
 <script src="/js/layout/topnav.js?v=20261009a" defer></script>
 <script src="/js/layout/topbar-acciones.js?v=20261009a" defer></script>
 <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
-<script>
-  // Copia los nombres y cifras del podio (el script rellena los elementos ocultos).
-  document.addEventListener('DOMContentLoaded', function () {
-    [
-      ['.first-pos .astronaut-name', 'label-first-name'],
-      ['.first-pos .astronaut-score', 'label-first-score'],
-      ['.second-pos .astronaut-name', 'label-second-name'],
-      ['.second-pos .astronaut-score', 'label-second-score'],
-      ['.third-pos .astronaut-name', 'label-third-name'],
-      ['.third-pos .astronaut-score', 'label-third-score']
-    ].forEach(function (par) {
-      var src = document.querySelector(par[0]), dest = document.getElementById(par[1]);
-      if (!src || !dest) return;
-      new MutationObserver(function () {
-        if (src.textContent && src.textContent !== '—' && src.textContent !== '0') dest.textContent = src.textContent;
-      }).observe(src, { childList: true, characterData: true, subtree: true });
-    });
-  });
-</script>
-<script src="/js/lineas/ranking-lineas.js?v=20260810a" defer></script>
+<script src="/js/lineas/ranking-lineas.js?v=20261012a" defer></script>
 <script src="/js/core/crm-config.js" defer></script>
 <script src="/js/core/inactivity-manager.js?v=20260611a" defer></script>
 <script src="/js/core/crm-init.js" defer></script>
