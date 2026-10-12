@@ -231,7 +231,7 @@ async def login(request: Request, body: LoginBody, response: Response):
             "rolReal":    user.get("role"),
             "team":       user.get("team"),
             "supervisor": user.get("supervisor"),
-            "name":       user.get("name"),
+            "name":       user.get("username"),   # nombre visible = username
         },
     }
 
@@ -313,8 +313,8 @@ async def verify_server(request: Request, response: Response):
 
     doc = await _find_user_by_username(decoded["username"])
     if doc:
-        # name: siempre incluir (fallback a username si no hay nombre)
-        user_data["name"]       = doc.get("name") or doc.get("username") or decoded.get("username", "")
+        # name: el nombre visible es siempre el username (en todos los roles)
+        user_data["name"]       = doc.get("username") or decoded.get("username", "")
         if doc.get("team"):       user_data["team"]       = doc["team"]
         if doc.get("role"):
             user_data["role"]    = rol_efectivo(doc["role"], doc.get("permissions"))

@@ -299,8 +299,9 @@ async def _leads_bootstrap_core(
     async def _get_agents():
         async with AsyncSessionLocal() as s:
             r = await s.execute(text("SELECT id, username, name, role, team, supervisor FROM users "
-                                     "WHERE COALESCE(acceso_crm, 1) = 1 ORDER BY name"))
-            return [dict(row) for row in r.mappings().all()]
+                                     "WHERE COALESCE(acceso_crm, 1) = 1 ORDER BY username"))
+            # Nombre visible = username (users.name ya no se muestra).
+            return [dict(row, name=row["username"]) for row in r.mappings().all()]
 
     async def _get_months():
         async with AsyncSessionLocal() as s:
@@ -603,7 +604,7 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
     if not body.supervisor:
         if _is_supervisor(user):
             # El propio supervisor crea el lead → él ES el supervisor del lead
-            sup_val = (user.get("name") or "").strip() or (user.get("username") or "").strip()
+            sup_val = (user.get("username") or "").strip()
         else:
             sup_val = (user.get("supervisor") or "").strip() or (user.get("supervisorKey") or "").strip()
         body = body.model_copy(update={"supervisor": sup_val})

@@ -150,7 +150,7 @@ async def productividad_bo(
         if team and _TEAM_BO.search(team):
             key = uname.lower()
             if key not in agg:
-                agg[key] = _mk_row(uname, u.get("name") or "", u.get("role") or "", team)
+                agg[key] = _mk_row(uname, uname, u.get("role") or "", team)
                 order.append(key)
 
     # ── Agregar el status FINAL de cada cliente al usuario que lo hizo ──
@@ -162,7 +162,7 @@ async def productividad_bo(
         if key not in agg:
             u = user_by_key.get(key)
             if u is not None:
-                agg[key] = _mk_row(item["actor"], u.get("name") or "",
+                agg[key] = _mk_row(item["actor"], u.get("username") or item["actor"],
                                    item["rol"] or u.get("role") or "", _team_of(u))
             else:
                 agg[key] = _mk_row(item["actor"], "", item["rol"] or "", "OTROS")

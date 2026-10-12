@@ -151,7 +151,7 @@ async def list_agents(supervisor: str = "", user: dict = Depends(current_user)):
 
     out = [
         {"id": str(a["id"]), "username": a.get("username"),
-         "name": a.get("name"), "role": a.get("role")}
+         "name": a.get("username"), "role": a.get("role")}
         for a in agentes
         if not re.search("supervisor", str(a.get("role", "")), re.IGNORECASE)
     ]
@@ -165,7 +165,7 @@ async def supervisors_list(seccion: str = "", user: dict = Depends(current_user)
         r = await s.execute(text("""
             SELECT username, name, team, role FROM users
             WHERE LOWER(role) LIKE '%supervisor%'
-            ORDER BY name
+            ORDER BY username
         """))
         supervisors = r.mappings().all()
 
@@ -175,7 +175,7 @@ async def supervisors_list(seccion: str = "", user: dict = Depends(current_user)
         tsec = team_seccion(s_row.get("team", ""), s_row.get("role", ""))
         if sec and tsec != sec:
             continue
-        name = (s_row.get("name") or s_row.get("username") or "").strip()
+        name = (s_row.get("username") or "").strip()   # nombre visible = username
         key = "".join(w[0].upper() for w in name.split() if w) or (s_row.get("username") or "").upper()
         normalized.append({
             "key": key, "name": name,

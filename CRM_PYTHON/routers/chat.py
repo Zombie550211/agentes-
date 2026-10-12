@@ -54,10 +54,10 @@ async def chat_users(user: dict = Depends(current_user)):
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
             SELECT id, username, name, role, team, avatar_url FROM users
-            WHERE username != :u AND COALESCE(acceso_crm, 1) = 1 ORDER BY name
+            WHERE username != :u AND COALESCE(acceso_crm, 1) = 1 ORDER BY username
         """), {"u": user["username"]})
         users = [
-            {"_id": str(row["id"]), "username": row["username"], "name": row["name"],
+            {"_id": str(row["id"]), "username": row["username"], "name": row["username"],
              "role": row["role"], "team": row["team"], "avatarUrl": row["avatar_url"]}
             for row in r.mappings().all()
         ]

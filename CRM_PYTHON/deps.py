@@ -94,7 +94,9 @@ def make_token(user: dict, remember: bool = False) -> str:
     payload = {
         "id":         str(user.get("_id") or user.get("id")),
         "username":   user.get("username", ""),
-        "name":       user.get("name", "") or user.get("username", ""),
+        # Nombre visible = username en todos los roles (users.name ya no se muestra;
+        # el nombre legal va en users.nombre_completo, solo para Horarios/Cuadratura).
+        "name":       user.get("username", ""),
         "role":       rol_efectivo(user.get("role", ""), user.get("permissions")),
         "team":       user.get("team", ""),
         "supervisor": user.get("supervisor", ""),
@@ -151,6 +153,8 @@ async def current_user(request: Request, response: Response) -> dict:
     decoded = decode_token(token)
     if decoded is None:
         raise HTTPException(status_code=401, detail="Token inválido")
+    # Tokens emitidos antes de la regla «nombre visible = username» traen users.name.
+    decoded["name"] = decoded.get("username") or decoded.get("name") or ""
 
     # La firma sea válida no basta: el token pudo emitirse antes de que
     # suspendieran al usuario o de que un admin cerrara todas las sesiones.

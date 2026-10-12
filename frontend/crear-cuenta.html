@@ -1159,8 +1159,8 @@
       <div class="form-row" style="margin-bottom:10px">
         <div class="form-group" style="margin:0">
           <label class="form-label">Nombre completo</label>
-          <input class="form-input" id="r-name" type="text" placeholder="Ej. María López" autocomplete="off"/>
-          <div class="form-hint">Nombre visible en la plataforma.</div>
+          <input class="form-input" id="r-name" type="text" placeholder="Ej. María Fernanda López Pérez" autocomplete="off"/>
+          <div class="form-hint">Nombre legal: solo para Horarios y Cuadratura. En el CRM se ve el usuario.</div>
         </div>
         <div class="form-group" style="margin:0">
           <label class="form-label">Usuario (login)</label>
@@ -2429,7 +2429,7 @@ function _buildSupervisorOptions(selectEl, selectedVal){
   // Limpia y reconstruye las opciones
   selectEl.innerHTML = '<option value="">— Sin supervisor asignado —</option>';
   sups.forEach(function(u){
-    var display = (u.name||'').trim() || (u.username||'').trim();
+    var display = (u.username||'').trim() || (u.name||'').trim();   // nombre visible = username
     var val     = u.username || u.id || u._id;
     var opt = document.createElement('option');
     opt.value = val;
@@ -2492,7 +2492,7 @@ async function saveTeamName(){
           method:'PUT',
           body:JSON.stringify({ role:supUser.role||'Supervisor', team:teamDbVal, supervisor:supUser.supervisor||'' })
         });
-        var supDisplay=(supUser.name||supUser.username||supUsername);
+        var supDisplay=(supUser.username||supUser.name||supUsername);
         var secLabel = sectionVal ? (' · '+sectionVal) : '';
         if(res&&res.ok) toast('Equipo "'+newName+'"'+secLabel+' creado · Supervisor: '+supDisplay,'ok');
         else toast('Equipo "'+newName+'" creado (error al asignar supervisor)','warn');
@@ -2754,7 +2754,7 @@ function openRoleModal(userId){
   var u=_users.find(function(x){ return String(x.id||x._id)===String(userId); });
   if(!u)return;
   _editingId=String(userId); _editingUsername=u.username;
-  document.getElementById('r-name').value=u.name||'';
+  document.getElementById('r-name').value=u.nombre_completo||'';
   document.getElementById('r-username').value=u.username||'';
   document.getElementById('r-fecha-ingreso').value=(u.fecha_ingreso||'').slice(0,10);
   // Botón suspender/activar
@@ -2869,15 +2869,15 @@ async function saveRole(){
 
   // Cambiar nombre o username si se modificaron
   var _origUser=_users.find(function(x){ return String(x.id||x._id)===String(_editingId); });
-  var _origName=_origUser?((_origUser.name||'').trim()):'';
-  if((newUsername&&newUsername!==_editingUsername)||(newName&&newName!==_origName)){
+  var _origName=_origUser?((_origUser.nombre_completo||'').trim()):'';
+  if((newUsername&&newUsername!==_editingUsername)||newName!==_origName){
     var credPayload={};
     if(newUsername&&newUsername!==_editingUsername) credPayload.username=newUsername;
-    if(newName&&newName!==_origName) credPayload.name=newName;
+    if(newName!==_origName) credPayload.nombre_completo=newName;   // "" lo borra
     var res2=await AUTH.sf('/api/users/'+_editingId+'/credentials',{ method:'PUT', body:JSON.stringify(credPayload) });
     if(!res2){ toast('Perfil guardado, error al actualizar credenciales','warn'); closeModal('modal-role'); loadUsers(); return; }
     var data2=await res2.json();
-    if(!res2.ok||data2.success===false){ toast(data2.message||'Error al actualizar credenciales','err'); closeModal('modal-role'); loadUsers(); return; }
+    if(!res2.ok||data2.success===false){ toast(data2.message||(typeof data2.detail==='string'?data2.detail:'')||'Error al actualizar credenciales','err'); return; }
     if(credPayload.username) _editingUsername=newUsername;
   }
 

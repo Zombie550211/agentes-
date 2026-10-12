@@ -105,7 +105,7 @@ async def _agentes_por_team(s, seccion_destino: str) -> dict[str, list[dict]]:
         SELECT id, username, name, role, TRIM(team) AS team FROM users
         WHERE COALESCE(active, 1) = 1 AND team IS NOT NULL AND TRIM(team) != ''
           AND COALESCE(acceso_crm, 1) = 1   -- sin usuario no puede atender la transferencia
-        ORDER BY TRIM(team), COALESCE(NULLIF(name, ''), username)
+        ORDER BY TRIM(team), username
     """))
     teams: dict[str, list[dict]] = {}
     for u in r.mappings().all():
@@ -114,7 +114,7 @@ async def _agentes_por_team(s, seccion_destino: str) -> dict[str, list[dict]]:
             continue
         teams.setdefault(team, []).append({
             "id": int(u["id"]),
-            "nombre": (u["name"] or u["username"] or "").strip(),
+            "nombre": (u["username"] or "").strip(),
             "username": u["username"],
         })
     return teams
@@ -236,7 +236,7 @@ async def crear(body: TransferenciaIn, user: dict = Depends(current_user)):
             "origen": origen, "tel": telefono, "motivo": motivo, "nombre": nombre,
             "dir": direccion, "team": team, "ag_id": agente["id"],
             "ag_nombre": agente["nombre"], "by": user.get("username"),
-            "by_nombre": (yo.get("name") or user.get("name") or user.get("username") or "").strip(),
+            "by_nombre": (yo.get("username") or user.get("username") or "").strip(),
             "by_team": (yo.get("team") or user.get("team") or "").strip(),
             "now": _utcnow(),
         })

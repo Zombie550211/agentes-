@@ -71,12 +71,15 @@ def _row_to_user(row) -> dict:
     return u
 
 
-def _serialize(u: dict) -> dict:
+def _serialize(u: dict, nombre_real: bool = False) -> dict:
+    """nombre_real=True solo para Permisos, que edita users.name; en el resto del CRM el
+    nombre visible es el username."""
     return {
         "id":          str(u.get("id") or ""),
         "_id":         str(u.get("id") or ""),
         "username":    u.get("username"),
-        "name":        u.get("name") or u.get("username"),
+        "name":        (u.get("name") or u.get("username")) if nombre_real else u.get("username"),
+        **({"nombre_completo": u.get("nombre_completo")} if nombre_real else {}),
         "email":       u.get("email"),
         "role":        u.get("role"),
         "team":        u.get("team"),
@@ -101,6 +104,8 @@ class UpdateCredentialsBody(BaseModel):
     username: Optional[str] = None
     password: Optional[str] = None
     name: Optional[str] = None
+    # Nombre legal (Horarios / Cuadratura). "" lo borra; None = no tocar.
+    nombre_completo: Optional[str] = None
 
 
 class SuspendBody(BaseModel):
@@ -208,9 +213,9 @@ async def admin_list(user: dict = Depends(current_user)):
         raise HTTPException(403, "No autorizado para listar usuarios")
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("SELECT id, username, name, email, role, team, supervisor, avatar_url, permissions, "
-                                 "active, created_at, fecha_ingreso, acceso_crm FROM users ORDER BY username"))
+                                 "active, created_at, fecha_ingreso, acceso_crm, nombre_completo FROM users ORDER BY username"))
         users = [_row_to_user(row) for row in r.mappings().all()]
-    sanitized = [_serialize(u) for u in users]
+    sanitized = [_serialize(u, nombre_real=True) for u in users]
     return {"success": True, "users": sanitized, "agents": sanitized}
 
 
@@ -220,7 +225,7 @@ async def agents_list(seccion: str = "", user: dict = Depends(current_user)):
         # active va en la consulta: sin él _serialize lo daba siempre como 1 y las
         # páginas no podían distinguir a los usuarios suspendidos.
         r = await s.execute(text("SELECT id, username, name, email, role, team, supervisor, avatar_url, permissions, active "
-                                 "FROM users WHERE COALESCE(acceso_crm, 1) = 1 ORDER BY name"))
+                                 "FROM users WHERE COALESCE(acceso_crm, 1) = 1 ORDER BY username"))
         users = [_row_to_user(row) for row in r.mappings().all()]
     sec = (seccion or "").strip().lower()
     if sec:
@@ -307,8 +312,16 @@ async def update_fecha_ingreso(user_id: str, body: UpdateFechaIngresoBody, user:
 async def update_credentials(user_id: str, body: UpdateCredentialsBody, user: dict = Depends(current_user)):
     if _norm_role(user.get("role","")) not in ADMIN_ROLES:
         raise HTTPException(403, "No autorizado para actualizar credenciales")
-    if not body.username and not body.password and not body.name:
-        raise HTTPException(400, "Se requiere username, password o name")
+    if not body.username and not body.password and not body.name and body.nombre_completo is None:
+        raise HTTPException(400, "Se requiere username, password, name o nombre_completo")
+    nombre_completo = None
+    if body.nombre_completo is not None:
+        # Misma validación que Horarios (letras, espacios, guion y apóstrofo).
+        from routers.horarios import NombreIn
+        try:
+            nombre_completo = NombreIn(nombre_completo=body.nombre_completo).nombre_completo
+        except ValueError:
+            raise HTTPException(400, "El nombre completo solo admite letras, espacios, guion y apóstrofo")
 
     try:
         uid = int(user_id)
@@ -327,6 +340,10 @@ async def update_credentials(user_id: str, body: UpdateCredentialsBody, user: di
         if body.name is not None:
             set_parts.append("name = :name")
             params["name"] = body.name.strip()
+
+        if body.nombre_completo is not None:
+            set_parts.append("nombre_completo = :nombre_completo")
+            params["nombre_completo"] = nombre_completo
 
         if body.username:
             dup = await s.execute(text("SELECT id FROM users WHERE username = :u AND id != :id LIMIT 1"), {"u": body.username, "id": uid})

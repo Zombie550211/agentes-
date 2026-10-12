@@ -295,8 +295,7 @@ async def _get_ranking_core(
 
         avatar_info  = build_avatar(matched_user)
         display_name = (
-            (matched_user or {}).get("name")
-            or (matched_user or {}).get("username")
+            (matched_user or {}).get("username")
             or _humanize_name(raw_name)
             or "—"
         )

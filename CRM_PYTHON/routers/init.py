@@ -223,7 +223,7 @@ async def init_dashboard(user: dict = Depends(current_user)):
 
     user_personal_stats = {
         "ventasPersonales": 0, "puntosPersonales": 0,
-        "posicionRanking": "-", "nombreUsuario": user.get("name") or username,
+        "posicionRanking": "-", "nombreUsuario": username,
     }
     if not is_adm_or_bo:
         user_leads = [
@@ -250,7 +250,7 @@ async def init_dashboard(user: dict = Depends(current_user)):
 
     return {
         "success": True, "timestamp": _utcnow().isoformat(),
-        "user": {"username": username, "role": user.get("role"), "team": user.get("team","Sin equipo"), "name": user.get("name") or username},
+        "user": {"username": username, "role": user.get("role"), "team": user.get("team","Sin equipo"), "name": username},
         "kpis": kpis,
         "userStats": {
             "ventasUsuario": kpis["ventas"] if is_adm_or_bo else user_personal_stats["ventasPersonales"],
