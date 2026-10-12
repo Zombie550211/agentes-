@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
   <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
   <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
-  <link rel="stylesheet" href="/css/residencial/estadisticas.css?v=20261009j">
+  <link rel="stylesheet" href="/css/residencial/estadisticas.css?v=20261012a">
   <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
   <script src="/js/layout/transicion.js?v=20261008b"></script>
   <script src="/vendor/chartjs/chart.umd.min.js"></script>
@@ -111,10 +111,14 @@
       <div class="es-card-head">
         <div>
           <h2 id="es-sv-t">Desglose por servicio</h2>
-          <p>Ventas del mes por tipo de servicio</p>
+          <p id="es-sv-sub">Ventas del mes por tipo de servicio</p>
+        </div>
+        <div class="es-tabs" role="tablist" aria-label="Periodo del desglose por servicio">
+          <button type="button" role="tab" class="es-tab" id="es-sv-tab-mes" aria-selected="true" aria-controls="es-sv-pan">Mes</button>
+          <button type="button" role="tab" class="es-tab" id="es-sv-tab-hoy" aria-selected="false" aria-controls="es-sv-pan" tabindex="-1">Hoy</button>
         </div>
       </div>
-      <div class="es-donut-wrap">
+      <div class="es-donut-wrap" id="es-sv-pan" role="tabpanel" aria-labelledby="es-sv-tab-mes">
         <div class="es-donut">
           <canvas id="donut-chart" aria-label="Ventas por servicio"></canvas>
           <div class="es-donut-centro"><span id="donut-total">—</span><small>ventas</small></div>
@@ -164,9 +168,15 @@
           <h2 id="es-tr-t">Tendencia de ventas</h2>
           <p id="es-tr-sub">Ventas registradas en los últimos 7 días</p>
         </div>
-        <span class="es-chip" id="es-trend-total">0 ventas</span>
+        <div class="es-head-der">
+          <span class="es-chip" id="es-trend-total">0 ventas</span>
+          <div class="es-tabs" role="tablist" aria-label="Periodo de la tendencia">
+            <button type="button" role="tab" class="es-tab" id="es-tr-tab-sem" aria-selected="true" aria-controls="es-tr-pan">7 días</button>
+            <button type="button" role="tab" class="es-tab" id="es-tr-tab-mes" aria-selected="false" aria-controls="es-tr-pan" tabindex="-1">Mes</button>
+          </div>
+        </div>
       </div>
-      <div class="es-linea"><canvas id="line-chart" aria-label="Ventas de los últimos 7 días"></canvas></div>
+      <div class="es-linea" id="es-tr-pan" role="tabpanel" aria-labelledby="es-tr-tab-sem"><canvas id="line-chart" aria-label="Tendencia de ventas"></canvas></div>
     </section>
 
   </div>
@@ -488,9 +498,12 @@
     $('teams-daily-tbody').innerHTML=rowsDay.join('');
     setT('s-hoy',tH);   // coherente con la tabla del día
 
-    // Donut: top 5 servicios + Otros
+    // Donut: top 5 servicios + Otros, del mes o del día consultado (pestañas Mes / Hoy)
+    var svHoy=tabOn('es-sv-tab-hoy');
+    var svFilas=svHoy?filtered.filter(function(l){return String(l.dia_venta||'').slice(0,10)===today;}):filtered;
+    var svTotal=svFilas.length;
     var svc={};
-    filtered.forEach(function(l){
+    svFilas.forEach(function(l){
       var s=l.servicios||l.tipo_servicio;
       if(Array.isArray(s))s=s[0]||'Otro';
       s=String(s||'Otro').trim()||'Otro';
@@ -501,25 +514,27 @@
     var dLbls=top.slice(),dVals=top.map(function(k){return svc[k];});
     if(otrosVal>0){dLbls.push('Otros');dVals.push(otrosVal);}
     var cols=dLbls.map(function(_,i){return PAL[i%PAL.length];});
-    renderDonut(dLbls,dVals,cols,total);
+    renderDonut(dLbls,dVals,cols,svTotal);
     // Leyenda: todos los servicios (los que no están en el top comparten el color de "Otros")
     var colMap={};dLbls.forEach(function(l,i){colMap[l]=cols[i];});
     var colOtros=colMap.Otros||PAL[PAL.length-1];
     $('service-legend').innerHTML=svcS.length ? svcS.map(function(l){
-      var pct=total>0?((svc[l]/total)*100).toFixed(1):0;
+      var pct=svTotal>0?((svc[l]/svTotal)*100).toFixed(1):0;
       return '<div class="es-leg-row"><span class="es-leg-dot" style="background:'+(colMap[l]||colOtros)+'"></span>'+
         '<span class="es-leg-nom">'+esc(l)+'</span>'+
         '<span class="es-leg-n">'+svc[l]+'</span>'+
         '<span class="es-leg-p">'+pct+'%</span></div>';
-    }).join('') : '<div class="es-vacio">Sin ventas en este mes</div>';
+    }).join('') : '<div class="es-vacio">'+(svHoy?'Sin ventas este día':'Sin ventas en este mes')+'</div>';
 
-    // Tendencia: últimos 7 días
+    // Tendencia: los 7 días hasta el consultado, o del día 1 del mes hasta él (pestaña Mes)
     var dayL=[],dayD=[];
-    for(var d=6;d>=0;d--){
+    var trMes=tabOn('es-tr-tab-mes');
+    var nDias=trMes?aFecha(diaSel()).getDate():7;
+    for(var d=nDias-1;d>=0;d--){
       var dt=aFecha(diaSel());dt.setDate(dt.getDate()-d);
       var ds=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
       var dN=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][dt.getDay()];
-      dayL.push(d===0?(diaSel()===fStr(new Date())?'Hoy':dN+' '+dt.getDate()):dN+' '+dt.getDate());
+      dayL.push(d===0&&diaSel()===fStr(new Date())?'Hoy':(trMes?String(dt.getDate()):dN+' '+dt.getDate()));
       dayD.push(leads.filter(function(l){return String(l.dia_venta||'').slice(0,10)===ds;}).length);
     }
     var t7=dayD.reduce(function(a,b){return a+b;},0);
@@ -609,23 +624,32 @@
   }
 
   // ── Pestañas Mes / Hoy (con teclado: ← →) ──
+  function tabOn(id){ var t=$(id); return !!t&&t.getAttribute('aria-selected')==='true'; }
   function refrescarSubtitulo(){
     var d=aFecha(diaSel()), hoy=$('es-tab-hoy');
     var txt=d.getDate()+'/'+(d.getMonth()+1)+'/'+d.getFullYear();
     setT('es-eq-sub', hoy&&hoy.getAttribute('aria-selected')==='true' ? 'Ventas del '+txt : 'Producción acumulada del mes');
     var lnHoy=$('es-ln-tab-hoy');
     setT('es-ln-sub', lnHoy&&lnHoy.getAttribute('aria-selected')==='true' ? 'Ventas y líneas del '+txt : 'Ventas y líneas del mes');
-    setT('es-tr-sub', diaSel()===fStr(new Date()) ? 'Ventas registradas en los últimos 7 días' : 'Ventas de los 7 días hasta el '+txt);
+    setT('es-sv-sub', tabOn('es-sv-tab-hoy') ? 'Ventas del '+txt+' por tipo de servicio' : 'Ventas del mes por tipo de servicio');
+    var esHoy=diaSel()===fStr(new Date());
+    setT('es-tr-sub', tabOn('es-tr-tab-mes')
+      ? (esHoy ? 'Ventas de cada día del mes hasta hoy' : 'Ventas de cada día del mes hasta el '+txt)
+      : (esHoy ? 'Ventas registradas en los últimos 7 días' : 'Ventas de los 7 días hasta el '+txt));
   }
-  function initTabs(tabs){
+  // alCambiar: para las pestañas que no cambian de panel sino que repintan el mismo
+  // (desglose por servicio y tendencia).
+  function initTabs(tabs,alCambiar){
     function elegir(t,foco){
       tabs.forEach(function(x){
-        var on=x===t;
-        x.setAttribute('aria-selected',String(on));
-        x.tabIndex=on?0:-1;
-        $(x.getAttribute('aria-controls')).hidden=!on;
+        x.setAttribute('aria-selected',String(x===t));
+        x.tabIndex=x===t?0:-1;
+        $(x.getAttribute('aria-controls')).hidden=true;
       });
+      $(t.getAttribute('aria-controls')).hidden=false;
+      $(t.getAttribute('aria-controls')).setAttribute('aria-labelledby',t.id);
       refrescarSubtitulo();
+      if(alCambiar)alCambiar();
       if(foco)t.focus();
     }
     tabs.forEach(function(t,i){
@@ -643,6 +667,9 @@
     updateDisplay();
     initTabs([$('es-tab-mes'),$('es-tab-hoy')]);
     initTabs([$('es-ln-tab-mes'),$('es-ln-tab-hoy')]);
+    function repintar(){ if(_ult)render(_ult.leads,_ult.teams); }
+    initTabs([$('es-sv-tab-mes'),$('es-sv-tab-hoy')],repintar);
+    initTabs([$('es-tr-tab-sem'),$('es-tr-tab-mes')],repintar);
     $('btn-prev').addEventListener('click',function(){pasoDia(-1);});
     $('btn-next').addEventListener('click',function(){pasoDia(1);});
     $('day-filter').addEventListener('change',function(){irADia(this.value);});
