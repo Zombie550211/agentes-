@@ -550,14 +550,13 @@
 
     pop.hidden = false;
     $('hr-pop-bg').hidden = false;
-    var r = boton.getBoundingClientRect();
-    var x = Math.min(Math.max(8, (window.__hrClickX || r.left + 20)), window.innerWidth - pop.offsetWidth - 8);
-    var y = r.bottom + 6;
-    if (y + pop.offsetHeight > window.innerHeight - 8) y = Math.max(8, r.top - pop.offsetHeight - 6);
-    pop.style.left = x + 'px';
-    pop.style.top = y + 'px';
+    pop.scrollTop = 0;
+    state.popBoton = boton;
+    colocarPop();
+    // preventScroll: si no, el foco en una opción de abajo desplaza la ventana por dentro
+    // y el título (agente y día) queda cortado arriba.
     var foco = pop.querySelector('.hr-opt.cur') || pop.querySelector('.hr-opt');
-    if (foco) foco.focus();
+    if (foco) foco.focus({ preventScroll: true });
 
     function hint() {
       var s = $('hp-start').value, e = $('hp-end').value;
@@ -591,10 +590,9 @@
         asignar(a, [f], { rest_day: true, break_minutes: 0, notes: NO_PRESENTO });
       } else if (op === 'otro') {
         $('hp-custom').hidden = false;
-        // Al crecer puede salirse por abajo: se sube lo necesario.
-        var alto = pop.getBoundingClientRect();
-        if (alto.bottom > window.innerHeight - 8) pop.style.top = Math.max(8, window.innerHeight - alto.height - 8) + 'px';
-        $('hp-start').focus();
+        colocarPop();   // al crecer puede salirse por abajo: se recoloca entera en pantalla
+        $('hp-start').focus({ preventScroll: true });
+        $('hp-custom').scrollIntoView({ block: 'nearest' });
       } else if (op === 'otro-ok') {
         var s = $('hp-start').value, e = $('hp-end').value;
         if (!s || !e) return toast('Indique entrada y salida', true);
@@ -614,10 +612,29 @@
     };
   }
 
+  // Coloca el selector de turno siempre entero dentro de la ventana: debajo de la fila si
+  // cabe, si no encima, y si tampoco, pegado al borde que toque. Si es más alto que la
+  // ventana, su max-height (CSS) lo deja con scroll interno en vez de cortarlo.
+  var MARGEN_POP = 8;
+  function colocarPop() {
+    var pop = $('hr-pop'), boton = state.popBoton;
+    if (!pop || pop.hidden || !boton) return;
+    var vw = document.documentElement.clientWidth, vh = window.innerHeight;
+    var r = boton.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+    var x = Math.min(Math.max(MARGEN_POP, window.__hrClickX || r.left + 20), vw - w - MARGEN_POP);
+    var y = r.bottom + 6;
+    if (y + h > vh - MARGEN_POP) y = r.top - h - 6;                        // encima de la fila
+    y = Math.min(Math.max(MARGEN_POP, y), Math.max(MARGEN_POP, vh - h - MARGEN_POP));
+    pop.style.left = Math.max(MARGEN_POP, x) + 'px';
+    pop.style.top = y + 'px';
+  }
+  window.addEventListener('resize', colocarPop);
+
   function cerrarPop() {
     $('hr-pop').hidden = true;
     $('hr-pop-bg').hidden = true;
     state.pop = null;
+    state.popBoton = null;
   }
 
   // ── Acciones ──
