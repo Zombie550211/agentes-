@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
   <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
   <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
-  <link rel="stylesheet" href="/css/residencial/estadisticas.css?v=20261012b">
+  <link rel="stylesheet" href="/css/residencial/estadisticas.css?v=20261012d">
   <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
   <script src="/js/layout/transicion.js?v=20261008b"></script>
   <script src="/vendor/chartjs/chart.umd.min.js"></script>
@@ -167,6 +167,27 @@
 </div>
 </div>
 
+<!-- Todos los servicios del periodo del desglose (botón «Ver todos») -->
+<dialog class="es-dlg" id="es-sv-dlg" aria-labelledby="es-sv-dlg-t">
+  <div class="es-card-head">
+    <div>
+      <h2 id="es-sv-dlg-t">Todos los servicios</h2>
+      <p id="es-sv-dlg-sub"></p>
+    </div>
+    <button type="button" class="es-dlg-cerrar" id="es-sv-dlg-cerrar" aria-label="Cerrar"><i class="ph ph-x" aria-hidden="true"></i></button>
+  </div>
+  <div class="es-scroll es-dlg-cuerpo">
+    <table class="es-tbl">
+      <thead><tr>
+        <th scope="col" class="es-izq">Servicio</th>
+        <th scope="col">Ventas</th>
+        <th scope="col">% del total</th>
+      </tr></thead>
+      <tbody id="es-sv-dlg-body"></tbody>
+    </table>
+  </div>
+</dialog>
+
 <script src="/js/layout/topnav.js?v=20261009a" defer></script>
 <script src="/js/layout/topbar-acciones.js?v=20261009a" defer></script>
 <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
@@ -263,6 +284,7 @@
   // Cada servicio y sus nombres equivalentes (AIR, AT&T AIR… → ATT AIR) apuntan al
   // nombre del catálogo, para que el desglose no muestre el mismo servicio dos veces.
   var _svcCanon={};
+  var LEG_MAX=8;   // servicios que caben en la tarjeta; el resto, en «Ver todos»
   function normSvc(x){ return String(x||'').trim().replace(/\s+/g,' ').toUpperCase(); }
   async function loadServicios(){
     try{
@@ -501,16 +523,29 @@
     if(otrosVal>0){dLbls.push('Otros');dVals.push(otrosVal);}
     var cols=dLbls.map(function(_,i){return PAL[i%PAL.length];});
     renderDonut(dLbls,dVals,cols,svTotal);
-    // Leyenda: todos los servicios (los que no están en el top comparten el color de "Otros")
+    // Leyenda: los LEG_MAX primeros (los que no están en el top del donut comparten el
+    // color de "Otros"). La lista completa va en el modal «Ver todos», así la tarjeta
+    // no crece y no estira las de la izquierda.
     var colMap={};dLbls.forEach(function(l,i){colMap[l]=cols[i];});
     var colOtros=colMap.Otros||PAL[PAL.length-1];
-    $('service-legend').innerHTML=svcS.length ? svcS.map(function(l){
-      var pct=svTotal>0?((svc[l]/svTotal)*100).toFixed(1):0;
+    function pctSv(l){ return svTotal>0?((svc[l]/svTotal)*100).toFixed(1):0; }
+    var filasLeg=svcS.slice(0,LEG_MAX).map(function(l){
       return '<div class="es-leg-row"><span class="es-leg-dot" style="background:'+(colMap[l]||colOtros)+'"></span>'+
         '<span class="es-leg-nom">'+esc(l)+'</span>'+
         '<span class="es-leg-n">'+svc[l]+'</span>'+
-        '<span class="es-leg-p">'+pct+'%</span></div>';
-    }).join('') : '<div class="es-vacio">'+(svHoy?'Sin ventas este día':'Sin ventas en este mes')+'</div>';
+        '<span class="es-leg-p">'+pctSv(l)+'%</span></div>';
+    }).join('');
+    if(svcS.length>LEG_MAX){
+      filasLeg+='<button type="button" class="es-ver-todos" data-sv-todos>Ver todos los servicios ('+svcS.length+')</button>';
+    }
+    $('service-legend').innerHTML=svcS.length ? filasLeg : '<div class="es-vacio">'+(svHoy?'Sin ventas este día':'Sin ventas en este mes')+'</div>';
+    var dSel=aFecha(diaSel());
+    setT('es-sv-dlg-sub', svHoy ? 'Ventas del '+dSel.getDate()+'/'+(dSel.getMonth()+1)+'/'+dSel.getFullYear()+' · '+svTotal+' en total' : 'Ventas del mes · '+svTotal+' en total');
+    $('es-sv-dlg-body').innerHTML=svcS.map(function(l){
+      return '<tr><th scope="row" class="es-izq"><span class="es-dlg-nom"><span class="es-leg-dot" style="background:'+(colMap[l]||colOtros)+'"></span>'+esc(l)+'</span></th>'+
+        '<td class="es-n es-n-dest">'+svc[l]+'</td><td class="es-n">'+pctSv(l)+'%</td></tr>';
+    }).join('')+
+      '<tr class="es-total"><th scope="row" class="es-izq">Total</th><td class="es-n">'+svTotal+'</td><td class="es-n">100%</td></tr>';
 
   }
 
@@ -637,6 +672,13 @@
     initTabs([$('es-ln-tab-mes'),$('es-ln-tab-hoy')]);
     function repintar(){ if(_ult)render(_ult.leads,_ult.teams); }
     initTabs([$('es-sv-tab-mes'),$('es-sv-tab-hoy')],repintar);
+    // Modal con todos los servicios (el botón lo pinta render() dentro de la leyenda)
+    var dlg=$('es-sv-dlg');
+    $('service-legend').addEventListener('click',function(e){
+      if(e.target.closest('[data-sv-todos]')&&dlg.showModal)dlg.showModal();
+    });
+    $('es-sv-dlg-cerrar').addEventListener('click',function(){dlg.close();});
+    dlg.addEventListener('click',function(e){ if(e.target===dlg)dlg.close(); });
     $('btn-prev').addEventListener('click',function(){pasoDia(-1);});
     $('btn-next').addEventListener('click',function(){pasoDia(1);});
     $('day-filter').addEventListener('change',function(){irADia(this.value);});
