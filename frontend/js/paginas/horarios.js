@@ -5,7 +5,7 @@
  * como una barra entre 8 a. m. y 9 p. m., con la hora de comida rayada. Arriba, cuántos
  * agentes hay en turno a cada hora (en naranja las horas con menos de MIN_TURNO).
  * Clic en la fila → turnos habituales (8–5, 10–7, 1–9, 9–6 y sus shortday de 4 h),
- * Libre, Compensatorio, Vacaciones, Incapacidad, No se presentó u otro horario. «Aplicar a Lun–Sáb» copia el turno a la semana.
+ * Libre, Compensatorio, Vacaciones, Incapacidad, Suspendido, No se presentó u otro horario. «Aplicar a Lun–Sáb» copia el turno a la semana.
  *
  * Supervisor / admin editan (el supervisor no toca días pasados); el agente solo ve
  * el suyo. Lo guardado se envía solo al Sistema de Cuadratura cada 15 min, o al
@@ -29,6 +29,7 @@
   var INCAPACIDAD = 'Incapacidad';
   var NO_PRESENTO = 'No se presentó';
   var COMPENSATORIO = 'Compensatorio'; // día libre que compensa horas trabajadas de más
+  var SUSPENDIDO = 'Suspendido';
 
   // Turnos habituales. sd = su versión shortday (4 h, sin comida).
   var TURNOS = [
@@ -95,9 +96,14 @@
   function esIncapacidad(t) { return esAusencia(t, INCAPACIDAD); }
   function esNoPresento(t) { return esAusencia(t, NO_PRESENTO); }
   function esCompensatorio(t) { return esAusencia(t, COMPENSATORIO); }
-  function esLibreConNota(t) { return esVacaciones(t) || esIncapacidad(t) || esNoPresento(t) || esCompensatorio(t); }
-  // Clase de color de la fila para las ausencias (amarillo, verde, rojo suaves; compensatorio amarillo claro).
-  function claseAusencia(t) { return esVacaciones(t) ? ' vac' : esIncapacidad(t) ? ' inc' : esNoPresento(t) ? ' nop' : esCompensatorio(t) ? ' comp' : ''; }
+  function esSuspendido(t) { return esAusencia(t, SUSPENDIDO); }
+  function esLibreConNota(t) { return esVacaciones(t) || esIncapacidad(t) || esNoPresento(t) || esCompensatorio(t) || esSuspendido(t); }
+  // Clase de color de la fila para las ausencias (amarillo, verde, rojo suaves; compensatorio
+  // amarillo claro; suspendido lila).
+  function claseAusencia(t) {
+    return esVacaciones(t) ? ' vac' : esIncapacidad(t) ? ' inc' : esNoPresento(t) ? ' nop' :
+      esCompensatorio(t) ? ' comp' : esSuspendido(t) ? ' susp' : '';
+  }
   function turnoDe(t) {        // → { turno, corto(bool) } o null si es un horario propio
     if (!t || t.rest_day || !t.start) return null;
     for (var i = 0; i < TURNOS.length; i++) {
@@ -131,6 +137,7 @@
     if (esIncapacidad(t)) return INCAPACIDAD;
     if (esNoPresento(t)) return NO_PRESENTO;
     if (esCompensatorio(t)) return COMPENSATORIO;
+    if (esSuspendido(t)) return SUSPENDIDO;
     if (t.rest_day) return 'Libre';
     var m = turnoDe(t);
     if (m) return m.sd ? m.turno.sdCorto : m.turno.corto;
@@ -142,6 +149,7 @@
     if (esIncapacidad(t)) return 'var(--hr-inc)';
     if (esNoPresento(t)) return 'var(--hr-nop)';
     if (esCompensatorio(t)) return 'var(--hr-comp)';
+    if (esSuspendido(t)) return 'var(--hr-susp)';
     if (t.rest_day) return 'var(--hr-libre)';
     var m = turnoDe(t);
     return m ? m.turno.color : 'var(--hr-x)';
@@ -526,6 +534,7 @@
       opcion('comp', COMPENSATORIO, '', 'var(--hr-comp)', esCompensatorio(t)) +
       opcion('vac', VACACIONES, '', 'var(--hr-vac)', esVacaciones(t)) +
       opcion('inc', INCAPACIDAD, '', 'var(--hr-inc)', esIncapacidad(t)) +
+      opcion('susp', SUSPENDIDO, '', 'var(--hr-susp)', esSuspendido(t)) +
       opcion('nop', NO_PRESENTO, '', 'var(--hr-nop)', esNoPresento(t)) +
       opcion('otro', 'Otro horario…', propio ? h12(t.start) + '–' + h12(t.end) : '', 'var(--hr-x)', propio) +
       '<div class="hr-custom" id="hp-custom" hidden>' +
@@ -572,6 +581,8 @@
         asignar(a, [f], { rest_day: true, break_minutes: 0, notes: nota });
       } else if (op === 'comp') {
         asignar(a, [f], { rest_day: true, break_minutes: 0, notes: COMPENSATORIO });
+      } else if (op === 'susp') {
+        asignar(a, [f], { rest_day: true, break_minutes: 0, notes: SUSPENDIDO });
       } else if (op === 'vac') {
         asignar(a, [f], { rest_day: true, break_minutes: 0, notes: VACACIONES });
       } else if (op === 'inc') {
