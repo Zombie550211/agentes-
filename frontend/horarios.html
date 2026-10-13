@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Horarios de agentes · Administración</title>
+  <title>Horarios · Sistema de Cuadratura</title>
   <link rel="icon" type="image/png" href="/images/favicon.png">
   <!-- Sesión: la cabecera (menú e iconos) la reutiliza; sin sesión, al login. -->
   <script>
@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
   <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
   <link rel="stylesheet" href="/css/componentes/pagina.css?v=20261009a">
-  <link rel="stylesheet" href="/css/paginas/horarios.css?v=20261012c">
+  <link rel="stylesheet" href="/css/paginas/horarios.css?v=20261013b">
   <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
   <script src="/js/layout/transicion.js?v=20261008b"></script>
   <script src="/js/core/fetch-interceptor.js" defer></script>
@@ -41,8 +41,8 @@
     <div class="pg-titulo">
       <span class="pg-ico"><i class="ph ph-calendar-check" aria-hidden="true"></i></span>
       <div>
-        <h1>Horarios de agentes</h1>
-        <p id="hr-eyebrow">Supervisión · Horarios de agentes</p>
+        <h1>Horarios</h1>
+        <p id="hr-eyebrow">Sistema de Cuadratura</p>
       </div>
     </div>
     <!-- "Volver a esta semana" vive aquí y no en la barra de días: al aparecer no mueve nada. -->
@@ -58,24 +58,28 @@
       <button class="hr-icon-btn hr-days-arrow" id="hr-next" aria-label="Semana siguiente" title="Semana siguiente">›</button>
     </div>
 
-    <!-- Una sola barra: búsqueda, filtro de equipo, estado del envío y acciones. -->
+    <!-- Búsqueda y filtro de team (este, solo administración). Sin acciones: los
+         horarios se editan en el Sistema de Cuadratura. -->
     <div class="hr-toolbar" id="hr-toolbar" hidden>
-      <input class="hr-input" id="hr-search" type="search" placeholder="Buscar agente o ID de reloj" aria-label="Buscar agente">
-      <select class="hr-input" id="hr-team" hidden aria-label="Filtrar por equipo"></select>
-      <div class="hr-status" id="hr-status"></div>
+      <input class="hr-input" id="hr-search" type="search" placeholder="Buscar persona o team" aria-label="Buscar persona">
+      <select class="hr-input" id="hr-team" hidden aria-label="Filtrar por team"></select>
       <div class="hr-spacer"></div>
-      <div class="hr-actions" id="hr-actions" hidden>
-        <button class="hr-btn hr-btn-ghost" id="hr-copy" title="Copia los horarios de la semana anterior a esta">Copiar semana anterior</button>
-        <button class="hr-btn hr-btn-secondary" id="hr-save" disabled>Guardado</button>
-        <button class="hr-btn" id="hr-send">Enviar a Cuadratura</button>
-      </div>
+      <span class="hr-solo-lectura" title="Los horarios se editan en el Sistema de Cuadratura">Sistema de Cuadratura · solo lectura</span>
     </div>
 
-    <div class="hr-dayopts" id="hr-dayopts" hidden>
-      <label class="hr-check" id="hr-short-wrap"><input type="checkbox" id="hr-short"> Este día es shortday (4 h: 8–12, 3–7, 5–9)</label>
-      <div class="hr-spacer"></div>
-      <span class="hr-legend-lunch"><i></i>Hora de comida</span>
-      <span id="hr-hint">Clic en una fila para asignar el turno</span>
+    <div class="hr-legend" id="hr-legend" hidden>
+      <span><i style="background:var(--hr-a)"></i>8–5</span>
+      <span><i style="background:var(--hr-b)"></i>10–7</span>
+      <span><i style="background:var(--hr-c)"></i>1–9</span>
+      <span><i style="background:var(--hr-d)"></i>9–6</span>
+      <span><i style="background:var(--hr-x)"></i>Otro horario</span>
+      <span><i style="background:var(--hr-libre)"></i>Libre</span>
+      <span><i style="background:var(--hr-vac)"></i>Vacaciones</span>
+      <span><i style="background:var(--hr-inc)"></i>Incapacidad</span>
+      <span><i style="background:var(--hr-susp)"></i>Suspendido</span>
+      <span><i style="background:var(--hr-baja)"></i>De baja</span>
+      <span><i style="background:var(--hr-nop)"></i>No se presentó</span>
+      <span><i class="lunch"></i>Descanso</span>
     </div>
 
     <div class="hr-scroll">
@@ -89,12 +93,9 @@
 </div>
 </div>
 
-<div class="hr-pop-bg" id="hr-pop-bg" hidden></div>
-<div class="hr-pop" id="hr-pop" role="dialog" aria-modal="false" hidden></div>
-<div class="hr-toast" id="hr-toast" role="status" aria-live="polite"></div>
 
 <script src="/js/layout/topnav.js?v=20261012a" defer></script>
 <script src="/js/layout/topbar-acciones.js?v=20261009a" defer></script>
-<script src="/js/paginas/horarios.js?v=20261012c" defer></script>
+<script src="/js/paginas/horarios.js?v=20261013c" defer></script>
 </body>
 </html>

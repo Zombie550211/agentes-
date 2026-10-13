@@ -1,44 +1,33 @@
-"""Horarios de agentes — los carga el supervisor y se envían al Sistema de Cuadratura.
+"""Horarios de agentes.
 
-Quién ve qué:
-- Admin / Back Office: todo el personal activo, agrupado por su equipo tal como está en
-  Permisos (users.team), con filtro opcional por equipo. Los equipos de venta van en
-  Residencial / Líneas; los demás (Administración, Backoffice, USA…) en "Administración
-  y apoyo". Quien no tiene equipo no aparece.
-- Supervisor: solo su propio team (users.team); es quien carga el horario de cada agente.
-- Agente: el horario de su propio team, en lectura. De los compañeros no ve el ID de reloj
-  ni la fecha de ingreso (solo los suyos).
-El team se lee de la BD en cada petición (el de la sesión puede estar desactualizado).
+Desde el 13-10-2026 la página /horarios.html muestra el horario TAL COMO ESTÁ EN EL SISTEMA
+DE CUADRATURA (GET /api/horarios/cuadratura, que lee su /api/integrations/crm/schedules-week):
+sus empleados, turnos y días sin turno. En el CRM es solo lectura; los horarios se editan en
+Cuadratura, que además los devuelve al CRM (cuadratura_entrada.py → agent_schedules).
 
-Solo salen usuarios del CRM (los de Permisos): los registros con acceso_crm = 0 (empleados
-dados de alta sin usuario) no aparecen ni viajan a Cuadratura. Los empleados nuevos se
-crean en Permisos.
+Quién ve qué en /api/horarios/cuadratura:
+- Admin / Back Office: todo el personal activo de Cuadratura.
+- Supervisor y agente: solo el cuadro de su team. El team es el de su ficha en Cuadratura
+  (crm_agent_id = users.id); si aún no tiene ficha, el de Permisos (users.team).
 
-Reglas de edición:
-- El supervisor no puede modificar días pasados (lo ya trabajado lo corrige RRHH en
-  Cuadratura); admin y back office sí.
-- Guardar una semana REEMPLAZA los días editables de cada agente enviado: un día sin
-  datos queda libre.
-- Dos personas pueden editar a la vez la misma semana (supervisor y admin, o dos
-  pestañas). Para que una no borre sin saberlo lo que guardó la otra, cada agente viaja
-  con una `version` (huella de sus días en la semana): si al guardar ya no coincide, se
-  responde 409 y no se toca nada.
-- Nombre completo (users.nombre_completo): el nombre legal; es el que se ve en Horarios
-  y el que va a Cuadratura al crear el empleado.
+Lo demás de este módulo es lo anterior a ese cambio y sigue en uso por el envío del CRM a
+Cuadratura (cuadratura_sync.py): GET /semana (agent_schedules del CRM, mismas reglas de
+alcance por team), el envío manual y su historial, y los datos de la ficha:
+- Nombre completo (users.nombre_completo): el nombre legal; va a Cuadratura al crear el empleado.
 - Fecha de ingreso (users.fecha_ingreso): va a Cuadratura como hire_date.
-- ID de reloj (users.reloj_id): es el número con el que el agente marca en el reloj
-  biométrico. Lo usa Cuadratura para enlazar horario y marcaciones. Único por agente.
-
-El envío a Cuadratura está en cuadratura_sync.py.
+- ID de reloj (users.reloj_id): el número con el que el agente marca en el reloj biométrico.
 """
 import hashlib
+import os
 import re
+import time as time_mod
 import unicodedata
 from datetime import date, time, timedelta
-from typing import List, Optional
+from typing import Optional
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
@@ -49,7 +38,6 @@ from deps import ADMIN_ROLES, current_user, team_seccion
 
 router = APIRouter(prefix="/api/horarios", tags=["Horarios"])
 
-_HHMM = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 _RELOJ = re.compile(r"^[0-9A-Za-z]{1,32}$")
 
 
@@ -139,11 +127,6 @@ async def _supervisores_por_equipo(s) -> dict[str, str]:
     return {k: " / ".join(v) for k, v in sups.items()}
 
 
-def _primer_dia_editable(user: dict) -> date:
-    """Admin/BO editan cualquier fecha; el supervisor desde hoy en adelante."""
-    return date.min if _es_admin_bo(user) else cs.hoy_sv()
-
-
 def _lunes(valor: Optional[str]) -> date:
     if not valor:
         return cs.lunes_de(cs.hoy_sv())
@@ -185,56 +168,6 @@ def _ip(request: Request) -> str:
 
 
 # ── Modelos ─────────────────────────────────────────────────────
-class DiaIn(BaseModel):
-    date: date
-    start: Optional[str] = None
-    end: Optional[str] = None
-    break_minutes: int = Field(default=60, ge=0, le=480)
-    rest_day: bool = False
-    notes: Optional[str] = Field(default=None, max_length=500)
-
-    @model_validator(mode="after")
-    def _validar(self):
-        if self.rest_day:
-            self.start = self.end = None
-            return self
-        if not (self.start and self.end and _HHMM.match(self.start) and _HHMM.match(self.end)):
-            raise ValueError(f"{self.date}: indique hora de entrada y salida (HH:MM) o marque día libre")
-        if self.start == self.end:
-            raise ValueError(f"{self.date}: la entrada y la salida no pueden ser iguales")
-        # Shortday (4 h o menos): sin hora de comida.
-        self.break_minutes = cs.comida_minutos(self.start, self.end, self.break_minutes)
-        return self
-
-
-class AgenteSemanaIn(BaseModel):
-    user_id: int
-    dias: List[DiaIn] = Field(default_factory=list, max_length=7)
-    # Huella recibida en GET /semana. Si falta (cliente antiguo) no se comprueba.
-    version: Optional[str] = Field(default=None, max_length=64)
-
-
-class SemanaIn(BaseModel):
-    inicio: date
-    agentes: List[AgenteSemanaIn] = Field(min_length=1, max_length=1000)
-
-    @model_validator(mode="after")
-    def _fechas(self):
-        lunes = cs.lunes_de(self.inicio)
-        fin = lunes + timedelta(days=6)
-        ids = [a.user_id for a in self.agentes]
-        if len(ids) != len(set(ids)):
-            raise ValueError("Hay agentes repetidos")
-        for a in self.agentes:
-            fechas = [d.date for d in a.dias]
-            if len(fechas) != len(set(fechas)):
-                raise ValueError("Hay días repetidos para un mismo agente")
-            if any(not lunes <= f <= fin for f in fechas):
-                raise ValueError("Todas las fechas deben estar dentro de la semana")
-        self.inicio = lunes
-        return self
-
-
 class RelojIn(BaseModel):
     reloj_id: Optional[str] = None
 
@@ -270,12 +203,6 @@ class IngresoIn(BaseModel):
         if v and not (date(1990, 1, 1) <= v <= cs.hoy_sv() + timedelta(days=366)):
             raise ValueError("Fecha de ingreso fuera de rango")
         return v
-
-
-class CopiarIn(BaseModel):
-    desde: date
-    hacia: date
-    equipo: str = ""  # el filtro de equipo que tiene puesto el admin en pantalla
 
 
 class EnviarIn(BaseModel):
@@ -369,60 +296,70 @@ async def ver_semana(inicio: Optional[str] = Query(None), equipo: str = Query(""
     }
 
 
-@router.put("/semana")
-async def guardar_semana(body: SemanaIn, request: Request, user: dict = Depends(current_user)):
-    if not (_es_admin_bo(user) or _es_supervisor(user)):
-        raise HTTPException(403, "Solo supervisores y administración pueden cargar horarios")
-    desde = max(body.inicio, _primer_dia_editable(user))
-    fin = body.inicio + timedelta(days=6)
-    if desde > fin:
-        raise HTTPException(400, "Esa semana ya pasó; las correcciones las hace RRHH en Cuadratura")
+_CACHE_CUADRATURA: dict[date, tuple[float, dict]] = {}
+_CACHE_SEGUNDOS = 30
 
-    guardados = omitidos = 0
-    async with AsyncSessionLocal() as s:
-        visibles = {int(a["id"]): a["name"] or a["username"] for a in await _agentes_visibles(s, user)}
-        ajenos = [a.user_id for a in body.agentes if a.user_id not in visibles]
-        if ajenos:
-            raise HTTPException(403, f"No puede editar el horario de estos agentes: {ajenos}")
 
-        # Control de edición simultánea: FOR UPDATE bloquea esos días hasta el commit,
-        # así otro guardado de los mismos agentes espera y luego ve la versión nueva.
-        lista = ",".join(str(int(a.user_id)) for a in body.agentes)
-        r = await s.execute(text(f"""
-            SELECT {_COLS_DIA} FROM agent_schedules
-            WHERE work_date BETWEEN :i AND :f AND user_id IN ({lista})
-            FOR UPDATE
-        """), {"i": body.inicio, "f": fin})
-        actuales = _versiones(r.mappings().all())
-        cambiados = [visibles[a.user_id] for a in body.agentes
-                     if a.version is not None and actuales.get(a.user_id, _VERSION_VACIA) != a.version]
-        if cambiados:
-            raise HTTPException(409, "Otra persona guardó cambios en el horario de "
-                                     f"{', '.join(cambiados)} mientras usted editaba. "
-                                     "No se guardó nada: recargue la semana y vuelva a aplicar sus cambios.")
+async def _semana_cuadratura(lunes: date) -> dict:
+    """La semana tal como está en Cuadratura (GET /api/integrations/crm/schedules-week).
+    Se guarda 30 s para que muchos agentes abriendo Horarios no carguen a Cuadratura."""
+    guardado = _CACHE_CUADRATURA.get(lunes)
+    if guardado and time_mod.monotonic() - guardado[0] < _CACHE_SEGUNDOS:
+        return guardado[1]
+    if not cs.configurado():
+        raise HTTPException(503, "Falta CUADRATURA_URL y CUADRATURA_API_KEY en el .env del CRM")
+    url = os.getenv("CUADRATURA_URL", "").rstrip("/") + "/api/integrations/crm/schedules-week"
+    try:
+        async with httpx.AsyncClient(timeout=20) as cli:
+            r = await cli.get(url, params={"date_from": lunes.isoformat()},
+                              headers={"X-API-Key": os.getenv("CUADRATURA_API_KEY", "")})
+        r.raise_for_status()
+        datos = r.json()
+    except (httpx.HTTPError, ValueError) as e:
+        raise HTTPException(502, f"No se pudo leer el horario del Sistema de Cuadratura ({type(e).__name__})")
+    _CACHE_CUADRATURA[lunes] = (time_mod.monotonic(), datos)
+    for k in [k for k, (t, _) in _CACHE_CUADRATURA.items() if time_mod.monotonic() - t > 600]:
+        _CACHE_CUADRATURA.pop(k, None)
+    return datos
 
-        for ag in body.agentes:
-            await s.execute(text("""
-                DELETE FROM agent_schedules
-                WHERE user_id = :u AND work_date BETWEEN :d AND :f
-            """), {"u": ag.user_id, "d": desde, "f": fin})
-            for d in ag.dias:
-                if d.date < desde:
-                    omitidos += 1
-                    continue
-                await s.execute(text("""
-                    INSERT INTO agent_schedules
-                        (user_id, work_date, start_time, end_time, break_minutes, rest_day, notes, updated_by)
-                    VALUES (:u, :d, :st, :en, :b, :r, :n, :by)
-                """), {"u": ag.user_id, "d": d.date, "st": d.start, "en": d.end,
-                       "b": 0 if d.rest_day else d.break_minutes, "r": 1 if d.rest_day else 0,
-                       "n": d.notes, "by": user.get("username")})
-                guardados += 1
-        await s.commit()
 
-    audit._log("horarios_guardar", user.get("username", ""), _ip(request),
-               {"semana": body.inicio.isoformat(), "agentes": len(body.agentes), "dias": guardados})
-    return {"success": True, "guardados": guardados, "omitidos": omitidos}
+@router.get("/cuadratura")
+async def ver_semana_cuadratura(inicio: Optional[str] = Query(None), user: dict = Depends(current_user)):
+    """Horarios de la semana leídos del Sistema de Cuadratura (solo lectura: se editan allí).
+
+    Administración / back office ven a todo el personal; supervisores y agentes, solo el
+    cuadro de su team. El team sale de la ficha de Cuadratura enlazada a este usuario
+    (crm_agent_id = users.id); si aún no tiene ficha, del team de Permisos."""
+    lunes = _lunes(inicio)
+    datos = await _semana_cuadratura(lunes)
+    empleados = datos.get("employees") or []
+    es_admin = _es_admin_bo(user)
+    yo = next((e for e in empleados if str(e.get("crm_agent_id") or "") == str(user.get("id"))), None)
+    mi_team = None
+    if not es_admin:
+        mi_team = (yo or {}).get("team")
+        if not mi_team:
+            async with AsyncSessionLocal() as s:
+                r = await s.execute(text("SELECT team FROM users WHERE id = :i"), {"i": user.get("id")})
+                team_crm = r.scalar() or user.get("team")
+            if cs.tiene_equipo(team_crm):
+                mi_team = next((e["team"] for e in empleados
+                                if e.get("team") and _norm(e["team"]) == _norm(team_crm)), None)
+        empleados = [e for e in empleados if mi_team and e.get("team") == mi_team]
+    ids = {e["id"] for e in empleados}
+    return {
+        "success": True,
+        "inicio": lunes.isoformat(),
+        "hoy": str(datos.get("today") or cs.hoy_sv().isoformat()),
+        "dias": [(lunes + timedelta(days=i)).isoformat() for i in range(7)],
+        "es_admin": es_admin,
+        "mi_team": mi_team,
+        "yo": (yo or {}).get("id"),
+        "empleados": [{k: e.get(k) for k in ("id", "full_name", "team", "section", "is_supervisor", "position", "area")}
+                      for e in empleados],
+        "turnos": [a for a in datos.get("assignments") or [] if a.get("employee_id") in ids],
+        "libres": [d for d in datos.get("days_off") or [] if d.get("employee_id") in ids],
+    }
 
 
 @router.put("/reloj/{user_id}")
@@ -478,55 +415,6 @@ async def asignar_ingreso(user_id: int, body: IngresoIn, request: Request, user:
     audit._log("horarios_fecha_ingreso", user.get("username", ""), _ip(request),
                {"agente": user_id, "fecha_ingreso": fecha})
     return {"success": True, "fecha_ingreso": fecha}
-
-
-@router.post("/copiar")
-async def copiar_semana(body: CopiarIn, request: Request, user: dict = Depends(current_user)):
-    """Copia los horarios de una semana a otra para los agentes visibles (y del equipo
-    filtrado, si lo hay). Solo reemplaza el destino de los agentes que tienen algo cargado
-    en la semana origen: a quien no tiene nada que copiar no se le borra su semana."""
-    if not (_es_admin_bo(user) or _es_supervisor(user)):
-        raise HTTPException(403, "No autorizado")
-    origen, destino = cs.lunes_de(body.desde), cs.lunes_de(body.hacia)
-    if origen == destino:
-        raise HTTPException(400, "Elija semanas distintas")
-    desde_dest = max(destino, _primer_dia_editable(user))
-    fin_dest = destino + timedelta(days=6)
-    if desde_dest > fin_dest:
-        raise HTTPException(400, "La semana destino ya pasó")
-    delta = destino - origen
-
-    async with AsyncSessionLocal() as s:
-        ids = [int(a["id"]) for a in await _agentes_visibles(s, user, body.equipo)]
-        if not ids:
-            return {"success": True, "copiados": 0}
-        r = await s.execute(text(f"""
-            SELECT DISTINCT user_id FROM agent_schedules
-            WHERE user_id IN ({",".join(str(i) for i in ids)}) AND work_date BETWEEN :o AND :of
-        """), {"o": origen, "of": origen + timedelta(days=6)})
-        ids = [int(x) for x in r.scalars().all()]
-        if not ids:
-            return {"success": True, "copiados": 0}
-        lista = ",".join(str(i) for i in ids)
-        await s.execute(text(f"""
-            DELETE FROM agent_schedules
-            WHERE user_id IN ({lista}) AND work_date BETWEEN :d AND :f
-        """), {"d": desde_dest, "f": fin_dest})
-        r = await s.execute(text(f"""
-            INSERT INTO agent_schedules
-                (user_id, work_date, start_time, end_time, break_minutes, rest_day, notes, updated_by)
-            SELECT user_id, DATE_ADD(work_date, INTERVAL :dias DAY), start_time, end_time,
-                   break_minutes, rest_day, notes, :by
-            FROM agent_schedules
-            WHERE user_id IN ({lista}) AND work_date BETWEEN :o AND :of
-              AND DATE_ADD(work_date, INTERVAL :dias DAY) >= :d
-        """), {"dias": delta.days, "by": user.get("username"), "o": origen,
-               "of": origen + timedelta(days=6), "d": desde_dest})
-        await s.commit()
-    audit._log("horarios_copiar", user.get("username", ""), _ip(request),
-               {"desde": origen.isoformat(), "hacia": destino.isoformat(), "agentes": len(ids),
-                "filas": r.rowcount})
-    return {"success": True, "copiados": r.rowcount, "agentes": len(ids)}
 
 
 @router.post("/enviar")

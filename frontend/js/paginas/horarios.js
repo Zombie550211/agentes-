@@ -1,54 +1,66 @@
 /**
- * Horarios de agentes (horarios.html) — vista por día con línea de tiempo.
+ * Horarios (horarios.html) — el horario TAL COMO ESTÁ EN EL SISTEMA DE CUADRATURA.
  *
- * Se elige un día de la semana (pestañas); cada agente muestra su turno de ese día
- * como una barra entre 8 a. m. y 9 p. m., con la hora de comida rayada. Arriba, cuántos
- * agentes hay en turno a cada hora (en naranja las horas con menos de MIN_TURNO).
- * Clic en la fila → turnos habituales (8–5, 10–7, 1–9, 9–6 y sus shortday de 4 h),
- * Libre, Compensatorio, Vacaciones, Incapacidad, Suspendido, No se presentó u otro horario. «Aplicar a Lun–Sáb» copia el turno a la semana.
+ * Desde el 13-10-2026 el CRM ya no edita horarios: muestra, en solo lectura y con el
+ * diseño del CRM, la vista de Horarios de Cuadratura (sus empleados, turnos y días sin
+ * turno). Se elige un día de la semana; cada persona muestra su turno de ese día como una
+ * barra sobre las horas, con el descanso rayado. Arriba, cuántas personas hay en turno a
+ * cada hora (en ámbar las horas con menos de MIN_TURNO). A la derecha, la semana en
+ * cuadritos y sus horas de trabajo.
  *
- * Supervisor / admin editan (el supervisor no toca días pasados); el agente solo ve
- * el suyo. Lo guardado se envía solo al Sistema de Cuadratura cada 15 min, o al
- * momento con «Enviar a Cuadratura».
+ * Quién ve qué lo decide el backend: administración ve a todo el personal; supervisores
+ * y agentes, solo el cuadro de su team.
  *
- * API: /api/horarios/* (CRM_PYTHON/routers/horarios.py)
+ * API: GET /api/horarios/cuadratura?inicio=AAAA-MM-DD (CRM_PYTHON/routers/horarios.py)
  */
 (function () {
   'use strict';
 
-  // Secciones de la tabla (las manda el backend en cada grupo: grupos[].seccion).
-  var SECCIONES = { residencial: 'Residencial', lineas: 'Líneas', apoyo: 'Administración y apoyo' };
-
+  // Secciones: primero los teams (Residencial, Líneas); quien no tiene team va agrupado por
+  // su cargo dentro de su área de Cuadratura (Employee.area), como en su vista de Horarios.
+  var SECCIONES = {
+    residencial: 'Residencial', lineas: 'Líneas',
+    ventas: 'Agentes de ventas · sin team', administrativo: 'Administrativo', operativo: 'Operativo',
+  };
+  var ORDEN_SECCION = { residencial: 0, lineas: 1, ventas: 2, administrativo: 3, operativo: 4 };
   var DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
   var DIAS_LARGOS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
   var MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  var H0 = 8, HN = 13;           // la línea de tiempo va de 8:00 a 21:00
-  var MIN_TURNO = 4;             // menos agentes que esto en una hora → aviso
-  var MAX_HORAS_SEMANA = 44;
-  var VACACIONES = 'Vacaciones'; // se guardan como día libre con esta nota
-  var INCAPACIDAD = 'Incapacidad';
-  var NO_PRESENTO = 'No se presentó';
-  var COMPENSATORIO = 'Compensatorio'; // día libre que compensa horas trabajadas de más
-  var SUSPENDIDO = 'Suspendido';
+  var MIN_TURNO = 4;          // menos personas que esto en una hora → aviso
+  var MAX_HORAS_SEMANA = 44;  // jornada ordinaria diurna en El Salvador
 
-  // Turnos habituales. sd = su versión shortday (4 h, sin comida).
+  // Turnos habituales: mismos colores que Cuadratura (frontend/src/lib/shiftColors.ts).
+  // comida = hora a la que se dibuja el descanso de la jornada completa.
   var TURNOS = [
-    { k: 'A', corto: '8–5', s: '08:00', e: '17:00', sd: ['08:00', '12:00'], sdCorto: '8–12', comida: 12, color: 'var(--hr-a)' },
-    { k: 'B', corto: '10–7', s: '10:00', e: '19:00', sd: ['15:00', '19:00'], sdCorto: '3–7', comida: 14, color: 'var(--hr-b)' },
-    { k: 'C', corto: '1–9', s: '13:00', e: '21:00', sd: ['17:00', '21:00'], sdCorto: '5–9', comida: 16, color: 'var(--hr-c)' },
-    { k: 'D', corto: '9–6', s: '09:00', e: '18:00', sd: null, comida: 13, color: 'var(--hr-d)' },
+    { corto: '8–5', s: '08:00', e: '17:00', color: 'var(--hr-a)', comida: 12 },
+    { corto: '10–7', s: '10:00', e: '19:00', color: 'var(--hr-b)', comida: 14 },
+    { corto: '1–9', s: '13:00', e: '21:00', color: 'var(--hr-c)', comida: 16 },
+    { corto: '9–6', s: '09:00', e: '18:00', color: 'var(--hr-d)', comida: 13 },
+    { corto: '8–12', s: '08:00', e: '12:00', color: 'var(--hr-a)', sd: true },
+    { corto: '3–7', s: '15:00', e: '19:00', color: 'var(--hr-b)', sd: true },
+    { corto: '5–9', s: '17:00', e: '21:00', color: 'var(--hr-c)', sd: true },
   ];
+  // Días sin turno de Cuadratura (shift_days_off.kind) → etiqueta y clase de color.
+  var LIBRES = {
+    libre: ['Libre', 'libre'],
+    compensatorio: ['Compensatorio', 'comp'],
+    vacacion: ['Vacaciones', 'vac'],
+    incapacidad: ['Incapacidad', 'inc'],
+    suspendido: ['Suspendido', 'susp'],
+    baja: ['De baja', 'baja'],
+  };
+  var NO_PRESENTO = 'No se presentó';   // el CRM lo guarda como día libre con esta nota
 
   var state = {
     inicio: null,        // lunes AAAA-MM-DD
-    data: null,          // respuesta de GET /api/horarios/semana
+    data: null,          // respuesta de GET /api/horarios/cuadratura
     dia: 0,              // pestaña elegida (0 = lunes)
-    dirty: {},           // user_id → true
     equipo: '',
     busqueda: '',
-    colapsados: {},      // clave de equipo → true
-    pop: null,           // { id }
-    mostrada: null,      // semana que está en pantalla (para elegir el día al cambiar)
+    colapsados: {},      // clave de grupo → true
+    mostrada: null,      // semana en pantalla (para elegir el día al cambiar de semana)
+    turno: {},           // "empleado|fecha" → turno
+    libre: {},           // "empleado|fecha" → día sin turno
   };
 
   var $ = function (id) { return document.getElementById(id); };
@@ -59,793 +71,295 @@
     });
   }
 
-  // ── Fechas (AAAA-MM-DD, sin zona: se manejan como texto/UTC) ──
-  // Nombre que se muestra: el completo (users.nombre_completo) si lo hay, en tipo título;
-  // si no, el del CRM. «JOSELYN LISBETH CORTEZ GONZALEZ» → «Joselyn Lisbeth Cortez Gonzalez».
+  // Cuadratura guarda los nombres en mayúsculas: «JOSELYN LISBETH CORTEZ» → «Joselyn Lisbeth Cortez».
   var PARTICULAS = { de: 1, del: 1, la: 1, las: 1, los: 1, y: 1 };
   function tipoTitulo(s) {
-    return String(s).toLowerCase().split(' ').map(function (w, i) {
+    return String(s || '').toLowerCase().split(' ').map(function (w, i) {
       return i && PARTICULAS[w] ? w : w.charAt(0).toUpperCase() + w.slice(1);
     }).join(' ');
   }
-  function nombreDe(a) { return a.nombre_completo ? tipoTitulo(a.nombre_completo) : (a.name || a.username || ''); }
 
+  // Cargo: igual, pero las siglas cortas se quedan en mayúsculas («RRHH», «IT», «BO»).
+  function cargo(s) {
+    return String(s || '').split(' ').map(function (w) {
+      return w.length <= 4 && w === w.toUpperCase() && /[A-Z]/.test(w) && !/^(DE|DEL|LA|LAS|LOS|Y)$/.test(w) ? w : tipoTitulo(w);
+    }).join(' ');
+  }
+
+  // ── Fechas (AAAA-MM-DD como texto/UTC) ──
   function fecha(ymd) { return new Date(ymd + 'T00:00:00Z'); }
   function addDays(ymd, n) { var d = fecha(ymd); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
   function fmtCorta(ymd) { var d = fecha(ymd); return d.getUTCDate() + ' ' + MESES[d.getUTCMonth()]; }
-  function fmtFechaHora(iso) {
-    if (!iso) return '';
-    var d = new Date(iso.replace(' ', 'T'));
-    return isNaN(d) ? iso : d.toLocaleString('es-SV', { dateStyle: 'medium', timeStyle: 'short' });
-  }
-  function fmtFechaCorta(ymd) { return ymd.slice(8, 10) + '/' + ymd.slice(5, 7) + '/' + ymd.slice(0, 4); }
-  function horas(hhmm) { var p = hhmm.split(':'); return (+p[0]) + (+p[1]) / 60; }
   function h12(hhmm) {   // '15:30' → '3:30', '10:00' → '10'
     var p = hhmm.split(':'), h = +p[0] % 12 || 12;
     return p[1] === '00' ? String(h) : h + ':' + p[1];
   }
   function ampm(hhmm) { var h = +hhmm.split(':')[0]; return h12(hhmm) + (hhmm.split(':')[1] === '00' ? ':00' : '') + (h < 12 ? ' a. m.' : ' p. m.'); }
   function fmtHoras(h) {
-    var hh = Math.floor(h), mm = Math.round((h - hh) * 60);
+    var hh = Math.floor(h + 1e-9), mm = Math.round((h - hh) * 60);
     return mm ? hh + ' h ' + mm + ' m' : hh + ' h';
   }
+  function etiquetaHora(h) { var x = ((h % 24) + 24) % 24; return (x === 0 ? 12 : x > 12 ? x - 12 : x) + (x < 12 ? 'a' : 'p'); }
 
-  // ── Qué es cada día de un agente ──
-  function esAusencia(t, nombre) { return !!(t && t.rest_day && (t.notes || '').trim().toLowerCase() === nombre.toLowerCase()); }
-  function esVacaciones(t) { return esAusencia(t, VACACIONES); }
-  function esIncapacidad(t) { return esAusencia(t, INCAPACIDAD); }
-  function esNoPresento(t) { return esAusencia(t, NO_PRESENTO); }
-  function esCompensatorio(t) { return esAusencia(t, COMPENSATORIO); }
-  function esSuspendido(t) { return esAusencia(t, SUSPENDIDO); }
-  function esLibreConNota(t) { return esVacaciones(t) || esIncapacidad(t) || esNoPresento(t) || esCompensatorio(t) || esSuspendido(t); }
-  // Clase de color de la fila para las ausencias (amarillo, verde, rojo suaves; compensatorio
-  // amarillo claro; suspendido lila).
-  function claseAusencia(t) {
-    return esVacaciones(t) ? ' vac' : esIncapacidad(t) ? ' inc' : esNoPresento(t) ? ' nop' :
-      esCompensatorio(t) ? ' comp' : esSuspendido(t) ? ' susp' : '';
+  // ── Qué es cada día de una persona ──
+  function turnoHabitual(t) {
+    return TURNOS.find(function (T) { return T.s === t.start && T.e === t.end; }) || null;
   }
-  function turnoDe(t) {        // → { turno, corto(bool) } o null si es un horario propio
-    if (!t || t.rest_day || !t.start) return null;
-    for (var i = 0; i < TURNOS.length; i++) {
-      var T = TURNOS[i];
-      if (t.start === T.s && t.end === T.e) return { turno: T, sd: false };
-      if (T.sd && t.start === T.sd[0] && t.end === T.sd[1]) return { turno: T, sd: true };
-    }
-    return null;
+  function colorTurno(t) { var T = turnoHabitual(t); return T ? T.color : 'var(--hr-x)'; }
+  function horasTrabajo(t) { return Math.max(t.end_h - t.start_h - (t.break_minutes || 0) / 60, 0); }
+  function esNoPresento(l) { return (l.notes || '').trim().toLowerCase() === NO_PRESENTO.toLowerCase(); }
+  function infoLibre(l) {
+    if (esNoPresento(l)) return [NO_PRESENTO, 'nop'];
+    return LIBRES[l.kind] || ['Libre', 'libre'];
   }
-  function trabaja(t) { return !!(t && !t.rest_day && t.start && t.end); }
-  function duracion(t) { var d = horas(t.end) - horas(t.start); return d <= 0 ? d + 24 : d; }
-  // Horas que cuenta cada día (semana completa = 5 jornadas + 1 shortday = MAX_HORAS_SEMANA):
-  // los turnos fijos cuentan 8 h la jornada completa y 4 h el shortday (el 1–9 dura 8 h con
-  // la comida dentro y aun así son 8); «Otro horario», su duración menos la comida.
-  // Un turno de 4 h o menos es shortday y no lleva comida (= cuadratura_sync.comida_minutos).
-  var HORAS_JORNADA = 8, HORAS_SHORTDAY = 4;
-  function comidaDe(t) { return duracion(t) <= HORAS_SHORTDAY ? 0 : (t.break_minutes || 0); }
-  function horasTurno(t) {
-    if (!trabaja(t)) return 0;
-    var m = turnoDe(t);
-    if (m) return m.sd ? HORAS_SHORTDAY : HORAS_JORNADA;
-    return Math.max(duracion(t) - comidaDe(t) / 60, 0);
-  }
-  function esShortday(t) {
-    var m = turnoDe(t);
-    return m ? m.sd : (trabaja(t) && !comidaDe(t) && duracion(t) <= 4.5);
-  }
-  function etiquetaCorta(t) {
-    if (!t) return 'Sin horario';
-    if (esVacaciones(t)) return VACACIONES;
-    if (esIncapacidad(t)) return INCAPACIDAD;
-    if (esNoPresento(t)) return NO_PRESENTO;
-    if (esCompensatorio(t)) return COMPENSATORIO;
-    if (esSuspendido(t)) return SUSPENDIDO;
-    if (t.rest_day) return 'Libre';
-    var m = turnoDe(t);
-    if (m) return m.sd ? m.turno.sdCorto : m.turno.corto;
-    return h12(t.start) + '–' + h12(t.end);
-  }
-  function colorDe(t) {
-    if (!t) return '';
-    if (esVacaciones(t)) return 'var(--hr-vac)';
-    if (esIncapacidad(t)) return 'var(--hr-inc)';
-    if (esNoPresento(t)) return 'var(--hr-nop)';
-    if (esCompensatorio(t)) return 'var(--hr-comp)';
-    if (esSuspendido(t)) return 'var(--hr-susp)';
-    if (t.rest_day) return 'var(--hr-libre)';
-    var m = turnoDe(t);
-    return m ? m.turno.color : 'var(--hr-x)';
+  function claveDia(id, f) { return id + '|' + f; }
+  function etiquetaDia(id, f) {
+    var t = state.turno[claveDia(id, f)], l = state.libre[claveDia(id, f)];
+    if (t) return h12(t.start) + '–' + h12(t.end);
+    if (l) return infoLibre(l)[0];
+    return 'Sin turno';
   }
 
   // ── Red ──
-  async function api(method, url, body) {
-    var r = await fetch(url, {
-      method: method,
-      credentials: 'include',
-      headers: body ? { 'Content-Type': 'application/json' } : undefined,
-      body: body ? JSON.stringify(body) : undefined,
-    });
+  async function api(url) {
+    var r = await fetch(url, { credentials: 'include' });
     var j = null;
     try { j = await r.json(); } catch (_) { }
-    if (!r.ok) {
-      var det = j && j.detail;
-      if (Array.isArray(det)) det = det.map(function (d) { return String(d.msg || '').replace(/^Value error, /, ''); }).join(' · ');
-      var err = new Error(det || ('Error ' + r.status));
-      err.status = r.status;
-      throw err;
-    }
+    if (!r.ok) throw new Error((j && j.detail) || ('Error ' + r.status));
     return j;
-  }
-
-  var toastTimer;
-  function toast(msg, err) {
-    var t = $('hr-toast');
-    t.textContent = msg;
-    t.className = 'hr-toast show' + (err ? ' err' : '');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { t.className = 'hr-toast'; }, err ? 6000 : 3500);
   }
 
   // ── Carga ──
   async function cargar() {
-    if (Object.keys(state.dirty).length && !confirm('Hay cambios sin guardar en esta semana. ¿Descartarlos?')) return false;
     $('hr-board').innerHTML = '<div class="hr-loading">Cargando…</div>';
     try {
-      var q = '/api/horarios/semana?inicio=' + encodeURIComponent(state.inicio || '') +
-        '&equipo=' + encodeURIComponent(state.equipo);
-      state.data = await api('GET', q);
-      document.documentElement.classList.toggle('hr-admin', !!state.data.es_administrador);
+      state.data = await api('/api/horarios/cuadratura?inicio=' + encodeURIComponent(state.inicio || ''));
     } catch (e) {
       $('hr-board').innerHTML = '<div class="hr-empty">No se pudieron cargar los horarios: ' + esc(e.message) + '</div>';
-      return false;
+      return;
     }
-    var semanaNueva = state.mostrada !== state.data.inicio;
-    state.inicio = state.mostrada = state.data.inicio;
-    state.dirty = {};
-    if (semanaNueva) {   // al cambiar de semana: hoy si cae en ella, si no el lunes
-      var i = state.data.dias.indexOf(state.data.hoy);
+    var d = state.data;
+    state.turno = {};
+    state.libre = {};
+    d.turnos.forEach(function (t) { state.turno[claveDia(t.employee_id, t.work_date)] = t; });
+    d.libres.forEach(function (l) { state.libre[claveDia(l.employee_id, l.work_date)] = l; });
+    if (state.mostrada !== d.inicio) {   // semana nueva: hoy si cae en ella, si no el lunes
+      var i = d.dias.indexOf(d.hoy);
       state.dia = i >= 0 ? i : 0;
     }
-    cerrarPop();
+    state.inicio = state.mostrada = d.inicio;
     render();
-    return true;
   }
 
-  function editable(f) {
-    var d = state.data;
-    return d.puede_editar && (!d.editable_desde || f >= d.editable_desde);
+  // Grupos en el orden de Cuadratura: los teams (Residencial, Líneas; dentro, el supervisor
+  // primero) y luego, por área, quien no tiene team agrupado por su cargo.
+  function seccionDe(e) {
+    if (e.team) return e.section === 'lineas' ? 'lineas' : 'residencial';
+    return SECCIONES[e.area] ? e.area : 'ventas';
   }
-  function fechaSel() { return state.data.dias[state.dia]; }
-  function agentePorId(id) { return state.data.agentes.find(function (a) { return String(a.id) === String(id); }); }
-
-  function agentesFiltrados() {
-    var q = state.busqueda.trim().toLowerCase();
-    return state.data.agentes.filter(function (a) {
-      return !q || (a.name || '').toLowerCase().indexOf(q) >= 0 || (a.username || '').toLowerCase().indexOf(q) >= 0 ||
-        (a.nombre_completo || '').toLowerCase().indexOf(q) >= 0 ||
-        String(a.reloj_id || '') === q || (a.team || '').toLowerCase().indexOf(q) >= 0;
+  function grupos() {
+    var lista = [], porClave = {};
+    state.data.empleados.forEach(function (e) {
+      var seccion = seccionDe(e);
+      var clave = e.team ? 'team:' + e.team : 'cargo:' + seccion + ':' + (e.position || 'Sin cargo');
+      if (!porClave[clave]) {
+        porClave[clave] = {
+          clave: clave,
+          nombre: e.team || (e.position ? cargo(e.position) : 'Sin cargo'),
+          seccion: seccion,
+          miembros: [],
+        };
+        lista.push(porClave[clave]);
+      }
+      porClave[clave].miembros.push(e);
     });
+    return lista.sort(function (a, b) {
+      return (ORDEN_SECCION[a.seccion] - ORDEN_SECCION[b.seccion]) ||
+        (a.clave.indexOf('cargo:') === 0 ? a.nombre.localeCompare(b.nombre, 'es') : 0);
+    });
+  }
+
+  function filtrar(miembros) {
+    var q = state.busqueda.trim().toLowerCase();
+    return miembros.filter(function (e) {
+      return !q || e.full_name.toLowerCase().indexOf(q) >= 0 || (e.team || '').toLowerCase().indexOf(q) >= 0;
+    });
+  }
+
+  function gruposVisibles() {
+    return grupos()
+      .filter(function (g) { return !state.equipo || g.clave === state.equipo; })
+      .map(function (g) { return Object.assign({}, g, { miembros: filtrar(g.miembros) }); })
+      .filter(function (g) { return g.miembros.length; });
   }
 
   // ── Render ──
   function render() {
     var d = state.data;
     $('hr-toolbar').hidden = false;
-    $('hr-dayopts').hidden = false;
-    $('hr-actions').hidden = !d.puede_editar;
-    if (!d.puede_editar) {
-      $('hr-eyebrow').textContent = 'Horario de mi team';
-      $('hr-search').hidden = true;
-      $('hr-short-wrap').hidden = true;
-      $('hr-hint').hidden = true;
-    }
-    // Sin rótulo de fechas en pantalla: la semana se lee en las tarjetas de los días.
-    var rango = fmtCorta(d.inicio) + ' – ' + fmtCorta(d.fin) + ' ' + d.fin.slice(0, 4);
-    $('hr-days').setAttribute('aria-label', 'Semana del ' + rango);
+    $('hr-legend').hidden = false;
+    $('hr-eyebrow').textContent = d.es_admin ? 'Sistema de Cuadratura · todo el personal'
+      : 'Horario de mi team' + (d.mi_team ? ' · ' + d.mi_team : '');
+    $('hr-days').setAttribute('aria-label', 'Semana del ' + fmtCorta(d.dias[0]) + ' al ' + fmtCorta(d.dias[6]) + ' ' + d.dias[6].slice(0, 4));
     $('hr-today').hidden = d.dias.indexOf(d.hoy) >= 0;
 
-    var sel = $('hr-team');
-    if (d.es_admin && d.equipos.length) {
-      sel.hidden = false;
-      sel.innerHTML = '<option value="">Todos los equipos</option>' + d.equipos.map(function (t) {
-        return '<option' + (t === state.equipo ? ' selected' : '') + '>' + esc(t) + '</option>';
+    var sel = $('hr-team'), todos = grupos();
+    sel.hidden = !d.es_admin || todos.length < 2;
+    if (!sel.hidden) {
+      sel.innerHTML = '<option value="">Todos los teams</option>' + todos.map(function (g) {
+        return '<option value="' + esc(g.clave) + '"' + (g.clave === state.equipo ? ' selected' : '') + '>' + esc(g.nombre) + '</option>';
       }).join('');
     }
-    renderEstado();
     renderDia();
   }
 
-  // Todo lo que depende del día elegido o de las ediciones.
   function renderDia() {
     renderPestanas();
-    renderShortday();
     renderTablero();
-    renderGuardar();
-  }
-
-  // Estado del envío como etiqueta corta (con punto de color); el texto completo va en
-  // el title, para que la barra de filtros y acciones no se parta en dos líneas.
-  function renderEstado() {
-    var d = state.data, el = $('hr-status');
-    var n = Object.keys(state.dirty).length;
-    if (!d.puede_editar) { el.hidden = true; return; }
-    el.hidden = false;
-    function etiqueta(tipo, corto, largo) {
-      el.className = 'hr-status' + (tipo ? ' ' + tipo : '');
-      el.title = largo;
-      el.innerHTML = '<span class="hr-status-txt">' + esc(corto) + '</span>';
-    }
-    if (n) {
-      etiqueta('warn', n + ' sin guardar', n + (n === 1 ? ' agente con cambios sin guardar' : ' agentes con cambios sin guardar'));
-      return;
-    }
-    var u = d.ultimo_envio;
-    if (!d.cuadratura_configurada) {
-      etiqueta('warn', 'Cuadratura sin conectar', 'La conexión con Cuadratura no está configurada: los horarios se guardan pero no se envían.');
-      return;
-    }
-    if (!u) {
-      etiqueta('', 'Semana sin enviar', 'Esta semana aún no se ha enviado a Cuadratura. Se envía sola al guardar (en unos minutos).');
-      return;
-    }
-    var r = u.resumen || {}, obs = r.observaciones || [];
-    if (u.estado === 'error') {
-      etiqueta('err', 'Falló el envío', 'Falló el último envío a Cuadratura (' + fmtFechaHora(u.fecha) + '): ' + (u.error || ''));
-      return;
-    }
-    etiqueta(u.estado === 'parcial' ? 'warn' : 'ok', 'Enviado ' + fmtFechaHora(u.fecha),
-      'Enviado a Cuadratura el ' + fmtFechaHora(u.fecha) + (u.origen === 'auto' ? ' (automático)' : ' por ' + (u.enviado_por || '')));
-    if (obs.length) {
-      el.insertAdjacentHTML('beforeend', '<details><summary>' + obs.length + ' con observaciones</summary><ul>' + obs.map(function (o) {
-        var ag = agentePorId(o.crm_agent_id) ? nombreDe(agentePorId(o.crm_agent_id)) : ('ID CRM ' + o.crm_agent_id);
-        var extra = (o.conflict_dates || []).length ? ' (' + o.conflict_dates.join(', ') + ')' : '';
-        return '<li><b>' + esc(ag) + ':</b> ' + esc(o.message || o.status) + esc(extra) + '</li>';
-      }).join('') + '</ul></details>');
-    }
   }
 
   function renderPestanas() {
-    var d = state.data, lista = agentesFiltrados();
+    var d = state.data, visibles = [];
+    gruposVisibles().forEach(function (g) { visibles = visibles.concat(g.miembros); });
     $('hr-days').innerHTML = d.dias.map(function (f, i) {
-      var enTurno = 0, sinAsignar = 0, cortos = 0, turnos = 0;
-      lista.forEach(function (a) {
-        var t = a.dias[f];
-        if (!t) sinAsignar++;
-        else if (trabaja(t)) { enTurno++; turnos++; if (esShortday(t)) cortos++; }
-      });
-      var tag = f === d.hoy ? 'Hoy' : (turnos && cortos === turnos ? 'Shortday' : '');
-      var sub = enTurno + ' en turno' + (sinAsignar ? ' · <span class="warn">' + sinAsignar + ' sin asignar</span>' : '');
+      var enTurno = visibles.filter(function (e) { return state.turno[claveDia(e.id, f)]; }).length;
       return '<button type="button" role="tab" class="hr-day' + (i === state.dia ? ' sel' : '') + (f < d.hoy ? ' past' : '') +
         '" data-dia="' + i + '" aria-selected="' + (i === state.dia) + '">' +
-        '<span class="hr-day-top"><b>' + DIAS[i] + ' ' + f.slice(8) + '</b><i>' + tag + '</i></span>' +
-        '<span class="hr-day-sub">' + sub + '</span></button>';
+        '<span class="hr-day-top"><b>' + DIAS[i] + ' ' + f.slice(8) + '</b><i>' + (f === d.hoy ? 'Hoy' : '') + '</i></span>' +
+        '<span class="hr-day-sub">' + enTurno + ' en turno</span></button>';
     }).join('');
   }
 
-  // «Este día es shortday»: marcado si todos los turnos habituales del día (de los
-  // agentes a la vista) están en su versión de 4 h. Al cambiarlo se pasan todos.
-  function turnosHabitualesDelDia() {
-    var f = fechaSel();
-    return agentesFiltrados().map(function (a) { return { a: a, m: turnoDe(a.dias[f]) }; })
-      .filter(function (x) { return x.m && x.m.turno.sd; });
-  }
-  function renderShortday() {
-    var lista = turnosHabitualesDelDia(), chk = $('hr-short');
-    chk.checked = lista.length > 0 && lista.every(function (x) { return x.m.sd; });
-    var puede = state.data.puede_editar && editable(fechaSel()) && lista.length > 0;
-    chk.disabled = !puede;
-    $('hr-short-wrap').classList.toggle('disabled', !puede);
-    $('hr-short-wrap').title = !lista.length ? 'Primero asigne turnos 8–5, 10–7 o 1–9 a este día' :
-      (!editable(fechaSel()) ? 'Día pasado: lo corrige RRHH en Cuadratura' : '');
-  }
-  function cambiarShortday(aCorto) {
-    var f = fechaSel(), n = 0;
-    turnosHabitualesDelDia().forEach(function (x) {
-      if (x.m.sd === aCorto) return;
-      var T = x.m.turno, t = x.a.dias[f];
-      x.a.dias[f] = aCorto
-        ? { start: T.sd[0], end: T.sd[1], break_minutes: 0, rest_day: false, notes: t.notes || null }
-        : { start: T.s, end: T.e, break_minutes: 60, rest_day: false, notes: t.notes || null };
-      marcarCambio(x.a, f);
-      n++;
-    });
-    renderDia();
-    renderEstado();
-    if (n) toast(n + ' turno(s) pasados a ' + (aCorto ? 'shortday (4 h)' : 'jornada completa') + '. Recuerde guardar.');
-  }
-
   function renderTablero() {
-    var d = state.data, f = fechaSel(), lista = agentesFiltrados();
-    if (!d.agentes.length) {
-      $('hr-board').innerHTML = '<div class="hr-empty">' + (d.puede_editar
-        ? 'No hay agentes activos en su equipo. Revise en Permisos que tengan su mismo team.'
-        : 'No se encontró su usuario de agente.') + '</div>';
+    var d = state.data, f = d.dias[state.dia], gs = gruposVisibles();
+    if (!d.empleados.length) {
+      $('hr-board').innerHTML = '<div class="hr-empty">' + (d.es_admin
+        ? 'El Sistema de Cuadratura no tiene personal activo.'
+        : 'Tu usuario aún no está en un team del Sistema de Cuadratura. Pídele a RRHH que revise tu ficha.') + '</div>';
       return;
     }
+    var visibles = [];
+    gs.forEach(function (g) { visibles = visibles.concat(g.miembros); });
 
-    // Agentes en turno por hora (del día elegido, con los filtros puestos)
-    var hist = [];
-    for (var k = 0; k < HN; k++) {
-      var h = H0 + k;
-      hist.push(lista.filter(function (a) {
-        var t = a.dias[f];
-        if (!trabaja(t)) return false;
-        var s = horas(t.start), e = s + duracion(t);
-        return s <= h && e > h;
-      }).length);
-    }
-    var max = Math.max.apply(null, hist.concat([1]));
-    var finas = [];
-    hist.forEach(function (v, k) { if (v < MIN_TURNO) finas.push(etiquetaHora(H0 + k)); });
-    var histHtml = '<div class="hr-row3"><div class="hr-hist-head"><b>Agentes en turno por hora</b><span>' +
-      (lista.length && finas.length ? 'Menos de ' + MIN_TURNO + ' agentes: ' + finas.join(', ') : '') + '</span></div>' +
-      '<div class="hr-hist">' + hist.map(function (v) {
+    // Ventana de horas del día: 8a–9p como mínimo, ampliada si hay turnos antes o nocturnos.
+    var delDia = visibles.map(function (e) { return state.turno[claveDia(e.id, f)]; }).filter(Boolean);
+    var h0 = Math.min.apply(null, [8].concat(delDia.map(function (t) { return Math.floor(t.start_h); })));
+    var h1 = Math.min(32, Math.max.apply(null, [21].concat(delDia.map(function (t) { return Math.ceil(t.end_h); }))));
+    var span = h1 - h0, horas = [];
+    for (var h = h0; h < h1; h++) horas.push(h);
+
+    var cobertura = horas.map(function (hh) {
+      return delDia.filter(function (t) { return t.start_h <= hh && t.end_h > hh; }).length;
+    });
+    var max = Math.max.apply(null, cobertura.concat([1]));
+    var finas = horas.filter(function (_, k) { return cobertura[k] < MIN_TURNO; }).map(etiquetaHora);
+    var histHtml = '<div class="hr-row3"><div class="hr-hist-head"><b>Personas en turno por hora</b><span>' +
+      (visibles.length && finas.length ? 'Menos de ' + MIN_TURNO + ': ' + finas.join(', ') : '') + '</span></div>' +
+      '<div class="hr-hist">' + cobertura.map(function (v) {
         var fina = v < MIN_TURNO ? ' thin' : '';
         return '<div><span class="' + fina + '">' + v + '</span><i class="' + fina + '" style="height:' + Math.max(4, v / max * 100 - 22) + '%"></i></div>';
       }).join('') + '</div><div></div></div>';
 
-    var cab = '<div class="hr-row3 hr-sticky"><span>Agente · ID de reloj</span><div class="hr-hours">' +
-      Array.from({ length: HN }, function (_, k) { return '<span>' + etiquetaHora(H0 + k) + '</span>'; }).join('') +
+    var cab = '<div class="hr-row3 hr-sticky"><span>Persona</span><div class="hr-hours">' +
+      horas.map(function (hh) { return '<span>' + etiquetaHora(hh) + '</span>'; }).join('') +
       '</div><div class="hr-wk-head"><span>Semana</span><span>Horas</span></div></div>';
 
     var buscando = !!state.busqueda.trim(), seccion = null;
-    var cuerpo = (d.grupos || []).map(function (g) {
-      var miembros = lista.filter(function (a) { return a.grupo === g.clave; })
-        .sort(function (x, y) { return (y.es_supervisor - x.es_supervisor) || nombreDe(x).localeCompare(nombreDe(y), 'es'); });
-      if (!miembros.length) return '';
+    var cuerpo = gs.map(function (g) {
       var abierto = buscando || !state.colapsados[g.clave];
-      var horasEq = miembros.reduce(function (s, a) { return s + totalAgente(a); }, 0);
-      var sinHorario = miembros.filter(function (a) { return !a.dias[f]; }).length;
-      var sinReloj = miembros.filter(function (a) { return !a.reloj_id; }).length;
-      var avisos = [];
-      if (sinHorario) avisos.push(sinHorario + ' sin horario este día');
-      if (d.puede_editar && sinReloj) avisos.push(sinReloj + ' sin ID de reloj');
+      var horasEq = g.miembros.reduce(function (s, e) { return s + horasSemana(e); }, 0);
+      var sinTurno = g.miembros.filter(function (e) { return !state.turno[claveDia(e.id, f)]; }).length;
       var sep = '';
       if (g.seccion !== seccion) {
         seccion = g.seccion;
-        sep = '<div class="hr-section">' + (SECCIONES[g.seccion] || 'Residencial') + '</div>';
+        sep = '<div class="hr-section">' + SECCIONES[g.seccion] + '</div>';
       }
       return sep + '<section class="hr-team"><div class="hr-team-head">' +
         '<button type="button" class="hr-team-tg" data-tg="' + esc(g.clave) + '" aria-expanded="' + abierto + '">' +
-        '<small>' + (abierto ? '▾' : '▸') + '</small><span>' + esc(g.team || 'Sin equipo') + '</span></button>' +
-        '<span class="hr-team-meta">' + miembros.length + (miembros.length === 1 ? ' agente' : ' agentes') + ' · ' + fmtHoras(horasEq) + ' semana' +
-        (g.supervisor ? ' · Sup. ' + esc(g.supervisor) : '') + '</span>' +
-        '<span class="hr-team-warn">' + esc(avisos.join(' · ')) + '</span>' +
+        '<small>' + (abierto ? '▾' : '▸') + '</small><span>' + esc(g.nombre) + '</span></button>' +
+        '<span class="hr-team-meta">' + g.miembros.length + (g.miembros.length === 1 ? ' persona' : ' personas') + ' · ' + fmtHoras(horasEq) + ' semana</span>' +
+        (sinTurno ? '<span class="hr-team-warn">' + sinTurno + ' sin turno este día</span>' : '') +
         '</div>' +
-        (abierto ? miembros.map(function (a) { return filaAgente(a, f); }).join('') : '') + '</section>';
+        (abierto ? g.miembros.map(function (e) { return fila(e, f, h0, span); }).join('') : '') + '</section>';
     }).join('');
 
-    // Con un solo agente a la vista la cobertura por hora no dice nada.
-    $('hr-board').innerHTML = (lista.length > 1 ? histHtml : '') + cab + (cuerpo || '<div class="hr-empty">Ningún agente coincide con la búsqueda.</div>');
+    // Con una sola persona a la vista la cobertura por hora no dice nada.
+    $('hr-board').innerHTML = (visibles.length > 1 ? histHtml : '') + cab +
+      (cuerpo || '<div class="hr-empty">Nadie coincide con la búsqueda.</div>');
+    document.querySelector('.hr-board').style.setProperty('--hr-span', span);
   }
 
-  function etiquetaHora(h) { return (h > 12 ? h - 12 : h) + (h < 12 ? 'a' : 'p'); }
-  function totalAgente(a) { return state.data.dias.reduce(function (s, f) { return s + horasTurno(a.dias[f]); }, 0); }
+  function horasSemana(e) {
+    return state.data.dias.reduce(function (s, f) {
+      var t = state.turno[claveDia(e.id, f)];
+      return s + (t ? horasTrabajo(t) : 0);
+    }, 0);
+  }
 
-  function filaAgente(a, f) {
-    var d = state.data, t = a.dias[f], ed = editable(f);
-    var nombre = nombreDe(a);
-    var reloj = d.puede_editar
-      ? 'Reloj <input class="hr-reloj' + (a.reloj_id ? '' : ' missing') + '" data-reloj="' + a.id + '" value="' + esc(a.reloj_id || '') +
-        '" placeholder="sin ID" inputmode="numeric" maxlength="32" aria-label="ID de reloj de ' + esc(nombre) + '">'
-      : (String(a.id) === String(d.yo) ? 'Reloj ' + esc(a.reloj_id || '—') : '');
-    var ingreso = a.fecha_ingreso ? fmtFechaCorta(a.fecha_ingreso) : '';
-    var ingresoHtml = d.puede_editar
-      ? '<button type="button" class="hr-ingreso' + (ingreso ? '' : ' missing') + '" data-ingreso="' + a.id + '" title="Fecha de ingreso (clic para cambiarla)">' +
-        (ingreso ? 'Ingreso ' + ingreso : 'sin ingreso') + '</button>'
-      : (ingreso ? '<span>Ingreso ' + ingreso + '</span>' : '');
-
-    var barra;
-    if (trabaja(t)) {
-      var s = horas(t.start), e = s + duracion(t);
-      var x0 = Math.max(s, H0), x1 = Math.min(e, H0 + HN);
-      var m = turnoDe(t);
-      var largo = (m ? (m.sd ? m.turno.sdCorto : m.turno.corto) + ' · ' : '') + ampm(t.start) + ' – ' + ampm(t.end) + (esShortday(t) ? ' · shortday' : '');
-      var comida = '';
-      if (comidaDe(t) && x1 > x0) {
-        var c0 = m && !m.sd ? m.turno.comida : s + (duracion(t) - t.break_minutes / 60) / 2;
-        comida = '<i title="Hora de comida" style="left:' + ((c0 - x0) / (x1 - x0) * 100) + '%;width:' + (t.break_minutes / 60 / (x1 - x0) * 100) + '%"></i>';
+  function fila(e, f, h0, span) {
+    var d = state.data, t = state.turno[claveDia(e.id, f)], l = state.libre[claveDia(e.id, f)];
+    var nombre = tipoTitulo(e.full_name);
+    var linea;
+    if (t) {
+      var T = turnoHabitual(t), len = t.end_h - t.start_h;
+      var texto = ampm(t.start) + ' – ' + ampm(t.end) + ' · ' +
+        (t.template || (T ? (T.sd ? 'Shortday ' + T.corto : T.corto) : 'Personalizado'));
+      var brk = (t.break_minutes || 0) / 60, rayado = '';
+      if (brk > 0 && len > brk) {
+        // Descanso: a su hora habitual en los turnos fijos; si no, a mitad del turno.
+        var c0 = T && T.comida ? T.comida - t.start_h : (len - brk) / 2;
+        rayado = '<i title="Descanso de ' + t.break_minutes + ' min" style="left:' + (c0 / len * 100) + '%;width:' + (brk / len * 100) + '%"></i>';
       }
-      barra = x1 > x0
-        ? '<span class="hr-bar" style="left:' + ((x0 - H0) / HN * 100) + '%;width:' + ((x1 - x0) / HN * 100) + '%;background:' + colorDe(t) + '"' +
-          (t.notes ? ' title="' + esc(t.notes) + '"' : '') + '><b>' + esc(largo) + (t.notes ? ' · 📝' : '') + '</b>' + comida + '</span>'
-        : '<span class="hr-line-empty">' + esc(largo) + ' (fuera de 8a–9p)</span>';
+      linea = '<span class="hr-bar" style="left:' + ((t.start_h - h0) / span * 100) + '%;width:' + (len / span * 100) + '%;background:' + colorTurno(t) + '"' +
+        (t.notes ? ' title="' + esc(t.notes) + '"' : '') + '><b>' + esc(texto) + (t.notes ? ' · 📝' : '') + '</b>' + rayado + '</span>';
+    } else if (l) {
+      var info = infoLibre(l);
+      linea = '<span class="hr-line-empty ' + info[1] + '"' + (l.notes ? ' title="' + esc(l.notes) + '"' : '') + '>' + esc(info[0]) + '</span>';
     } else {
-      barra = '<span class="hr-line-empty' + (t ? claseAusencia(t) : ' todo') + '">' +
-        (t ? etiquetaCorta(t) : (ed && d.puede_editar ? 'Sin horario — clic para asignar' : 'Sin horario')) + '</span>';
+      linea = '<span class="hr-line-empty">Sin turno</span>';
     }
 
     var cuadros = d.dias.map(function (fd, i) {
-      var td = a.dias[fd];
-      return '<span class="' + (td ? 'on' : '') + (i === state.dia ? ' cur' : '') + '" title="' + DIAS[i] + ': ' + esc(etiquetaCorta(td)) +
-        '"' + (td ? ' style="background:' + colorDe(td) + '"' : '') + '></span>';
+      var td = state.turno[claveDia(e.id, fd)], ld = state.libre[claveDia(e.id, fd)];
+      var fondo = td ? colorTurno(td) : ld ? 'var(--hr-' + infoLibre(ld)[1] + ')' : '';
+      return '<span class="' + (fondo ? 'on' : '') + (i === state.dia ? ' cur' : '') + '" title="' + DIAS[i] + ': ' + esc(etiquetaDia(e.id, fd)) + '"' +
+        (fondo ? ' style="background:' + fondo + '"' : '') + '></span>';
     }).join('');
-    var tot = totalAgente(a);
+    var tot = horasSemana(e);
 
-    return '<div class="hr-row3 hr-agent' + (!d.puede_editar && String(a.id) === String(d.yo) ? ' yo' : '') + '">' +
-      '<div class="hr-who"><div class="hr-name-row"><div class="hr-name' + (a.nombre_completo ? '' : ' sin-completo') + '" title="' + esc(nombre) +
-      (a.nombre_completo ? '' : ' (sin nombre completo)') + '">' + esc(nombre) + (a.es_supervisor ? '<em> · Supervisor</em>' : '') + '</div>' +
-      (d.puede_editar ? '<button type="button" class="hr-edit-nombre" data-nombre="' + a.id + '" title="Nombre completo" aria-label="Editar el nombre completo de ' + esc(nombre) + '">✎</button>' : '') + '</div>' +
-      '<div class="hr-mark">' + ['<span class="hr-user" title="Usuario del CRM">' + esc(a.username || '') + '</span>', reloj, ingresoHtml]
-        .filter(Boolean).join(' · ') + '</div></div>' +
-      '<button type="button" class="hr-line' + (a._dirtyDays && a._dirtyDays[f] ? ' dirty' : '') + '" data-u="' + a.id + '"' +
-      (ed && d.puede_editar ? '' : ' disabled') + ' title="' + (d.puede_editar && !ed ? 'Día pasado: lo corrige RRHH en Cuadratura' : '') +
-      '" aria-label="Turno de ' + esc(nombre) + ' el ' + DIAS_LARGOS[state.dia] + ': ' + esc(etiquetaCorta(t)) + '">' + barra + '</button>' +
-      '<div class="hr-wk"><div class="hr-sq">' + cuadros + '</div><span class="hr-tot' + (!tot ? ' zero' : tot > MAX_HORAS_SEMANA ? ' over' : '') + '">' + fmtHoras(tot) + '</span>' +
-      (d.es_administrador && String(a.id) !== String(d.yo)
-        ? '<button type="button" class="hr-del" data-del="' + a.id + '" title="Eliminar empleado" aria-label="Eliminar a ' + esc(nombre) + '">' +
-          '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4h6v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
-        : '') + '</div>' +
+    return '<div class="hr-row3 hr-agent' + (String(e.id) === String(d.yo) ? ' yo' : '') + '">' +
+      '<div class="hr-who"><div class="hr-name" title="' + esc(nombre) + '">' + esc(nombre) + (e.is_supervisor ? '<em> · Supervisor</em>' : '') + '</div>' +
+      // Cargo y team de la ficha de Cuadratura (el team ya es el título del grupo).
+      '<div class="hr-mark">' + esc([e.position ? cargo(e.position) : '', e.team ? '' : 'Sin team'].filter(Boolean).join(' · ')) + '</div></div>' +
+      '<div class="hr-line" role="img" aria-label="' + esc(nombre) + ', ' + DIAS_LARGOS[state.dia] + ': ' + esc(etiquetaDia(e.id, f)) + '">' + linea + '</div>' +
+      '<div class="hr-wk"><div class="hr-sq">' + cuadros + '</div><span class="hr-tot' + (!tot ? ' zero' : tot > MAX_HORAS_SEMANA ? ' over' : '') + '">' + fmtHoras(tot) + '</span></div>' +
       '</div>';
   }
 
-  function renderGuardar() {
-    var n = Object.keys(state.dirty).length, b = $('hr-save');
-    b.disabled = !n;
-    b.textContent = n ? 'Guardar (' + n + ')' : 'Guardado';
-  }
-
-  function marcarCambio(a, f) {
-    state.dirty[a.id] = true;
-    a._dirtyDays = a._dirtyDays || {};
-    a._dirtyDays[f] = true;
-  }
-
-  function asignar(a, fechas, valor) {   // valor: objeto de día o null (vaciar)
-    var n = 0;
-    fechas.forEach(function (f) {
-      if (!editable(f)) return;
-      if (valor) a.dias[f] = Object.assign({}, valor); else delete a.dias[f];
-      marcarCambio(a, f);
-      n++;
-    });
-    cerrarPop();
-    renderDia();
-    renderEstado();
-    return n;
-  }
-
-  // ── Selector de turno ──
-  function abrirPop(boton) {
-    var a = agentePorId(boton.dataset.u), f = fechaSel(), t = a.dias[f];
-    var shortday = $('hr-short').checked, cur = turnoDe(t);
-    state.pop = { id: a.id };
-
-    function opcion(accion, nombre, meta, color, esActual) {
-      return '<button type="button" class="hr-opt' + (esActual ? ' cur' : '') + '" data-op="' + accion + '">' +
-        '<span><i style="background:' + color + '"></i>' + nombre + '</span><small>' + meta + '</small></button>';
-    }
-    var completos = TURNOS.map(function (T) {
-      return opcion('full:' + T.k, T.corto, fmtHoras(horasTurno({ start: T.s, end: T.e, break_minutes: 60 })) + ' + 1 h comida', T.color, cur && cur.turno === T && !cur.sd);
-    }).join('');
-    var cortos = TURNOS.filter(function (T) { return T.sd; }).map(function (T) {
-      return opcion('sd:' + T.k, T.sdCorto, '4 h', T.color, cur && cur.turno === T && cur.sd);
-    }).join('');
-    var grupos = shortday
-      ? '<div class="hr-pop-group">Shortday · 4 h</div>' + cortos + '<div class="hr-pop-group">Jornada completa</div>' + completos
-      : '<div class="hr-pop-group">Jornada completa</div>' + completos + '<div class="hr-pop-group">Shortday · 4 h</div>' + cortos;
-    var propio = trabaja(t) && !cur;
-    var libre = t && t.rest_day && !esLibreConNota(t);
-
-    var pop = $('hr-pop');
-    pop.innerHTML =
-      '<div class="hr-pop-title">' + esc(nombreDe(a)) + ' · ' + DIAS[state.dia] + ' ' + f.slice(8) + (shortday ? ' · shortday' : '') + '</div>' +
-      grupos +
-      '<div class="hr-pop-group">Otros</div>' +
-      opcion('libre', 'Libre', '', 'var(--hr-libre)', libre) +
-      opcion('comp', COMPENSATORIO, '', 'var(--hr-comp)', esCompensatorio(t)) +
-      opcion('vac', VACACIONES, '', 'var(--hr-vac)', esVacaciones(t)) +
-      opcion('inc', INCAPACIDAD, '', 'var(--hr-inc)', esIncapacidad(t)) +
-      opcion('susp', SUSPENDIDO, '', 'var(--hr-susp)', esSuspendido(t)) +
-      opcion('nop', NO_PRESENTO, '', 'var(--hr-nop)', esNoPresento(t)) +
-      opcion('otro', 'Otro horario…', propio ? h12(t.start) + '–' + h12(t.end) : '', 'var(--hr-x)', propio) +
-      '<div class="hr-custom" id="hp-custom" hidden>' +
-      '<div class="row"><label>Entrada<input class="hr-input" type="time" id="hp-start" value="' + esc(trabaja(t) ? t.start : '09:00') + '"></label>' +
-      '<label>Salida<input class="hr-input" type="time" id="hp-end" value="' + esc(trabaja(t) ? t.end : '18:00') + '"></label></div>' +
-      '<div class="hint" id="hp-hint"></div>' +
-      '<div class="row"><label>Comida (min)<input class="hr-input" type="number" id="hp-break" min="0" max="480" step="5" value="' + (trabaja(t) ? (t.break_minutes || 0) : 60) + '"></label>' +
-      '<label>Nota<input class="hr-input" id="hp-notes" maxlength="500" value="' + esc(t && !esLibreConNota(t) ? (t.notes || '') : '') + '"></label></div>' +
-      '<button type="button" class="hr-btn hr-btn-sm" data-op="otro-ok">Aplicar</button></div>' +
-      '<div class="hr-pop-foot">' +
-      '<button type="button" class="hr-btn hr-btn-ghost hr-btn-sm" data-op="semana"' + (t ? '' : ' disabled') + '>Aplicar ' + esc(t ? etiquetaCorta(t) : '') + ' a Lun–Sáb</button>' +
-      '<button type="button" class="hr-btn hr-btn-ghost hr-btn-sm" data-op="vaciar"' + (t ? '' : ' disabled') + '>Vaciar día</button></div>';
-
-    pop.hidden = false;
-    $('hr-pop-bg').hidden = false;
-    pop.scrollTop = 0;
-    state.popBoton = boton;
-    colocarPop();
-    // preventScroll: si no, el foco en una opción de abajo desplaza la ventana por dentro
-    // y el título (agente y día) queda cortado arriba.
-    var foco = pop.querySelector('.hr-opt.cur') || pop.querySelector('.hr-opt');
-    if (foco) foco.focus({ preventScroll: true });
-
-    function hint() {
-      var s = $('hp-start').value, e = $('hp-end').value;
-      var corto = s && e && duracion({ start: s, end: e }) <= HORAS_SHORTDAY;
-      $('hp-hint').textContent = (s && e && horas(e) <= horas(s) ? 'Turno nocturno: termina el día siguiente. ' : '') +
-        (corto ? 'Shortday (4 h o menos): sin hora de comida.' : '');
-    }
-    $('hp-start').addEventListener('input', hint);
-    $('hp-end').addEventListener('input', hint);
-    hint();
-
-    pop.onclick = function (ev) {
-      var b = ev.target.closest('[data-op]');
-      if (!b || b.disabled) return;
-      var op = b.dataset.op, nota = t && !esLibreConNota(t) ? (t.notes || null) : null;
-      if (op.indexOf('full:') === 0 || op.indexOf('sd:') === 0) {
-        var T = TURNOS.find(function (x) { return x.k === op.split(':')[1]; });
-        var corto = op.indexOf('sd:') === 0;
-        asignar(a, [f], { start: corto ? T.sd[0] : T.s, end: corto ? T.sd[1] : T.e, break_minutes: corto ? 0 : 60, rest_day: false, notes: nota });
-      } else if (op === 'libre') {
-        asignar(a, [f], { rest_day: true, break_minutes: 0, notes: nota });
-      } else if (op === 'comp') {
-        asignar(a, [f], { rest_day: true, break_minutes: 0, notes: COMPENSATORIO });
-      } else if (op === 'susp') {
-        asignar(a, [f], { rest_day: true, break_minutes: 0, notes: SUSPENDIDO });
-      } else if (op === 'vac') {
-        asignar(a, [f], { rest_day: true, break_minutes: 0, notes: VACACIONES });
-      } else if (op === 'inc') {
-        asignar(a, [f], { rest_day: true, break_minutes: 0, notes: INCAPACIDAD });
-      } else if (op === 'nop') {
-        asignar(a, [f], { rest_day: true, break_minutes: 0, notes: NO_PRESENTO });
-      } else if (op === 'otro') {
-        $('hp-custom').hidden = false;
-        colocarPop();   // al crecer puede salirse por abajo: se recoloca entera en pantalla
-        $('hp-start').focus({ preventScroll: true });
-        $('hp-custom').scrollIntoView({ block: 'nearest' });
-      } else if (op === 'otro-ok') {
-        var s = $('hp-start').value, e = $('hp-end').value;
-        if (!s || !e) return toast('Indique entrada y salida', true);
-        if (s === e) return toast('La entrada y la salida no pueden ser iguales', true);
-        var otro = { start: s, end: e, break_minutes: Math.max(0, Math.min(480, +$('hp-break').value || 0)), rest_day: false, notes: $('hp-notes').value.trim() || null };
-        otro.break_minutes = comidaDe(otro);
-        asignar(a, [f], otro);
-      } else if (op === 'semana') {
-        var n = asignar(a, state.data.dias.slice(0, 6), t);
-        toast(n ? etiquetaCorta(t) + ' aplicado a ' + n + ' día(s). Recuerde guardar.' : 'Esos días ya pasaron y no se pueden editar.', !n);
-      } else if (op === 'vaciar') {
-        asignar(a, [f], null);
-      }
-    };
-    pop.onkeydown = function (ev) {
-      if (ev.key === 'Enter' && ev.target.closest('#hp-custom') && ev.target.tagName === 'INPUT') { ev.preventDefault(); pop.querySelector('[data-op="otro-ok"]').click(); }
-    };
-  }
-
-  // Coloca el selector de turno siempre entero dentro de la ventana: debajo de la fila si
-  // cabe, si no encima, y si tampoco, pegado al borde que toque. Si es más alto que la
-  // ventana, su max-height (CSS) lo deja con scroll interno en vez de cortarlo.
-  var MARGEN_POP = 8;
-  function colocarPop() {
-    var pop = $('hr-pop'), boton = state.popBoton;
-    if (!pop || pop.hidden || !boton) return;
-    var vw = document.documentElement.clientWidth, vh = window.innerHeight;
-    var r = boton.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
-    var x = Math.min(Math.max(MARGEN_POP, window.__hrClickX || r.left + 20), vw - w - MARGEN_POP);
-    var y = r.bottom + 6;
-    if (y + h > vh - MARGEN_POP) y = r.top - h - 6;                        // encima de la fila
-    y = Math.min(Math.max(MARGEN_POP, y), Math.max(MARGEN_POP, vh - h - MARGEN_POP));
-    pop.style.left = Math.max(MARGEN_POP, x) + 'px';
-    pop.style.top = y + 'px';
-  }
-  window.addEventListener('resize', colocarPop);
-
-  function cerrarPop() {
-    $('hr-pop').hidden = true;
-    $('hr-pop-bg').hidden = true;
-    state.pop = null;
-    state.popBoton = null;
-  }
-
-  // ── Acciones ──
-  async function guardar() {
-    var ids = Object.keys(state.dirty);
-    if (!ids.length) return true;
-    var payload = {
-      inicio: state.inicio,
-      agentes: ids.map(function (id) {
-        var a = agentePorId(id);
-        return {
-          user_id: +id,
-          version: a.version,  // si otro guardó entretanto, el servidor responde 409
-          dias: Object.keys(a.dias).map(function (f) {
-            var t = a.dias[f];
-            return { date: f, start: t.start || null, end: t.end || null, break_minutes: t.break_minutes || 0, rest_day: !!t.rest_day, notes: t.notes || null };
-          }),
-        };
-      }),
-    };
-    var b = $('hr-save');
-    b.disabled = true;
-    b.textContent = 'Guardando…';
-    try {
-      var r = await api('PUT', '/api/horarios/semana', payload);
-      state.dirty = {};
-      // omitidos: días que pasaron a ser pasados con la página abierta (p. ej. tras la medianoche).
-      if (r.omitidos) toast('Guardado, pero ' + r.omitidos + ' día(s) ya pasados no se guardaron: esos los corrige RRHH en Cuadratura.', true);
-      else toast('Horarios guardados (' + r.guardados + ' días). Se enviarán a Cuadratura automáticamente.');
-      await cargar();
-      return true;
-    } catch (e) {
-      renderGuardar();
-      if (e.status === 409) {
-        // Nada se guardó. Los cambios siguen en pantalla hasta que el usuario decida.
-        if (confirm(e.message + '\n\n¿Recargar ahora? (Aceptar descarta sus cambios sin guardar; Cancelar los mantiene en pantalla para anotarlos.)')) {
-          state.dirty = {};
-          await cargar();
-        }
-        return false;
-      }
-      toast(e.message, true);
-      return false;
-    }
-  }
-
-  async function guardarReloj(input) {
-    var a = agentePorId(input.dataset.reloj);
-    var val = input.value.trim();
-    if ((a.reloj_id || '') === val) return;
-    try {
-      var r = await api('PUT', '/api/horarios/reloj/' + a.id, { reloj_id: val || null });
-      a.reloj_id = r.reloj_id;
-      input.value = r.reloj_id || '';
-      input.classList.toggle('missing', !r.reloj_id);
-      toast(r.reloj_id ? 'ID de reloj de ' + nombreDe(a) + ': ' + r.reloj_id : 'ID de reloj quitado a ' + nombreDe(a));
-    } catch (e) {
-      input.value = a.reloj_id || '';
-      toast(e.message, true);
-    }
-  }
-
-  async function editarNombre(id) {
-    var a = agentePorId(id);
-    var val = prompt('Nombre completo de ' + (a.name || a.username) + ' (usuario CRM: ' + a.username + '):', a.nombre_completo || '');
-    if (val === null) return;
-    val = val.trim().replace(/\s+/g, ' ');
-    if (val === (a.nombre_completo || '')) return;
-    try {
-      var r = await api('PUT', '/api/horarios/nombre/' + a.id, { nombre_completo: val || null });
-      a.nombre_completo = r.nombre_completo;
-      renderTablero();
-      toast(r.nombre_completo ? 'Nombre completo guardado: ' + nombreDe(a) : 'Nombre completo quitado a ' + a.username);
-    } catch (e) { toast(e.message, true); }
-  }
-
-  async function editarIngreso(id) {
-    var a = agentePorId(id);
-    var val = prompt('Fecha de ingreso de ' + nombreDe(a) + ' (dd/mm/aaaa; vacío para quitarla):', a.fecha_ingreso ? fmtFechaCorta(a.fecha_ingreso) : '');
-    if (val === null) return;
-    val = val.trim();
-    var iso = null;
-    if (val) {
-      var m = val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-      if (!m) return toast('Use el formato dd/mm/aaaa, p. ej. 16/09/2026', true);
-      iso = m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
-    }
-    if (iso === (a.fecha_ingreso || null)) return;
-    try {
-      var r = await api('PUT', '/api/horarios/ingreso/' + a.id, { fecha_ingreso: iso });
-      a.fecha_ingreso = r.fecha_ingreso;
-      renderTablero();
-      toast(r.fecha_ingreso ? 'Fecha de ingreso de ' + nombreDe(a) + ': ' + fmtFechaCorta(r.fecha_ingreso) : 'Fecha de ingreso quitada');
-    } catch (e) { toast(e.message, true); }
-  }
-
-  async function copiarAnterior() {
-    if (Object.keys(state.dirty).length) return toast('Guarde o descarte los cambios antes de copiar', true);
-    if (!confirm('Se copiarán los horarios de la semana anterior' + (state.equipo ? ' (solo ' + state.equipo + ')' : '') +
-      ' y reemplazarán los de esta semana de los agentes que tengan algo que copiar. ¿Continuar?')) return;
-    try {
-      var r = await api('POST', '/api/horarios/copiar', { desde: addDays(state.inicio, -7), hacia: state.inicio, equipo: state.equipo });
-      toast(r.copiados ? r.copiados + ' días copiados de la semana anterior (' + r.agentes + ' agentes).' : 'La semana anterior no tiene horarios que copiar.', !r.copiados);
-      await cargar();
-    } catch (e) { toast(e.message, true); }
-  }
-
-  // Con cambios sin guardar, primero guarda y luego envía.
-  async function enviar() {
-    var btn = $('hr-send');
-    btn.disabled = true;
-    try {
-      if (Object.keys(state.dirty).length && !(await guardar())) return;
-      var r = await api('POST', '/api/horarios/enviar', { inicio: state.inicio });
-      var msg = {
-        ok: 'Semana enviada a Cuadratura.',
-        parcial: 'Enviada con observaciones: revise el detalle.',
-        sin_cambios: 'Cuadratura ya tiene esta semana al día.',
-        sin_agentes: 'No hay horarios que enviar esta semana.',
-        error: 'No se pudo enviar: ' + (r.error || ''),
-      }[r.estado] || r.estado;
-      toast(msg, r.estado === 'error');
-      await cargar();
-    } catch (e) { toast(e.message, true); }
-    finally { btn.disabled = false; }
-  }
-
-  function irSemana(delta) {
-    var prev = state.inicio;
-    state.inicio = delta ? addDays(state.inicio, delta) : null;
-    cargar().then(function (ok) { if (!ok) state.inicio = prev; });
-  }
-
-  // Eliminar empleado (sólo administración): el mismo borrado que en Permisos.
-  async function eliminarEmpleado(id) {
-    var a = (state.data.agentes || []).find(function (x) { return String(x.id) === String(id); });
-    if (!a) return;
-    var nombre = nombreDe(a);
-    if (!confirm('¿Eliminar a ' + nombre + '?\n\nSe borra su usuario del CRM (pierde el acceso)' +
-      ' y deja de aparecer en Horarios. No se puede deshacer.')) return;
-    try {
-      await api('DELETE', '/api/users/' + encodeURIComponent(id));
-    } catch (err) {
-      toast('No se pudo eliminar: ' + err.message, true);
-      return;
-    }
-    // Sus cambios sin guardar ya no tienen a quién aplicarse.
-    delete state.dirty[id];
-    toast(nombre + ' eliminado.');
+  // ── Eventos ──
+  function semana(n) {
+    state.inicio = addDays(state.inicio, n);
     cargar();
   }
 
-  // ── Eventos ──
-  function bind() {
-    $('hr-prev').onclick = function () { irSemana(-7); };
-    $('hr-next').onclick = function () { irSemana(7); };
-    $('hr-today').onclick = function () { irSemana(0); };
-    $('hr-team').onchange = function (e) { state.equipo = e.target.value; cargar(); };
-    $('hr-search').oninput = function (e) { state.busqueda = e.target.value; renderDia(); };
-    $('hr-save').onclick = guardar;
-    $('hr-copy').onclick = copiarAnterior;
-    $('hr-send').onclick = enviar;
-    $('hr-short').onchange = function (e) { cambiarShortday(e.target.checked); };
-    $('hr-days').onclick = function (e) {
-      var b = e.target.closest('[data-dia]');
+  document.addEventListener('DOMContentLoaded', function () {
+    $('hr-prev').addEventListener('click', function () { semana(-7); });
+    $('hr-next').addEventListener('click', function () { semana(7); });
+    $('hr-today').addEventListener('click', function () { state.inicio = null; cargar(); });
+    $('hr-days').addEventListener('click', function (ev) {
+      var b = ev.target.closest('[data-dia]');
       if (!b) return;
       state.dia = +b.dataset.dia;
-      cerrarPop();
       renderDia();
-    };
-    $('hr-days').onkeydown = function (e) {   // flechas entre pestañas
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-      state.dia = (state.dia + (e.key === 'ArrowRight' ? 1 : 6)) % 7;
-      renderDia();
-      $('hr-days').querySelector('.sel').focus();
-    };
-
-
-    var board = $('hr-board');
-    board.addEventListener('click', function (e) {
-      var tg = e.target.closest('[data-tg]');
-      if (tg) {
-        var k = tg.dataset.tg;
-        if (state.colapsados[k]) delete state.colapsados[k]; else state.colapsados[k] = true;
-        renderTablero();
-        return;
-      }
-      var ed = e.target.closest('[data-nombre]');
-      if (ed) { editarNombre(ed.dataset.nombre); return; }
-      var ing = e.target.closest('[data-ingreso]');
-      if (ing) { editarIngreso(ing.dataset.ingreso); return; }
-      var del = e.target.closest('[data-del]');
-      if (del) { eliminarEmpleado(del.dataset.del); return; }
-      var linea = e.target.closest('.hr-line');
-      if (linea && !linea.disabled && state.data.puede_editar) {
-        window.__hrClickX = e.clientX || null;
-        abrirPop(linea);
-      }
     });
-    board.addEventListener('change', function (e) { if (e.target.dataset.reloj) guardarReloj(e.target); });
-    board.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.dataset.reloj) e.target.blur(); });
-
-    $('hr-pop-bg').onclick = cerrarPop;
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && state.pop) cerrarPop(); });
-    window.addEventListener('beforeunload', function (e) {
-      if (Object.keys(state.dirty).length) { e.preventDefault(); e.returnValue = ''; }
+    $('hr-search').addEventListener('input', function (ev) { state.busqueda = ev.target.value; renderDia(); });
+    $('hr-team').addEventListener('change', function (ev) { state.equipo = ev.target.value; renderDia(); });
+    $('hr-board').addEventListener('click', function (ev) {
+      var b = ev.target.closest('[data-tg]');
+      if (!b) return;
+      state.colapsados[b.dataset.tg] = !state.colapsados[b.dataset.tg];
+      renderTablero();
     });
-  }
-
-  document.addEventListener('DOMContentLoaded', function () {
-    bind();
     cargar();
   });
 })();
