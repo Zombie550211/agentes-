@@ -77,6 +77,14 @@
       <div class="pg-tile in-glass"><span class="pg-tico"><i class="ph ph-coins"></i></span><div class="pg-tile-val" id="lkpi-vlinea">$0.00</div><div class="pg-tile-lbl">Valor por línea</div><div class="pg-tile-sub kpi-sub"></div></div>
     </div>
 
+    <h2 class="fc-titulo-seccion"><i class="ph ph-calculator" aria-hidden="true"></i>Total · Residencial + Líneas</h2>
+    <div class="pg-tiles" style="--pg-cols:4">
+      <div class="pg-tile in-glass pg-tile-dest"><span class="pg-tico"><i class="ph ph-currency-dollar"></i></span><div class="pg-tile-val" id="gkpi-facturado">$0.00</div><div class="pg-tile-lbl">Total facturado</div><div class="pg-tile-sub kpi-sub" id="gkpi-facturado-sub"></div></div>
+      <div class="pg-tile in-glass"><span class="pg-tico"><i class="ph ph-shopping-cart"></i></span><div class="pg-tile-val" id="gkpi-ventas">0</div><div class="pg-tile-lbl">Total ventas</div><div class="pg-tile-sub kpi-sub" id="gkpi-ventas-sub"></div></div>
+      <div class="pg-tile in-glass"><span class="pg-tico pg-tico-verde"><i class="ph ph-trend-up"></i></span><div class="pg-tile-val" id="gkpi-valor">$0.00</div><div class="pg-tile-lbl">Valor promedio por venta</div><div class="pg-tile-sub kpi-sub" id="gkpi-valor-sub"></div></div>
+      <div class="pg-tile in-glass"><span class="pg-tico pg-tico-amarillo"><i class="ph ph-target"></i></span><div class="pg-tile-val" id="gkpi-cpa">$0.00</div><div class="pg-tile-lbl">CPA promedio</div><div class="pg-tile-sub kpi-sub">valor por venta ÷ puntos de Residencial</div></div>
+    </div>
+
     <!-- Tabla del mes -->
     <section class="pg-card in-glass table-section" aria-labelledby="fc-tabla-t">
       <div class="pg-card-head">
@@ -129,7 +137,7 @@
         <div class="chart-canvas-wrap"><canvas id="graficaGastosMes" aria-label="Total facturado por mes"></canvas></div>
       </section>
       <section class="pg-card in-glass" aria-labelledby="fc-res-t">
-        <div class="pg-card-head"><h2 id="fc-res-t">Resumen del mes</h2></div>
+        <div class="pg-card-head"><div><h2 id="fc-res-t">Resumen del mes</h2><p>Residencial + Líneas móviles</p></div></div>
         <div class="resumen-list">
           <div class="resumen-item"><span class="pg-tico"><i class="ph ph-currency-dollar"></i></span><div class="resumen-label">Total facturado</div><div class="resumen-val" id="res-facturado">$0.00</div></div>
           <div class="resumen-item"><span class="pg-tico"><i class="ph ph-shopping-cart"></i></span><div class="resumen-label">Total ventas</div><div class="resumen-val" id="res-ventas">0</div></div>
@@ -257,6 +265,7 @@ let lineasInit = false;           // la vista líneas se carga la primera vez qu
 // KPI de Líneas Móviles — se suma al total real de lineas_clientes, no al de Residencial.
 let manualLineasMonto = 0;
 let manualLineasVentas = 0;
+let totalLineas = { monto: 0, ventas: 0 };   // Líneas móviles del mes (actualizarKpiLineasMoviles)
 let ultimoTotalesL = null;        // último `t` calculado por renderFilaTotalesL, para poder
                                    // refrescar los KPI de Líneas sin re-renderizar su tabla
 
@@ -560,6 +569,7 @@ function leerTotales() {
     facturado,
     ventas,
     valor,
+    puntos,
     cpa: puntos > 0 ? valor / puntos : 0,
     alexis, alexis2, alejandro, tito, titoLineas,
   };
@@ -600,11 +610,8 @@ function refreshDashboard() {
   document.getElementById('kpi-activos').textContent = activos;
   document.getElementById('kpi-activos-sub').textContent = `de ${asesores.length} totales`;
 
-  // Resumen del mes
-  document.getElementById('res-facturado').textContent = money(T.facturado);
-  document.getElementById('res-ventas').textContent    = intFmt(T.ventas);
-  document.getElementById('res-valor').textContent     = money(T.valor);
-  document.getElementById('res-cpa').textContent       = money(T.cpa);
+  // Resumen del mes y fila «Total»: Residencial + Líneas (ver actualizarTotalGeneral).
+  actualizarTotalGeneral();
 
   // Gasto por publicista: todas las cuentas de la tabla, también las de Líneas
   // (Garay Líneas solo desde febrero, igual que su columna).
@@ -875,6 +882,7 @@ function actualizarKpiLineasMoviles() {
 
   const totMonto   = totMontoReal + manualLineasMonto;
   const totVentas  = totVentasReal + manualLineasVentas;
+  totalLineas = { monto: totMonto, ventas: totVentas };
   const valorVenta = totVentas > 0 ? totMonto / totVentas : 0;
 
   document.getElementById('lkpi-facturado').textContent = money(totMonto);
@@ -890,6 +898,36 @@ function actualizarKpiLineasMoviles() {
   document.getElementById('lres-ventas').textContent    = intFmt(totVentas);
   document.getElementById('lres-lineas').textContent    = intFmt(totLineas);
   document.getElementById('lres-vlinea').textContent    = money(valorLinea);
+  actualizarTotalGeneral();
+}
+
+/* Total general = Residencial (Alexis, Alexis 2, Tito) + Líneas móviles (tabla de Líneas +
+   Garay Líneas y Tito Líneas cargados en la tabla residencial). Alimenta la fila de KPI
+   «Total» y el bloque «Resumen del mes». El CPA usa el valor por venta combinado entre los
+   puntos, que solo existen en Residencial. */
+function actualizarTotalGeneral() {
+  const T = leerTotales();
+  const facturado = T.facturado + totalLineas.monto;
+  const ventas    = T.ventas + totalLineas.ventas;
+  const valor     = ventas > 0 ? facturado / ventas : 0;
+  const cpa       = T.puntos > 0 ? valor / T.puntos : 0;
+  // Mes anterior, sumado igual que el actual.
+  const prevFact   = prevAgg.fact + prevAggL.fact + prevAgg.lineasFact;
+  const prevVentas = prevAgg.ventas + prevAggL.ventas + prevAgg.lineasVentas;
+  const prevValor  = prevVentas > 0 ? prevFact / prevVentas : 0;
+
+  document.getElementById('gkpi-facturado').textContent = money(facturado);
+  document.getElementById('gkpi-ventas').textContent    = intFmt(ventas);
+  document.getElementById('gkpi-valor').textContent     = money(valor);
+  document.getElementById('gkpi-cpa').textContent       = money(cpa);
+  document.getElementById('gkpi-facturado-sub').innerHTML = deltaHTML(facturado, prevFact);
+  document.getElementById('gkpi-ventas-sub').innerHTML    = deltaHTML(ventas, prevVentas);
+  document.getElementById('gkpi-valor-sub').innerHTML     = deltaHTML(valor, prevValor);
+
+  document.getElementById('res-facturado').textContent = money(facturado);
+  document.getElementById('res-ventas').textContent    = intFmt(ventas);
+  document.getElementById('res-valor').textContent     = money(valor);
+  document.getElementById('res-cpa').textContent       = money(cpa);
 }
 
 function refreshDashboardL(t) {
