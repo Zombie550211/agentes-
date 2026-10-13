@@ -2,8 +2,13 @@
 
 Desde el 13-10-2026 la página /horarios.html muestra el horario TAL COMO ESTÁ EN EL SISTEMA
 DE CUADRATURA (GET /api/horarios/cuadratura, que lee su /api/integrations/crm/schedules-week):
-sus empleados, turnos y días sin turno. En el CRM es solo lectura; los horarios se editan en
-Cuadratura, que además los devuelve al CRM (cuadratura_entrada.py → agent_schedules).
+sus empleados, turnos y días sin turno. Cuadratura además los devuelve al CRM
+(cuadratura_entrada.py → agent_schedules).
+
+Asignar (POST /api/horarios/cuadratura/dia, se escribe al momento en Cuadratura):
+- Un día VACÍO se asigna una sola vez: el supervisor (su team, de hoy en adelante), back
+  office o administración.
+- Un día ya asignado solo lo cambia o quita administración (aquí) o RRHH (en Cuadratura).
 
 Quién ve qué en /api/horarios/cuadratura:
 - Admin / Back Office: todo el personal activo de Cuadratura.
@@ -300,15 +305,20 @@ _CACHE_CUADRATURA: dict[date, tuple[float, dict]] = {}
 _CACHE_SEGUNDOS = 30
 
 
-async def _semana_cuadratura(lunes: date) -> dict:
-    """La semana tal como está en Cuadratura (GET /api/integrations/crm/schedules-week).
-    Se guarda 30 s para que muchos agentes abriendo Horarios no carguen a Cuadratura."""
-    guardado = _CACHE_CUADRATURA.get(lunes)
-    if guardado and time_mod.monotonic() - guardado[0] < _CACHE_SEGUNDOS:
-        return guardado[1]
+def _cuadratura_url(ruta: str) -> str:
     if not cs.configurado():
         raise HTTPException(503, "Falta CUADRATURA_URL y CUADRATURA_API_KEY en el .env del CRM")
-    url = os.getenv("CUADRATURA_URL", "").rstrip("/") + "/api/integrations/crm/schedules-week"
+    return os.getenv("CUADRATURA_URL", "").rstrip("/") + ruta
+
+
+async def _semana_cuadratura(lunes: date, fresca: bool = False) -> dict:
+    """La semana tal como está en Cuadratura (GET /api/integrations/crm/schedules-week).
+    Se guarda 30 s para que muchos agentes abriendo Horarios no carguen a Cuadratura;
+    `fresca` la vuelve a pedir (para comprobar permisos antes de escribir)."""
+    guardado = _CACHE_CUADRATURA.get(lunes)
+    if guardado and not fresca and time_mod.monotonic() - guardado[0] < _CACHE_SEGUNDOS:
+        return guardado[1]
+    url = _cuadratura_url("/api/integrations/crm/schedules-week")
     try:
         async with httpx.AsyncClient(timeout=20) as cli:
             r = await cli.get(url, params={"date_from": lunes.isoformat()},
@@ -323,15 +333,17 @@ async def _semana_cuadratura(lunes: date) -> dict:
     return datos
 
 
-@router.get("/cuadratura")
-async def ver_semana_cuadratura(inicio: Optional[str] = Query(None), user: dict = Depends(current_user)):
-    """Horarios de la semana leídos del Sistema de Cuadratura (solo lectura: se editan allí).
+def _es_administrador(user: dict) -> bool:
+    """Rol de administración estricto (sin back office): el único que cambia un día ya asignado."""
+    return _rol(user).strip() in {r.lower() for r in ADMIN_ROLES}
+
+
+async def _vista_cuadratura(datos: dict, user: dict) -> tuple[list[dict], Optional[str], Optional[dict]]:
+    """(empleados que ve este usuario, su team, su propia ficha).
 
     Administración / back office ven a todo el personal; supervisores y agentes, solo el
     cuadro de su team. El team sale de la ficha de Cuadratura enlazada a este usuario
     (crm_agent_id = users.id); si aún no tiene ficha, del team de Permisos."""
-    lunes = _lunes(inicio)
-    datos = await _semana_cuadratura(lunes)
     empleados = datos.get("employees") or []
     es_admin = _es_admin_bo(user)
     yo = next((e for e in empleados if str(e.get("crm_agent_id") or "") == str(user.get("id"))), None)
@@ -346,6 +358,16 @@ async def ver_semana_cuadratura(inicio: Optional[str] = Query(None), user: dict 
                 mi_team = next((e["team"] for e in empleados
                                 if e.get("team") and _norm(e["team"]) == _norm(team_crm)), None)
         empleados = [e for e in empleados if mi_team and e.get("team") == mi_team]
+    return empleados, mi_team, yo
+
+
+@router.get("/cuadratura")
+async def ver_semana_cuadratura(inicio: Optional[str] = Query(None), user: dict = Depends(current_user)):
+    """Horarios de la semana leídos del Sistema de Cuadratura (ver _vista_cuadratura)."""
+    lunes = _lunes(inicio)
+    datos = await _semana_cuadratura(lunes)
+    empleados, mi_team, yo = await _vista_cuadratura(datos, user)
+    es_admin = _es_admin_bo(user)
     ids = {e["id"] for e in empleados}
     return {
         "success": True,
@@ -355,11 +377,72 @@ async def ver_semana_cuadratura(inicio: Optional[str] = Query(None), user: dict 
         "es_admin": es_admin,
         "mi_team": mi_team,
         "yo": (yo or {}).get("id"),
+        # Asignar un día vacío: supervisor (su team, de hoy en adelante), back office y
+        # administración. Cambiar o quitar un día ya asignado: solo administración.
+        "puede_asignar": es_admin or _es_supervisor(user),
+        "puede_cambiar": _es_administrador(user),
+        "editable_desde": None if _es_administrador(user) else cs.hoy_sv().isoformat(),
         "empleados": [{k: e.get(k) for k in ("id", "full_name", "team", "section", "is_supervisor", "position", "area")}
                       for e in empleados],
         "turnos": [a for a in datos.get("assignments") or [] if a.get("employee_id") in ids],
         "libres": [d for d in datos.get("days_off") or [] if d.get("employee_id") in ids],
     }
+
+
+class DiaCuadraturaIn(BaseModel):
+    employee_id: int
+    fecha: date
+    tipo: str = Field(pattern="^(turno|quitar|libre|vacacion|compensatorio|incapacidad|suspendido|baja)$")
+    start: Optional[str] = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    end: Optional[str] = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    break_minutes: int = Field(default=60, ge=0, le=480)
+    notes: Optional[str] = Field(default=None, max_length=500)
+
+
+@router.post("/cuadratura/dia")
+async def asignar_dia_cuadratura(body: DiaCuadraturaIn, request: Request, user: dict = Depends(current_user)):
+    """Asigna el horario de un día y lo escribe al momento en Cuadratura (no hay botón de envío).
+
+    - Supervisor / back office: solo un día VACÍO (sin turno ni día libre), una vez; el
+      supervisor, de su team y de hoy en adelante. Cuadratura lo rechaza con 409 si ya
+      tiene algo, así que dos personas a la vez no se pisan.
+    - Administración: cualquier día, también cambiarlo o quitarlo («quitar»).
+    Después lo cambia RRHH en Cuadratura, que lo devuelve al CRM (cuadratura_entrada.py)."""
+    admin = _es_administrador(user)
+    if not (admin or _es_admin_bo(user) or _es_supervisor(user)):
+        raise HTTPException(403, "Solo supervisores y administración asignan horarios")
+    if body.tipo == "quitar" and not admin:
+        raise HTTPException(403, "Solo administración puede quitar un horario")
+    if not admin and body.fecha < cs.hoy_sv():
+        raise HTTPException(400, "Ese día ya pasó: lo corrige administración o RRHH en Cuadratura")
+    lunes = cs.lunes_de(body.fecha)
+    visibles, _, _ = await _vista_cuadratura(await _semana_cuadratura(lunes, fresca=True), user)
+    if body.employee_id not in {e["id"] for e in visibles}:
+        raise HTTPException(403, "Esa persona no es de su team")
+
+    try:
+        async with httpx.AsyncClient(timeout=20) as cli:
+            r = await cli.post(_cuadratura_url("/api/integrations/crm/schedule-day"),
+                               headers={"X-API-Key": os.getenv("CUADRATURA_API_KEY", "")},
+                               json={"employee_id": body.employee_id, "work_date": body.fecha.isoformat(),
+                                     "kind": body.tipo, "start_time": body.start, "end_time": body.end,
+                                     "break_minutes": body.break_minutes, "notes": body.notes,
+                                     "only_if_empty": not admin, "by": user.get("username") or str(user.get("id"))})
+    except httpx.HTTPError as e:
+        raise HTTPException(502, f"No se pudo guardar en el Sistema de Cuadratura ({type(e).__name__})")
+    _CACHE_CUADRATURA.pop(lunes, None)
+    if r.status_code in (404, 409, 422):
+        try:
+            detalle = r.json().get("detail")
+        except ValueError:
+            detalle = None
+        raise HTTPException(r.status_code, detalle if isinstance(detalle, str) else "Cuadratura rechazó el horario")
+    if r.status_code >= 400:
+        raise HTTPException(502, f"El Sistema de Cuadratura respondió {r.status_code}")
+    audit._log("horarios_asignar", user.get("username", ""), _ip(request),
+               {"empleado_cuadratura": body.employee_id, "fecha": body.fecha.isoformat(), "tipo": body.tipo,
+                "start": body.start, "end": body.end})
+    return {"success": True}
 
 
 @router.put("/reloj/{user_id}")

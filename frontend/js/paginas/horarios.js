@@ -1,9 +1,11 @@
 /**
  * Horarios (horarios.html) — el horario TAL COMO ESTÁ EN EL SISTEMA DE CUADRATURA.
  *
- * Desde el 13-10-2026 el CRM ya no edita horarios: muestra, en solo lectura y con el
- * diseño del CRM, la vista de Horarios de Cuadratura (sus empleados, turnos y días sin
- * turno). Se elige un día de la semana; cada persona muestra su turno de ese día como una
+ * Muestra, con el diseño del CRM, la vista de Horarios de Cuadratura (sus empleados,
+ * turnos y días sin turno). Un día VACÍO se asigna una sola vez (clic en la fila) y se
+ * escribe al momento en Cuadratura, sin botón de envío: el supervisor en su team de hoy en
+ * adelante, back office y administración. Un día ya asignado solo lo cambia o quita
+ * administración (o RRHH en Cuadratura). Se elige un día de la semana; cada persona muestra su turno de ese día como una
  * barra sobre las horas, con el descanso rayado. Arriba, cuántas personas hay en turno a
  * cada hora (en ámbar las horas con menos de MIN_TURNO). A la derecha, la semana en
  * cuadritos y sus horas de trabajo.
@@ -11,7 +13,8 @@
  * Quién ve qué lo decide el backend: administración ve a todo el personal; supervisores
  * y agentes, solo el cuadro de su team.
  *
- * API: GET /api/horarios/cuadratura?inicio=AAAA-MM-DD (CRM_PYTHON/routers/horarios.py)
+ * API: GET /api/horarios/cuadratura?inicio=AAAA-MM-DD y POST /api/horarios/cuadratura/dia
+ * (CRM_PYTHON/routers/horarios.py)
  */
 (function () {
   'use strict';
@@ -121,12 +124,37 @@
   }
 
   // ── Red ──
-  async function api(url) {
-    var r = await fetch(url, { credentials: 'include' });
+  async function api(url, body) {
+    var r = await fetch(url, body ? {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    } : { credentials: 'include' });
     var j = null;
     try { j = await r.json(); } catch (_) { }
-    if (!r.ok) throw new Error((j && j.detail) || ('Error ' + r.status));
+    if (!r.ok) {
+      var det = j && j.detail;
+      if (Array.isArray(det)) det = det.map(function (x) { return String(x.msg || '').replace(/^Value error, /, ''); }).join(' · ');
+      throw new Error(det || ('Error ' + r.status));
+    }
     return j;
+  }
+
+  var toastTimer;
+  function toast(msg, err) {
+    var t = $('hr-toast');
+    t.textContent = msg;
+    t.className = 'hr-toast show' + (err ? ' err' : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.className = 'hr-toast'; }, err ? 6000 : 3500);
+  }
+
+  // ¿Puede este usuario tocar ese día? Vacío: quien asigna (desde editable_desde). Con algo
+  // ya puesto: solo administración.
+  function puedeEditar(id, f) {
+    var d = state.data;
+    var vacio = !state.turno[claveDia(id, f)] && !state.libre[claveDia(id, f)];
+    if (d.puede_cambiar) return true;
+    return vacio && d.puede_asignar && (!d.editable_desde || f >= d.editable_desde);
   }
 
   // ── Carga ──
@@ -316,7 +344,7 @@
       var info = infoLibre(l);
       linea = '<span class="hr-line-empty ' + info[1] + '"' + (l.notes ? ' title="' + esc(l.notes) + '"' : '') + '>' + esc(info[0]) + '</span>';
     } else {
-      linea = '<span class="hr-line-empty">Sin turno</span>';
+      linea = '<span class="hr-line-empty">' + (puedeEditar(e.id, f) ? 'Sin turno — clic para asignar' : 'Sin turno') + '</span>';
     }
 
     var cuadros = d.dias.map(function (fd, i) {
@@ -331,9 +359,97 @@
       '<div class="hr-who"><div class="hr-name" title="' + esc(nombre) + '">' + esc(nombre) + (e.is_supervisor ? '<em> · Supervisor</em>' : '') + '</div>' +
       // Cargo y team de la ficha de Cuadratura (el team ya es el título del grupo).
       '<div class="hr-mark">' + esc([e.position ? cargo(e.position) : '', e.team ? '' : 'Sin team'].filter(Boolean).join(' · ')) + '</div></div>' +
-      '<div class="hr-line" role="img" aria-label="' + esc(nombre) + ', ' + DIAS_LARGOS[state.dia] + ': ' + esc(etiquetaDia(e.id, f)) + '">' + linea + '</div>' +
+      (puedeEditar(e.id, f)
+        ? '<button type="button" class="hr-line editable" data-emp="' + e.id + '" aria-label="Asignar el horario de ' + esc(nombre) + ' el ' + DIAS_LARGOS[state.dia] + ' (' + esc(etiquetaDia(e.id, f)) + ')">' + linea + '</button>'
+        : '<div class="hr-line" role="img" aria-label="' + esc(nombre) + ', ' + DIAS_LARGOS[state.dia] + ': ' + esc(etiquetaDia(e.id, f)) + '">' + linea + '</div>') +
       '<div class="hr-wk"><div class="hr-sq">' + cuadros + '</div><span class="hr-tot' + (!tot ? ' zero' : tot > MAX_HORAS_SEMANA ? ' over' : '') + '">' + fmtHoras(tot) + '</span></div>' +
       '</div>';
+  }
+
+  // ── Selector de turno ──
+  // Opciones: turnos habituales, shortdays, días sin turno y otro horario a mano.
+  var OPC_LIBRES = [
+    ['libre', 'Libre', 'libre'], ['compensatorio', 'Compensatorio', 'comp'], ['vacacion', 'Vacaciones', 'vac'],
+    ['incapacidad', 'Incapacidad', 'inc'], ['suspendido', 'Suspendido', 'susp'], ['baja', 'De baja', 'baja'],
+    ['nop', NO_PRESENTO, 'nop'],
+  ];
+
+  function abrirPop(boton) {
+    var d = state.data, f = d.dias[state.dia], id = +boton.dataset.emp;
+    var e = d.empleados.find(function (x) { return x.id === id; });
+    var t = state.turno[claveDia(id, f)], l = state.libre[claveDia(id, f)];
+    function opcion(op, nombre, meta, color) {
+      return '<button type="button" class="hr-opt" data-op="' + op + '"><span><i style="background:' + color + '"></i>' + esc(nombre) +
+        '</span><small>' + esc(meta) + '</small></button>';
+    }
+    var pop = $('hr-pop');
+    pop.innerHTML = '<div class="hr-pop-title">' + esc(tipoTitulo(e.full_name)) + ' · ' + DIAS[state.dia] + ' ' + f.slice(8) +
+      (t || l ? ' · ahora: ' + esc(etiquetaDia(id, f)) : '') + '</div>' +
+      '<div class="hr-pop-group">Jornada completa</div>' +
+      TURNOS.filter(function (T) { return !T.sd; }).map(function (T) { return opcion('t:' + TURNOS.indexOf(T), T.corto, ampm(T.s) + ' – ' + ampm(T.e), T.color); }).join('') +
+      '<div class="hr-pop-group">Shortday · 4 h</div>' +
+      TURNOS.filter(function (T) { return T.sd; }).map(function (T) { return opcion('t:' + TURNOS.indexOf(T), T.corto, ampm(T.s) + ' – ' + ampm(T.e), T.color); }).join('') +
+      '<div class="hr-pop-group">Sin turno</div>' +
+      OPC_LIBRES.map(function (x) { return opcion('l:' + x[0], x[1], '', 'var(--hr-' + x[2] + ')'); }).join('') +
+      opcion('otro', 'Otro horario…', '', 'var(--hr-x)') +
+      '<div class="hr-custom" id="hp-custom" hidden><div class="row">' +
+      '<label>Entrada<input class="hr-input" type="time" id="hp-start" value="09:00"></label>' +
+      '<label>Salida<input class="hr-input" type="time" id="hp-end" value="18:00"></label>' +
+      '<label>Descanso (min)<input class="hr-input" type="number" id="hp-break" min="0" max="480" step="5" value="60"></label></div>' +
+      '<button type="button" class="pg-boton pg-boton-pri" data-op="otro-ok">Asignar</button></div>' +
+      (d.puede_cambiar && (t || l) ? '<div class="hr-pop-foot"><button type="button" class="pg-boton" data-op="quitar">Quitar horario</button></div>' : '') +
+      (d.puede_cambiar ? '' : '<div class="hr-pop-note">Se envía al momento al Sistema de Cuadratura. Después, solo administración podrá cambiarlo.</div>');
+
+    pop.hidden = false;
+    $('hr-pop-bg').hidden = false;
+    var r = boton.getBoundingClientRect();
+    pop.style.left = Math.max(8, Math.min(r.left + 12, innerWidth - pop.offsetWidth - 8)) + 'px';
+    pop.style.top = Math.max(8, Math.min(r.bottom + 4, innerHeight - pop.offsetHeight - 8)) + 'px';
+    pop.querySelector('.hr-opt').focus({ preventScroll: true });
+
+    pop.onclick = function (ev) {
+      var b = ev.target.closest('[data-op]');
+      if (!b || b.disabled) return;
+      var op = b.dataset.op, body = { employee_id: id, fecha: f };
+      if (op === 'otro') { $('hp-custom').hidden = false; $('hp-start').focus(); return; }
+      if (op.indexOf('t:') === 0) {
+        var T = TURNOS[+op.slice(2)];
+        Object.assign(body, { tipo: 'turno', start: T.s, end: T.e, break_minutes: T.sd ? 0 : 60 });
+      } else if (op === 'otro-ok') {
+        Object.assign(body, { tipo: 'turno', start: $('hp-start').value, end: $('hp-end').value, break_minutes: +$('hp-break').value || 0 });
+        if (!body.start || !body.end || body.start === body.end) { toast('Indique la hora de entrada y la de salida', true); return; }
+      } else if (op === 'l:nop') {
+        Object.assign(body, { tipo: 'libre', notes: NO_PRESENTO });
+      } else if (op.indexOf('l:') === 0) {
+        body.tipo = op.slice(2);
+      } else if (op === 'quitar') {
+        body.tipo = 'quitar';
+      }
+      guardarDia(body, e, b);
+    };
+  }
+
+  function cerrarPop() {
+    $('hr-pop').hidden = true;
+    $('hr-pop-bg').hidden = true;
+  }
+
+  async function guardarDia(body, e, boton) {
+    var d = state.data, que = body.tipo === 'turno' ? h12(body.start) + '–' + h12(body.end)
+      : body.tipo === 'quitar' ? 'quitar el horario' : (body.notes || (LIBRES[body.tipo] || [body.tipo])[0]);
+    if (!d.puede_cambiar && !confirm('¿Asignar ' + que + ' a ' + tipoTitulo(e.full_name) + ' el ' + DIAS_LARGOS[state.dia] + ' ' +
+      body.fecha.slice(8) + '?\n\nSe envía al momento a Cuadratura y después solo administración podrá cambiarlo.')) return;
+    $('hr-pop').querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+    try {
+      await api('/api/horarios/cuadratura/dia', body);
+      cerrarPop();
+      toast(body.tipo === 'quitar' ? 'Horario quitado en Cuadratura' : 'Asignado y enviado a Cuadratura');
+      await cargar();
+    } catch (err) {
+      $('hr-pop').querySelectorAll('button').forEach(function (b) { b.disabled = false; });
+      toast(err.message, true);
+      if (/ya tiene horario/.test(err.message)) { cerrarPop(); cargar(); }
+    }
   }
 
   // ── Eventos ──
@@ -354,7 +470,11 @@
     });
     $('hr-search').addEventListener('input', function (ev) { state.busqueda = ev.target.value; renderDia(); });
     $('hr-team').addEventListener('change', function (ev) { state.equipo = ev.target.value; renderDia(); });
+    $('hr-pop-bg').addEventListener('click', cerrarPop);
+    document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') cerrarPop(); });
     $('hr-board').addEventListener('click', function (ev) {
+      var linea = ev.target.closest('[data-emp]');
+      if (linea) { abrirPop(linea); return; }
       var b = ev.target.closest('[data-tg]');
       if (!b) return;
       state.colapsados[b.dataset.tg] = !state.colapsados[b.dataset.tg];

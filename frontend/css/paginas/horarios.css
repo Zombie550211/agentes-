@@ -125,6 +125,34 @@
 .hr-tot.over{color:var(--hr-warn)}
 .hr-tot{white-space:nowrap}
 
+/* Día que este usuario puede asignar (o cambiar, si es administración) */
+button.hr-line{border:0;padding:0;font:inherit;text-align:left;background-color:transparent;cursor:pointer}
+button.hr-line:hover,button.hr-line:focus-visible{box-shadow:inset 0 0 0 2px var(--hr-accent);outline:none}
+button.hr-line .hr-line-empty:not([class*=" "]){color:var(--hr-accent)}
+
+/* ── Selector de turno ── */
+/* Por encima de la cabecera fija (40) y de sus menús (50–70). */
+.hr-pop-bg{position:fixed;inset:0;z-index:90}
+.hr-pop{position:fixed;z-index:91;width:300px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow:auto;background:var(--sup-1);box-shadow:0 18px 40px rgba(13,20,32,.22);border:1px solid var(--linea);padding:8px}
+.hr-pop-title{font-size:13px;color:var(--texto-3);padding:4px 8px 8px}
+.hr-pop-group{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--texto-4);padding:8px 8px 2px}
+.hr-opt{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px;border:0;cursor:pointer;font:inherit;font-size:14px;text-align:left;color:var(--texto-1);background:transparent}
+.hr-opt:hover,.hr-opt:focus-visible{background:var(--sup-3);outline:none}
+.hr-opt:disabled{opacity:.5;cursor:default}
+.hr-opt>span{display:flex;align-items:center;gap:8px}
+.hr-opt>span i{flex:none;width:12px;height:12px;border-radius:3px}
+.hr-opt small{color:var(--texto-3);font-size:13px}
+.hr-custom{display:flex;flex-direction:column;gap:8px;padding:8px;border-top:1px solid var(--linea);margin-top:4px}
+.hr-custom .row{display:flex;gap:8px}
+.hr-custom label{display:flex;flex-direction:column;gap:3px;flex:1;font-size:11px;font-weight:700;color:var(--texto-3);text-transform:uppercase;letter-spacing:.05em}
+.hr-custom .hr-input{width:100%;height:34px;font-size:13px}
+.hr-pop-foot{display:flex;gap:4px;padding:8px 4px 2px;border-top:1px solid var(--linea);margin-top:4px}
+.hr-pop-note{font-size:12px;color:var(--texto-3);padding:8px 8px 4px;border-top:1px solid var(--linea);margin-top:4px}
+
+.hr-toast{position:fixed;right:24px;bottom:24px;z-index:95;max-width:420px;padding:12px 16px;background:#fff;color:var(--texto-1);font-size:13px;border:1px solid var(--linea-fuerte);box-shadow:inset 3px 0 0 var(--hr-accent),0 12px 32px rgb(0 112 152 / .18);opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .2s,transform .2s}
+.hr-toast.show{opacity:1;transform:none}
+.hr-toast.err{box-shadow:inset 3px 0 0 var(--color-sem-rojo),0 12px 32px rgb(0 112 152 / .18)}
+
 @media (prefers-reduced-motion:reduce){*{transition:none !important}}
 @media (max-width:900px){
   .hr-input,#hr-search,#hr-team{width:100%;flex:1 1 100%}
