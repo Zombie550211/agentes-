@@ -126,7 +126,9 @@
     $('rg-vacio').hidden = recibos.length > 0;
     var totalFiltro = recibos.reduce(function (s, r) { return s + r.monto_centavos; }, 0);
     $('rg-chip-total').hidden = !recibos.length;
-    $('rg-chip-total').textContent = recibos.length + (recibos.length === 1 ? ' recibo · ' : ' recibos · ') + dinero(totalFiltro);
+    var conciliados = recibos.filter(function (r) { return r.conciliado; }).length;
+    $('rg-chip-total').textContent = recibos.length + (recibos.length === 1 ? ' recibo · ' : ' recibos · ') + dinero(totalFiltro) +
+      ' · ' + conciliados + (conciliados === 1 ? ' conciliado' : ' conciliados');
 
     var grupos = new Map();
     recibos.forEach(function (r) {
@@ -150,7 +152,7 @@
       cuerpo.append(el('tr', { class: 'rg-grupo' },
         el('td', { colspan: '3', class: 'pg-izq' }, toggle),
         el('td', { class: 'rg-der rg-monto', text: dinero(total) }),
-        el('td', { colspan: '2' })));
+        el('td', { colspan: '3' })));
 
       filas.forEach(function (r) {
         var detalle = [r.metodo_pago, 'Subido por ' + r.subido_por,
@@ -167,12 +169,48 @@
           el('td', { class: 'rg-der rg-monto rg-c-monto', text: dinero(r.monto_centavos) }),
           el('td', { class: 'pg-izq rg-c-archivo' }, el('span', { class: 'rg-archivo', title: r.archivo_nombre },
             el('i', { class: 'ph ph-file-pdf rg-pdf', 'aria-hidden': 'true' }), el('span', { text: r.archivo_nombre }))),
-          el('td', { class: 'rg-c-acciones' }, el('div', { class: 'rg-acciones' }, ver, bajar)));
+          el('td', { class: 'rg-c-acciones' }, el('div', { class: 'rg-acciones' }, ver, bajar)),
+          el('td', { class: 'rg-c-conc' }, casillaConciliacion(r)));
         tr.hidden = !abierto;
         filasTr.push(tr);
         cuerpo.append(tr);
       });
     });
+  }
+
+  // ── Conciliación: RRHH marca el recibo cuando ya revisó el documento ──
+  function textoConciliado(r) {
+    if (!r.conciliado) return 'Pendiente de revisar por Recursos Humanos';
+    var cuando = r.conciliado_en ? new Date(r.conciliado_en).toLocaleString('es-SV', { dateStyle: 'medium', timeStyle: 'short' }) : '';
+    return 'Conciliado' + (r.conciliado_por ? ' por ' + r.conciliado_por : '') + (cuando ? ' · ' + cuando : '');
+  }
+
+  function casillaConciliacion(r) {
+    var input = el('input', { type: 'checkbox', 'aria-label': 'Conciliación de ' + r.archivo_nombre });
+    input.checked = !!r.conciliado;
+    var caja = el('label', { class: 'rg-conc' + (r.conciliado ? ' rg-conc-si' : ''), title: textoConciliado(r) },
+      input, el('span', { class: 'rg-solo-movil', text: 'Conciliado' }));
+    input.addEventListener('change', async function () {
+      var marcar = input.checked;
+      input.disabled = true;
+      try {
+        var res = await api(API + '/' + r.id + '/conciliacion', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conciliado: marcar }),
+        });
+        r.conciliado = marcar;
+        r.conciliado_por = res.conciliado_por;
+        r.conciliado_en = marcar ? new Date().toISOString() : null;
+        caja.classList.toggle('rg-conc-si', marcar);
+        caja.title = textoConciliado(r);
+        avisar(marcar ? 'Recibo conciliado' : 'Conciliación quitada');
+        cargarRecibos().catch(function () {});   // refresca el contador
+      } catch (e) {
+        input.checked = !marcar;
+        avisar('No se pudo guardar la conciliación: ' + e.message, true);
+      }
+      input.disabled = false;
+    });
+    return caja;
   }
 
   async function refrescar() {

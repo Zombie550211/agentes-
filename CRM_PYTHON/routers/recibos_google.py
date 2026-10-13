@@ -31,9 +31,11 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
+import audit
 from database_mysql import AsyncSessionLocal
 from deps import ADMIN_ROLES
 from routers.portal import admin_o_portal
@@ -89,6 +91,10 @@ CREATE TABLE IF NOT EXISTS recibos_google (
 _COLUMNAS_NUEVAS = {
     "cuadratura_enviado": "DATETIME NULL",
     "cuadratura_error": "VARCHAR(255) NULL",
+    # Conciliación: RRHH marca el recibo cuando ya revisó el documento (13-10-2026).
+    "conciliado": "TINYINT(1) NOT NULL DEFAULT 0",
+    "conciliado_por": "VARCHAR(150) NULL",
+    "conciliado_en": "DATETIME NULL",
 }
 
 
@@ -176,13 +182,16 @@ async def _recibos(desde, hasta, cuenta, q) -> list[dict]:
     async with AsyncSessionLocal() as s:
         r = await s.execute(text(
             "SELECT id, fecha_pago, cuenta, monto_centavos, billing_id, metodo_pago,"
-            " archivo_nombre, subido_por, cuadratura_enviado IS NOT NULL AS en_cuadratura"
+            " archivo_nombre, subido_por, cuadratura_enviado IS NOT NULL AS en_cuadratura,"
+            " conciliado, conciliado_por, conciliado_en"
             " FROM recibos_google" + where +
             " ORDER BY fecha_pago DESC, id ASC"), params)
         filas = [dict(f) for f in r.mappings().all()]
     for f in filas:
         f["fecha_pago"] = f["fecha_pago"].isoformat()
         f["en_cuadratura"] = bool(f["en_cuadratura"])
+        f["conciliado"] = bool(f["conciliado"])
+        f["conciliado_en"] = f["conciliado_en"].isoformat() if f["conciliado_en"] else None
         f["cuenta_nombre"] = _NOMBRE_CUENTA.get(f["cuenta"], f["cuenta"])
     # Dentro de cada fecha, en el orden de las cuentas de facturación.
     filas.sort(key=lambda f: (f["fecha_pago"], -_ORDEN_CUENTA.get(f["cuenta"], 99), -f["id"]),
@@ -327,17 +336,41 @@ async def exportar(desde: Optional[str] = None, hasta: Optional[str] = None,
     buf = io.StringIO()
     buf.write("﻿")  # BOM: Excel abre bien los acentos
     w = csv.writer(buf)
-    w.writerow(["Fecha", "Cuenta", "Billing ID", "Monto", "Método", "Archivo", "Subido por"])
+    w.writerow(["Fecha", "Cuenta", "Billing ID", "Monto", "Método", "Archivo", "Subido por", "Conciliación"])
     for r in await _recibos(desde, hasta, cuenta, q):
         # Un valor que empiece por = + - @ lo ejecutaría Excel como fórmula.
         seguro = lambda v: ("'" + v) if v and v[0] in "=+-@" else v  # noqa: E731
         w.writerow([r["fecha_pago"], r["cuenta_nombre"], r["billing_id"] or "",
                     f'{r["monto_centavos"] / 100:.2f}', seguro(r["metodo_pago"] or ""),
-                    seguro(r["archivo_nombre"]), seguro(r["subido_por"])])
+                    seguro(r["archivo_nombre"]), seguro(r["subido_por"]),
+                    "Sí" if r["conciliado"] else "No"])
     return StreamingResponse(
         iter([buf.getvalue()]), media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="recibos-google-ads-{ahora_sv().date()}.csv"',
                  "Cache-Control": "private, no-store"})
+
+
+class ConciliacionIn(BaseModel):
+    conciliado: bool
+
+
+@router.put("/{recibo_id}/conciliacion")
+async def conciliar(recibo_id: int, body: ConciliacionIn, usuario: dict = Depends(solo_admin)):
+    """Marca (o desmarca) el recibo como conciliado: RRHH ya revisó el documento.
+    Guarda quién y cuándo (hora de El Salvador)."""
+    por = usuario.get("username") or ""
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            UPDATE recibos_google SET conciliado = :c,
+                   conciliado_por = :por, conciliado_en = :en
+            WHERE id = :i
+        """), {"c": 1 if body.conciliado else 0, "por": por if body.conciliado else None,
+               "en": ahora_sv().replace(tzinfo=None) if body.conciliado else None, "i": recibo_id})
+        await s.commit()
+    if not r.rowcount:
+        raise HTTPException(404, "Recibo no encontrado")
+    audit._log("recibo_google_conciliacion", por, "", {"id": recibo_id, "conciliado": body.conciliado})
+    return {"success": True, "conciliado": body.conciliado, "conciliado_por": por if body.conciliado else None}
 
 
 @router.get("/{recibo_id}/pdf")
