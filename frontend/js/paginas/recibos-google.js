@@ -178,39 +178,17 @@
     });
   }
 
-  // ── Conciliación: RRHH marca el recibo cuando ya revisó el documento ──
+  // ── Conciliación: la marca RRHH en el Sistema de Cuadratura; aquí solo se muestra ──
   function textoConciliado(r) {
-    if (!r.conciliado) return 'Pendiente de revisar por Recursos Humanos';
+    if (!r.conciliado) return 'Pendiente: Recursos Humanos aún no lo revisa en Cuadratura';
     var cuando = r.conciliado_en ? new Date(r.conciliado_en).toLocaleString('es-SV', { dateStyle: 'medium', timeStyle: 'short' }) : '';
-    return 'Conciliado' + (r.conciliado_por ? ' por ' + r.conciliado_por : '') + (cuando ? ' · ' + cuando : '');
+    return 'Conciliado en Cuadratura' + (r.conciliado_por ? ' por ' + r.conciliado_por : '') + (cuando ? ' · ' + cuando : '');
   }
 
   function casillaConciliacion(r) {
-    var input = el('input', { type: 'checkbox', 'aria-label': 'Conciliación de ' + r.archivo_nombre });
-    input.checked = !!r.conciliado;
-    var caja = el('label', { class: 'rg-conc' + (r.conciliado ? ' rg-conc-si' : ''), title: textoConciliado(r) },
-      input, el('span', { class: 'rg-solo-movil', text: 'Conciliado' }));
-    input.addEventListener('change', async function () {
-      var marcar = input.checked;
-      input.disabled = true;
-      try {
-        var res = await api(API + '/' + r.id + '/conciliacion', {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conciliado: marcar }),
-        });
-        r.conciliado = marcar;
-        r.conciliado_por = res.conciliado_por;
-        r.conciliado_en = marcar ? new Date().toISOString() : null;
-        caja.classList.toggle('rg-conc-si', marcar);
-        caja.title = textoConciliado(r);
-        avisar(marcar ? 'Recibo conciliado' : 'Conciliación quitada');
-        cargarRecibos().catch(function () {});   // refresca el contador
-      } catch (e) {
-        input.checked = !marcar;
-        avisar('No se pudo guardar la conciliación: ' + e.message, true);
-      }
-      input.disabled = false;
-    });
-    return caja;
+    return el('span', { class: 'rg-conc' + (r.conciliado ? ' rg-conc-si' : ''), title: textoConciliado(r) },
+      el('i', { class: 'ph ' + (r.conciliado ? 'ph-check-circle' : 'ph-clock'), 'aria-hidden': 'true' }),
+      el('span', { text: r.conciliado ? 'Conciliado' : 'Pendiente' }));
   }
 
   async function refrescar() {

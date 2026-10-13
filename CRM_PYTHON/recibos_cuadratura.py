@@ -11,6 +11,10 @@ Cuándo se envía:
   (cuadratura_enviado IS NULL). Así llegan también los que ya existían antes de esta
   integración y los que no pudieron enviarse porque Cuadratura no respondía.
 
+Conciliación (al revés): RRHH la marca en Cuadratura y Cuadratura la avisa al momento
+(routers/recibos_google.py → /conciliacion-desde-cuadratura). Por si un aviso no llegó, en
+cada pasada del bucle se pide el estado de todos (sincronizar_conciliacion).
+
 Variables de entorno: CUADRATURA_URL y CUADRATURA_API_KEY (las de los horarios);
 RECIBOS_CUADRATURA_SYNC=0 apaga el reintento automático (el de horarios es CUADRATURA_SYNC).
 """
@@ -114,6 +118,18 @@ async def enviar_pendientes(limite: int = LOTE) -> dict:
         return {"estado": "ok" if not errores else "parcial", "enviados": enviados, "errores": errores}
 
 
+async def sincronizar_conciliacion() -> int:
+    """Trae de Cuadratura el estado de conciliación de todos los recibos y lo guarda."""
+    if not configurado():
+        return 0
+    from routers.recibos_google import CambioConciliacion, aplicar_conciliaciones
+    url = os.getenv("CUADRATURA_URL", "").rstrip("/") + "/api/integrations/crm/google-ads-receipts/reconciliation"
+    async with httpx.AsyncClient(timeout=30) as cli:
+        r = await cli.get(url, headers={"X-API-Key": os.getenv("CUADRATURA_API_KEY", "")})
+    r.raise_for_status()
+    return await aplicar_conciliaciones([CambioConciliacion(**x) for x in r.json().get("recibos", [])])
+
+
 def enviar_en_segundo_plano() -> None:
     """Lanza un envío sin esperar el resultado (tras guardar recibos)."""
     async def _tarea():
@@ -137,6 +153,7 @@ async def bucle_envio_recibos():
                 res = await enviar_pendientes()
                 if res.get("estado") != "ok" or res.get("enviados", 0) < LOTE:
                     break
+            await sincronizar_conciliacion()
         except asyncio.CancelledError:
             raise
         except Exception as e:  # nunca tumbar la tarea

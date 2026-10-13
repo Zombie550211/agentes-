@@ -29,9 +29,9 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
@@ -40,7 +40,8 @@ from database_mysql import AsyncSessionLocal
 from deps import ADMIN_ROLES
 from routers.portal import admin_o_portal
 from recibos_escaner import escanear
-from tiempo_sv import ahora_sv
+from routers.cuadratura_entrada import _verificar_clave
+from tiempo_sv import TZ_SV, ahora_sv
 
 router = APIRouter(prefix="/api/recibos-google", tags=["Recibos Google Ads"])
 # Administración del CRM o un usuario del portal de facturación (routers/portal.py).
@@ -91,7 +92,8 @@ CREATE TABLE IF NOT EXISTS recibos_google (
 _COLUMNAS_NUEVAS = {
     "cuadratura_enviado": "DATETIME NULL",
     "cuadratura_error": "VARCHAR(255) NULL",
-    # Conciliación: RRHH marca el recibo cuando ya revisó el documento (13-10-2026).
+    # Conciliación: RRHH marca el recibo en Cuadratura cuando ya revisó el documento; aquí
+    # solo se muestra (llega por /conciliacion-desde-cuadratura y recibos_cuadratura.py).
     "conciliado": "TINYINT(1) NOT NULL DEFAULT 0",
     "conciliado_por": "VARCHAR(150) NULL",
     "conciliado_en": "DATETIME NULL",
@@ -350,27 +352,39 @@ async def exportar(desde: Optional[str] = None, hasta: Optional[str] = None,
                  "Cache-Control": "private, no-store"})
 
 
-class ConciliacionIn(BaseModel):
+# ── Conciliación: la marca RRHH en Cuadratura; aquí solo se guarda y se muestra ──
+class CambioConciliacion(BaseModel):
+    crm_id: int
     conciliado: bool
+    por: Optional[str] = Field(default=None, max_length=200)
+    en: Optional[datetime] = None
 
 
-@router.put("/{recibo_id}/conciliacion")
-async def conciliar(recibo_id: int, body: ConciliacionIn, usuario: dict = Depends(solo_admin)):
-    """Marca (o desmarca) el recibo como conciliado: RRHH ya revisó el documento.
-    Guarda quién y cuándo (hora de El Salvador)."""
-    por = usuario.get("username") or ""
+class ConciliacionesIn(BaseModel):
+    cambios: List[CambioConciliacion] = Field(max_length=5000)
+
+
+async def aplicar_conciliaciones(cambios: List[CambioConciliacion]) -> int:
+    """Guarda el estado que manda Cuadratura (hora de El Salvador). Devuelve cuántos cambiaron."""
+    n = 0
     async with AsyncSessionLocal() as s:
-        r = await s.execute(text("""
-            UPDATE recibos_google SET conciliado = :c,
-                   conciliado_por = :por, conciliado_en = :en
-            WHERE id = :i
-        """), {"c": 1 if body.conciliado else 0, "por": por if body.conciliado else None,
-               "en": ahora_sv().replace(tzinfo=None) if body.conciliado else None, "i": recibo_id})
+        for c in cambios:
+            en = c.en.astimezone(TZ_SV).replace(tzinfo=None) if (c.conciliado and c.en and c.en.tzinfo) else (c.en if c.conciliado else None)
+            r = await s.execute(text("""
+                UPDATE recibos_google SET conciliado = :c, conciliado_por = :por, conciliado_en = :en
+                WHERE id = :i AND NOT (conciliado <=> :c AND conciliado_por <=> :por AND conciliado_en <=> :en)
+            """), {"c": 1 if c.conciliado else 0, "por": (c.por or "")[:150] or None if c.conciliado else None, "en": en, "i": c.crm_id})
+            n += r.rowcount
         await s.commit()
-    if not r.rowcount:
-        raise HTTPException(404, "Recibo no encontrado")
-    audit._log("recibo_google_conciliacion", por, "", {"id": recibo_id, "conciliado": body.conciliado})
-    return {"success": True, "conciliado": body.conciliado, "conciliado_por": por if body.conciliado else None}
+    return n
+
+
+@router.post("/conciliacion-desde-cuadratura")
+async def conciliacion_desde_cuadratura(body: ConciliacionesIn, x_api_key: Optional[str] = Header(None)):
+    """Cuadratura avisa al momento cuando RRHH marca o quita la conciliación de un recibo
+    (clave X-API-Key = CUADRATURA_ENTRADA_KEY, la misma de los horarios que vuelven)."""
+    _verificar_clave(x_api_key)
+    return {"success": True, "actualizados": await aplicar_conciliaciones(body.cambios)}
 
 
 @router.get("/{recibo_id}/pdf")
