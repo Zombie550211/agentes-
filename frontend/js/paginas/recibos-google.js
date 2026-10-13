@@ -55,7 +55,7 @@
 
   async function api(url, opciones) {
     var r = await fetch(url, Object.assign({ credentials: 'include' }, opciones || {}));
-    if (r.status === 401) { location.replace('/login.html'); throw new Error('Sesión vencida'); }
+    if (r.status === 401) { location.replace(window.PORTAL ? '/portal/' : '/login.html'); throw new Error('Sesión vencida'); }
     if (!r.ok) {
       var msg = 'Error ' + r.status;
       try {
@@ -410,7 +410,8 @@
   async function iniciar() {
     var sesion = await (window.__sesion || Promise.resolve({}));
     if (!sesion || !sesion.authenticated) return;            // el guard del <head> ya redirige
-    if (!esAdmin(sesion.user && sesion.user.role)) {
+    // Administración del CRM, o un usuario del portal de facturación (js/portal/portal.js).
+    if (!sesion.portal && !esAdmin(sesion.user && sesion.user.role)) {
       alert('Acceso denegado: solo administradores.');
       location.href = '/residencial/inicio.html';
       return;

@@ -20,6 +20,8 @@
  */
 (function () {
   'use strict';
+  // Portal de facturación (js/portal/portal.js): sin la sesión del CRM, este script no aplica.
+  if (window.PORTAL) return;
 
   var path = (window.location.pathname || '').toLowerCase();
   if (path.indexOf('login') !== -1 || path.indexOf('register') !== -1 || path.indexOf('crear-cuenta') !== -1) return;

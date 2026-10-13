@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Usuarios del portal</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <!-- Sesión: la cabecera (menú e iconos) la reutiliza; sin sesión, al login. -->
+  <script>
+    window.__sesion = fetch('/api/auth/verify-server', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : { authenticated: false }; })
+      .then(function (d) { if (!d.authenticated) { location.replace('/login.html'); } return d; })
+      .catch(function () { location.replace('/login.html'); return {}; });
+  </script>
+  <link rel="stylesheet" href="/css/base/scroll.css?v=20261008a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261012a">
+  <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
+  <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
+  <link rel="stylesheet" href="/css/componentes/pagina.css?v=20261009a">
+  <script src="/js/layout/transicion.js?v=20261008b"></script>
+  <style>
+    .pu-tabla td,.pu-tabla th{padding:10px 12px;text-align:left}
+    .pu-tabla tbody tr+tr td{border-top:1px solid rgb(0 112 152 / .1)}
+    .pu-acciones{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+    .pu-inactivo td{color:var(--color-neutral-500)}
+    .pu-dlg{border:1px solid rgb(0 112 152 / .2);padding:0;width:min(420px,calc(100vw - 32px));box-shadow:0 18px 40px rgb(13 20 32 / .22)}
+    .pu-dlg::backdrop{background:rgb(15 30 40 / .35)}
+    .pu-dlg form{display:flex;flex-direction:column;gap:14px;padding:22px}
+    .pu-dlg h2{margin:0;font-family:var(--font-heading);font-size:20px}
+    .pu-dlg label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:600;color:var(--color-neutral-800)}
+    .pu-dlg input{height:38px;padding:0 10px;border:1px solid rgb(0 112 152 / .22);font:inherit;font-size:14px}
+    .pu-dlg input:focus{outline:2px solid var(--color-accent-2-500);outline-offset:0}
+    .pu-dlg small{font-weight:400;color:var(--color-neutral-600)}
+    .pu-pie{display:flex;justify-content:flex-end;gap:8px}
+    .pu-error{color:var(--color-sem-rojo);font-size:13px}
+    .pu-enlace{font-weight:600;color:var(--color-accent-2-600)}
+  </style>
+</head>
+<body>
+<div class="in-marco">
+<div class="in-hoja">
+
+  <header class="in-head">
+    <nav id="topnav" class="tn" aria-label="Menú principal"></nav>
+    <div id="topbar-acciones" class="in-iconos"></div>
+  </header>
+
+  <section class="pg-barra in-glass" aria-label="Usuarios del portal">
+    <div class="pg-titulo">
+      <span class="pg-ico"><i class="ph ph-globe" aria-hidden="true"></i></span>
+      <div>
+        <h1>Usuarios del portal</h1>
+        <p>Acceso a <a class="pu-enlace" href="/portal/" target="_blank" rel="noopener">connecting.lat/portal</a>: solo Facturación y Recibos de Google Ads. No pueden entrar al CRM.</p>
+      </div>
+    </div>
+    <div class="pg-acciones">
+      <button type="button" class="pg-boton pg-boton-pri" id="pu-nuevo"><i class="ph ph-users" aria-hidden="true"></i> Nuevo usuario</button>
+    </div>
+  </section>
+
+  <section class="pg-card in-glass" aria-label="Lista de usuarios del portal">
+    <div class="pg-scroll">
+      <table class="pg-tbl pu-tabla">
+        <thead><tr><th>Nombre</th><th>Usuario</th><th>Estado</th><th>Último acceso</th><th>Creado por</th><th></th></tr></thead>
+        <tbody id="pu-cuerpo"></tbody>
+      </table>
+    </div>
+    <div class="pg-vacio" id="pu-vacio" hidden>Aún no hay usuarios del portal.</div>
+  </section>
+
+</div>
+</div>
+
+<dialog class="pu-dlg" id="pu-dlg">
+  <form method="dialog" id="pu-form">
+    <h2 id="pu-titulo">Nuevo usuario</h2>
+    <label id="pu-l-nombre">Nombre<input id="pu-nombre" maxlength="120" autocomplete="off"></label>
+    <label id="pu-l-usuario">Usuario <small>minúsculas, números, punto o guion</small><input id="pu-usuario" maxlength="60" autocomplete="off" autocapitalize="none" spellcheck="false"></label>
+    <label>Contraseña <small>al menos 8 caracteres, con letras y números</small><input id="pu-clave" type="password" autocomplete="new-password"></label>
+    <div class="pu-error" id="pu-error" role="alert"></div>
+    <div class="pu-pie">
+      <button type="button" class="pg-boton" id="pu-cancelar">Cancelar</button>
+      <button type="submit" class="pg-boton pg-boton-pri" id="pu-guardar">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="/js/core/fetch-interceptor.js"></script>
+<script src="/js/layout/topnav.js?v=20261012a" defer></script>
+<script src="/js/layout/topbar-acciones.js?v=20261009a" defer></script>
+<script>
+/* Usuarios del portal de facturación (API: /api/portal/usuarios, solo administración). */
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var editando = null;   // null = nuevo; si no, el usuario al que se cambia la contraseña
+
+  function esAdmin(role) {
+    var r = String(role || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+    return r === 'admin' || r === 'administrador' || r === 'administrativo' || r === 'administrator' || r === 'administrador general';
+  }
+  async function api(url, metodo, cuerpo) {
+    var r = await fetch(url, { method: metodo || 'GET', credentials: 'include',
+      headers: cuerpo ? { 'Content-Type': 'application/json' } : undefined, body: cuerpo ? JSON.stringify(cuerpo) : undefined });
+    var j = await r.json().catch(function () { return {}; });
+    if (!r.ok) {
+      var d = j.detail;
+      if (Array.isArray(d)) d = d.map(function (x) { return String(x.msg || '').replace(/^Value error, /, ''); }).join(' · ');
+      throw new Error(d || ('Error ' + r.status));
+    }
+    return j;
+  }
+  function fecha(iso) {
+    if (!iso) return '—';
+    var d = new Date(iso);
+    return d.toLocaleDateString('es-SV') + ' ' + d.toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit' });
+  }
+  function td(texto) { var c = document.createElement('td'); c.textContent = texto; return c; }
+  function boton(texto, fn) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'pg-boton'; b.textContent = texto;
+    b.addEventListener('click', fn);
+    return b;
+  }
+
+  async function cargar() {
+    var r = await api('/api/portal/usuarios');
+    var cuerpo = $('pu-cuerpo');
+    cuerpo.replaceChildren();
+    $('pu-vacio').hidden = r.usuarios.length > 0;
+    r.usuarios.forEach(function (u) {
+      var tr = document.createElement('tr');
+      if (!u.activo) tr.className = 'pu-inactivo';
+      var acc = document.createElement('td');
+      var caja = document.createElement('div');
+      caja.className = 'pu-acciones';
+      caja.append(boton('Cambiar contraseña', function () { abrir(u); }),
+        boton(u.activo ? 'Desactivar' : 'Activar', async function () {
+          if (u.activo && !confirm('¿Desactivar a ' + u.nombre + '? Se cerrará su sesión y no podrá entrar al portal.')) return;
+          try { await api('/api/portal/usuarios/' + u.id, 'PUT', { activo: !u.activo }); cargar(); } catch (e) { alert(e.message); }
+        }));
+      acc.append(caja);
+      tr.append(td(u.nombre), td(u.username), td(u.activo ? 'Activo' : 'Desactivado'), td(fecha(u.ultimo_acceso)), td(u.creado_por), acc);
+      cuerpo.append(tr);
+    });
+  }
+
+  function abrir(u) {
+    editando = u || null;
+    $('pu-titulo').textContent = u ? 'Nueva contraseña · ' + u.nombre : 'Nuevo usuario';
+    $('pu-l-nombre').hidden = $('pu-l-usuario').hidden = !!u;
+    $('pu-nombre').value = $('pu-usuario').value = $('pu-clave').value = '';
+    $('pu-error').textContent = '';
+    $('pu-dlg').showModal();
+    (u ? $('pu-clave') : $('pu-nombre')).focus();
+  }
+
+  $('pu-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    $('pu-guardar').disabled = true;
+    try {
+      if (editando) await api('/api/portal/usuarios/' + editando.id, 'PUT', { password: $('pu-clave').value });
+      else await api('/api/portal/usuarios', 'POST', { nombre: $('pu-nombre').value.trim(), username: $('pu-usuario').value.trim(), password: $('pu-clave').value });
+      $('pu-dlg').close();
+      cargar();
+    } catch (err) {
+      $('pu-error').textContent = err.message;
+    }
+    $('pu-guardar').disabled = false;
+  });
+  $('pu-cancelar').addEventListener('click', function () { $('pu-dlg').close(); });
+  $('pu-nuevo').addEventListener('click', function () { abrir(null); });
+
+  window.__sesion.then(function (s) {
+    if (!s.authenticated) return;
+    if (!esAdmin(s.user && s.user.role)) { alert('Acceso denegado: solo administradores.'); location.href = '/residencial/inicio.html'; return; }
+    cargar().catch(function (e) { $('pu-vacio').hidden = false; $('pu-vacio').textContent = e.message; });
+  });
+})();
+</script>
+</body>
+</html>

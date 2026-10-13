@@ -16,6 +16,8 @@
  */
 (function () {
   'use strict';
+  // Portal de facturación (js/portal/portal.js): sin la sesión del CRM, este script no aplica.
+  if (window.PORTAL) return;
 
   var ACCIONES = [
     { id: 'ajustes', icon: 'ph-gear-six', label: 'Ajustes', items: [
@@ -23,6 +25,7 @@
       { label: 'Horarios', icon: 'ph-clock', href: '/horarios.html' },
       { label: 'Permisos y cuentas', icon: 'ph-key', href: '/crear-cuenta.html', roles: 'gestion' },
       { label: 'Tiempo laboral', icon: 'ph-clock', href: '/residencial/tiempo-laboral.html', roles: 'gestion' },
+      { label: 'Usuarios del portal', icon: 'ph-globe', href: '/residencial/portal-usuarios.html', roles: 'admin' },
     ] },
     { id: 'chat', icon: 'ph-chat-circle-dots', label: 'Chat', href: '/chat.html' },
     { id: 'avisos', icon: 'ph-bell', label: 'Notificaciones', panel: 'notificaciones' },

@@ -35,12 +35,14 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from database_mysql import AsyncSessionLocal
-from deps import ADMIN_ROLES, require_roles
+from deps import ADMIN_ROLES
+from routers.portal import admin_o_portal
 from recibos_escaner import escanear
 from tiempo_sv import ahora_sv
 
 router = APIRouter(prefix="/api/recibos-google", tags=["Recibos Google Ads"])
-solo_admin = require_roles(*ADMIN_ROLES)
+# Administración del CRM o un usuario del portal de facturación (routers/portal.py).
+solo_admin = admin_o_portal(*ADMIN_ROLES)
 
 PDF_DIR = Path(os.environ.get("RECIBOS_GOOGLE_DIR")
                or Path(__file__).resolve().parent.parent.parent / "datos_privados" / "recibos_google")

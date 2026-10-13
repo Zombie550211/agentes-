@@ -5,9 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Facturación · Residencial</title>
   <link rel="icon" type="image/png" href="/images/favicon.png">
+  <!-- Misma página en el CRM y en el portal de facturación (/portal/…): portal.js va
+       primero y, dentro del portal, pone su propia sesión y cabecera. -->
+  <script src="/js/portal/portal.js?v=20261013a"></script>
   <!-- Sesión: la cabecera (menú e iconos) la reutiliza; sin sesión, al login. -->
   <script>
-    window.__sesion = fetch('/api/auth/verify-server', { credentials: 'include' })
+    if (!window.PORTAL) window.__sesion = fetch('/api/auth/verify-server', { credentials: 'include' })
       .then(function (r) { return r.ok ? r.json() : { authenticated: false }; })
       .then(function (d) { if (!d.authenticated) { location.replace('/login.html'); } return d; })
       .catch(function () { location.replace('/login.html'); return {}; });
@@ -21,6 +24,7 @@
   <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
   <link rel="stylesheet" href="/css/componentes/pagina.css?v=20261009a">
   <link rel="stylesheet" href="/css/residencial/facturacion.css?v=20261013a">
+  <link rel="stylesheet" href="/css/portal/portal.css?v=20261013a">
   <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
   <script src="/js/layout/transicion.js?v=20261008b"></script>
   <script src="/vendor/chartjs/chart.umd.min.js"></script>
@@ -224,6 +228,7 @@
    AUTH GUARD (solo administradores)
    ===================================================================== */
 (async function guardAdmin() {
+  if (window.PORTAL) return;   // en el portal la sesión la comprueba js/portal/portal.js
   try {
     const res = await fetch('/api/auth/verify-server', { credentials: 'include' });
     if (!res.ok) throw new Error('No autenticado');

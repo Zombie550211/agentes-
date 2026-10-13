@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Inicio · Portal de facturación</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <!-- Sesión y cabecera del portal (sin sesión, al login del portal) -->
+  <script src="/js/portal/portal.js?v=20261013a"></script>
+  <link rel="stylesheet" href="/css/base/scroll.css?v=20261008a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261012a">
+  <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
+  <link rel="stylesheet" href="/css/componentes/pagina.css?v=20261009a">
+  <link rel="stylesheet" href="/css/portal/portal.css?v=20261013b">
+</head>
+<body>
+<div class="in-marco">
+<div class="in-hoja">
+
+  <header class="in-head">
+    <nav id="topnav" class="tn" aria-label="Portal de facturación"></nav>
+    <div id="topbar-acciones" class="in-iconos"></div>
+  </header>
+
+  <main class="pt-inicio">
+
+    <!-- ══ Encabezado ══ -->
+    <section class="pt-encabezado" aria-label="Resumen general">
+      <div>
+        <p class="pt-hola" id="pt-hola">Hola</p>
+        <h1>Resumen general</h1>
+        <p class="pt-bajada">Tu operación en una sola vista</p>
+      </div>
+      <div class="pt-controles">
+        <label class="pt-mes">
+          <i class="ph ph-calendar-blank" aria-hidden="true"></i>
+          <select id="pt-mes" aria-label="Mes"></select>
+          <i class="ph ph-caret-down pt-mes-caret" aria-hidden="true"></i>
+        </label>
+        <span class="pt-rango"><i aria-hidden="true"></i><span id="pt-rango">Cargando…</span></span>
+      </div>
+    </section>
+
+    <!-- ══ Indicadores ══ -->
+    <section class="pt-kpis" aria-label="Indicadores del mes">
+      <a class="pt-card pt-kpi" href="/portal/facturacion.html">
+        <span class="pt-ico"><i class="ph ph-currency-dollar" aria-hidden="true"></i></span>
+        <div><span class="pt-kpi-lbl">Inversión registrada</span><b class="pt-kpi-val" id="k-inversion">—</b>
+          <span class="pt-kpi-sub">Suma de toda la inversión registrada</span></div>
+        <i class="ph ph-caret-right pt-chev" aria-hidden="true"></i>
+      </a>
+      <a class="pt-card pt-kpi" href="/portal/facturacion.html">
+        <span class="pt-ico"><i class="ph ph-shopping-cart" aria-hidden="true"></i></span>
+        <div><span class="pt-kpi-lbl">Ventas registradas</span><b class="pt-kpi-val" id="k-ventas">—</b>
+          <span class="pt-kpi-sub">Total de ventas registradas</span></div>
+        <i class="ph ph-caret-right pt-chev" aria-hidden="true"></i>
+      </a>
+      <a class="pt-card pt-kpi" href="/portal/facturacion.html">
+        <span class="pt-ico pt-ico-verde"><i class="ph ph-trend-up" aria-hidden="true"></i></span>
+        <div><span class="pt-kpi-lbl">Costo por venta</span><b class="pt-kpi-val" id="k-costo">—</b>
+          <span class="pt-kpi-sub">Inversión promedio por venta</span></div>
+        <i class="ph ph-caret-right pt-chev" aria-hidden="true"></i>
+      </a>
+      <a class="pt-card pt-kpi" href="/portal/facturacion.html">
+        <span class="pt-ico pt-ico-ambar"><i class="ph ph-calendar-blank" aria-hidden="true"></i></span>
+        <div><span class="pt-kpi-lbl">Días con registros</span><b class="pt-kpi-val" id="k-dias">—</b>
+          <span class="pt-kpi-sub">Días con información en el mes</span></div>
+        <i class="ph ph-caret-right pt-chev" aria-hidden="true"></i>
+      </a>
+    </section>
+
+    <div class="pt-fila pt-fila-2">
+      <!-- ══ Resumen por servicio ══ -->
+      <section class="pt-card pt-bloque" aria-labelledby="t-servicio">
+        <h2 id="t-servicio">Resumen por servicio</h2>
+        <p class="pt-bloque-sub">Desglose de ventas e inversión por tipo de servicio</p>
+        <div class="pt-servicios">
+          <div class="pt-servicio">
+            <span class="pt-ico-linea"><i class="ph ph-house-line" aria-hidden="true"></i></span>
+            <div><b>Residencial</b><span id="s-res-ventas">—</span></div>
+            <div class="pt-dato"><span>Inversión</span><b id="s-res-inv">—</b></div>
+            <div class="pt-dato"><span>Costo por venta</span><b id="s-res-costo">—</b></div>
+          </div>
+          <div class="pt-servicio">
+            <span class="pt-ico-linea"><i class="ph ph-device-mobile" aria-hidden="true"></i></span>
+            <div><b>Líneas móviles</b><span id="s-lin-ventas">—</span></div>
+            <div class="pt-dato"><span>Inversión</span><b id="s-lin-inv">—</b></div>
+            <div class="pt-dato"><span>Costo por venta</span><b id="s-lin-costo">—</b></div>
+          </div>
+        </div>
+        <div class="pt-composicion">
+          <span class="pt-comp-lbl">Composición de la inversión</span>
+          <div class="pt-comp-barra" id="c-barra" role="img" aria-label="Composición de la inversión">
+            <span class="pt-comp-res" id="c-res"></span><span class="pt-comp-lin" id="c-lin"></span>
+          </div>
+          <div class="pt-leyenda"><span><i class="pt-comp-res"></i><span id="c-res-lbl">Residencial</span></span>
+            <span><i class="pt-comp-lin"></i><span id="c-lin-lbl">Líneas móviles</span></span></div>
+        </div>
+      </section>
+
+      <!-- ══ Inversión por publicista ══ -->
+      <section class="pt-card pt-bloque" aria-labelledby="t-publicista">
+        <h2 id="t-publicista">Inversión por publicista</h2>
+        <p class="pt-bloque-sub">Distribución de la inversión registrada</p>
+        <ol class="pt-ranking" id="r-publicistas"></ol>
+      </section>
+    </div>
+
+    <div class="pt-fila pt-fila-3">
+      <!-- ══ Último día registrado ══ -->
+      <section class="pt-card pt-bloque" aria-labelledby="t-ultimo">
+        <h2 id="t-ultimo">Último día registrado</h2>
+        <p class="pt-bloque-sub">Datos del último día con información</p>
+        <div class="pt-ultimo">
+          <div><span class="pt-ico pt-ico-sm"><i class="ph ph-currency-dollar" aria-hidden="true"></i></span><b id="u-inv">—</b><span>Inversión</span></div>
+          <div><span class="pt-ico pt-ico-sm"><i class="ph ph-shopping-cart" aria-hidden="true"></i></span><b id="u-ventas">—</b><span>Ventas</span></div>
+          <div><span class="pt-ico pt-ico-sm pt-ico-verde"><i class="ph ph-trend-up" aria-hidden="true"></i></span><b id="u-costo">—</b><span>Costo por venta</span></div>
+        </div>
+      </section>
+
+      <!-- ══ Revisión de datos ══ -->
+      <section class="pt-card pt-bloque" aria-labelledby="t-revision">
+        <h2 id="t-revision">Revisión de datos</h2>
+        <p class="pt-bloque-sub">Aspectos por revisar en la información registrada</p>
+        <ul class="pt-revision" id="v-lista"></ul>
+      </section>
+
+      <!-- ══ Accesos rápidos ══ -->
+      <section class="pt-card pt-bloque" aria-labelledby="t-accesos">
+        <h2 id="t-accesos">Accesos rápidos</h2>
+        <p class="pt-bloque-sub">Acciones frecuentes</p>
+        <div class="pt-accesos">
+          <a href="/portal/facturacion.html"><i class="ph ph-plus pt-circulo" aria-hidden="true"></i>Registrar inversión<i class="ph ph-caret-right" aria-hidden="true"></i></a>
+          <a href="/portal/facturacion.html"><i class="ph ph-receipt" aria-hidden="true"></i>Ver facturación<i class="ph ph-caret-right" aria-hidden="true"></i></a>
+          <a href="/portal/recibos-google.html"><i class="ph ph-file-pdf" aria-hidden="true"></i>Recibos Google Ads<i class="ph ph-caret-right" aria-hidden="true"></i></a>
+          <a href="#" id="a-exportar"><i class="ph ph-chart-bar" aria-hidden="true"></i>Exportar recibos<i class="ph ph-caret-right" aria-hidden="true"></i></a>
+        </div>
+      </section>
+    </div>
+
+    <footer class="pt-pie"><span>Portal de facturación · Connecting</span><span id="pt-actualizado"></span></footer>
+  </main>
+
+</div>
+</div>
+
+<script src="/js/portal/inicio.js?v=20261013b" defer></script>
+</body>
+</html>

@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user, require_roles, ADMIN_ROLES
+from routers.portal import admin_o_portal  # también la usan los usuarios del portal
 from datetime import datetime, timezone
 from typing import Any
 import re, json
@@ -78,7 +79,7 @@ class FacturacionBody(BaseModel):
 
 
 @router.get("/anual/{anio}")
-async def get_anual(anio: int, user: dict = Depends(require_roles(*ADMIN_ROLES))):
+async def get_anual(anio: int, user: dict = Depends(admin_o_portal(*ADMIN_ROLES))):
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("SELECT mes, campos FROM facturacion WHERE anio = :y"), {"y": anio})
         docs = r.mappings().all()
@@ -93,7 +94,7 @@ async def get_anual(anio: int, user: dict = Depends(require_roles(*ADMIN_ROLES))
 
 
 @router.get("/{anio}/{mes}")
-async def get_mensual(anio: int, mes: int, user: dict = Depends(require_roles(*ADMIN_ROLES))):
+async def get_mensual(anio: int, mes: int, user: dict = Depends(admin_o_portal(*ADMIN_ROLES))):
     if not (1 <= mes <= 12):
         raise HTTPException(400, "Parámetros inválidos")
     async with AsyncSessionLocal() as s:
@@ -107,7 +108,7 @@ async def get_mensual(anio: int, mes: int, user: dict = Depends(require_roles(*A
 
 @router.post("")
 @router.post("/")
-async def save_facturacion(body: FacturacionBody, user: dict = Depends(require_roles(*ADMIN_ROLES))):
+async def save_facturacion(body: FacturacionBody, user: dict = Depends(admin_o_portal(*ADMIN_ROLES))):
     parsed = _parse_fecha(body.fecha)
     if not parsed:
         raise HTTPException(400, "Fecha inválida")

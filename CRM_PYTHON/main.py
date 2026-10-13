@@ -34,7 +34,7 @@ from routers import auth as auth_router
 from routers import dashboard as dashboard_router
 from routers import (
     teams, premios, facturacion, chat, media, pre_leads, employees_month,
-    facturacion_lineas, facturacion_lineas_pub, recibos_google, llamadas_ventas_lineas, bulk_status,
+    facturacion_lineas, facturacion_lineas_pub, recibos_google, portal, llamadas_ventas_lineas, bulk_status,
     users as users_router, lineas as lineas_router,
     ranking as ranking_router, equipo as equipo_router,
     leads as leads_router,
@@ -576,6 +576,10 @@ async def _inicializar_esquema_y_datos():
     except Exception as e:
         print(f"[recibos-google] ensure_table: {e}")
     try:
+        await portal.ensure_table()
+    except Exception as e:
+        print(f"[portal] ensure_table: {e}")
+    try:
         from scoring import ensure_productos
         from database_mysql import AsyncSessionLocal
         async with AsyncSessionLocal() as s:
@@ -822,6 +826,7 @@ app.include_router(facturacion.router)
 app.include_router(facturacion_lineas.router)
 app.include_router(facturacion_lineas_pub.router)
 app.include_router(recibos_google.router)
+app.include_router(portal.router)
 app.include_router(llamadas_ventas_lineas.router)
 app.include_router(chat.router)
 app.include_router(media.router)
@@ -1042,6 +1047,27 @@ def _pagina(request: Request, f: Path, **kw) -> FileResponse:
     if alt is not None:
         return alt
     return FileResponse(str(f), headers=dict(_NO_CACHE, Vary="Cookie"), **kw)
+
+# Portal de facturación (routers/portal.py): /portal y /portal/ abren su login; inicio.html
+# está en frontend/portal/. Facturación y Recibos de Google Ads son las MISMAS páginas que en
+# el CRM: dentro de /portal/ funcionan con la sesión del portal (js/portal/portal.js).
+_PORTAL_PAGINAS = {
+    "facturacion.html": FRONTEND_DIR / "residencial" / "facturacion.html",
+    "recibos-google.html": FRONTEND_DIR / "residencial" / "recibos-google.html",
+}
+
+@app.get("/portal")
+@app.get("/portal/")
+async def portal_raiz():
+    return FileResponse(str(FRONTEND_DIR / "portal" / "index.html"), headers=_NO_CACHE)
+
+@app.get("/portal/{pagina}")
+async def portal_pagina(pagina: str):
+    f = _PORTAL_PAGINAS.get(pagina) or _resolve_within(FRONTEND_DIR / "portal", pagina)
+    if f is None or not f.is_file():
+        f = FRONTEND_DIR / "public" / "404.html"
+        return FileResponse(str(f), status_code=404, headers=_NO_CACHE)
+    return FileResponse(str(f), headers=_NO_CACHE)
 
 @app.get("/inicio")
 async def inicio(request: Request):

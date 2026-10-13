@@ -18,6 +18,8 @@
  */
 (function () {
   'use strict';
+  // Portal de facturación (js/portal/portal.js): sin la sesión del CRM, este script no aplica.
+  if (window.PORTAL) return;
 
   // seccion: 'res' (residencial), 'lin' (líneas) o 'comun' (todos).
   var GRUPOS = [

@@ -4,6 +4,8 @@
 
 (function() {
   'use strict';
+  // Portal de facturación (js/portal/portal.js): sin la sesión del CRM, este script no aplica.
+  if (window.PORTAL) return;
 
   // ── MODAL DE CONFIRMACIÓN ──────────────────────────────────────────────────
   function injectModal() {
