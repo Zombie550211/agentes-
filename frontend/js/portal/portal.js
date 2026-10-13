@@ -23,9 +23,9 @@
   var LOGIN = '/portal/';
   var esLogin = /^\/portal\/?(index\.html)?$/.test(ruta);
   var MENU = [
-    { label: 'Inicio', href: '/portal/inicio.html', icon: 'ph-house-line' },
-    { label: 'Facturación', href: '/portal/facturacion.html', icon: 'ph-receipt' },
-    { label: 'Recibos Google Ads', href: '/portal/recibos-google.html', icon: 'ph-chart-bar' },
+    { label: 'Inicio', corto: 'Inicio', href: '/portal/inicio.html', icon: 'ph-house-line' },
+    { label: 'Facturación', corto: 'Facturación', href: '/portal/facturacion.html', icon: 'ph-receipt' },
+    { label: 'Recibos Google Ads', corto: 'Recibos', href: '/portal/recibos-google.html', icon: 'ph-chart-bar' },
   ];
 
   // Sesión caducada o cerrada en otra pestaña: al login del portal.
@@ -71,7 +71,8 @@
       nav.innerHTML = MENU.map(function (m) {
         var act = m.href === actual;
         return '<div class="tn-grupo' + (act ? ' tn-activo' : '') + '"><a class="tn-btn pt-link" href="' + m.href + '"' +
-          (act ? ' aria-current="page"' : '') + '><i class="ph ' + m.icon + '" aria-hidden="true"></i>' + esc(m.label) + '</a></div>';
+          (act ? ' aria-current="page"' : '') + '><i class="ph ' + m.icon + '" aria-hidden="true"></i>' +
+          '<span class="pt-largo">' + esc(m.label) + '</span><span class="pt-corto">' + esc(m.corto) + '</span></a></div>';
       }).join('');
     }
     if (!acciones) return;

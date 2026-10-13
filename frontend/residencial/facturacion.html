@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="/images/favicon.png">
   <!-- Misma página en el CRM y en el portal de facturación (/portal/…): portal.js va
        primero y, dentro del portal, pone su propia sesión y cabecera. -->
-  <script src="/js/portal/portal.js?v=20261013a"></script>
+  <script src="/js/portal/portal.js?v=20261013b"></script>
   <!-- Sesión: la cabecera (menú e iconos) la reutiliza; sin sesión, al login. -->
   <script>
     if (!window.PORTAL) window.__sesion = fetch('/api/auth/verify-server', { credentials: 'include' })
@@ -23,8 +23,8 @@
   <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
   <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
   <link rel="stylesheet" href="/css/componentes/pagina.css?v=20261009a">
-  <link rel="stylesheet" href="/css/residencial/facturacion.css?v=20261013a">
-  <link rel="stylesheet" href="/css/portal/portal.css?v=20261013a">
+  <link rel="stylesheet" href="/css/residencial/facturacion.css?v=20261013b">
+  <link rel="stylesheet" href="/css/portal/portal.css?v=20261013c">
   <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
   <script src="/js/layout/transicion.js?v=20261008b"></script>
   <script src="/vendor/chartjs/chart.umd.min.js"></script>
@@ -95,6 +95,15 @@
         <div>
           <h2 id="fc-tabla-t">Inversión diaria por publicista</h2>
           <p>Ventas y monto por día; el valor de venta, los totales y el CPA se calculan solos</p>
+        </div>
+        <!-- En móvil: la tabla a pantalla completa (ver «TABLA A PANTALLA COMPLETA» abajo) -->
+        <div class="fc-exp-acciones">
+          <button type="button" class="pg-boton pg-boton-pri fc-solo-exp" id="fcGuardarExp"><i class="ph ph-floppy-disk" aria-hidden="true"></i> Guardar</button>
+          <button type="button" class="pg-boton fc-expandir" id="fcExpandir" aria-expanded="false" aria-controls="tablaExcel">
+            <svg class="fc-ico-exp" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <i class="ph ph-x fc-ico-cerrar" aria-hidden="true"></i>
+            <span id="fcExpandirTxt">Expandir</span>
+          </button>
         </div>
       </div>
       <div class="table-scroll">
@@ -1162,6 +1171,30 @@ function ajustarAnchoTablas() {
     }
   });
   document.querySelectorAll('.table-scroll').forEach(c => ro.observe(c));
+})();
+
+/* =====================================================================
+   TABLA A PANTALLA COMPLETA (botón «Expandir», visible en pantallas estrechas)
+   En el móvil no caben las 21 columnas: la tarjeta de la tabla pasa a ocupar toda la
+   pantalla, con la columna Fecha fija al desplazarse a los lados y su propio Guardar.
+   ===================================================================== */
+(function tablaExpandible() {
+  const seccion = document.querySelector('#view-residencial .table-section');
+  const boton = document.getElementById('fcExpandir');
+  if (!seccion || !boton) return;
+  function expandir(si) {
+    seccion.classList.toggle('fc-expandida', si);
+    document.documentElement.classList.toggle('fc-sin-scroll', si);
+    boton.setAttribute('aria-expanded', String(si));
+    document.getElementById('fcExpandirTxt').textContent = si ? 'Cerrar' : 'Expandir';
+    seccion.querySelector('.table-scroll').scrollTo(0, 0);
+    ajustarAnchoTablas();
+  }
+  boton.addEventListener('click', () => expandir(!seccion.classList.contains('fc-expandida')));
+  document.getElementById('fcGuardarExp').addEventListener('click', () => btnGuardar.click());
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && seccion.classList.contains('fc-expandida')) expandir(false);
+  });
 })();
 
 /* =====================================================================
