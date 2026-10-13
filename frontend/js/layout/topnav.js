@@ -9,8 +9,8 @@
  *
  * Visibilidad según el perfil y el rol del usuario (no según la página en la que está):
  *  - sección: la del usuario (líneas si su equipo o su rol dicen "línea"; si no,
- *    residencial). Ve las opciones de su sección y las comunes; administración y back
- *    office ven las dos.
+ *    residencial). Ve las opciones de su sección y las comunes; administración, back
+ *    office y los roles de mercado (Rol_icon, Rol_bamo) ven las dos.
  *  - rol: algunas opciones solo para administración ('admin': Facturación, cuya API exige
  *    ADMIN_ROLES) o para administración y back office ('gestion': Permisos, Tiempo laboral).
  * Un grupo sin opciones visibles no se muestra. Es solo navegación: cada página y su API
@@ -76,13 +76,16 @@
   // Mismos roles que ADMIN_ROLES del backend (deps.py).
   function esAdmin(role) { var r = norm(role); return r === 'admin' || r === 'administrador' || r === 'administrativo' || r === 'administrator'; }
   function esBackoffice(role) { var r = norm(role); return r.indexOf('backoffice') >= 0 || r.indexOf('back office') >= 0 || r.indexOf('back_office') >= 0 || r === 'bo'; }
+  // Roles de mercado (Rol_icon, Rol_bamo): en el backend tienen acceso a Residencial y a
+  // Líneas (routers/lineas.py → _is_admin_bo_lineas), así que ven las dos secciones.
+  function esMercado(role) { var r = norm(role).replace(/[\s-]/g, '_'); return r.indexOf('rol_icon') >= 0 || r.indexOf('rol_bamo') >= 0 || r === 'icon' || r === 'bamo'; }
   function seccionDe(u) { return (norm(u.team).indexOf('linea') >= 0 || norm(u.role).indexOf('linea') >= 0) ? 'lin' : 'res'; }
   function visible(it, u) {
     if (!u) return it.seccion === 'comun';            // aún sin sesión: solo lo común
     var gestion = esAdmin(u.role) || esBackoffice(u.role);
     if (it.roles === 'admin' && !esAdmin(u.role)) return false;
     if (it.roles === 'gestion' && !gestion) return false;
-    return gestion || it.seccion === 'comun' || it.seccion === seccionDe(u);
+    return gestion || esMercado(u.role) || it.seccion === 'comun' || it.seccion === seccionDe(u);
   }
 
   function render(nav, sesion) {
