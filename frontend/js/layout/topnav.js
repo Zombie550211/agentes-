@@ -45,6 +45,7 @@
     ] },
     { label: 'Facturación y comisiones', items: [
       { label: 'Facturación', href: '/residencial/facturacion.html', seccion: 'res', roles: 'admin' },
+      { label: 'Recibos Google Ads', href: '/residencial/recibos-google.html', seccion: 'res', roles: 'admin' },
       { label: 'Comisión', href: '/residencial/comisiones.html', seccion: 'res' },
     ] },
     { label: 'Administración y personal', items: [

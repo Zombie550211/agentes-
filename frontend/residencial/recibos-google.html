@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recibos de Google Ads</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <!-- Sesión: la cabecera (menú e iconos) la reutiliza; sin sesión, al login. -->
+  <script>
+    window.__sesion = fetch('/api/auth/verify-server', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : { authenticated: false }; })
+      .then(function (d) { if (!d.authenticated) { location.replace('/login.html'); } return d; })
+      .catch(function () { location.replace('/login.html'); return {}; });
+  </script>
+  <link rel="stylesheet" href="/css/base/scroll.css?v=20261008a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261012a">
+  <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
+  <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
+  <link rel="stylesheet" href="/css/componentes/pagina.css?v=20261009a">
+  <link rel="stylesheet" href="/css/residencial/recibos-google.css?v=20261012f">
+  <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
+  <script src="/js/layout/transicion.js?v=20261008b"></script>
+</head>
+<body>
+<div class="in-marco">
+<div class="in-hoja">
+
+  <header class="in-head">
+    <nav id="topnav" class="tn" aria-label="Menú principal"></nav>
+    <!-- Ajustes, chat, notificaciones y usuario: js/layout/topbar-acciones.js -->
+    <div id="topbar-acciones" class="in-iconos"></div>
+  </header>
+
+  <!-- ══ Título y acciones ══ -->
+  <section class="pg-barra in-glass" aria-label="Recibos de Google Ads">
+    <div class="pg-titulo">
+      <span class="pg-ico"><i class="ph ph-receipt" aria-hidden="true"></i></span>
+      <div>
+        <h1>Recibos de Google Ads</h1>
+        <p>Control de pagos y comprobantes PDF</p>
+      </div>
+    </div>
+    <div class="pg-acciones">
+      <button type="button" class="pg-boton pg-boton-pri" id="rg-btn-subir"><i class="ph ph-upload-simple" aria-hidden="true"></i> Subir recibos PDF</button>
+      <button type="button" class="pg-boton" id="rg-btn-exportar"><i class="ph ph-export" aria-hidden="true"></i> Exportar registro</button>
+      <input type="file" id="rg-input" accept="application/pdf,.pdf" multiple hidden>
+    </div>
+  </section>
+
+  <!-- ══ Indicadores ══ -->
+  <div class="pg-tiles" style="--pg-cols:3">
+    <div class="pg-tile in-glass pg-tile-dest"><span class="pg-tico"><i class="ph ph-credit-card"></i></span><div class="pg-tile-val" id="rg-kpi-total">—</div><div class="pg-tile-lbl" id="rg-kpi-total-lbl">Total pagado este mes</div></div>
+    <div class="pg-tile in-glass"><span class="pg-tico"><i class="ph ph-file-pdf"></i></span><div class="pg-tile-val" id="rg-kpi-recibos">—</div><div class="pg-tile-lbl">Recibos registrados</div></div>
+    <div class="pg-tile in-glass"><span class="pg-tico"><i class="ph ph-calendar-blank"></i></span><div class="pg-tile-val" id="rg-kpi-ultimo">—</div><div class="pg-tile-lbl">Último pago</div></div>
+  </div>
+
+  <!-- ══ Filtros (mismos campos que la barra de Facturación) ══ -->
+  <form class="pg-barra in-glass rg-filtros" id="rg-filtros" aria-label="Filtros del historial">
+    <label class="pg-campo"><span>Desde</span><input type="date" id="rg-desde"></label>
+    <label class="pg-campo"><span>Hasta</span><input type="date" id="rg-hasta"></label>
+    <label class="pg-campo"><span>Cuenta</span><select id="rg-cuenta"><option value="">Todas las cuentas</option></select></label>
+    <label class="pg-campo rg-buscar"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><input type="search" id="rg-q" maxlength="14" placeholder="Buscar Billing ID" aria-label="Buscar Billing ID" autocomplete="off"></label>
+    <button type="submit" class="pg-boton pg-boton-pri"><i class="ph ph-funnel" aria-hidden="true"></i> Filtrar</button>
+  </form>
+
+  <!-- ══ Historial ══ -->
+  <section class="pg-card in-glass" aria-labelledby="rg-hist-t">
+    <div class="pg-card-head">
+      <div>
+        <h2 id="rg-hist-t"><i class="ph ph-file-pdf" aria-hidden="true"></i> Historial de recibos</h2>
+        <p>Agrupados por fecha de pago</p>
+      </div>
+      <span class="pg-chip" id="rg-chip-total" hidden></span>
+    </div>
+    <div class="pg-scroll">
+      <table class="pg-tbl rg-tabla">
+        <thead><tr>
+          <th scope="col" class="pg-izq">Fecha de pago</th>
+          <th scope="col" class="pg-izq">Cuenta</th>
+          <th scope="col" class="pg-izq">Billing ID</th>
+          <th scope="col" class="rg-der">Monto</th>
+          <th scope="col" class="pg-izq">Archivo PDF</th>
+          <th scope="col">Acciones</th>
+        </tr></thead>
+        <tbody id="rg-cuerpo"></tbody>
+      </table>
+    </div>
+    <div class="pg-vacio" id="rg-vacio" hidden><i class="ph ph-receipt" aria-hidden="true"></i> No hay recibos con estos filtros.</div>
+  </section>
+
+</div>
+</div>
+
+<!-- ══ Ventana de subida: una tarjeta por PDF ══ -->
+<dialog class="rg-dlg" id="rg-dlg" aria-labelledby="rg-dlg-t">
+  <form id="rg-form" method="dialog" novalidate>
+    <div class="pg-card-head rg-dlg-head">
+      <div>
+        <h2 id="rg-dlg-t"><i class="ph ph-upload-simple" aria-hidden="true"></i> Subir recibos PDF</h2>
+        <p>Revisa los datos leídos de cada PDF y elige su cuenta.</p>
+      </div>
+      <button type="button" class="pg-boton rg-icono" id="rg-dlg-cerrar" aria-label="Cerrar"><i class="ph ph-x" aria-hidden="true"></i></button>
+    </div>
+    <div class="rg-dlg-lista" id="rg-dlg-lista"></div>
+    <p class="rg-dlg-error" id="rg-dlg-error" role="alert" hidden></p>
+    <div class="rg-dlg-pie">
+      <span class="rg-dlg-total" id="rg-dlg-total" aria-live="polite"></span>
+      <div class="rg-dlg-botones">
+        <button type="button" class="pg-boton" id="rg-dlg-cancelar">Cancelar</button>
+        <button type="submit" class="pg-boton pg-boton-pri" id="rg-dlg-guardar" disabled><i class="ph ph-floppy-disk" aria-hidden="true"></i> Guardar recibos</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<div class="rg-aviso" id="rg-aviso" role="status" aria-live="polite" hidden></div>
+
+<script src="/js/core/fetch-interceptor.js"></script>
+<script src="/js/core/logout-handler.js"></script>
+<script src="/js/core/user-info.js"></script>
+<script src="/js/layout/topnav.js?v=20261012a" defer></script>
+<script src="/js/layout/topbar-acciones.js?v=20261009a" defer></script>
+<script src="/js/componentes/llamadas-bloqueo.js" defer></script>
+<script src="/js/paginas/recibos-google.js?v=20261012d" defer></script>
+</body>
+</html>

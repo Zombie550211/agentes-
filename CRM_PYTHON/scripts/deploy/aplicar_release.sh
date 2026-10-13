@@ -78,7 +78,7 @@ log "paquete verificado: $(wc -l < "${T}/cambiados.txt") archivos a copiar, $(wc
 F="$(date -u +%Y%m%d-%H%M%S)"
 RETORNO="${BASE}/app-rollback-${F}.tar.gz"
 PIP_RETORNO="${BASE}/pip-rollback-${F}.txt"
-tar czf "${RETORNO}" --exclude='CRM_PYTHON/.venv' --exclude='app/uploads' --exclude='app/logs' \
+tar czf "${RETORNO}" --exclude='CRM_PYTHON/.venv' --exclude='app/uploads' --exclude='app/logs' --exclude='app/datos_privados' \
   -C "${BASE}" "$(basename "${APP}")"
 "${APP}/CRM_PYTHON/.venv/bin/pip" freeze > "${PIP_RETORNO}" 2>/dev/null || true
 log "punto de retorno: $(basename "${RETORNO}")"

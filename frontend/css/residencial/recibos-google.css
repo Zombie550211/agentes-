@@ -1,0 +1,124 @@
+/* Recibos de Google Ads (residencial/recibos-google.html). Sobre css/componentes/pagina.css;
+   aquí solo lo propio de la página, con prefijo rg-. */
+
+/* Cuentas: pg-chip con el color de su encabezado en facturación (css/residencial/facturacion.css). */
+.rg-cuenta{--rg-c:var(--color-accent-2-600);color:var(--rg-c);background:color-mix(in srgb,var(--rg-c) 10%,transparent)}
+.rg-cuenta.gh-alexis{--rg-c:var(--color-accent-2-500)}
+.rg-cuenta.gh-alexis2{--rg-c:var(--color-accent-500)}
+.rg-cuenta.gh-alejandro{--rg-c:#a16207}
+.rg-cuenta.gh-tito{--rg-c:#15803d}
+.rg-cuenta.gh-tito-lineas{--rg-c:var(--color-accent-2-800)}
+
+/* ═══ Filtros: pg-campo en línea, como la barra de Facturación ═══ */
+.rg-filtros{justify-content:flex-start;gap:6px}
+.rg-buscar{flex:1 1 220px}
+.rg-buscar input{flex:1}
+
+/* ═══ Historial ═══ */
+.rg-tabla{min-width:760px}
+.rg-tabla .rg-der{text-align:right;padding-right:var(--space-4)}
+.rg-tabla thead th.rg-der{text-align:right}
+.rg-monto{font-family:var(--pg-num);font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--color-neutral-900)}
+.rg-fecha,.rg-billing{font-family:var(--pg-num);font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--color-neutral-800)}
+.rg-grupo>td{padding:7px 10px;background:rgb(0 112 152 / .045);border-bottom:1px solid rgb(0 112 152 / .1)}
+.rg-grupo .rg-monto{font-weight:700}
+.rg-grupo-btn{display:inline-flex;align-items:center;gap:7px;padding:2px 0;border:0;background:none;cursor:pointer;font:inherit;font-size:12px;color:var(--color-text)}
+.rg-grupo-btn i{font-size:13px;color:var(--color-accent-2-500);transition:transform .15s}
+.rg-grupo-btn[aria-expanded="false"] i{transform:rotate(-90deg)}
+.rg-grupo-fecha{font-weight:700}
+.rg-grupo-n{color:var(--color-neutral-600)}
+.rg-grupo-btn:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:2px}
+.rg-fila>td:first-child{padding-left:calc(var(--space-4) + 20px)}
+.rg-archivo{display:inline-flex;align-items:center;gap:6px;max-width:240px;color:var(--color-neutral-800)}
+.rg-archivo span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rg-pdf{flex:none;font-size:16px;color:#dc2626}
+.rg-acciones{display:flex;align-items:center;justify-content:center;gap:6px}
+.rg-accion{height:30px;padding:0 10px}
+.rg-accion-icono{width:30px;padding:0}
+#rg-vacio[hidden],#rg-chip-total[hidden]{display:none}
+/* En escritorio la columna ya dice «Billing ID»: el prefijo solo se ve en móvil. */
+.rg-solo-movil{display:none}
+
+/* ═══ Ventana de subida ═══ */
+.rg-dlg{width:min(780px,calc(100% - 32px));max-height:calc(100vh - 32px);padding:0;border:1px solid rgb(0 112 152 / .18);background:#fff;
+  box-shadow:0 18px 48px rgb(20 33 42 / .22);color:var(--color-text)}
+.rg-dlg::backdrop{background:rgb(20 33 42 / .4)}
+.rg-dlg form{display:flex;flex-direction:column;max-height:calc(100vh - 34px)}
+.rg-dlg-head{flex-wrap:nowrap}
+.rg-dlg-lista{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-3) var(--space-4)}
+.rg-icono{flex:none;width:32px;height:32px;padding:0}
+
+.rg-item{display:flex;flex-direction:column;gap:10px;padding:var(--space-3);border:1px solid rgb(0 112 152 / .12);background:#f6fafb}
+.rg-item-error{border-color:rgb(220 38 38 / .45);background:#fef7f7}
+.rg-item-nombre{display:flex;align-items:center;gap:8px;min-width:0}
+.rg-item-archivo{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;color:var(--color-text)}
+.rg-tenue{flex:none;font-size:11px;color:var(--color-neutral-600)}
+
+.rg-campos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px var(--space-3)}
+.rg-campo{display:flex;flex-direction:column;gap:4px;min-width:0}
+.rg-campo label{font-size:11px;color:var(--color-neutral-600)}
+.rg-campo input,.rg-campo select{height:36px;width:100%;min-width:0;margin:0;padding:0 10px;border:1px solid rgb(0 112 152 / .18);border-radius:0;
+  background:rgb(255 255 255 / .8);font-family:var(--pg-num);font-size:12px;font-weight:600;color:var(--color-text)}
+.rg-campo input:focus,.rg-campo select:focus{outline:none;border-color:var(--color-accent-2-500)}
+/* Cuenta: obligatoria y lo primero que hay que decidir */
+.rg-campo-cuenta label{color:var(--color-accent-2-600);font-weight:600}
+.rg-campo-cuenta select{border-color:var(--color-accent-2-500)}
+/* Lo que llenó el escaneo, en verde hasta que se edita */
+.rg-campo .rg-leido{border-color:#16a34a;background:#f0fdf4}
+.rg-campo .rg-falta{border-color:#dc2626;background:#fef2f2}
+
+/* Estado del escaneo: mismos tonos que pg-chip (azul, verde, amarillo, rojo). */
+.rg-estado{display:flex;align-items:flex-start;gap:7px;padding:7px 10px;font-family:var(--pg-num);font-size:11px;font-weight:600;line-height:1.45}
+.rg-estado i{flex:none;font-size:16px;margin-top:-1px}
+.rg-leyendo{color:var(--color-accent-2-600);background:rgb(0 112 152 / .08)}
+.rg-leyendo i{animation:rg-gira 1s linear infinite}
+.rg-ok{color:#15803d;background:rgb(22 163 74 / .1)}
+.rg-advertencia{color:#a16207;background:rgb(234 179 8 / .16)}
+.rg-error{color:#b91c1c;background:rgb(220 38 38 / .1)}
+@keyframes rg-gira{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){ .rg-leyendo i{animation:none} }
+
+.rg-dlg-error{margin:0 var(--space-4) var(--space-2);padding:8px 10px;font-family:var(--pg-num);font-size:12px;font-weight:600;color:#b91c1c;background:rgb(220 38 38 / .1)}
+.rg-dlg-pie{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-2);padding:var(--space-3) var(--space-4);
+  border-top:1px solid rgb(0 112 152 / .12);background:#f6fafb}
+.rg-dlg-total{font-family:var(--pg-num);font-size:13px;font-weight:600;color:var(--color-neutral-800)}
+.rg-dlg-botones{display:flex;gap:6px}
+
+/* Aviso flotante */
+.rg-aviso{position:fixed;left:50%;bottom:24px;z-index:1300;transform:translateX(-50%);max-width:calc(100% - 32px);padding:10px 16px;font-size:13px;
+  color:#fff;background:var(--color-neutral-900);box-shadow:0 8px 24px rgb(20 33 42 / .25)}
+.rg-aviso-error{background:#b91c1c}
+
+@media (max-width:760px){
+  .rg-filtros>*{flex:1 1 100%}
+  .rg-filtros .pg-campo input,.rg-filtros .pg-campo select{flex:1}
+  .rg-campos{grid-template-columns:minmax(0,1fr)}
+
+  /* Historial en tarjetas: cada recibo en dos líneas, sin desplazar la tabla de lado. */
+  .rg-tabla{min-width:0}
+  .rg-tabla thead{display:none}
+  .rg-tabla,.rg-tabla tbody{display:block}
+  .rg-tabla .rg-grupo{display:flex;align-items:center;gap:8px;padding:9px var(--space-3);background:rgb(0 112 152 / .045);border-bottom:1px solid rgb(0 112 152 / .1)}
+  .rg-tabla .rg-grupo>td{display:block;padding:0;border:0;background:none}
+  .rg-tabla .rg-grupo>td:first-child{flex:1;min-width:0}
+  .rg-tabla .rg-grupo>td:last-child{display:none}
+  .rg-grupo-btn{flex-wrap:wrap;gap:2px 7px;text-align:left}
+  .rg-fila{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"fecha cuenta monto" "billing billing billing" "archivo archivo acciones";
+    gap:4px 10px;align-items:center;padding:10px var(--space-3);border-bottom:1px solid rgb(0 112 152 / .08)}
+  .rg-fila[hidden]{display:none}
+  .rg-fila>td{display:block;padding:0 !important;border:0 !important;background:none !important}
+  .rg-fila .rg-fecha{grid-area:fecha}
+  .rg-c-cuenta{grid-area:cuenta}
+  .rg-c-monto{grid-area:monto;font-weight:700}
+  .rg-fila .rg-billing{grid-area:billing;font-size:11px;color:var(--color-neutral-600)}
+  .rg-solo-movil{display:inline}
+  .rg-c-archivo{grid-area:archivo;min-width:0}
+  .rg-c-archivo .rg-archivo{max-width:100%}
+  .rg-c-acciones{grid-area:acciones}
+  .rg-tabla tbody tr:hover>*{background:none}
+  .rg-dlg{width:calc(100% - 16px);max-height:calc(100vh - 16px)}
+  .rg-dlg form{max-height:calc(100vh - 18px)}
+  .rg-dlg-lista,.rg-dlg-pie{padding:var(--space-3)}
+  .rg-dlg-botones{width:100%}
+  .rg-dlg-botones .pg-boton{flex:1}
+}
