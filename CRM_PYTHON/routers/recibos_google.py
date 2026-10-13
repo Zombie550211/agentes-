@@ -52,7 +52,7 @@ TIMEOUT_ESCANEO = 20  # segundos
 CUENTAS = (
     ("alexis", "Alexis", 0, "gh-alexis"),
     ("alexis2", "Alexis 2", 17, "gh-alexis2"),
-    ("garay_lineas", "Garay Líneas", 3, "gh-alejandro"),
+    ("garay_lineas", "Garay Residencial", 3, "gh-alejandro"),  # clave antigua: así está guardada en la BD
     ("tito", "Tito", 9, "gh-tito"),
     ("tito_lineas", "Tito Líneas", 6, "gh-tito-lineas"),
 )

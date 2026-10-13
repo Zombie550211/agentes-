@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
   <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
   <link rel="stylesheet" href="/css/componentes/pagina.css?v=20261009a">
-  <link rel="stylesheet" href="/css/residencial/facturacion.css?v=20261009a">
+  <link rel="stylesheet" href="/css/residencial/facturacion.css?v=20261013a">
   <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
   <script src="/js/layout/transicion.js?v=20261008b"></script>
   <script src="/vendor/chartjs/chart.umd.min.js"></script>
@@ -65,7 +65,7 @@
       <div class="pg-tile in-glass"><span class="pg-tico"><i class="ph ph-shopping-cart"></i></span><div class="pg-tile-val" id="kpi-ventas">0</div><div class="pg-tile-lbl">Total ventas</div><div class="pg-tile-sub kpi-sub" id="kpi-ventas-sub"></div></div>
       <div class="pg-tile in-glass"><span class="pg-tico pg-tico-verde"><i class="ph ph-trend-up"></i></span><div class="pg-tile-val" id="kpi-valor">$0.00</div><div class="pg-tile-lbl">Valor promedio por venta</div><div class="pg-tile-sub kpi-sub" id="kpi-valor-sub"></div></div>
       <div class="pg-tile in-glass"><span class="pg-tico pg-tico-amarillo"><i class="ph ph-trophy"></i></span><div class="pg-tile-val" id="kpi-mejor">—</div><div class="pg-tile-lbl">Mejor asesor</div><div class="pg-tile-sub kpi-sub" id="kpi-mejor-sub"></div></div>
-      <div class="pg-tile in-glass"><span class="pg-tico"><i class="ph ph-users"></i></span><div class="pg-tile-val" id="kpi-activos">0</div><div class="pg-tile-lbl">Asesores activos</div><div class="pg-tile-sub kpi-sub" id="kpi-activos-sub">de 3 totales</div></div>
+      <div class="pg-tile in-glass"><span class="pg-tico"><i class="ph ph-users"></i></span><div class="pg-tile-val" id="kpi-activos">0</div><div class="pg-tile-lbl">Asesores activos</div><div class="pg-tile-sub kpi-sub" id="kpi-activos-sub">de 4 totales</div></div>
     </div>
 
     <h2 class="fc-titulo-seccion"><i class="ph ph-device-mobile" aria-hidden="true"></i>Líneas móviles</h2>
@@ -100,7 +100,7 @@
               <th></th>
               <th colspan="3" class="gh-alexis">Alexis</th>
               <th colspan="3" class="gh-alexis2">Alexis 2</th>
-              <th colspan="3" class="gh-alejandro">Garay Líneas</th>
+              <th colspan="3" class="gh-alejandro">Garay Residencial</th>
               <th colspan="3" class="gh-tito">Tito</th>
               <th colspan="3" class="gh-tito-lineas">Tito Líneas</th>
               <th colspan="5" class="gh-total">Totales</th>
@@ -261,8 +261,9 @@ let datosLineasIndex = {};        // fechaKey -> array de campos (9) líneas-pub
 let prevAggL = { fact: 0, ventas: 0 };
 let lineasInit = false;           // la vista líneas se carga la primera vez que se abre
 
-// Aporte de las columnas "Garay Líneas" y "Tito Líneas" (tabla residencial) a los
-// KPI de Líneas Móviles — se suma al total real de lineas_clientes, no al de Residencial.
+// Aporte de las columnas "Tito Líneas" y "Garay Líneas" (esta, solo hasta sep-2026; ver
+// garayEsResidencial) de la tabla residencial a los KPI de Líneas Móviles — se suma al
+// total real de lineas_clientes, no al de Residencial.
 let manualLineasMonto = 0;
 let manualLineasVentas = 0;
 let totalLineas = { monto: 0, ventas: 0 };   // Líneas móviles del mes (actualizarKpiLineasMoviles)
@@ -303,6 +304,16 @@ function toFechaKey(fecha) {
   } catch { return String(fecha || ''); }
 }
 
+/* Celda de fecha: se ve «jue 10» y la fecha completa (dd/mm/aaaa), que es la que
+   envían los guardados, queda en data-fecha de la fila. */
+const DIAS_SEMANA = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+function celdaFecha(td, tr, dia, mes, ano) {
+  tr.dataset.fecha = `${String(dia).padStart(2,'0')}/${String(mes).padStart(2,'0')}/${ano}`;
+  td.textContent = `${DIAS_SEMANA[new Date(ano, mes - 1, dia).getDay()]} ${dia}`;
+  td.title = tr.dataset.fecha;
+  td.contentEditable = false;
+}
+
 function showToast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg;
@@ -313,7 +324,7 @@ function showToast(msg) {
 /* Columnas (td index), cada publicista en el orden Monto · Ventas · Valor venta:
    1 Alexis Monto, 2 Alexis Ventas, 3 Alexis ValorVenta(calc),
    4 Alexis 2 Monto, 5 Alexis 2 Ventas, 6 Alexis 2 ValorVenta(calc),
-   7 Garay Líneas Monto, 8 Garay Líneas Ventas, 9 Garay Líneas ValorVenta(calc),
+   7 Garay Monto, 8 Garay Ventas, 9 Garay ValorVenta(calc),
    10 Tito Monto, 11 Tito Ventas, 12 Tito ValorVenta(calc),
    13 Tito Líneas Monto, 14 Tito Líneas Ventas, 15 Tito Líneas ValorVenta(calc),
    16 Total día(calc), 17 Total ventas(calc), 18 Valor venta(calc), 19 Puntos, 20 CPA puntos(calc)
@@ -337,7 +348,14 @@ function setColumnVisibility(tableEl, colIndex, show) {
   // Excluir la fila de encabezados de grupo (usa colspans, no columnas 1:1)
   tableEl.querySelectorAll(`tr:not(.group-header-row) > *:nth-child(${colIndex})`).forEach(el => { el.style.display = show ? '' : 'none'; });
 }
-function garayVisible() { return parseInt(filtroMes.value, 10) >= 2; }
+function garayVisible() { return parseInt(filtroMes.value, 10) >= 2 || parseInt(filtroAno.value, 10) > 2026; }
+
+/* La cuenta de Garay de esta tabla fue «Garay Líneas» hasta septiembre de 2026 y
+   desde octubre de 2026 es «Garay Residencial»: sus montos y ventas cuentan en el
+   KPI de Residencial y no en el de Líneas móviles. Los meses anteriores no cambian. */
+function garayEsResidencial(mes, ano) { return ano * 12 + mes >= 2026 * 12 + 10; }
+function nombreGaray(mes, ano) { return garayEsResidencial(mes, ano) ? 'Garay Residencial' : 'Garay Líneas'; }
+
 function applyAlejandroVisibility() {
   const show = garayVisible();
   const mainTable = document.getElementById('tablaExcel');
@@ -350,7 +368,10 @@ function applyAlejandroVisibility() {
   // Y su título de grupo: si se queda, su colspan=3 empuja los títulos siguientes
   // y "Tito" acaba encima de las columnas de Tito Líneas.
   const titulo = mainTable.querySelector('.group-header-row .gh-alejandro');
-  if (titulo) titulo.style.display = show ? '' : 'none';
+  if (titulo) {
+    titulo.style.display = show ? '' : 'none';
+    titulo.textContent = nombreGaray(currentMonth, currentYear);
+  }
 }
 
 /* =====================================================================
@@ -384,21 +405,24 @@ function camposGuardados(fecha) {
 }
 
 /* Agregados de un mes para los deltas "vs mes anterior". Se reparten igual que
-   los KPI del mes actual: fact/ventas = Residencial (Alexis + Alexis 2 + Tito, como
-   leerTotales) y lineas* = Garay Líneas + Tito Líneas, que van al KPI de Líneas
-   Móviles (como manualLineasMonto). */
+   los KPI del mes actual: fact/ventas = Residencial (Alexis + Alexis 2 + Tito, y
+   Garay si ese mes ya era Residencial, como leerTotales) y lineas* = Tito Líneas
+   (y Garay si aún era Líneas), que van al KPI de Líneas Móviles (como manualLineasMonto). */
 async function aggregateMes(mes, ano) {
   try {
     const r = await fetch(`/api/facturacion/${ano}/${String(mes).padStart(2,'0')}`, { credentials: 'include' });
     const d = await r.json().catch(() => null);
     const arr = (d?.ok && Array.isArray(d.data)) ? d.data : [];
+    const garayRes = garayEsResidencial(mes, ano);
     let fact = 0, ventas = 0, lineasFact = 0, lineasVentas = 0;
     arr.forEach(row => {
       const c = Array.isArray(row.campos) ? row.campos : [];
       fact         += num(c[0]) + num(c[17]) + num(c[9]);    // montos Alexis + Alexis 2 + Tito
       ventas       += num(c[1]) + num(c[18]) + num(c[10]);   // ventas Alexis + Alexis 2 + Tito
-      lineasFact   += num(c[3]) + num(c[6]);                 // montos Garay Líneas + Tito Líneas
-      lineasVentas += num(c[4]) + num(c[7]);                 // ventas Garay Líneas + Tito Líneas
+      lineasFact   += num(c[6]);                             // monto Tito Líneas
+      lineasVentas += num(c[7]);                             // ventas Tito Líneas
+      if (garayRes) { fact += num(c[3]); ventas += num(c[4]); }            // Garay Residencial
+      else          { lineasFact += num(c[3]); lineasVentas += num(c[4]); } // Garay Líneas
     });
     return { fact, ventas, valor: ventas > 0 ? fact / ventas : 0, lineasFact, lineasVentas };
   } catch (_) { return { fact: 0, ventas: 0, valor: 0, lineasFact: 0, lineasVentas: 0 }; }
@@ -432,16 +456,7 @@ async function renderTablaDias(mes, ano) {
     for (let c = 0; c < NUM_COLS; c++) {
       const td = document.createElement("td");
       if (c === 0) {
-        // "01" + "/09/2026" en dos trozos: en pantallas estrechas el CSS oculta el
-        // segundo (mes y año ya están en el selector). textContent sigue siendo la
-        // fecha completa, que es lo que lee guardarTodoFacturacion.
-        const dia = document.createElement('span');
-        const resto = document.createElement('span');
-        dia.textContent = fecha.slice(0, 2);
-        resto.textContent = fecha.slice(2);
-        resto.className = 'f-resto';
-        td.append(dia, resto);
-        td.contentEditable = false;
+        celdaFecha(td, tr, i + 1, mes, ano);
       } else if (EDIT_COLS.includes(c)) {
         let val = String(editVal[c] ?? '').trim();
         if (val !== "" && MONEY_COLS.includes(c)) val = money(num(val));
@@ -483,9 +498,9 @@ function recalcularFila(tr) {
   const tlVentas = raw(COL.tlVentas), tlMonto = raw(COL.tlMonto);
   tds[COL.tlValor].textContent = tlVentas > 0 ? money(tlMonto / tlVentas) : "";
 
-  // La columna Totales suma las 5 columnas (Alexis + Alexis 2 + Garay Líneas + Tito
-  // + Tito Líneas); Garay Líneas y Tito Líneas además alimentan el KPI de Líneas
-  // Móviles por separado (ver actualizarKpiLineasMoviles).
+  // La columna Totales suma las 5 columnas (Alexis + Alexis 2 + Garay + Tito + Tito
+  // Líneas); los KPI las separan en Residencial y Líneas móviles (ver leerTotales y
+  // actualizarKpiLineasMoviles).
   const totalDia    = aMonto + a2Monto + jMonto + tMonto + tlMonto;
   const totalVentas = aVentas + a2Ventas + jVentas + tVentas + tlVentas;
   tds[COL.totalDia].textContent    = totalDia > 0 ? money(totalDia) : "";
@@ -539,17 +554,18 @@ function renderFilaTotalesFacturacion() {
   }
   refreshDashboard();
 
-  // Garay Líneas + Tito Líneas alimentan el KPI de Líneas Móviles, no el residencial.
-  manualLineasMonto  = t[COL.jMonto]  + t[COL.tlMonto];
-  manualLineasVentas = t[COL.jVentas] + t[COL.tlVentas];
+  // Tito Líneas (y Garay mientras era Líneas) alimentan el KPI de Líneas Móviles, no el residencial.
+  const garayLineas = !garayEsResidencial(currentMonth, currentYear);
+  manualLineasMonto  = t[COL.tlMonto]  + (garayLineas ? t[COL.jMonto]  : 0);
+  manualLineasVentas = t[COL.tlVentas] + (garayLineas ? t[COL.jVentas] : 0);
   actualizarKpiLineasMoviles();
   ajustarAnchoTablas();   // los totales del mes son las cifras más anchas
 }
 
 /* Lee los totales actuales desde la fila de totales.
-   El KPI Residencial solo debe reflejar Alexis + Alexis 2 + Tito: Garay Líneas y Tito
-   Líneas son columnas de Líneas Móviles y no deben sumarse aquí (se agregan
-   por separado en actualizarKpiLineasMoviles / manualLineasMonto). */
+   El KPI Residencial refleja Alexis + Alexis 2 + Tito, y Garay desde oct-2026
+   (garayEsResidencial). Tito Líneas, y Garay en los meses anteriores, son de Líneas
+   Móviles y no se suman aquí (van en actualizarKpiLineasMoviles / manualLineasMonto). */
 function leerTotales() {
   const g = id => num(document.getElementById(id)?.textContent);
   const alexis     = g('total-col-' + COL.aMonto);
@@ -559,11 +575,13 @@ function leerTotales() {
   const titoLineas = g('total-col-' + COL.tlMonto);
   const alexisVentas  = g('total-col-' + COL.aVentas);
   const alexis2Ventas = g('total-col-' + COL.a2Ventas);
+  const garayVentas  = g('total-col-' + COL.jVentas);
   const titoVentas   = g('total-col-' + COL.tVentas);
   const puntos       = g('total-col-' + COL.puntos);
 
-  const facturado = alexis + alexis2 + tito;
-  const ventas    = alexisVentas + alexis2Ventas + titoVentas;
+  const garayRes  = garayEsResidencial(currentMonth, currentYear);
+  const facturado = alexis + alexis2 + tito + (garayRes ? alejandro : 0);
+  const ventas    = alexisVentas + alexis2Ventas + titoVentas + (garayRes ? garayVentas : 0);
   const valor     = ventas > 0 ? facturado / ventas : 0;
   return {
     facturado,
@@ -571,7 +589,7 @@ function leerTotales() {
     valor,
     puntos,
     cpa: puntos > 0 ? valor / puntos : 0,
-    alexis, alexis2, alejandro, tito, titoLineas,
+    alexis, alexis2, alejandro, tito, titoLineas, garayRes,
   };
 }
 
@@ -595,11 +613,13 @@ function refreshDashboard() {
   document.getElementById('kpi-ventas-sub').innerHTML    = deltaHTML(T.ventas, prevAgg.ventas);
   document.getElementById('kpi-valor-sub').innerHTML     = deltaHTML(T.valor, prevAgg.valor);
 
-  // Mejor asesor / activos — solo Residencial (Alexis, Alexis 2 y Tito); Garay Líneas
-  // y Tito Líneas se muestran en el KPI de Líneas Móviles, no aquí.
+  // Mejor asesor / activos — solo Residencial (Alexis, Alexis 2, Tito y, desde oct-2026,
+  // Garay Residencial); Tito Líneas se muestra en el KPI de Líneas Móviles, no aquí.
+  const garay = { nombre: nombreGaray(currentMonth, currentYear), monto: T.alejandro, color: 'var(--c-alejandro)' };
   const asesores = [
     { nombre: 'Alexis', monto: T.alexis, color: 'var(--c-alexis)' },
     { nombre: 'Alexis 2', monto: T.alexis2, color: 'var(--c-alexis2)' },
+    ...(T.garayRes ? [garay] : []),
     { nombre: 'Tito', monto: T.tito, color: 'var(--c-tito)' },
   ];
   const ordenados = asesores.slice().sort((a, b) => b.monto - a.monto);
@@ -617,7 +637,7 @@ function refreshDashboard() {
   // (Garay Líneas solo desde febrero, igual que su columna).
   const cuentas = [
     ...asesores,
-    ...(garayVisible() ? [{ nombre: 'Garay Líneas', monto: T.alejandro, color: 'var(--c-alejandro)' }] : []),
+    ...(!T.garayRes && garayVisible() ? [garay] : []),
     { nombre: 'Tito Líneas', monto: T.titoLineas, color: 'var(--c-tito-lineas)' },
   ].sort((a, b) => b.monto - a.monto);
   const max = Math.max(...cuentas.map(a => a.monto), 1);
@@ -646,7 +666,7 @@ async function guardarTodoFacturacion() {
   for (const tr of filas) {
     recalcularFila(tr);
     const tds = Array.from(tr.children);
-    const fecha = tds[0].textContent.trim();
+    const fecha = tr.dataset.fecha;
     const cell = i => String(tds[i].textContent || '').replace(/[$,]/g, '').trim();
 
     // Preservar campos previos (pad 16) y sobrescribir el resto
@@ -794,7 +814,7 @@ async function renderTablaDiasL(mes, ano) {
     for (let c = 0; c < NUM_COLS_L; c++) {
       const td = document.createElement("td");
       if (c === 0) {
-        td.textContent = fecha; td.contentEditable = false;
+        celdaFecha(td, tr, i + 1, mes, ano);
       } else if (EDIT_COLS_L.includes(c)) {
         let val = String(editVal[c] ?? '').trim();
         if (val !== "" && MONEY_COLS_L.includes(c)) val = money(num(val));
@@ -872,7 +892,7 @@ function renderFilaTotalesL() {
 }
 
 /* KPI Líneas Móviles = total real de lineas_clientes + lo cargado a mano en
-   "Garay Líneas" / "Tito Líneas" dentro de la tabla residencial. */
+   "Tito Líneas" (y "Garay Líneas" hasta sep-2026) dentro de la tabla residencial. */
 function actualizarKpiLineasMoviles() {
   const t = ultimoTotalesL;
   const totMontoReal  = t ? (t[COLL.gM] || 0) + (t[COLL.cM] || 0) : 0;
@@ -902,7 +922,7 @@ function actualizarKpiLineasMoviles() {
 }
 
 /* Total general = Residencial (Alexis, Alexis 2, Tito) + Líneas móviles (tabla de Líneas +
-   Garay Líneas y Tito Líneas cargados en la tabla residencial). Alimenta la fila de KPI
+   Tito Líneas, y Garay hasta sep-2026, de la tabla residencial). Alimenta la fila de KPI
    «Total» y el bloque «Resumen del mes». El CPA usa el valor por venta combinado entre los
    puntos, que solo existen en Residencial. */
 function actualizarTotalGeneral() {
@@ -960,7 +980,7 @@ async function guardarLineas() {
   for (const tr of filas) {
     recalcularFilaL(tr);
     const tds = Array.from(tr.children);
-    const fecha = tds[0].textContent.trim();
+    const fecha = tr.dataset.fecha;
     const cell = i => String(tds[i].textContent || '').replace(/[$,]/g, '').trim();
 
     const gV = cell(COLL.gV), gL = cell(COLL.gL), gM = cell(COLL.gM);
@@ -1068,7 +1088,7 @@ async function updateTableByFilters() {
   currentYear  = parseInt(filtroAno.value, 10);
   const { mes, ano } = mesAnterior(currentMonth, currentYear);
   // Se recargan las dos tablas, como al abrir la página: los KPI de Líneas Móviles
-  // (siempre a la vista) salen de la tabla de Líneas + Garay Líneas/Tito Líneas de la
+  // (siempre a la vista) salen de la tabla de Líneas + Tito Líneas (y Garay) de la
   // residencial. Recargando solo una, mezclaban datos de dos meses distintos.
   prevAgg  = await aggregateMes(mes, ano);
   prevAggL = await aggregateMesL(mes, ano);

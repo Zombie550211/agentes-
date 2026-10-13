@@ -38,7 +38,7 @@ def _parse_fecha(fecha: str) -> dict | None:
     return {"key": key, "dia": dd, "mes": mm, "anio": yy}
 
 
-# campos: [0-2] Alexis monto/ventas/valor · [3-5] Garay Líneas · [6-8] Tito Líneas ·
+# campos: [0-2] Alexis monto/ventas/valor · [3-5] Garay (Líneas hasta sep-2026, Residencial desde oct-2026) · [6-8] Tito Líneas ·
 # [9-11] Tito · [12] total día · [13] total ventas · [14] valor venta · [15] puntos ·
 # [16] sin uso · [17-19] Alexis 2 monto/ventas/valor (añadido el 2026-09-19).
 CAMPOS_LEN = 20
