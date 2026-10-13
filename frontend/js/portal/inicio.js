@@ -151,7 +151,7 @@
     var avisos = [];
     if (faltan.length) avisos.push([faltan.length > 6 ? faltan.length + ' días' : listaDias(faltan, mes), ': sin registros']);
     if (ventas > 0 && !puntos) avisos.push(['CPA por puntos', ': sin datos']);
-    if (T.linV > 0 && !T.lineas) avisos.push(['Líneas móviles', ': conteo de líneas en 0']);
+    if (T.linV > 0 && !T.lineas) avisos.push(['Ventas totales', ': conteo de líneas en 0']);
     $('v-lista').replaceChildren.apply($('v-lista'), avisos.length ? avisos.map(function (a) {
       return el('li', {}, el('i', { class: 'ph ph-warning-circle', 'aria-hidden': 'true' }), el('span', {}, el('b', { text: a[0] }), a[1]));
     }) : [el('li', { class: 'pt-ok' }, el('i', { class: 'ph ph-check-circle', 'aria-hidden': 'true' }), el('span', { text: 'Todo en orden: no hay nada por revisar.' }))]);
