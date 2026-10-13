@@ -14,7 +14,8 @@
  * y agentes, solo el cuadro de su team.
  *
  * API: GET /api/horarios/cuadratura?inicio=AAAA-MM-DD y POST /api/horarios/cuadratura/dia
- * (CRM_PYTHON/routers/horarios.py)
+ * (CRM_PYTHON/routers/horarios.py). Se actualiza sola cada 15 s: lo que cambia RRHH en
+ * Cuadratura aparece sin recargar.
  */
 (function () {
   'use strict';
@@ -158,14 +159,19 @@
   }
 
   // ── Carga ──
-  async function cargar() {
-    $('hr-board').innerHTML = '<div class="hr-loading">Cargando…</div>';
+  // silenciosa = la actualización automática: sin «Cargando…» y, si falla, se queda lo que hay.
+  async function cargar(silenciosa) {
+    var pedida = state.inicio;
+    if (!silenciosa) $('hr-board').innerHTML = '<div class="hr-loading">Cargando…</div>';
     try {
-      state.data = await api('/api/horarios/cuadratura?inicio=' + encodeURIComponent(state.inicio || ''));
+      var data = await api('/api/horarios/cuadratura?inicio=' + encodeURIComponent(state.inicio || ''));
     } catch (e) {
-      $('hr-board').innerHTML = '<div class="hr-empty">No se pudieron cargar los horarios: ' + esc(e.message) + '</div>';
+      if (!silenciosa) $('hr-board').innerHTML = '<div class="hr-empty">No se pudieron cargar los horarios: ' + esc(e.message) + '</div>';
       return;
     }
+    // Mientras llegaba, el usuario cambió de semana o abrió el selector: no pisar su pantalla.
+    if (silenciosa && (state.inicio !== pedida || !$('hr-pop').hidden || state.guardando)) return;
+    state.data = data;
     var d = state.data;
     state.turno = {};
     state.libre = {};
@@ -440,12 +446,15 @@
     if (!d.puede_cambiar && !confirm('¿Asignar ' + que + ' a ' + tipoTitulo(e.full_name) + ' el ' + DIAS_LARGOS[state.dia] + ' ' +
       body.fecha.slice(8) + '?\n\nSe envía al momento a Cuadratura y después solo administración podrá cambiarlo.')) return;
     $('hr-pop').querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+    state.guardando = true;
     try {
       await api('/api/horarios/cuadratura/dia', body);
       cerrarPop();
       toast(body.tipo === 'quitar' ? 'Horario quitado en Cuadratura' : 'Asignado y enviado a Cuadratura');
+      state.guardando = false;
       await cargar();
     } catch (err) {
+      state.guardando = false;
       $('hr-pop').querySelectorAll('button').forEach(function (b) { b.disabled = false; });
       toast(err.message, true);
       if (/ya tiene horario/.test(err.message)) { cerrarPop(); cargar(); }
@@ -481,5 +490,14 @@
       renderTablero();
     });
     cargar();
+
+    // Los cambios que hace RRHH en Cuadratura se ven solos: cada 15 s, con la pestaña a la
+    // vista y sin el selector abierto. Al volver a la pestaña, al momento.
+    setInterval(function () {
+      if (!document.hidden && state.data && $('hr-pop').hidden && !state.guardando) cargar(true);
+    }, 15000);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden && state.data && $('hr-pop').hidden && !state.guardando) cargar(true);
+    });
   });
 })();

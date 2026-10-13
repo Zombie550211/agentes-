@@ -302,7 +302,13 @@ async def ver_semana(inicio: Optional[str] = Query(None), equipo: str = Query(""
 
 
 _CACHE_CUADRATURA: dict[date, tuple[float, dict]] = {}
-_CACHE_SEGUNDOS = 30
+# Corta: la página se actualiza sola cada 15 s y un cambio de RRHH debe verse en ese plazo.
+_CACHE_SEGUNDOS = 10
+
+
+def vaciar_cache_cuadratura() -> None:
+    """Lo llama cuadratura_entrada.py al recibir un cambio de RRHH."""
+    _CACHE_CUADRATURA.clear()
 
 
 def _cuadratura_url(ruta: str) -> str:
@@ -313,7 +319,7 @@ def _cuadratura_url(ruta: str) -> str:
 
 async def _semana_cuadratura(lunes: date, fresca: bool = False) -> dict:
     """La semana tal como está en Cuadratura (GET /api/integrations/crm/schedules-week).
-    Se guarda 30 s para que muchos agentes abriendo Horarios no carguen a Cuadratura;
+    Se guarda 10 s para que muchos agentes con Horarios abierto no carguen a Cuadratura;
     `fresca` la vuelve a pedir (para comprobar permisos antes de escribir)."""
     guardado = _CACHE_CUADRATURA.get(lunes)
     if guardado and not fresca and time_mod.monotonic() - guardado[0] < _CACHE_SEGUNDOS:

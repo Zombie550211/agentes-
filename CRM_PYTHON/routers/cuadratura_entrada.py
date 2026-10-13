@@ -28,6 +28,7 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
 
 from database_mysql import AsyncSessionLocal
+from routers import horarios
 
 router = APIRouter(prefix="/api/horarios", tags=["Horarios"])
 
@@ -85,4 +86,7 @@ async def recibir_de_cuadratura(body: CambiosIn, x_api_key: Optional[str] = Head
                        "b": 0 if c.rest_day else c.break_minutes, "r": 1 if c.rest_day else 0, "n": c.notes})
             aplicados += 1
         await s.commit()
+    # La página Horarios lee de Cuadratura con una caché corta: se vacía para que el cambio
+    # de RRHH se vea en la próxima actualización de la página (cada 15 s), no al caducar.
+    horarios.vaciar_cache_cuadratura()
     return {"success": True, "aplicados": aplicados, "errores": errores}
