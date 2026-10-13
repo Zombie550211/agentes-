@@ -608,7 +608,7 @@ async def _inicializar_esquema_y_datos():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_mysql()
-    tarea_semaforo = tarea_horarios = None
+    tarea_semaforo = tarea_horarios = tarea_recibos = None
     if _debe_inicializar_bd():
         await _inicializar_esquema_y_datos()
         # Semáforo de clientes: pasa a oficina los casos vencidos cada 5 min.
@@ -619,13 +619,16 @@ async def lifespan(app: FastAPI):
         # el sábado, la siguiente) solo cuando cambian. Ver cuadratura_sync.py.
         from cuadratura_sync import bucle_envio_horarios
         tarea_horarios = asyncio.create_task(bucle_envio_horarios())
+        # Recibos de Google Ads → Cuadratura (solo lectura allí): reintenta los pendientes.
+        from recibos_cuadratura import bucle_envio_recibos
+        tarea_recibos = asyncio.create_task(bucle_envio_recibos())
     else:
         print("[init] Migraciones y seeds OMITIDOS: esta instancia no es dueña del "
               "esquema (NODE_ENV != production y RUN_DB_INIT no activo). La app "
               "arranca y sirve, pero NO altera el esquema ni siembra datos. Para "
               "forzarlo (p.ej. contra una BD local), exporta RUN_DB_INIT=1.")
     yield
-    for tarea in (tarea_semaforo, tarea_horarios):
+    for tarea in (tarea_semaforo, tarea_horarios, tarea_recibos):
         if tarea:
             tarea.cancel()
     await close_mysql()

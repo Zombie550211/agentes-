@@ -8,6 +8,9 @@ agentes incluidos): se guardan en RECIBOS_GOOGLE_DIR (por defecto
 <repo>/datos_privados/recibos_google, fuera de git) con un nombre uuid, y solo se
 sirven por esta API.
 
+Cada recibo se envía también al Sistema de Cuadratura, donde es solo lectura
+(recibos_cuadratura.py): al guardarlo y, si no llega, en el reintento cada 5 min.
+
 Las cuentas son las de la facturación residencial. `campo` es el índice del monto de
 esa cuenta en `facturacion.campos` (ver routers/facturacion.py), para conectar ambas
 cosas más adelante; por ahora no se escribe en facturación.
@@ -70,6 +73,8 @@ CREATE TABLE IF NOT EXISTS recibos_google (
     sha256          CHAR(64)     NOT NULL,
     subido_por      VARCHAR(150) NOT NULL,
     creado          DATETIME     NOT NULL,
+    cuadratura_enviado DATETIME  NULL,
+    cuadratura_error   VARCHAR(255) NULL,
     UNIQUE KEY uq_recibos_google_sha (sha256),
     KEY ix_recibos_google_fecha (fecha_pago),
     KEY ix_recibos_google_billing (billing_id),
@@ -78,10 +83,24 @@ CREATE TABLE IF NOT EXISTS recibos_google (
 """
 
 
+# Columnas añadidas después de crear la tabla (la de producción ya existía).
+_COLUMNAS_NUEVAS = {
+    "cuadratura_enviado": "DATETIME NULL",
+    "cuadratura_error": "VARCHAR(255) NULL",
+}
+
+
 async def ensure_table() -> None:
     PDF_DIR.mkdir(parents=True, exist_ok=True)
     async with AsyncSessionLocal() as s:
         await s.execute(text(CREATE_TABLE_SQL))
+        r = await s.execute(text(
+            "SELECT column_name FROM information_schema.columns"
+            " WHERE table_schema = DATABASE() AND table_name = 'recibos_google'"))
+        existentes = {str(f[0]).lower() for f in r.all()}
+        for col, tipo in _COLUMNAS_NUEVAS.items():
+            if col not in existentes:
+                await s.execute(text(f"ALTER TABLE recibos_google ADD COLUMN {col} {tipo}"))
         await s.commit()
 
 
@@ -154,11 +173,13 @@ async def _recibos(desde, hasta, cuenta, q) -> list[dict]:
     async with AsyncSessionLocal() as s:
         r = await s.execute(text(
             "SELECT id, fecha_pago, cuenta, monto_centavos, billing_id, metodo_pago,"
-            " archivo_nombre, subido_por FROM recibos_google" + where +
+            " archivo_nombre, subido_por, cuadratura_enviado IS NOT NULL AS en_cuadratura"
+            " FROM recibos_google" + where +
             " ORDER BY fecha_pago DESC, id ASC"), params)
         filas = [dict(f) for f in r.mappings().all()]
     for f in filas:
         f["fecha_pago"] = f["fecha_pago"].isoformat()
+        f["en_cuadratura"] = bool(f["en_cuadratura"])
         f["cuenta_nombre"] = _NOMBRE_CUENTA.get(f["cuenta"], f["cuenta"])
     # Dentro de cada fecha, en el orden de las cuentas de facturación.
     filas.sort(key=lambda f: (f["fecha_pago"], -_ORDEN_CUENTA.get(f["cuenta"], 99), -f["id"]),
@@ -290,6 +311,9 @@ async def subir(
         for p in escritos:
             p.unlink(missing_ok=True)
         raise
+    # Copia de solo lectura en Cuadratura, sin hacer esperar al usuario.
+    from recibos_cuadratura import enviar_en_segundo_plano
+    enviar_en_segundo_plano()
     return {"success": True, "registrados": len(filas)}
 
 

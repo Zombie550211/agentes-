@@ -135,7 +135,8 @@
         el('td', { colspan: '2' })));
 
       filas.forEach(function (r) {
-        var detalle = [r.metodo_pago, 'Subido por ' + r.subido_por].filter(Boolean).join(' · ');
+        var detalle = [r.metodo_pago, 'Subido por ' + r.subido_por,
+          r.en_cuadratura ? 'Copia en Cuadratura' : 'Pendiente de enviar a Cuadratura'].filter(Boolean).join(' · ');
         var ver = el('a', { class: 'pg-boton rg-accion', href: API + '/' + r.id + '/pdf', target: '_blank', rel: 'noopener',
           'aria-label': 'Ver ' + r.archivo_nombre }, icono('eye'), el('span', { text: 'Ver' }));
         var bajar = el('a', { class: 'pg-boton rg-accion rg-accion-icono', href: API + '/' + r.id + '/pdf?descargar=true',
