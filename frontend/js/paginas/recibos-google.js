@@ -97,9 +97,27 @@
     $('rg-kpi-ultimo').textContent = r.ultimo_pago ? fechaCorta(r.ultimo_pago) : '—';
   }
 
+  // Cada filtro dispara una carga; si llegan desordenadas, solo se pinta la última pedida.
+  var ultimaCarga = 0;
   async function cargarRecibos() {
+    var n = ++ultimaCarga;
     var r = await api(API + '?' + parametros());
-    pintarTabla(r.recibos || []);
+    if (n === ultimaCarga) pintarTabla(r.recibos || []);
+  }
+
+  function filtrar() {
+    // Rango al revés (Desde después de Hasta): se intercambian en vez de dejar la tabla vacía.
+    var d = $('rg-desde'), h = $('rg-hasta');
+    if (d.value && h.value && d.value > h.value) { var x = d.value; d.value = h.value; h.value = x; }
+    cargarRecibos().catch(function (err) { avisar(err.message, true); });
+  }
+
+  function filtrosDelMes() {
+    var hoy = hoyISO();
+    $('rg-desde').value = hoy.slice(0, 8) + '01';
+    $('rg-hasta').value = hoy;
+    $('rg-cuenta').value = '';
+    $('rg-q').value = '';
   }
 
   function pintarTabla(recibos) {
@@ -357,9 +375,18 @@
       if (!ventanaAbierta() && e.dataTransfer.files.length) abrirVentana(e.dataTransfer.files);
     });
 
-    $('rg-filtros').addEventListener('submit', function (e) {
+    // Los filtros se aplican solos: fechas y cuenta al cambiarlas, el Billing ID al escribir.
+    var buscarTimer;
+    $('rg-filtros').addEventListener('submit', function (e) { e.preventDefault(); filtrar(); });
+    $('rg-filtros').addEventListener('change', function (e) { if (e.target.id !== 'rg-q') filtrar(); });
+    $('rg-q').addEventListener('input', function () {
+      clearTimeout(buscarTimer);
+      buscarTimer = setTimeout(filtrar, 300);
+    });
+    $('rg-filtros').addEventListener('reset', function (e) {
       e.preventDefault();
-      cargarRecibos().catch(function (err) { avisar(err.message, true); });
+      filtrosDelMes();
+      filtrar();
     });
     $('rg-btn-exportar').addEventListener('click', function () { location.href = API + '/exportar?' + parametros(); });
 
@@ -388,9 +415,7 @@
       location.href = '/residencial/inicio.html';
       return;
     }
-    var hoy = hoyISO();
-    $('rg-desde').value = hoy.slice(0, 8) + '01';
-    $('rg-hasta').value = hoy;
+    filtrosDelMes();
     iniciarEventos();
     try {
       cuentas = (await api(API + '/cuentas')).cuentas || [];

@@ -162,9 +162,10 @@ def _filtro_sql(desde, hasta, cuenta, q) -> tuple[str, dict]:
         if cuenta not in _NOMBRE_CUENTA:
             raise HTTPException(422, "Cuenta desconocida")
         where.append("cuenta = :cuenta"); params["cuenta"] = cuenta
-    if q and q.strip():
-        where.append("billing_id LIKE :q")
-        params["q"] = "%" + re.sub(r"[%_\\]", "", q.strip()) + "%"
+    # Billing ID con o sin guiones: «7777-8888», «77778888» y «7777 8888» encuentran lo mismo.
+    if q and (digitos := re.sub(r"[^0-9]", "", q)):
+        where.append("REPLACE(billing_id, '-', '') LIKE :q")
+        params["q"] = "%" + digitos + "%"
     return (" WHERE " + " AND ".join(where)) if where else "", params
 
 
