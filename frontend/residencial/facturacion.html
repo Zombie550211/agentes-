@@ -86,7 +86,7 @@
       <div class="pg-tile in-glass pg-tile-dest"><span class="pg-tico"><i class="ph ph-currency-dollar"></i></span><div class="pg-tile-val" id="gkpi-facturado">$0.00</div><div class="pg-tile-lbl">Total facturado</div><div class="pg-tile-sub kpi-sub" id="gkpi-facturado-sub"></div></div>
       <div class="pg-tile in-glass"><span class="pg-tico"><i class="ph ph-shopping-cart"></i></span><div class="pg-tile-val" id="gkpi-ventas">0</div><div class="pg-tile-lbl">Total ventas</div><div class="pg-tile-sub kpi-sub" id="gkpi-ventas-sub"></div></div>
       <div class="pg-tile in-glass"><span class="pg-tico pg-tico-verde"><i class="ph ph-trend-up"></i></span><div class="pg-tile-val" id="gkpi-valor">$0.00</div><div class="pg-tile-lbl">Valor promedio por venta</div><div class="pg-tile-sub kpi-sub" id="gkpi-valor-sub"></div></div>
-      <div class="pg-tile in-glass"><span class="pg-tico pg-tico-amarillo"><i class="ph ph-target"></i></span><div class="pg-tile-val" id="gkpi-cpa">$0.00</div><div class="pg-tile-lbl">CPA promedio</div><div class="pg-tile-sub kpi-sub">valor por venta ÷ puntos de Residencial</div></div>
+      <div class="pg-tile in-glass"><span class="pg-tico pg-tico-amarillo"><i class="ph ph-target"></i></span><div class="pg-tile-val" id="gkpi-cpa">$0.00</div><div class="pg-tile-lbl">CPA promedio</div><div class="pg-tile-sub kpi-sub">total día ÷ puntos</div></div>
     </div>
 
     <!-- Tabla del mes -->
@@ -523,8 +523,9 @@ function recalcularFila(tr) {
   const valorVenta = totalVentas > 0 ? totalDia / totalVentas : 0;
   tds[COL.valorVenta].textContent = totalVentas > 0 ? money(valorVenta) : "";
 
+  // CPA puntos = total del día ÷ puntos (los puntos se escriben a mano).
   const puntos = raw(COL.puntos);
-  tds[COL.cpa].textContent = puntos > 0 ? money(valorVenta / puntos) : "";
+  tds[COL.cpa].textContent = puntos > 0 ? money(totalDia / puntos) : "";
 }
 
 // Enter baja, Tab avanza; la celda nunca crece con un salto de línea.
@@ -557,7 +558,7 @@ function renderFilaTotalesFacturacion() {
   t[COL.totalDia]    = t[COL.aMonto]  + t[COL.a2Monto]  + t[COL.jMonto]  + t[COL.tMonto]  + t[COL.tlMonto];
   t[COL.totalVentas] = t[COL.aVentas] + t[COL.a2Ventas] + t[COL.jVentas] + t[COL.tVentas] + t[COL.tlVentas];
   t[COL.valorVenta]  = t[COL.totalVentas] > 0 ? t[COL.totalDia] / t[COL.totalVentas] : 0;
-  t[COL.cpa]         = t[COL.puntos] > 0 ? t[COL.valorVenta] / t[COL.puntos] : 0;
+  t[COL.cpa]         = t[COL.puntos] > 0 ? t[COL.totalDia] / t[COL.puntos] : 0;
 
   for (let i = 1; i < NUM_COLS; i++) {
     const el = document.getElementById('total-col-' + i);
@@ -592,6 +593,7 @@ function leerTotales() {
   const garayVentas  = g('total-col-' + COL.jVentas);
   const titoVentas   = g('total-col-' + COL.tVentas);
   const puntos       = g('total-col-' + COL.puntos);
+  const totalDiaMes  = g('total-col-' + COL.totalDia);
 
   const garayRes  = garayEsResidencial(currentMonth, currentYear);
   const facturado = alexis + alexis2 + tito + (garayRes ? alejandro : 0);
@@ -602,7 +604,8 @@ function leerTotales() {
     ventas,
     valor,
     puntos,
-    cpa: puntos > 0 ? valor / puntos : 0,
+    // Igual que la columna «CPA puntos» de la fila de totales: total día del mes ÷ puntos.
+    cpa: puntos > 0 ? totalDiaMes / puntos : 0,
     alexis, alexis2, alejandro, tito, titoLineas, garayRes,
   };
 }
@@ -937,14 +940,14 @@ function actualizarKpiLineasMoviles() {
 
 /* Total general = Residencial (Alexis, Alexis 2, Tito) + Líneas móviles (tabla de Líneas +
    Tito Líneas, y Garay hasta sep-2026, de la tabla residencial). Alimenta la fila de KPI
-   «Total» y el bloque «Resumen del mes». El CPA usa el valor por venta combinado entre los
-   puntos, que solo existen en Residencial. */
+   «Total» y el bloque «Resumen del mes». El CPA es el de la fila de totales de la tabla
+   (total día del mes ÷ puntos). */
 function actualizarTotalGeneral() {
   const T = leerTotales();
   const facturado = T.facturado + totalLineas.monto;
   const ventas    = T.ventas + totalLineas.ventas;
   const valor     = ventas > 0 ? facturado / ventas : 0;
-  const cpa       = T.puntos > 0 ? valor / T.puntos : 0;
+  const cpa       = T.cpa;
   // Mes anterior, sumado igual que el actual.
   const prevFact   = prevAgg.fact + prevAggL.fact + prevAgg.lineasFact;
   const prevVentas = prevAgg.ventas + prevAggL.ventas + prevAgg.lineasVentas;
