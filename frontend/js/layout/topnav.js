@@ -38,9 +38,9 @@
       { label: 'Productividad', href: '/residencial/productividad.html', seccion: 'res' },
       { label: 'El Semáforo', href: '/residencial/semaforo.html', seccion: 'res' },
     ] },
-    { label: 'Rankings y premios', items: [
-      { label: 'Ranking de Agentes', href: '/residencial/ranking-agente.html', seccion: 'res' },
-      { label: 'Ranking y Promociones', href: '/residencial/ranking.html', seccion: 'res' },
+    { label: 'Ranking residencial', items: [
+      { label: 'Ranking de Activaciones', href: '/residencial/ranking-agente.html', seccion: 'res' },
+      { label: 'Ranking de Ventas', href: '/residencial/ranking.html', seccion: 'res' },
       { label: 'Reglas y Puntajes', href: '/residencial/reglas.html', seccion: 'res' },
       { label: 'Tabla de Puntaje', href: '/residencial/tabla-puntaje.html', seccion: 'res' },
       { label: 'Empleado del Mes', href: '/residencial/empleado-mes.html', seccion: 'res' },
