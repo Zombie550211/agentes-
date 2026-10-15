@@ -12,7 +12,8 @@
  *
  * Debajo del formulario va "Mis transferencias": el backend ya filtra según el rol
  * (agente → las suyas, supervisor → su team, admin/BO → todas), así cada agente
- * consulta lo que envió y lo que recibió sin salir del formulario.
+ * consulta lo que envió y lo que recibió sin salir del formulario. Su buscador
+ * (nombre del cliente o teléfono) busca en todas las fechas, no solo en el periodo.
  *
  * Resultado: quien RECIBIÓ la transferencia (o el supervisor de su team) la cierra desde su fila de "Mis
  * transferencias" con Venta completada / Fraude / Balance / Pago full / No
@@ -38,6 +39,10 @@
   let historial = [];    // última carga de "Mis transferencias"
   let filtroTipo = '';   // '' | 'enviada' | 'recibida'
   let periodo = 0;       // días hacia atrás: 0 = hoy, 7, 30
+  let busqueda = '';     // texto del buscador de "Mis transferencias" (nombre o teléfono)
+  let encontradas = [];  // resultado de la búsqueda (todas las fechas)
+  let busqPedido = 0;
+  let busqTimer = null;
   const PAGO_POR_VENTA = 1;   // US$ por venta completada; si llegó a Líneas, por cada línea
   const MAX_LINEAS = 5;
 
@@ -144,12 +149,21 @@
             '<h2 class="trf-title" id="trf-hist-title">Mis transferencias</h2>' +
             '<p class="trf-sub" id="trf-hist-sub">Las de hoy, según los filtros del resumen.</p>' +
           '</div>' +
+          '<label class="trf-buscar">' +
+            '<i class="ph ph-magnifying-glass" aria-hidden="true"></i>' +
+            '<input type="search" id="trf-buscar" maxlength="100" autocomplete="off" ' +
+              'placeholder="Buscar por cliente o teléfono" aria-label="Buscar venta por nombre del cliente o teléfono">' +
+          '</label>' +
         '</div>' +
         '<div class="trf-hist-body" id="trf-hist-body"></div>' +
       '</section>';
 
     q('#trf-team').addEventListener('change', onTeamChange);
     q('form').addEventListener('submit', onSubmit);
+    q('#trf-buscar').addEventListener('input', function () {
+      clearTimeout(busqTimer);
+      busqTimer = setTimeout(buscarVentas, 300);
+    });
     // Dos grupos de botones: periodo (recarga del servidor) y tipo (filtra lo cargado).
     panel.querySelectorAll('.trf-seg').forEach(function (grupo) {
       grupo.querySelectorAll('button').forEach(function (b) {
@@ -249,11 +263,38 @@
     }).join('') + '</ol>';
   }
 
+  /** Buscador: busca en todas las fechas por nombre del cliente o teléfono (el backend
+   *  respeta lo que cada rol puede ver). Vacío → vuelve a la tabla del periodo. */
+  async function buscarVentas() {
+    const texto = q('#trf-buscar').value.trim();
+    const pedido = ++busqPedido;
+    const box = q('#trf-hist-body');
+    if (texto.length < 2) {
+      busqueda = '';
+      encontradas = [];
+      pintarHistorial();
+      return;
+    }
+    busqueda = texto;
+    box.innerHTML = '<div class="trf-vacio">Buscando…</div>';
+    const qs = new URLSearchParams({ seccion: ORIGEN, buscar: texto });
+    try {
+      const r = await fetch('/api/transferencias?' + qs);
+      const j = await r.json();
+      if (!r.ok) throw new Error(typeof j.detail === 'string' ? j.detail : 'Error');
+      if (pedido !== busqPedido) return;
+      encontradas = j.transferencias || [];
+      pintarHistorial();
+    } catch (e) {
+      if (pedido === busqPedido) box.innerHTML = '<div class="trf-vacio">No se pudo hacer la búsqueda</div>';
+    }
+  }
+
   async function cargarHistorial() {
     cargarRanking();
     const box = q('#trf-hist-body');
     const qs = new URLSearchParams({ seccion: ORIGEN, desde: fechaISO(periodo), hasta: fechaISO(0) });
-    box.innerHTML = '<div class="trf-vacio">Cargando…</div>';
+    if (!busqueda) box.innerHTML = '<div class="trf-vacio">Cargando…</div>';
     try {
       const r = await fetch('/api/transferencias?' + qs);
       const j = await r.json();
@@ -261,10 +302,14 @@
       historial = j.transferencias || [];
     } catch (e) {
       q('#trf-kpis').innerHTML = '';
-      box.innerHTML = '<div class="trf-vacio">No se pudieron cargar tus transferencias</div>';
+      if (!busqueda) box.innerHTML = '<div class="trf-vacio">No se pudieron cargar tus transferencias</div>';
       return;
     }
-    pintarHistorial();
+    if (busqueda) { pintarKpis(filtrarTipo(historial)); buscarVentas(); } else pintarHistorial();
+  }
+
+  function filtrarTipo(lista) {
+    return filtroTipo ? lista.filter((f) => f.direccion_tipo === filtroTipo) : lista;
   }
 
   /** KPIs del periodo y del filtro (Todas / Enviadas / Recibidas) que se ven en la tabla. */
@@ -307,13 +352,21 @@
 
   function pintarHistorial() {
     const box = q('#trf-hist-body');
-    const filas = filtroTipo ? historial.filter((f) => f.direccion_tipo === filtroTipo) : historial;
-    pintarKpis(filas);
+    // Los KPIs son siempre del periodo; la tabla, del periodo o de la búsqueda.
+    pintarKpis(filtrarTipo(historial));
+    const origen = busqueda ? encontradas : historial;
+    const filas = filtrarTipo(origen);
     if (!filas.length) {
-      box.innerHTML = '<div class="trf-vacio">Sin transferencias en este periodo</div>';
+      box.innerHTML = '<div class="trf-vacio">' + (busqueda
+        ? 'Ninguna transferencia coincide con «' + esc(busqueda) + '»'
+        : 'Sin transferencias en este periodo') + '</div>';
       return;
     }
-    box.innerHTML = '<div class="trf-tabla-wrap"><table class="trf-tabla"><thead><tr>' +
+    box.innerHTML = (busqueda
+        ? '<div class="trf-busq-nota">' + filas.length + (filas.length === 1 ? ' resultado' : ' resultados') +
+          ' para «' + esc(busqueda) + '» en todas las fechas' + (filas.length >= 500 ? ' (se muestran los 500 más recientes)' : '') + '</div>'
+        : '') +
+      '<div class="trf-tabla-wrap"><table class="trf-tabla"><thead><tr>' +
       '<th>Fecha</th><th>Tipo</th><th>Cliente</th><th>Teléfono</th><th>Motivo</th><th>De</th><th>Para</th><th>Resultado</th>' +
       '</tr></thead><tbody>' +
       filas.map((f) => {
@@ -333,13 +386,13 @@
       '</tbody></table></div>';
     box.querySelectorAll('[data-trf-res]').forEach(function (b) {
       b.addEventListener('click', function () {
-        const f = historial.find((x) => String(x.id) === b.getAttribute('data-trf-res'));
+        const f = origen.find((x) => String(x.id) === b.getAttribute('data-trf-res'));
         if (f) abrirResultado(f);
       });
     });
     box.querySelectorAll('[data-trf-lin]').forEach(function (b) {
       b.addEventListener('click', function () {
-        const f = historial.find((x) => String(x.id) === b.getAttribute('data-trf-lin'));
+        const f = origen.find((x) => String(x.id) === b.getAttribute('data-trf-lin'));
         if (f) dialogoLineas([f], false);
       });
     });

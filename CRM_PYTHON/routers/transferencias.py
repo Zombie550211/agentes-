@@ -246,23 +246,40 @@ async def crear(body: TransferenciaIn, user: dict = Depends(current_user)):
 
 # ── GET /api/transferencias?seccion=residencial&desde=YYYY-MM-DD&hasta=YYYY-MM-DD
 @router.get("")
-async def listar(seccion: str, desde: str = "", hasta: str = "",
+async def listar(seccion: str, desde: str = "", hasta: str = "", buscar: str = "",
                  user: dict = Depends(current_user)):
     """Transferencias en las que participa la sección: hechas desde ella
-    (seccion_origen) o recibidas por ella (la contraria las originó)."""
+    (seccion_origen) o recibidas por ella (la contraria las originó).
+
+    Con `buscar` (nombre del cliente o teléfono) se ignora el rango de fechas, para
+    encontrar la venta aunque sea antigua; la visibilidad por rol se mantiene."""
     seccion = _validar_seccion(seccion)
     where = ["1=1"]
     params: dict = {}
-    for nombre, valor in (("desde", desde), ("hasta", hasta)):
-        if valor:
-            try:
-                params[nombre] = datetime.strptime(valor, "%Y-%m-%d")
-            except ValueError:
-                raise HTTPException(400, f"{nombre} debe ser YYYY-MM-DD")
-    if "desde" in params:
-        where.append("t.created_at >= :desde")
-    if "hasta" in params:
-        where.append("t.created_at < DATE_ADD(:hasta, INTERVAL 1 DAY)")
+    buscar = (buscar or "").strip()[:100]
+    if buscar:
+        if len(buscar) < 2:
+            raise HTTPException(400, "Escribe al menos 2 caracteres para buscar")
+        # % y _ son comodines de LIKE: se escapan para buscar el texto tal cual.
+        literal = re.sub(r"([\\%_])", r"\\\1", buscar)
+        cond = ["t.nombre_cliente LIKE :q_nombre"]
+        params["q_nombre"] = f"%{literal}%"
+        digitos = re.sub(r"\D", "", buscar)
+        if len(digitos) >= 3:
+            cond.append("t.telefono LIKE :q_tel")
+            params["q_tel"] = f"%{digitos}%"
+        where.append("(" + " OR ".join(cond) + ")")
+    else:
+        for nombre, valor in (("desde", desde), ("hasta", hasta)):
+            if valor:
+                try:
+                    params[nombre] = datetime.strptime(valor, "%Y-%m-%d")
+                except ValueError:
+                    raise HTTPException(400, f"{nombre} debe ser YYYY-MM-DD")
+        if "desde" in params:
+            where.append("t.created_at >= :desde")
+        if "hasta" in params:
+            where.append("t.created_at < DATE_ADD(:hasta, INTERVAL 1 DAY)")
 
     role = user.get("role", "")
     mi_team = ""
