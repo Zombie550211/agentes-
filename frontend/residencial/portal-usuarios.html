@@ -33,6 +33,8 @@
     .pu-dlg label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:600;color:var(--color-neutral-800)}
     .pu-dlg input{height:38px;padding:0 10px;border:1px solid rgb(0 112 152 / .22);font:inherit;font-size:14px}
     .pu-dlg input:focus{outline:2px solid var(--color-accent-2-500);outline-offset:0}
+    .pu-dlg .pu-check{flex-direction:row;align-items:center;gap:8px;font-size:13px}
+    .pu-dlg .pu-check input{width:16px;height:16px;margin:0}
     .pu-dlg small{font-weight:400;color:var(--color-neutral-600)}
     .pu-pie{display:flex;justify-content:flex-end;gap:8px}
     .pu-error{color:var(--color-sem-rojo);font-size:13px}
@@ -80,6 +82,7 @@
     <label id="pu-l-nombre">Nombre<input id="pu-nombre" maxlength="120" autocomplete="off"></label>
     <label id="pu-l-usuario">Usuario <small>minúsculas, números, punto o guion</small><input id="pu-usuario" maxlength="60" autocomplete="off" autocapitalize="none" spellcheck="false"></label>
     <label>Contraseña <small>al menos 8 caracteres, con letras y números</small><input id="pu-clave" type="password" autocomplete="new-password"></label>
+    <label class="pu-check" id="pu-l-lectura"><input type="checkbox" id="pu-lectura"> Solo lectura <small>puede ver, pero no guardar ni subir recibos</small></label>
     <div class="pu-error" id="pu-error" role="alert"></div>
     <div class="pu-pie">
       <button type="button" class="pg-boton" id="pu-cancelar">Cancelar</button>
@@ -138,12 +141,15 @@
       var caja = document.createElement('div');
       caja.className = 'pu-acciones';
       caja.append(boton('Cambiar contraseña', function () { abrir(u); }),
+        boton(u.solo_lectura ? 'Permitir editar' : 'Solo lectura', async function () {
+          try { await api('/api/portal/usuarios/' + u.id, 'PUT', { solo_lectura: !u.solo_lectura }); cargar(); } catch (e) { alert(e.message); }
+        }),
         boton(u.activo ? 'Desactivar' : 'Activar', async function () {
           if (u.activo && !confirm('¿Desactivar a ' + u.nombre + '? Se cerrará su sesión y no podrá entrar al portal.')) return;
           try { await api('/api/portal/usuarios/' + u.id, 'PUT', { activo: !u.activo }); cargar(); } catch (e) { alert(e.message); }
         }));
       acc.append(caja);
-      tr.append(td(u.nombre), td(u.username), td(u.activo ? 'Activo' : 'Desactivado'), td(fecha(u.ultimo_acceso)), td(u.creado_por), acc);
+      tr.append(td(u.nombre), td(u.username), td((u.activo ? 'Activo' : 'Desactivado') + (u.solo_lectura ? ' · Solo lectura' : '')), td(fecha(u.ultimo_acceso)), td(u.creado_por), acc);
       cuerpo.append(tr);
     });
   }
@@ -151,7 +157,8 @@
   function abrir(u) {
     editando = u || null;
     $('pu-titulo').textContent = u ? 'Nueva contraseña · ' + u.nombre : 'Nuevo usuario';
-    $('pu-l-nombre').hidden = $('pu-l-usuario').hidden = !!u;
+    $('pu-l-nombre').hidden = $('pu-l-usuario').hidden = $('pu-l-lectura').hidden = !!u;
+    $('pu-lectura').checked = false;
     $('pu-nombre').value = $('pu-usuario').value = $('pu-clave').value = '';
     $('pu-error').textContent = '';
     $('pu-dlg').showModal();
@@ -163,7 +170,8 @@
     $('pu-guardar').disabled = true;
     try {
       if (editando) await api('/api/portal/usuarios/' + editando.id, 'PUT', { password: $('pu-clave').value });
-      else await api('/api/portal/usuarios', 'POST', { nombre: $('pu-nombre').value.trim(), username: $('pu-usuario').value.trim(), password: $('pu-clave').value });
+      else await api('/api/portal/usuarios', 'POST', { nombre: $('pu-nombre').value.trim(), username: $('pu-usuario').value.trim(), password: $('pu-clave').value,
+                                                    solo_lectura: $('pu-lectura').checked });
       $('pu-dlg').close();
       cargar();
     } catch (err) {

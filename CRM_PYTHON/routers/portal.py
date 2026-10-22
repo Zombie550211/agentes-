@@ -10,6 +10,8 @@ en el otro). Sus usuarios NO pueden entrar al CRM:
   Al revés, un token del CRM tampoco vale aquí.
 - Solo las APIs que usan `admin_o_portal(...)` (facturación, facturación de líneas
   publicidad y recibos de Google Ads) aceptan esta sesión, además de la del CRM.
+- Un usuario con `solo_lectura` solo puede consultar: admin_o_portal le niega todo lo
+  que no sea GET/HEAD (guardar facturación, subir o escanear recibos).
 
 Los usuarios del portal los crean y gestionan los administradores del CRM
 (/api/portal/usuarios, página crear-cuenta.html → pestaña Portal).
@@ -55,6 +57,7 @@ CREATE TABLE IF NOT EXISTS portal_users (
     nombre        VARCHAR(120) NOT NULL,
     password_hash VARCHAR(100) NOT NULL,
     activo        TINYINT(1)   NOT NULL DEFAULT 1,
+    solo_lectura  TINYINT(1)   NOT NULL DEFAULT 0,
     -- Se sube al cambiar la contraseña o desactivar: invalida las sesiones abiertas.
     version       INT          NOT NULL DEFAULT 1,
     creado        DATETIME     NOT NULL,
@@ -68,6 +71,11 @@ CREATE TABLE IF NOT EXISTS portal_users (
 async def ensure_table() -> None:
     async with AsyncSessionLocal() as s:
         await s.execute(text(CREATE_TABLE_SQL))
+        # Tablas creadas antes de existir el modo solo lectura.
+        r = await s.execute(text("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE()"
+                                 " AND table_name = 'portal_users' AND column_name = 'solo_lectura'"))
+        if not r.scalar():
+            await s.execute(text("ALTER TABLE portal_users ADD COLUMN solo_lectura TINYINT(1) NOT NULL DEFAULT 0 AFTER activo"))
         await s.commit()
 
 
@@ -96,7 +104,8 @@ async def _usuario_portal(request: Request, response: Optional[Response] = None)
     if p.get("scope") != "portal":
         return None
     async with AsyncSessionLocal() as s:
-        r = await s.execute(text("SELECT id, username, nombre, activo, version FROM portal_users WHERE id = :i"),
+        r = await s.execute(text("SELECT id, username, nombre, activo, solo_lectura, version FROM portal_users"
+                                 " WHERE id = :i"),
                             {"i": p.get("pid")})
         u = r.mappings().first()
     if not u or not u["activo"] or int(u["version"]) != int(p.get("v") or 0):
@@ -110,7 +119,7 @@ async def _usuario_portal(request: Request, response: Optional[Response] = None)
 def _como_usuario(u: dict) -> dict:
     """Forma de usuario que esperan los routers del CRM (username, role…)."""
     return {"id": f"portal:{u['id']}", "username": f"{u['nombre']} (portal)", "name": u["nombre"],
-            "role": "portal", "portal": True}
+            "role": "portal", "portal": True, "solo_lectura": bool(u["solo_lectura"])}
 
 
 def admin_o_portal(*roles):
@@ -128,6 +137,8 @@ def admin_o_portal(*roles):
                 return user
         u = await _usuario_portal(request, response)
         if u:
+            if u["solo_lectura"] and request.method not in ("GET", "HEAD"):
+                raise HTTPException(403, "Tu usuario del portal es de solo lectura")
             return _como_usuario(u)
         raise HTTPException(401 if not request.cookies.get("token") else 403, "Sin permiso")
     return checker
@@ -188,7 +199,8 @@ async def me(request: Request, response: Response):
     u = await _usuario_portal(request, response)
     if not u:
         raise HTTPException(401, "Sin sesión")
-    return {"success": True, "usuario": {"username": u["username"], "nombre": u["nombre"]}}
+    return {"success": True, "usuario": {"username": u["username"], "nombre": u["nombre"],
+                                         "solo_lectura": bool(u["solo_lectura"])}}
 
 
 # ── Gestión de usuarios (administradores del CRM) ────────────────
@@ -207,6 +219,7 @@ class UsuarioIn(BaseModel):
     username: str
     nombre: str = Field(min_length=2, max_length=120)
     password: str
+    solo_lectura: bool = False
 
     @field_validator("username")
     @classmethod
@@ -226,6 +239,7 @@ class UsuarioCambio(BaseModel):
     nombre: Optional[str] = Field(default=None, min_length=2, max_length=120)
     password: Optional[str] = None
     activo: Optional[bool] = None
+    solo_lectura: Optional[bool] = None
 
     @field_validator("password")
     @classmethod
@@ -235,6 +249,7 @@ class UsuarioCambio(BaseModel):
 
 def _fila(u) -> dict:
     return {"id": u["id"], "username": u["username"], "nombre": u["nombre"], "activo": bool(u["activo"]),
+            "solo_lectura": bool(u["solo_lectura"]),
             "creado": u["creado"].isoformat() if u["creado"] else None, "creado_por": u["creado_por"],
             "ultimo_acceso": u["ultimo_acceso"].isoformat() if u["ultimo_acceso"] else None}
 
@@ -242,7 +257,7 @@ def _fila(u) -> dict:
 @router.get("/usuarios")
 async def listar_usuarios(_: dict = Depends(solo_admin)):
     async with AsyncSessionLocal() as s:
-        r = await s.execute(text("SELECT id, username, nombre, activo, creado, creado_por, ultimo_acceso"
+        r = await s.execute(text("SELECT id, username, nombre, activo, solo_lectura, creado, creado_por, ultimo_acceso"
                                  " FROM portal_users ORDER BY activo DESC, nombre"))
         return {"success": True, "usuarios": [_fila(u) for u in r.mappings().all()]}
 
@@ -252,15 +267,16 @@ async def crear_usuario(body: UsuarioIn, request: Request, admin: dict = Depends
     try:
         async with AsyncSessionLocal() as s:
             await s.execute(text("""
-                INSERT INTO portal_users (username, nombre, password_hash, creado, creado_por)
-                VALUES (:u, :n, :h, :c, :por)
+                INSERT INTO portal_users (username, nombre, password_hash, solo_lectura, creado, creado_por)
+                VALUES (:u, :n, :h, :sl, :c, :por)
             """), {"u": body.username, "n": body.nombre.strip(), "h": _hash(body.password),
+                   "sl": 1 if body.solo_lectura else 0,
                    "c": ahora_sv().replace(tzinfo=None), "por": admin.get("username", "")})
             await s.commit()
     except IntegrityError:
         raise HTTPException(409, f"Ya existe el usuario {body.username}")
     audit._log("portal_usuario_crear", admin.get("username", ""), request.client.host if request.client else "",
-               {"usuario": body.username})
+               {"usuario": body.username, "solo_lectura": body.solo_lectura})
     return {"success": True}
 
 
@@ -273,6 +289,8 @@ async def cambiar_usuario(uid: int, body: UsuarioCambio, request: Request, admin
         sets.append("password_hash = :h"); params["h"] = _hash(body.password)
     if body.activo is not None:
         sets.append("activo = :a"); params["a"] = 1 if body.activo else 0
+    if body.solo_lectura is not None:
+        sets.append("solo_lectura = :sl"); params["sl"] = 1 if body.solo_lectura else 0
     if not sets:
         raise HTTPException(400, "Nada que cambiar")
     if body.password is not None or body.activo is False:

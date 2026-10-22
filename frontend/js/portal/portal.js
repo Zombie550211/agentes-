@@ -10,6 +10,8 @@
  *   · window.__sesion sale de /api/portal/me (no de /api/auth/verify-server).
  *   · Una respuesta 401 lleva al login del portal, no al del CRM.
  *   · Pinta la cabecera del portal en #topnav y #topbar-acciones.
+ *   · Usuario de solo lectura: clase .pt-solo-lectura en <html> (portal.css oculta
+ *     Guardar / Subir) y ninguna celda queda editable. El backend lo impone igual.
  * Fuera de /portal/ no hace nada. API: CRM_PYTHON/routers/portal.py.
  */
 (function () {
@@ -49,10 +51,28 @@
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (d) {
       if (!d) { location.replace(LOGIN); return { authenticated: false }; }
-      return { authenticated: true, portal: true,
+      if (d.usuario.solo_lectura) soloLectura();
+      return { authenticated: true, portal: true, soloLectura: !!d.usuario.solo_lectura,
                user: { role: 'portal', username: d.usuario.nombre, name: d.usuario.nombre } };
     })
     .catch(function () { location.replace(LOGIN); return { authenticated: false }; });
+
+  // Las páginas de facturación ponen contentEditable al pintar cada tabla: se deshace al vuelo.
+  function soloLectura() {
+    document.documentElement.classList.add('pt-solo-lectura');
+    function bloquear(raiz) {
+      if (raiz.nodeType !== 1) return;
+      if (raiz.isContentEditable || raiz.getAttribute('contenteditable') === 'true') raiz.contentEditable = 'false';
+      raiz.querySelectorAll('[contenteditable="true"]').forEach(function (n) { n.contentEditable = 'false'; });
+    }
+    new MutationObserver(function (cambios) {
+      cambios.forEach(function (c) {
+        if (c.type === 'attributes') bloquear(c.target);
+        else c.addedNodes.forEach(bloquear);
+      });
+    }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['contenteditable'] });
+    bloquear(document.documentElement);
+  }
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -79,11 +99,12 @@
     acciones.innerHTML = '<div class="tb-grupo">' +
       '<button type="button" class="tb-btn" id="pt-avatar" aria-haspopup="true" aria-expanded="false" aria-controls="pt-menu" aria-label="Mi cuenta">' +
       '<span class="tb-avatar" aria-hidden="true" id="pt-inicial">·</span><i class="ph ph-caret-down tb-caret" aria-hidden="true"></i></button>' +
-      '<div class="tb-menu" id="pt-menu" hidden><div class="tb-quien"><b id="pt-nombre"></b><span>Portal de facturación</span></div>' +
+      '<div class="tb-menu" id="pt-menu" hidden><div class="tb-quien"><b id="pt-nombre"></b><span id="pt-tipo">Portal de facturación</span></div>' +
       '<button type="button" class="tb-item tb-peligro" id="pt-salir"><i class="ph ph-sign-out" aria-hidden="true"></i>Cerrar sesión</button></div></div>';
     window.__sesion.then(function (s) {
       if (!s.user) return;
       document.getElementById('pt-nombre').textContent = s.user.name;
+      if (s.soloLectura) document.getElementById('pt-tipo').textContent = 'Portal de facturación · Solo lectura';
       document.getElementById('pt-inicial').textContent = (s.user.name.charAt(0) || '·').toUpperCase();
     });
     var btn = document.getElementById('pt-avatar'), menu = document.getElementById('pt-menu');
