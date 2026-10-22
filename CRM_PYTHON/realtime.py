@@ -14,7 +14,8 @@ import json
 import os
 from typing import Optional
 
-from jose import jwt, JWTError
+import jwt
+from jwt import PyJWTError as JWTError
 
 # ── Canales válidos ──────────────────────────────────────────────
 CHANNELS = ("residencial", "lineas")

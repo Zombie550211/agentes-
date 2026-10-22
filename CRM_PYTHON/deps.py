@@ -5,7 +5,8 @@ los routers (incluido routers/auth.py). No dupliques esta lógica en otros módu
 si necesitas crear/decodificar tokens o leer al usuario actual, impórtalo de aquí.
 """
 from fastapi import Request, Response, HTTPException, Depends
-from jose import jwt, JWTError
+import jwt
+from jwt import PyJWTError as JWTError
 import os, time, math
 
 import session_guard

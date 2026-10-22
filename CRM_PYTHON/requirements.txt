@@ -9,7 +9,8 @@ aiomysql==0.3.2   # 0.3.0+ corrige CVE-2025-62611 (local_infile / info disclosur
 PyMySQL==1.1.1
 
 # ── Auth / seguridad ─────────────────────────────────────────
-python-jose==3.5.0
+PyJWT==2.15.1   # firma y lee la cookie de sesión (HS256). Sustituye a python-jose, sin
+                # parche para CVE-2026-85394 y que arrastraba ecdsa (CVE-2024-23342, sin arreglo).
 bcrypt==5.0.0
 slowapi==0.1.9
 
@@ -19,21 +20,21 @@ aiofiles==25.1.0
 imageio-ffmpeg==0.6.0   # trae un ffmpeg estático: comprime el video promocional de inicio
 httpx==0.28.1
 cloudinary==1.44.2
-Pillow==12.3.0   # 12.2.0 tenía 13 CVEs (7 HIGH: escritura fuera de límites en paste/crop
-                 # y en ImageCmsTransform/RankFilter, lectura OOB, bypass de anti-bomba).
-                 # Nos afectaban de verdad: routers/files.py abre con PIL toda imagen subida.
-pypdf==6.19.0    # lee el texto de los recibos PDF de Google Ads (recibos_escaner.py)
+Pillow==13.0.0   # 12.2.0 tenía 13 CVEs (7 HIGH: escritura fuera de límites en paste/crop
+                 # y en ImageCmsTransform/RankFilter, lectura OOB, bypass de anti-bomba);
+                 # 12.3.0 otros 5 (corregidos en 13.0.0). Nos afectan de verdad:
+                 # routers/files.py abre con PIL toda imagen subida.
+pypdf==6.21.1    # lee el texto de los recibos PDF de Google Ads (recibos_escaner.py).
+                 # 6.19.0 tenía 8 CVEs (corregidos entre 6.20.0 y 6.21.1).
 
 # ── Pins de seguridad de dependencias indirectas ─────────────
-# No las importamos nosotros: las arrastran fastapi y python-jose. Van fijadas
+# No las importamos nosotros: las arrastran fastapi y PyMySQL. Van fijadas
 # porque las versiones que instalaban por defecto tenían CVEs. Al subir fastapi
-# o python-jose, revisar si estos pines siguen haciendo falta o estorban.
+# o PyMySQL, revisar si estos pines siguen haciendo falta o estorban.
 starlette==1.3.1      # vía fastapi (que sólo pide >=0.46.0). 1.0.0 ignoraba los
                       # límites de request.form() en urlencoded (DoS, HIGH) y dejaba
                       # que la cabecera Host envenenara request.url.path.
-cryptography==50.0.0  # vía python-jose/PyMySQL/pymongo. 48.0.0 empaquetaba un OpenSSL
+cryptography==50.0.0  # vía PyMySQL (auth sha256/caching_sha2). 48.0.0 empaquetaba un OpenSSL
                       # vulnerable (HIGH) y tenía un oráculo Bleichenbacher en PKCS#7.
-pyasn1==0.6.4         # vía python-jose. 0.6.3 tenía 3 DoS (complejidad cuadrática en
-                      # OID, consumo sin límite al decodificar REAL y tags long-form).
 
 # Herramientas de auditoría (solo desarrollo): ver requirements-dev.txt
