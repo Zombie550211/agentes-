@@ -40,6 +40,11 @@
     { corto: '10–7', s: '10:00', e: '19:00', color: 'var(--hr-b)', comida: 14 },
     { corto: '1–9', s: '13:00', e: '21:00', color: 'var(--hr-c)', comida: 16 },
     { corto: '9–6', s: '09:00', e: '18:00', color: 'var(--hr-d)', comida: 13 },
+    // 9 h con 1 h de almuerzo = 8 h de trabajo, igual que los de arriba.
+    { corto: '7:15–4:15', s: '07:15', e: '16:15', color: 'var(--hr-e)', comida: 11.25 },
+    { corto: '7:30–4:30', s: '07:30', e: '16:30', color: 'var(--hr-f)', comida: 11.5 },
+    { corto: '7:15–11:15', s: '07:15', e: '11:15', color: 'var(--hr-e)', sd: true },
+    { corto: '7:30–11:30', s: '07:30', e: '11:30', color: 'var(--hr-f)', sd: true },
     { corto: '8–12', s: '08:00', e: '12:00', color: 'var(--hr-a)', sd: true },
     { corto: '3–7', s: '15:00', e: '19:00', color: 'var(--hr-b)', sd: true },
     { corto: '5–9', s: '17:00', e: '21:00', color: 'var(--hr-c)', sd: true },
@@ -54,6 +59,8 @@
     baja: ['De baja', 'baja'],
   };
   var NO_PRESENTO = 'No se presentó';   // el CRM lo guarda como día libre con esta nota
+  // Igual: día libre con esta nota; RRHH le asigna después el horario en Cuadratura («Reponer horario»).
+  var REPONDRA = 'Repondrá horario';
 
   var state = {
     inicio: null,        // lunes AAAA-MM-DD
@@ -111,9 +118,10 @@
   }
   function colorTurno(t) { var T = turnoHabitual(t); return T ? T.color : 'var(--hr-x)'; }
   function horasTrabajo(t) { return Math.max(t.end_h - t.start_h - (t.break_minutes || 0) / 60, 0); }
-  function esNoPresento(l) { return (l.notes || '').trim().toLowerCase() === NO_PRESENTO.toLowerCase(); }
+  function notaEs(l, nota) { return (l.notes || '').trim().toLowerCase() === nota.toLowerCase(); }
   function infoLibre(l) {
-    if (esNoPresento(l)) return [NO_PRESENTO, 'nop'];
+    if (notaEs(l, NO_PRESENTO)) return [NO_PRESENTO, 'nop'];
+    if (notaEs(l, REPONDRA)) return [REPONDRA, 'rep'];
     return LIBRES[l.kind] || ['Libre', 'libre'];
   }
   function claveDia(id, f) { return id + '|' + f; }
@@ -377,7 +385,7 @@
   var OPC_LIBRES = [
     ['libre', 'Libre', 'libre'], ['compensatorio', 'Compensatorio', 'comp'], ['vacacion', 'Vacaciones', 'vac'],
     ['incapacidad', 'Incapacidad', 'inc'], ['suspendido', 'Suspendido', 'susp'], ['baja', 'De baja', 'baja'],
-    ['nop', NO_PRESENTO, 'nop'],
+    ['nop', NO_PRESENTO, 'nop'], ['rep', REPONDRA, 'rep'],
   ];
 
   function abrirPop(boton) {
@@ -426,6 +434,8 @@
         if (!body.start || !body.end || body.start === body.end) { toast('Indique la hora de entrada y la de salida', true); return; }
       } else if (op === 'l:nop') {
         Object.assign(body, { tipo: 'libre', notes: NO_PRESENTO });
+      } else if (op === 'l:rep') {
+        Object.assign(body, { tipo: 'libre', notes: REPONDRA });
       } else if (op.indexOf('l:') === 0) {
         body.tipo = op.slice(2);
       } else if (op === 'quitar') {
