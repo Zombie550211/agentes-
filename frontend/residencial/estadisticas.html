@@ -405,9 +405,11 @@
     var today=todayStr();
     var ms=mStr(cY,cM);
 
-    // Ventas del mes: solo leads con dia_venta en el mes, excluye canceladas
+    // Ventas del mes: solo leads con dia_venta en el mes. Excluye canceladas y REPRO
+    // (un REPRO reprocesa una venta de días atrás, que ya se contó).
     var filtered=leads.filter(function(l){
-      return String(l.dia_venta||'').slice(0,7)===ms&&String(l.status||'').toLowerCase()!=='cancelled';
+      var st=String(l.status||'').toLowerCase();
+      return String(l.dia_venta||'').slice(0,7)===ms&&st!=='cancelled'&&!/repro|resched|reagend/.test(st);
     });
 
     var total=filtered.length;
