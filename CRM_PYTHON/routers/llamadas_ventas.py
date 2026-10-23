@@ -181,7 +181,7 @@ async def lv_puntos_dia(fecha: str = Query(...), user: dict = Depends(current_us
         SELECT COALESCE(SUM(puntaje), 0)
         FROM {t}
         WHERE dia_venta = :f
-          AND LOWER(COALESCE(status,'')) NOT REGEXP 'cancel|reser|hold|resched|reagend|reprogram|oficina'
+          AND LOWER(COALESCE(status,'')) NOT REGEXP 'cancel|reser|hold|resched|reagend|repro|oficina'
     """
     async with AsyncSessionLocal() as s:
         r1 = await s.execute(text(sql.format(t="leads")), {"f": fecha})

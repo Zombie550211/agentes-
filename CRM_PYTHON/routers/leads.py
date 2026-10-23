@@ -877,10 +877,10 @@ async def semaforo(
     async with AsyncSessionLocal() as s:
         try:
             # Cuenta SOLO por fecha de venta del mes (sin colchón): pendientes y
-            # activas/completadas. Excluye cancel/reserva/hold/reagendada/oficina,
+            # activas/completadas. Excluye cancel/reserva/hold/reagendada/repro/oficina,
             # igual que /api/equipos/estadisticas, para que la suma de agentes
             # cuadre con el total del equipo.
-            _EXCL = "CANCEL|RESER|HOLD|RESCHED|REAGEND|REPROGRAM|OFICINA"
+            _EXCL = "CANCEL|RESER|HOLD|RESCHED|REAGEND|REPRO|OFICINA"
             _INCL = "PEND|ACTIV|COMPLET|CERRAD"
             r = await s.execute(text(f"""
                 SELECT

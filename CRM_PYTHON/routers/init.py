@@ -28,7 +28,7 @@ def normalize_status(raw: str) -> str:
     if any(x in s for x in ("complet","activ","cerr","vend")): return "completed"
     if "hold"    in s:    return "hold"
     if "reser"   in s:    return "reserva"
-    if any(x in s for x in ("resched","reagend","reprogram")):  return "rescheduled"
+    if any(x in s for x in ("resched","reagend","repro")):  return "rescheduled"  # REPRO: reprocesa una venta de días atrás
     if "oficina" in s:    return "oficina"
     return "pending"
 

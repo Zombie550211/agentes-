@@ -120,7 +120,7 @@ async def _equipo_estadisticas_core(fechaInicio=None, fechaFin=None, scope=None,
     # El semáforo cuenta como venta del mes SOLO pendientes y activas/completadas.
     # Se excluyen canceladas, reserva, hold, reagendadas (repro) y oficina.
     agg: dict = {}
-    exclude_re = ("cancel", "reser", "hold", "resched", "reagend", "reprogram", "oficina")
+    exclude_re = ("cancel", "reser", "hold", "resched", "reagend", "repro", "oficina")
     active_re  = ("completed", "completado", "complete", "active", "activo", "activa", "cerrad")
     pending_re = ("pend",)  # pending / pendiente
     repro_re   = ("repro", "rescheduled", "reagendado", "reprogram", "resched")

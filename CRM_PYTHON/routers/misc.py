@@ -151,7 +151,7 @@ async def rankings_leads(
         params["start"] = f"{targetMonth}-01"
         params["end"]   = f"{targetMonth}-{str(last_day).zfill(2)}"
         where_clauses.append("""
-            status NOT REGEXP '^(cancelled|hold|rescheduled|reserva|oficina|cancelado|cancelada)$'
+            status NOT REGEXP '^(cancelled|hold|rescheduled|repro|reserva|oficina|cancelado|cancelada)$'
             AND (
               (dia_venta BETWEEN :start AND :end)
               OR (
