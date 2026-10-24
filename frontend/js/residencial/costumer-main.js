@@ -869,6 +869,8 @@
       const diYM=toYM(l.dia_instalacion);
       if(st==='oficina'){kpi.oficina++;return;}
       if(st==='reserva'){kpi.reserva++;return;}
+      // Hold: ventas del mes (por dia_venta) en status hold
+      if(st==='hold'){if(dvYM===refMon)kpi.hold++;return;}
       // Colchón: instalado en refMon, vendido en mes anterior
       const isColForMon=!!(dvYM&&diYM&&diYM===refMon&&dvYM!==refMon);
       // Normal: dia_venta en el mes
@@ -892,7 +894,7 @@
     animateCount('costumer-pendientes',kpi.pend);
     animateCount('costumer-cancelados',kpi.cancel);
     animateCount('costumer-oficina',kpi.oficina);
-    animateCount('costumer-reserva',kpi.reserva);
+    animateCount('costumer-hold',kpi.hold);
     animateCount('costumer-colchon',kpi.colchon);
   }
   function animateCount(id,to){const el=document.getElementById(id);if(!el)return;const from=parseInt(el.textContent,10)||0;const dur=500,start=performance.now();function step(now){const p=Math.min((now-start)/dur,1);el.textContent=Math.round(from+(to-from)*p);if(p<1)requestAnimationFrame(step);}requestAnimationFrame(step);}
