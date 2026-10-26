@@ -1,7 +1,8 @@
 """Consolidado (residencial/consolidado.html).
 
-GET /api/consolidado?mes=YYYY-MM → puntaje de las ventas del mes (leads.dia_venta) sumado
-por status, en dos vistas:
+GET /api/consolidado?mes=YYYY-MM → puntaje de las ventas del mes sumado por status, en dos
+vistas. Entran las ventas del mes (leads.dia_venta) y las de colchón: instaladas este mes
+(dia_instalacion) pero vendidas en un mes anterior, con la misma regla que routers/ranking.py.
 - total:   una fila por team de venta (su supervisor).
 - equipos: por cada team, una fila por agente.
 
@@ -105,7 +106,9 @@ async def consolidado(mes: str | None = Query(None), user: dict = Depends(curren
                    TRIM(COALESCE(NULLIF(agente, ''), agente_nombre, '')) AS agente,
                    status, COALESCE(puntaje, 0) AS puntaje
             FROM leads
-            WHERE dia_venta >= :d AND dia_venta < :h
+            WHERE ((dia_venta >= :d AND dia_venta < :h)
+                   OR (dia_instalacion >= :d AND dia_instalacion < :h
+                       AND (dia_venta IS NULL OR dia_venta < :d)))   -- colchón
               AND (excluir_de_reporte IS NULL OR excluir_de_reporte = FALSE)
               {filtro_mercado}
         """), params)
