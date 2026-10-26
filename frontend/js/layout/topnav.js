@@ -37,6 +37,8 @@
       { label: 'Estadísticas', href: '/residencial/estadisticas.html', seccion: 'res' },
       { label: 'Productividad', href: '/residencial/productividad.html', seccion: 'res' },
       { label: 'El Semáforo', href: '/residencial/semaforo.html', seccion: 'res' },
+      { label: 'Monitoreo', href: '/residencial/monitoreo.html', seccion: 'res' },
+      { label: 'Consolidado', href: '/residencial/consolidado.html', seccion: 'res' },
     ] },
     { label: 'Ranking residencial', items: [
       { label: 'Ranking de Activaciones', href: '/residencial/ranking-agente.html', seccion: 'res' },
@@ -54,7 +56,7 @@
       { label: 'Permisos', href: '/crear-cuenta.html', seccion: 'res', roles: 'gestion' },
       { label: 'Tiempo laboral', href: '/residencial/tiempo-laboral.html', seccion: 'res', roles: 'gestion' },
       { label: 'Horarios', href: '/horarios.html', seccion: 'comun' },
-      { label: 'Chat', href: '/chat.html', seccion: 'res' },
+      // Chat desactivado por ahora (ver js/layout/sidebar.js).
     ] },
     { label: 'Servicios móviles', items: [
       { label: 'Inicio de móviles', href: '/lineas/inicio.html', seccion: 'lin' },

@@ -36,6 +36,8 @@
     {"href": "/residencial/productividad-bo.html", "label": "Productividad B.O", "color": "#d97706", "icon": "<circle cx=\"9\" cy=\"7\" r=\"3\"/><path d=\"M4 20c0-3.5 2.7-6 5-6\"/><path d=\"M13 20l3-4 2 2 3-6\"/>"},
     {"href": "/residencial/estadisticas.html", "label": "Estadísticas", "color": "#ca8a04", "icon": "<line x1=\"4\" y1=\"20\" x2=\"20\" y2=\"20\"/><rect x=\"6\" y=\"12\" width=\"3\" height=\"8\" rx=\"2\"/><rect x=\"11\" y=\"8\" width=\"3\" height=\"12\" rx=\"2\"/><rect x=\"16\" y=\"4\" width=\"3\" height=\"16\" rx=\"2\"/>"},
     {"href": "/residencial/productividad.html", "label": "Productividad", "color": "#4f46e5", "icon": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><line x1=\"3\" y1=\"12\" x2=\"21\" y2=\"12\"/><path d=\"M12 3c3 4 3 14 0 18\"/><path d=\"M12 3c-3 4-3 14 0 18\"/>"},
+    {"href": "/residencial/monitoreo.html", "label": "Monitoreo", "color": "#0284c7", "icon": "<rect x=\"2\" y=\"4\" width=\"20\" height=\"13\" rx=\"2\"/><line x1=\"8\" y1=\"21\" x2=\"16\" y2=\"21\"/><line x1=\"12\" y1=\"17\" x2=\"12\" y2=\"21\"/>"},
+    {"href": "/residencial/consolidado.html", "label": "Consolidado", "color": "#0284c7", "icon": "<path d=\"M12 3 3 8l9 5 9-5-9-5z\"/><path d=\"m3 13 9 5 9-5\"/>"},
     {"href": "/residencial/ranking-agente.html", "label": "Ranking de Activaciones", "color": "#ea580c", "icon": "<path d=\"M4 16l5-5 4 3 7-8\"/><path d=\"M4 20h16\"/>"},
     {"href": "/residencial/ranking.html", "label": "Ranking de Ventas", "color": "#db2777", "icon": "<path d=\"M7 4h10v5a5 5 0 0 1-10 0V4z\"/><path d=\"M7 5H4a2 2 0 0 0 2 4\"/><path d=\"M17 5h3a2 2 0 0 1-2 4\"/><line x1=\"12\" y1=\"14\" x2=\"12\" y2=\"17\"/><path d=\"M8 21h8\"/><path d=\"M9 21c0-2 1.3-3 3-3s3 1 3 3\"/>"},
     {"href": "/residencial/reglas.html", "label": "Reglas y Puntajes", "color": "#059669", "icon": "<path d=\"M6 3h9l4 4v14H6V3z\"/><path d=\"M15 3v4h4\"/><line x1=\"9\" y1=\"13\" x2=\"15\" y2=\"13\"/><line x1=\"9\" y1=\"17\" x2=\"15\" y2=\"17\"/>"},
@@ -49,8 +51,11 @@
     {"href": "/residencial/empleado-mes.html", "label": "Empleado del Mes", "color": "#ca8a04", "icon": "<path d=\"M12 2l3 6.5 7 .8-5.2 4.8 1.4 7-6.2-3.6L5.8 21.1l1.4-7L2 9.3l7-.8z\"/>"},
     {"href": "/residencial/tabla-puntaje.html", "label": "Tabla de Puntaje", "color": "#ea580c", "icon": "<line x1=\"9\" y1=\"6\" x2=\"20\" y2=\"6\"/><line x1=\"9\" y1=\"12\" x2=\"20\" y2=\"12\"/><line x1=\"9\" y1=\"18\" x2=\"20\" y2=\"18\"/><circle cx=\"4.5\" cy=\"6\" r=\"1.3\" fill=\"currentColor\"/><circle cx=\"4.5\" cy=\"12\" r=\"1.3\" fill=\"currentColor\"/><circle cx=\"4.5\" cy=\"18\" r=\"1.3\" fill=\"currentColor\"/>"},
     {"href": "/crear-cuenta.html", "label": "Permisos", "color": "#4f46e5", "icon": "<path d=\"M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6z\"/><path d=\"M9 12l2 2 4-4\"/>"},
-    {"href": "/residencial/tiempo-laboral.html", "label": "Tiempo laboral", "color": "#0284c7", "icon": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3.5 2\"/>"},
-    {"href": "/chat.html", "label": "Chat", "color": "#0d9488", "icon": "<path d=\"M4 5h16v11H9l-5 4V5z\"/>"}
+    {"href": "/residencial/tiempo-laboral.html", "label": "Tiempo laboral", "color": "#0284c7", "icon": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3.5 2\"/>"}
+    // Chat desactivado por ahora (26-10-2026). Para volver: restaurar esta línea, el
+    // ítem de topnav.js y topbar-acciones.js, la carga de chat-avisos.js de abajo y quitar
+    // chat.html de _PAGINAS_DESACTIVADAS en main.py.
+    // {"href": "/chat.html", "label": "Chat", "color": "#0d9488", "icon": "<path d=\"M4 5h16v11H9l-5 4V5z\"/>"}
   ],
 
   LINEAS: [
@@ -186,12 +191,14 @@
     // ya está en el DOM y se le puede consultar.
     document.dispatchEvent(new CustomEvent('sidebar:ready', { detail: { nav: nav } }));
 
-    // Avisos de chat (globo en «Chat» y tarjeta de mensaje nuevo) en todas las
-    // páginas con menú. chat.html los gestiona por su cuenta en chat-page.js.
-    if (!/\/chat\.html$/i.test(location.pathname)) {
-      const avisos = document.createElement('script');
-      avisos.src = '/js/componentes/chat-avisos.js?v=20260930';
-      document.head.appendChild(avisos);
-    }
+    // Avisos de chat (js/componentes/chat-avisos.js): desactivados junto con el chat.
+
+    // Centro de notificaciones y avisos de faltas de Monitoreo (ver topbar-acciones.js).
+    ['/js/core/notificaciones.js?v=20261026a', '/js/componentes/aviso-faltas.js?v=20261026d'].forEach(function (src) {
+      const s = document.createElement('script');
+      s.src = src;
+      s.async = false;
+      document.head.appendChild(s);
+    });
   }
 })();

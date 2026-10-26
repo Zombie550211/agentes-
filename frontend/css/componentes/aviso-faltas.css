@@ -1,0 +1,72 @@
+/* Avisos de faltas (Monitoreo) — lo carga js/componentes/aviso-faltas.js por su cuenta.
+   Colores fijos: la hoja se usa tanto en páginas con sistema.css como en las del menú lateral. */
+
+/* ── Agente: ventana «Tienes N Faltas» ─────────────────────────────────── */
+.af-fondo {
+  position: fixed; inset: 0; z-index: 100001;
+  display: grid; place-items: center; padding: 16px;
+  background: rgb(15 23 42 / .55);
+}
+.af-dialogo {
+  width: min(380px, 100%);
+  padding: 28px 24px 22px;
+  background: #fff;
+  border-top: 4px solid #dc2626;
+  box-shadow: 0 20px 48px rgb(15 23 42 / .3);
+  text-align: center;
+  font-family: Inter, system-ui, sans-serif;
+  color: #0f172a;
+  animation: af-entra .2s ease-out;
+}
+.af-ico {
+  width: 48px; height: 48px; margin: 0 auto 14px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: #fee2e2; color: #b91c1c;
+  font: 800 24px/1 Inter, system-ui, sans-serif;
+}
+.af-titulo { margin: 0; font-size: 24px; font-weight: 800; color: #b91c1c; }
+.af-texto { margin: 8px 0 20px; font-size: 13px; line-height: 1.5; color: #475569; }
+.af-boton {
+  min-width: 140px; height: 40px; padding: 0 18px;
+  border: 0; background: #dc2626; color: #fff; cursor: pointer;
+  font: 600 13px/1 Inter, system-ui, sans-serif;
+}
+.af-boton:hover { background: #b91c1c; }
+.af-boton:focus-visible { outline: 3px solid #fca5a5; outline-offset: 2px; }
+
+/* ── Administración: tarjetas «Sacar de inbound» ───────────────────────── */
+/* Abajo a la derecha: arriba tapaba los iconos de la cabecera y los controles de cada
+   página (cambio de mes, filtros). 56px deja libre el indicador «En vivo» de realtime.js. */
+.af-pila {
+  position: fixed; bottom: 56px; right: 16px; z-index: 100000;
+  display: flex; flex-direction: column-reverse; gap: 10px;
+  max-height: calc(100vh - 72px); overflow-y: auto;
+  width: min(320px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.af-alerta {
+  position: relative;
+  padding: 12px 36px 12px 14px;
+  background: #fff;
+  border-left: 4px solid #dc2626;
+  box-shadow: 0 12px 32px rgb(15 23 42 / .18);
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 12px; color: #334155;
+  pointer-events: auto;
+  animation: af-entra .25s ease-out;
+}
+.af-alerta-cab { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #b91c1c; }
+.af-alerta-nom { margin-top: 4px; font-size: 14px; color: #0f172a; }
+.af-alerta-team { margin-top: 2px; color: #64748b; }
+.af-alerta-ver { display: inline-block; margin-top: 8px; font-weight: 600; color: #0369a1; }
+.af-alerta-ver:focus-visible, .af-alerta-x:focus-visible { outline: 2px solid #0284c7; outline-offset: 2px; }
+.af-alerta-x {
+  position: absolute; top: 6px; right: 6px;
+  width: 26px; height: 26px; border: 0; background: transparent;
+  font-size: 18px; line-height: 1; color: #64748b; cursor: pointer;
+}
+.af-alerta-x:hover { color: #0f172a; }
+
+@keyframes af-entra { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .af-dialogo, .af-alerta { animation: none; } }

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Consolidado · Residencial</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <!-- Sesión: la cabecera (menú e iconos) la reutiliza; sin sesión, al login. -->
+  <script>
+    window.__sesion = fetch('/api/auth/verify-server', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : { authenticated: false }; })
+      .then(function (d) { if (!d.authenticated) { location.replace('/login.html'); } return d; })
+      .catch(function () { location.replace('/login.html'); return {}; });
+  </script>
+  <link rel="stylesheet" href="/css/base/scroll.css?v=20261008a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
+  <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
+  <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
+  <link rel="stylesheet" href="/css/componentes/pagina.css?v=20261009a">
+  <link rel="stylesheet" href="/css/residencial/consolidado.css?v=20261026a">
+  <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
+  <script src="/js/layout/transicion.js?v=20261008b"></script>
+  <script src="/js/core/fetch-interceptor.js" defer></script>
+  <script src="/js/core/logout-handler.js" defer></script>
+  <script src="/js/core/user-info.js" defer></script>
+</head>
+<body>
+<div class="in-marco">
+<div class="in-hoja">
+
+  <header class="in-head">
+    <nav id="topnav" class="tn" aria-label="Menú principal"></nav>
+    <!-- Ajustes, notificaciones y usuario: js/layout/topbar-acciones.js -->
+    <div id="topbar-acciones" class="in-iconos"></div>
+  </header>
+
+  <section class="pg-barra in-glass" aria-label="Consolidado">
+    <div class="pg-titulo">
+      <span class="pg-ico"><i class="ph ph-stack" aria-hidden="true"></i></span>
+      <div>
+        <h1>Consolidado</h1>
+        <p>Puntaje de las ventas del mes por status, por team y por agente</p>
+      </div>
+    </div>
+    <div class="pg-acciones">
+      <div class="pg-periodo">
+        <button type="button" class="pg-paso" id="co-prev" aria-label="Mes anterior"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
+        <span class="pg-periodo-lbl" id="co-mes" aria-live="polite">—</span>
+        <button type="button" class="pg-paso" id="co-next" aria-label="Mes siguiente"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ Consolidado total: una fila por team (js/residencial/consolidado.js) ══ -->
+  <section class="pg-card in-glass" aria-labelledby="co-total-titulo">
+    <div class="pg-card-head">
+      <div>
+        <h2 id="co-total-titulo"><i class="ph ph-users-three" aria-hidden="true"></i>Consolidado total</h2>
+        <p>Suma del puntaje de las ventas de cada team según su status</p>
+      </div>
+    </div>
+    <div id="co-total"><div class="pg-vacio">Cargando…</div></div>
+  </section>
+
+  <!-- ══ Consolidado por equipos: una tabla por team, una fila por agente ══ -->
+  <section class="co-equipos" aria-labelledby="co-eq-titulo">
+    <h2 class="co-seccion" id="co-eq-titulo"><i class="ph ph-user-check" aria-hidden="true"></i>Consolidado por equipos</h2>
+    <div id="co-equipos"></div>
+  </section>
+
+</div>
+</div>
+
+<script src="/js/layout/topnav.js?v=20261026c" defer></script>
+<script src="/js/layout/topbar-acciones.js?v=20261026e" defer></script>
+<script src="/js/residencial/consolidado.js?v=20261026b" defer></script>
+</body>
+</html>

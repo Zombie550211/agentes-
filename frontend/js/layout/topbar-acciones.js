@@ -1,5 +1,5 @@
 /**
- * Iconos de la cabecera (ajustes, chat, notificaciones y usuario), cada uno con su menú.
+ * Iconos de la cabecera (ajustes, notificaciones y usuario), cada uno con su menú.
  * Lo usa la página de inicio junto a js/layout/topnav.js.
  *
  * La página aporta:  <div id="topbar-acciones" class="in-iconos"></div>
@@ -27,11 +27,10 @@
       { label: 'Tiempo laboral', icon: 'ph-clock', href: '/residencial/tiempo-laboral.html', roles: 'gestion' },
       { label: 'Usuarios del portal', icon: 'ph-globe', href: '/residencial/portal-usuarios.html', roles: 'admin' },
     ] },
-    { id: 'chat', icon: 'ph-chat-circle-dots', label: 'Chat', href: '/chat.html' },
+    // Chat desactivado por ahora (ver js/layout/sidebar.js).
     { id: 'avisos', icon: 'ph-bell', label: 'Notificaciones', panel: 'notificaciones' },
     { id: 'usuario', avatar: true, label: 'Mi cuenta', items: [
       { label: 'Mi horario', icon: 'ph-clock', href: '/horarios.html' },
-      { label: 'Chat', icon: 'ph-chat-circle-dots', href: '/chat.html' },
       { label: 'Cerrar sesión', icon: 'ph-sign-out', accion: 'salir', peligro: true },
     ] },
   ];
@@ -223,7 +222,7 @@
           <article class="tour-card">
             <div class="tour-step">01</div>
             <h3>Qué cambia</h3>
-            <p>El menú pasa a la parte superior: ahí están todas las secciones, y a la derecha los ajustes, el chat, las notificaciones y tu usuario. La página de inicio muestra ventas, puntos y rendimiento del equipo de forma más clara.</p>
+            <p>El menú pasa a la parte superior: ahí están todas las secciones, y a la derecha los ajustes, las notificaciones y tu usuario. La página de inicio muestra ventas, puntos y rendimiento del equipo de forma más clara.</p>
           </article>
           <article class="tour-card">
             <div class="tour-step">02</div>
@@ -302,5 +301,13 @@
   document.addEventListener('DOMContentLoaded', function () {
     var cont = document.getElementById('topbar-acciones');
     if (cont) iniciar(cont);
+    // Centro de notificaciones (una conexión en vivo por navegador) y, sobre él, los avisos
+    // de faltas de Monitoreo. async=false: se ejecutan en este orden.
+    ['/js/core/notificaciones.js?v=20261026a', '/js/componentes/aviso-faltas.js?v=20261026d'].forEach(function (src) {
+      var s = document.createElement('script');
+      s.src = src;
+      s.async = false;
+      document.head.appendChild(s);
+    });
   });
 })();

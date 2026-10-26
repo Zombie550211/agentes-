@@ -42,6 +42,34 @@ def unsubscribe(channel: str, q: asyncio.Queue) -> None:
         subs.discard(q)
 
 
+# ── Canales del centro de notificaciones ─────────────────────────
+# Una conexión por navegador (js/core/notificaciones.worker.js) escucha a la vez su canal
+# personal y el de su rol; el servidor publica en el que corresponda y solo le llega a
+# quien debe. Los nombres no compiten con CHANNELS: esos los valida /api/stream.
+def canal_usuario(user_id) -> str:
+    return f"usuario:{user_id}"
+
+
+CANAL_ADMIN = "rol:admin"
+
+
+def subscribe_many(channels: list[str]) -> asyncio.Queue:
+    """Una sola cola registrada en varios canales."""
+    q: asyncio.Queue = asyncio.Queue(maxsize=_MAX_QUEUE)
+    for ch in channels:
+        _subscribers.setdefault(ch, set()).add(q)
+    return q
+
+
+def unsubscribe_many(channels: list[str], q: asyncio.Queue) -> None:
+    for ch in channels:
+        subs = _subscribers.get(ch)
+        if subs is not None:
+            subs.discard(q)
+            if not subs and ch not in CHANNELS:
+                _subscribers.pop(ch, None)   # los personales no se quedan vacíos en memoria
+
+
 async def publish(channel: str, event: dict) -> None:
     """Encola `event` (serializable a JSON) para todos los clientes del canal.
 

@@ -59,6 +59,8 @@ from routers import (
     transferencias as transferencias_router,
     promociones as promociones_router,
     promo_video as promo_video_router,
+    monitoreo as monitoreo_router,
+    consolidado as consolidado_router,
 )
 
 # ── Rutas base ──────────────────────────────────────────────────
@@ -440,6 +442,21 @@ _MIGRATIONS: list[tuple[str, str]] = [
     ("0073_seed_equivalentes_att_air", """UPDATE productos
         SET equivalentes = JSON_ARRAY('AIR', 'AT&T AIR', 'ATT-AIR')
         WHERE servicio = 'ATT AIR' AND equivalentes IS NULL"""),
+    # Monitoreo (routers/monitoreo.py): cada fila es una «falta en sus llamadas» de un agente en
+    # un día; un mismo día puede tener varias.
+    # nota: el porqué de la falta, lo escribe quien la marca (área de monitoreo / supervisor).
+    # aviso_visto: el agente ya cerró el aviso de «Tienes N faltas» que incluía esta marca.
+    ("0074_create_monitoreo_faltas", """CREATE TABLE IF NOT EXISTS monitoreo_faltas (
+        id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        user_id      INT UNSIGNED NOT NULL,
+        fecha        DATE         NOT NULL,
+        nota         VARCHAR(500) NULL,
+        marcado_por  VARCHAR(150) NULL,
+        aviso_visto  TINYINT(1)   NOT NULL DEFAULT 0,
+        created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        KEY idx_monitoreo_faltas_user_fecha (user_id, fecha),
+        KEY idx_monitoreo_faltas_fecha (fecha)
+    ) ENGINE=InnoDB"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración
@@ -702,7 +719,7 @@ app.add_middleware(
 # notificaciones, chat) deja de llegar al instante. Es un fallo difícil de
 # diagnosticar después, así que se excluye por ruta en vez de confiar en que el
 # compresor haga flush por cada chunk.
-_SSE_PATHS = {"/api/stream", "/api/chat/stream"}
+_SSE_PATHS = {"/api/stream", "/api/stream/notificaciones", "/api/chat/stream"}
 
 
 class _GzipSalvoSSE:
@@ -860,6 +877,8 @@ app.include_router(cuadratura_entrada_router.router)
 app.include_router(transferencias_router.router)
 app.include_router(promociones_router.router)
 app.include_router(promo_video_router.router)
+app.include_router(monitoreo_router.router)
+app.include_router(consolidado_router.router)
 
 # ── Archivos estáticos ───────────────────────────────────────────
 class _RevalidateStaticFiles(StaticFiles):
@@ -1111,10 +1130,19 @@ _LEGACY_REDIRECTS: dict[str, str] = {
     "permisos.html":               "/crear-cuenta.html",
 }
 
+# Páginas apagadas por ahora: redirigen a inicio con 302 (no 301, que el navegador guarda
+# para siempre y estorbaría al volver a activarlas). Los archivos siguen en frontend/.
+_PAGINAS_DESACTIVADAS: dict[str, str] = {
+    "chat.html": "/residencial/inicio.html",   # 26-10-2026, ver js/layout/sidebar.js
+}
+
 @app.get("/{page:path}")
 async def serve_page(page: str, request: Request):
-    # 0. Revisar mapa de redirects legacy (case-insensitive)
     page_lower = page.lower()
+    if page_lower.removesuffix(".html") + ".html" in _PAGINAS_DESACTIVADAS:
+        return RedirectResponse(url=_PAGINAS_DESACTIVADAS[page_lower.removesuffix(".html") + ".html"], status_code=302)
+
+    # 0. Revisar mapa de redirects legacy (case-insensitive)
     for old, new in _LEGACY_REDIRECTS.items():
         if page_lower == old.lower():
             return RedirectResponse(url=new, status_code=301)

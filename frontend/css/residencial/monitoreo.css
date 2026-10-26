@@ -1,0 +1,65 @@
+/* Monitoreo (residencial/monitoreo.html).
+   Piezas comunes en css/componentes/pagina.css; aquí sólo la rejilla de equipos. */
+
+.mo-teams{display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:var(--space-3);align-items:start}
+@media (max-width:520px){ .mo-teams{grid-template-columns:minmax(0,1fr)} }
+.mo-team .pg-card-head h2{font-size:15px}
+.mo-sup{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:11px;color:var(--color-neutral-600)}
+.mo-sup b{font-weight:600;color:var(--color-text)}
+/* Tabla agente × día */
+.mo-tbl thead th{position:static}
+.mo-tbl tbody tr:last-child>*{border-bottom:0}
+.mo-tbl tbody th{max-width:180px}
+.mo-dia{width:34px;padding-left:4px!important;padding-right:4px!important}
+.mo-dia abbr{text-decoration:none;cursor:help}
+.mo-celda{width:34px;text-align:center;border-left:1px solid rgb(0 112 152 / .06)}
+.mo-agente{display:flex;align-items:center;gap:10px;min-width:0}
+.mo-ini{flex:none;width:26px;height:26px;display:grid;place-items:center;font-size:10px;font-weight:700;
+  color:var(--color-accent-2-600);background:rgb(0 112 152 / .08)}
+.mo-nom{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-text)}
+.mo-vacio{padding:var(--space-3) var(--space-4);font-size:12px;font-style:italic;color:var(--color-neutral-600)}
+
+/* Faltas en sus llamadas: casilla que se marca con un clic */
+.mo-tbl .mo-celda{padding:0!important}
+.mo-hoy{background:rgb(0 112 152 / .05)}
+.mo-marca{display:grid;place-items:center;width:100%;height:36px;padding:0;border:0;border-radius:0;background:transparent;
+  font-size:15px;font-weight:700;color:#b91c1c;cursor:pointer}
+.mo-marca:hover:not(:disabled){background:rgb(220 38 38 / .08)}
+.mo-marca[aria-pressed="true"]{background:rgb(220 38 38 / .1)}
+.mo-marca:disabled{cursor:not-allowed;background:repeating-linear-gradient(135deg,transparent 0 4px,rgb(143 156 166 / .08) 4px 8px)}
+.mo-marca:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:-2px}
+.mo-marca[aria-busy="true"]{opacity:.5}
+.mo-check{display:grid;place-items:center;height:36px;font-size:15px;font-weight:700;color:#b91c1c}
+/* 3 faltas o más: fila marcada y aviso para sacarlo de inbound */
+.mo-alerta>th{box-shadow:inset 3px 0 0 #dc2626}
+.mo-chip-sitio:empty{display:none}
+.mo-chip{margin-top:4px;font-size:10px}
+
+/* Dos faltas o más el mismo día: el número sobre fondo rojo */
+.mo-marca.mo-varias,.mo-check.mo-varias{color:#fff;background:#dc2626}
+.mo-marca.mo-varias:hover:not(:disabled){background:#b91c1c}
+
+/* Recuadro: faltas del día + «Notas» */
+.mo-dialogo{width:min(460px,calc(100vw - 32px));padding:0;border:0;border-top:4px solid #dc2626;
+  box-shadow:0 20px 48px rgb(15 23 42 / .3);color:var(--color-text)}
+.mo-dialogo::backdrop{background:rgb(15 23 42 / .45)}
+.mo-dialogo form{display:flex;flex-direction:column;padding:var(--space-4)}
+.mo-dlg-titulo{margin:0;font-size:18px}
+.mo-dlg-sub{margin:2px 0 var(--space-3);font-size:12px;color:var(--color-neutral-600)}
+.mo-dlg-lista{list-style:none;margin:0 0 var(--space-3);padding:0;max-height:240px;overflow:auto}
+.mo-dlg-lista:empty{display:none}
+.mo-dlg-falta{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid rgb(0 112 152 / .1)}
+.mo-dlg-falta:first-child{border-top:1px solid rgb(0 112 152 / .1)}
+.mo-dlg-falta-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:12px}
+.mo-dlg-falta-txt b{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#b91c1c}
+.mo-dlg-nota{white-space:pre-wrap;overflow-wrap:anywhere;color:var(--color-text)}
+.mo-dlg-sin{font-style:italic;color:var(--color-neutral-500)}
+.mo-dlg-por{font-size:10px;color:var(--color-neutral-600)}
+.mo-dlg-vacio{margin:0 0 var(--space-3);font-size:12px;font-style:italic;color:var(--color-neutral-600)}
+.mo-dlg-campo{margin-bottom:6px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--color-neutral-700)}
+.mo-dialogo textarea{width:100%;box-sizing:border-box;padding:10px;resize:vertical;min-height:80px;
+  border:1px solid rgb(0 112 152 / .25);border-radius:0;font:inherit;font-size:13px;color:var(--color-text);background:#fff}
+.mo-dialogo textarea:focus{outline:2px solid var(--color-accent-2-500);outline-offset:-1px}
+.mo-dlg-acciones{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;margin-top:var(--space-4)}
+.pg-boton.mo-quitar{flex:none;height:30px;padding:0 10px;color:#b91c1c;border-color:rgb(220 38 38 / .35)}
+.pg-boton.mo-quitar:hover:not(:disabled){color:#fff;background:#dc2626;border-color:#dc2626}

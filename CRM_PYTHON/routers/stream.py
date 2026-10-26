@@ -1,6 +1,7 @@
-"""Endpoint SSE (Server-Sent Events) para tiempo real.
+"""Endpoints SSE (Server-Sent Events) para tiempo real.
 
 GET /api/stream?channel=residencial|lineas
+GET /api/stream/notificaciones  → centro de notificaciones (ver más abajo)
 
 El navegador (EventSource) abre una conexión persistente y recibe un aviso cada
 vez que cambian los datos del canal; entonces el frontend re-ejecuta su función
@@ -13,6 +14,7 @@ from fastapi.responses import StreamingResponse, JSONResponse
 
 import realtime
 import session_guard
+from deps import ADMIN_ROLES
 
 router = APIRouter(tags=["Realtime"])
 
@@ -68,5 +70,60 @@ async def stream(request: Request, channel: str = "residencial"):
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",  # evita buffering en nginx/proxies
+        },
+    )
+
+
+# ── Centro de notificaciones ─────────────────────────────────────
+# Una sola conexión por NAVEGADOR, no por pestaña: la abre el SharedWorker
+# js/core/notificaciones.worker.js y la reparte a todas las pestañas del CRM. Escucha el
+# canal personal del usuario y, si es administración, el de su rol. Los eventos son
+# avisos cortos ({"type": "faltas"}); la página vuelve a pedir el dato a su API, así que
+# aquí no viaja nada que el usuario no pueda leer de todos modos.
+# Va bajo /api/stream/ para que el proxy le aplique lo mismo que a /api/stream.
+_ADMIN = {r.lower() for r in ADMIN_ROLES}
+
+
+@router.get("/api/stream/notificaciones")
+async def stream_notificaciones(request: Request):
+    user = realtime.auth_sse(request)
+    if not user:
+        return JSONResponse({"detail": "No autenticado"}, status_code=401)
+    revocado = await session_guard.is_session_revoked(user)
+    if revocado:
+        return JSONResponse({"detail": revocado}, status_code=401)
+
+    canales = [realtime.canal_usuario(user.get("id"))]
+    if str(user.get("role") or "").strip().lower() in _ADMIN:
+        canales.append(realtime.CANAL_ADMIN)
+    queue = realtime.subscribe_many(canales)
+
+    async def event_gen():
+        # Quién es: el worker lo compara con la sesión de cada pestaña para saber si la
+        # conexión sigue siendo de ese usuario (cambio de cuenta en el mismo navegador).
+        yield realtime.event_payload({"type": "connected", "user_id": str(user.get("id"))})
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=_HEARTBEAT_SECS)
+                    yield realtime.event_payload(event)
+                except asyncio.TimeoutError:
+                    if await session_guard.is_session_revoked(user):
+                        break
+                    yield ": ping\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            realtime.unsubscribe_many(canales, queue)
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
         },
     )
