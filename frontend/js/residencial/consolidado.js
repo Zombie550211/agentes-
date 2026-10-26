@@ -3,6 +3,7 @@
  * (routers/consolidado.py): suma del puntaje de las ventas del mes por status.
  * - Consolidado total: una fila por team (su supervisor) y el total general.
  * - Consolidado por equipos: una tabla por team con una fila por agente.
+ * Admin y back office ven todos los teams; los demás solo el suyo (lo filtra el servidor).
  */
 (function () {
   'use strict';
@@ -58,16 +59,18 @@
     return t;
   }
 
-  function tablaTotal(filas) {
-    if (!filas.length) return '<div class="pg-vacio">Sin ventas este mes</div>';
+  function tablaTotal(filas, todos) {
+    if (!filas.length) return '<div class="pg-vacio">' + (todos ? 'Sin ventas este mes' : 'No tienes un equipo de venta asignado') + '</div>';
     return '<div class="pg-scroll"><table class="pg-tbl co-tbl">' + cabecera('Supervisor') + '<tbody>' +
       filas.map(function (f) {
         return '<tr><th scope="row" class="pg-izq">' + esc(f.supervisor) +
           // El team solo si no se llama como el supervisor (Eduardo Nuñez → Team Miguel Nuñez).
           (f.team && nombreTeam(f.team).toLowerCase() !== String(f.supervisor).toLowerCase()
             ? '<small>Team ' + esc(nombreTeam(f.team)) + '</small>' : '') + '</th>' + celdas(f) + '</tr>';
-      }).join('') + '</tbody><tfoot><tr><th scope="row" class="pg-izq">Total</th>' + celdas(sumar(filas)) +
-      '</tr></tfoot></table></div>';
+      }).join('') + '</tbody>' +
+      // Con un solo team el total repetiría su fila.
+      (filas.length > 1 ? '<tfoot><tr><th scope="row" class="pg-izq">Total</th>' + celdas(sumar(filas)) + '</tr></tfoot>' : '') +
+      '</table></div>';
   }
 
   function tablaEquipo(e) {
@@ -98,9 +101,9 @@
     fetch('/api/consolidado?mes=' + clave(mes), { credentials: 'include' })
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(function (d) {
-        elTotal.innerHTML = tablaTotal(d.total || []);
+        elTotal.innerHTML = tablaTotal(d.total || [], d.todos);
         elEquipos.innerHTML = (d.equipos || []).map(tablaEquipo).join('') ||
-          '<div class="pg-vacio in-glass">Sin equipos</div>';
+          '<div class="pg-vacio in-glass">' + (d.todos ? 'Sin equipos' : 'No tienes un equipo de venta asignado') + '</div>';
       })
       .catch(function () {
         elTotal.innerHTML = '<div class="pg-vacio">No se pudo cargar el consolidado</div>';

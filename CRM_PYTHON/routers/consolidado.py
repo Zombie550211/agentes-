@@ -14,6 +14,10 @@ Suma total (las cuatro). Status con las mismas reglas que routers/equipo.py:
 - Hold:    hold
 Lo demás (oficina, reserva, repro) no entra en ninguna columna.
 
+Quién ve qué: administración y back office, todos los teams; los demás (supervisor, agente,
+vendedor…) solo el suyo, leído de la BD (users.team) y no del token. Sin team de venta de
+Residencial, nada.
+
 Team de una venta: leads.supervisor es el nombre del supervisor; se cruza con users para
 sacar su team de Permisos. Los agentes de cada team salen de Permisos (Agente y vendedor,
 aunque no tengan ventas) más quien tenga ventas bajo ese supervisor. Se respetan
@@ -35,6 +39,11 @@ router = APIRouter(prefix="/api/consolidado", tags=["Consolidado"])
 _EXCLUIDO = ("reser", "resched", "reagend", "repro", "oficina")
 _ACTIVE = ("completed", "completado", "complete", "active", "activo", "activa", "cerrad")
 COLUMNAS = ("active", "pending", "cancel", "hold")
+
+
+def _es_admin_bo(user: dict) -> bool:
+    r = str(user.get("role") or "").lower()
+    return "admin" in r or "backoffice" in r or "back office" in r
 
 
 def _columna(status: str) -> str | None:
@@ -114,6 +123,11 @@ async def consolidado(mes: str | None = Query(None), user: dict = Depends(curren
         """), params)
         ventas = r.mappings().all()
 
+        mi_team = None
+        if not _es_admin_bo(user):
+            r = await s.execute(text("SELECT TRIM(team) FROM users WHERE id = :id"), {"id": user.get("id")})
+            mi_team = (r.scalar() or "").strip().upper()
+
     # Teams de venta de Residencial (los que tienen supervisor) y su roster.
     teams: dict[str, dict] = {}          # TEAM (mayúsculas) → datos
     team_de_sup: dict[str, str] = {}     # clave del supervisor → TEAM
@@ -151,6 +165,9 @@ async def consolidado(mes: str | None = Query(None), user: dict = Depends(curren
                                      {"agente": v["agente"] or "Sin agente", **_vacio()})
         ag[col] += pts
 
+    if mi_team is not None:
+        teams = {k: v for k, v in teams.items() if k == mi_team}
+
     total, equipos = [], []
     for key in sorted(teams, key=lambda k: (k.startswith("SUP:"), teams[k]["team"] or teams[k]["supervisores"][0])):
         t = teams[key]
@@ -163,4 +180,4 @@ async def consolidado(mes: str | None = Query(None), user: dict = Depends(curren
                          key=lambda a: (-a["total"], a["agente"].lower()))
         equipos.append({**base, "totales": fila, "agentes": agentes})
 
-    return {"success": True, "mes": mes, "total": total, "equipos": equipos}
+    return {"success": True, "mes": mes, "todos": mi_team is None, "total": total, "equipos": equipos}
