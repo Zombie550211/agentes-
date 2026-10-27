@@ -1,8 +1,9 @@
 """Monitoreo (residencial/monitoreo.html).
 
 GET /api/monitoreo/teams → los equipos de venta de Residencial con su supervisor y sus
-agentes, tal como están en Permisos (users.team). Solo entran los roles Supervisor y Agente
-(vendedor, administrador, etc. no aparecen aunque estén en el team). Cada agente trae sus
+agentes, tal como están en Permisos (users.team). Solo entran los roles Supervisor, Agente y
+Vendedor (en Cuadratura los vendedores son «Agente de ventas»; administrador, etc. no aparecen
+aunque estén en el team). Cada agente trae sus
 faltas de la semana en curso.
 
 Equipo de venta = team con al menos un supervisor (mismo criterio que /api/teams?sales=1),
@@ -63,7 +64,7 @@ def _es_supervisor(role: str) -> bool:
 
 
 def _es_agente(role: str) -> bool:
-    return str(role or "").strip().lower() == "agente"
+    return str(role or "").strip().lower() in {"agente", "vendedor"}
 
 
 async def _avisar(user_id) -> None:

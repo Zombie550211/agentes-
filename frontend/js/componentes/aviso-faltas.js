@@ -192,7 +192,7 @@
   function iniciar(sesion) {
     var u = sesion && sesion.user;
     if (!u) return;
-    if (norm(u.role) === 'agente') modo = 'agente';
+    if (norm(u.role) === 'agente' || norm(u.role) === 'vendedor') modo = 'agente';
     else if (esAdmin(u.role)) modo = 'admin';
     else return;
     cargarCss();
