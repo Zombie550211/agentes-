@@ -2,8 +2,25 @@
    Piezas comunes en css/componentes/pagina.css; aquí sólo lo propio. */
 
 .co-tbl .pg-n{min-width:92px}
-.co-tbl thead th.co-sum,.co-tbl td.co-sum{background:rgb(0 112 152 / .05)}
-.co-tbl td.co-tot{font-weight:700;color:var(--color-accent-2-600)}
+
+/* Encabezado: banda marino de la marca Connecting; cada status con su color (punto + línea
+   inferior) para reconocer la columna de un vistazo. Active + Pending es subtotal (banda
+   cian suave) y Suma total el dato principal (bloque cian oscuro). Sin degradados. */
+.co-tbl{--co-marino:#0f172a;--co-active:#06b6d4;--co-pending:#3b82f6;--co-cancel:#ef4444;--co-hold:#a855f7;--co-total:#0e7490}
+.co-tbl thead th{padding:12px 12px 10px;background:var(--co-marino);border-bottom:0;color:#fff;
+  font-size:12px;font-weight:600;letter-spacing:.01em;text-transform:none}
+.co-tbl thead th.pg-izq{color:#94a3b8;font-weight:500}
+.co-tbl thead th.co-st{box-shadow:inset 0 -3px 0 var(--co-c)}
+.co-st-active{--co-c:var(--co-active)}
+.co-st-pending{--co-c:var(--co-pending)}
+.co-st-cancel{--co-c:var(--co-cancel)}
+.co-st-hold{--co-c:var(--co-hold)}
+.co-punto{display:inline-block;width:8px;height:8px;margin-right:8px;border-radius:999px;background:var(--co-c);vertical-align:1px}
+.co-tbl thead th.co-sum{background:#163447;color:#a5f3fc;box-shadow:inset 0 -3px 0 var(--co-active)}
+.co-tbl thead th.co-tot{background:var(--co-total);color:#fff;font-weight:700}
+
+.co-tbl td.co-sum{background:rgb(6 182 212 / .06)}
+.co-tbl td.co-tot{font-weight:700;color:var(--co-total);background:rgb(14 116 144 / .06)}
 .co-tbl tbody th small{display:block;margin-top:1px;font-size:10px;color:var(--color-neutral-600)}
 .co-tbl .co-cero{color:var(--color-neutral-400)}
 
@@ -11,3 +28,20 @@
 .co-seccion{display:flex;align-items:center;gap:8px;margin:var(--space-2) 0 0;font-size:18px;color:var(--color-text)}
 .co-seccion i{color:var(--color-accent-2-500)}
 #co-equipos{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--space-3)}
+/* La fila de totales lleva un solo fondo; solo Suma total se distingue. */
+.co-tbl tfoot td.co-sum{background:#e3edf2}
+.co-tbl tfoot td.co-tot{background:#d3e6ed}
+
+/* Encabezados que ordenan: el botón ocupa toda la celda; la flecha tenue indica que se puede
+   ordenar y la columna activa la muestra llena, con su color. */
+.co-tbl thead th{padding:0}
+.co-orden{display:flex;align-items:center;justify-content:center;gap:4px;width:100%;padding:12px 12px 10px;
+  border:0;border-radius:0;background:transparent;color:inherit;font:inherit;cursor:pointer}
+.co-tbl thead th.pg-izq .co-orden{justify-content:flex-start;padding-left:var(--space-4)}
+.co-orden:hover{background:rgb(255 255 255 / .06)}
+.co-orden:focus-visible{outline:2px solid #22d3ee;outline-offset:-2px}
+.co-flecha{font-size:12px;opacity:.45}
+.co-activo .co-flecha{opacity:1}
+.co-tbl thead th.co-activo:not(.co-tot):not(.co-sum){background:#1e293b}
+.co-tbl thead th.pg-izq.co-activo{color:#fff}
+@media (prefers-reduced-motion:no-preference){ .co-orden{transition:background-color .15s ease-out} }

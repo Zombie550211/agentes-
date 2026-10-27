@@ -5,6 +5,7 @@ vistas. Entran las ventas del mes (leads.dia_venta) y las de colchón: instalada
 (dia_instalacion) pero vendidas en un mes anterior, con la misma regla que routers/ranking.py.
 - total:   una fila por team de venta (su supervisor).
 - equipos: por cada team, una fila por agente.
+Van por nombre; ordenar por columna lo hace la página al tocar el encabezado.
 
 Columnas (suma de leads.puntaje): Active, Pending, Active + Pending, Cancel, Hold y
 Suma total (las cuatro). Status con las mismas reglas que routers/equipo.py:
@@ -176,8 +177,7 @@ async def consolidado(mes: str | None = Query(None), user: dict = Depends(curren
             continue
         base = {"team": t["team"], "supervisor": ", ".join(t["supervisores"])}
         total.append({**base, **fila})
-        agentes = sorted((_cerrar(a) for a in t["agentes"].values()),
-                         key=lambda a: (-a["total"], a["agente"].lower()))
+        agentes = sorted((_cerrar(a) for a in t["agentes"].values()), key=lambda a: a["agente"].lower())
         equipos.append({**base, "totales": fila, "agentes": agentes})
 
     return {"success": True, "mes": mes, "todos": mi_team is None, "total": total, "equipos": equipos}
