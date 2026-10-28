@@ -60,6 +60,7 @@ from routers import (
     promociones as promociones_router,
     promo_video as promo_video_router,
     monitoreo as monitoreo_router,
+    auditoria as auditoria_router,
     consolidado as consolidado_router,
 )
 
@@ -456,6 +457,59 @@ _MIGRATIONS: list[tuple[str, str]] = [
         created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
         KEY idx_monitoreo_faltas_user_fecha (user_id, fecha),
         KEY idx_monitoreo_faltas_fecha (fecha)
+    ) ENGINE=InnoDB"""),
+    # Auditor de llamadas (routers/auditoria.py). El servicio de captura (repo aparte:
+    # Reintento/auditor/servicio) transcribe cada llamada por canal y la manda aquí.
+    # auditoria_llamadas: una por llamada. agente_id lo identifica el CRM (estación, o el
+    # nombre con que se presenta en la llamada); cliente sale de la transcripción o del lead
+    # que el agente tipifica (lead_id). audio: archivo en datos_privados/auditoria_llamadas.
+    ("0075_create_auditoria_llamadas", """CREATE TABLE IF NOT EXISTS auditoria_llamadas (
+        id                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        uuid              CHAR(36)     NOT NULL,
+        estacion          VARCHAR(80)  NULL,
+        agente_id         INT UNSIGNED NULL,
+        agente_detectado  VARCHAR(150) NULL,
+        agente_fuente     VARCHAR(20)  NULL,
+        cliente           VARCHAR(200) NULL,
+        cliente_fuente    VARCHAR(20)  NULL,
+        lead_id           INT UNSIGNED NULL,
+        estado            VARCHAR(12)  NOT NULL DEFAULT 'en_curso',
+        faltas            INT UNSIGNED NOT NULL DEFAULT 0,
+        audio             VARCHAR(120) NULL,
+        fecha             DATE         NOT NULL,
+        inicio            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        fin               DATETIME     NULL,
+        UNIQUE KEY uq_auditoria_llamadas_uuid (uuid),
+        KEY idx_auditoria_llamadas_fecha (fecha)
+    ) ENGINE=InnoDB"""),
+    # Lo que se dijo, frase por frase. canal: agente (micrófono) o cliente (audífonos).
+    # t_ini/t_fin: segundos desde el inicio de la llamada (para saltar en el audio).
+    # reglas: las R1–R6 que rompió la frase, separadas por coma.
+    ("0076_create_auditoria_segmentos", """CREATE TABLE IF NOT EXISTS auditoria_segmentos (
+        id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        llamada_id  INT UNSIGNED  NOT NULL,
+        canal       VARCHAR(10)   NOT NULL,
+        t_ini       DECIMAL(8,2)  NOT NULL,
+        t_fin       DECIMAL(8,2)  NOT NULL,
+        texto       VARCHAR(2000) NOT NULL,
+        reglas      VARCHAR(40)   NULL,
+        KEY idx_auditoria_segmentos_llamada (llamada_id, id)
+    ) ENGINE=InnoDB"""),
+    # Una fila por regla rota en una frase. estado: nuevo/revisado/descartado/falta (falta =
+    # se convirtió en falta de Monitoreo, falta_id).
+    ("0077_create_auditoria_hallazgos", """CREATE TABLE IF NOT EXISTS auditoria_hallazgos (
+        id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        llamada_id    INT UNSIGNED NOT NULL,
+        segmento_id   INT UNSIGNED NOT NULL,
+        regla         CHAR(2)      NOT NULL,
+        frase         VARCHAR(2000) NOT NULL,
+        estado        VARCHAR(12)  NOT NULL DEFAULT 'nuevo',
+        revisado_por  VARCHAR(150) NULL,
+        falta_id      INT UNSIGNED NULL,
+        fecha         DATE         NOT NULL,
+        created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        KEY idx_auditoria_hallazgos_llamada (llamada_id),
+        KEY idx_auditoria_hallazgos_fecha (fecha)
     ) ENGINE=InnoDB"""),
 ]
 
@@ -878,6 +932,7 @@ app.include_router(transferencias_router.router)
 app.include_router(promociones_router.router)
 app.include_router(promo_video_router.router)
 app.include_router(monitoreo_router.router)
+app.include_router(auditoria_router.router)
 app.include_router(consolidado_router.router)
 
 # ── Archivos estáticos ───────────────────────────────────────────

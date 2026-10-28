@@ -17,6 +17,7 @@ from deps import (
     clear_token_cookie as _clear_token_cookie,
 )
 import session_guard
+from routers.auditoria import es_auditor
 import unicodedata, re, os, json, math, time, secrets, smtplib
 import datetime as _dt
 from email.mime.text import MIMEText
@@ -324,6 +325,10 @@ async def verify_server(request: Request, response: Response):
         # El sidebar muestra el correo del propio usuario bajo su nombre. La columna
         # ya existía en la tabla; simplemente no se devolvía.
         if doc.get("email"):      user_data["email"]      = doc["email"]
+
+    # El menú muestra «Auditoría de llamadas» solo a quien puede usarla (routers/auditoria.py).
+    if es_auditor(user_data):
+        user_data["auditor"] = True
 
     return {"success": True, "authenticated": True, "user": user_data}
 
