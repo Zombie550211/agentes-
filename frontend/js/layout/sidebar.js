@@ -194,7 +194,7 @@
     // Avisos de chat (js/componentes/chat-avisos.js): desactivados junto con el chat.
 
     // Centro de notificaciones y avisos de faltas de Monitoreo (ver topbar-acciones.js).
-    ['/js/core/notificaciones.js?v=20261026a', '/js/componentes/aviso-faltas.js?v=20261026d', '/js/componentes/aviso-auditoria.js?v=20261028b'].forEach(function (src) {
+    ['/js/core/notificaciones.js?v=20261026a', '/js/componentes/aviso-faltas.js?v=20261026d'].forEach(function (src) {
       const s = document.createElement('script');
       s.src = src;
       s.async = false;

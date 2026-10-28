@@ -11,7 +11,6 @@
  *  - sección: la del usuario (líneas si su equipo o su rol dicen "línea"; si no,
  *    residencial). Ve las opciones de su sección y las comunes; administración, back
  *    office y los roles de mercado (Rol_icon, Rol_bamo) ven las dos.
- *  - auditor: Auditoría de llamadas, solo para quien la sesión trae user.auditor.
  *  - rol: algunas opciones solo para administración ('admin': Facturación, cuya API exige
  *    ADMIN_ROLES) o para administración y back office ('gestion': Permisos, Tiempo laboral).
  * Un grupo sin opciones visibles no se muestra. Es solo navegación: cada página y su API
@@ -39,7 +38,6 @@
       { label: 'Productividad', href: '/residencial/productividad.html', seccion: 'res' },
       { label: 'El Semáforo', href: '/residencial/semaforo.html', seccion: 'res' },
       { label: 'Monitoreo', href: '/residencial/monitoreo.html', seccion: 'res' },
-      { label: 'Auditoría de llamadas', href: '/residencial/auditoria.html', seccion: 'res', roles: 'auditor' },
       { label: 'Consolidado', href: '/residencial/consolidado.html', seccion: 'res' },
     ] },
     { label: 'Ranking residencial', items: [
@@ -87,8 +85,6 @@
   function visible(it, u) {
     if (!u) return it.seccion === 'comun';            // aún sin sesión: solo lo común
     var gestion = esAdmin(u.role) || esBackoffice(u.role);
-    // 'auditor': solo los usuarios que define routers/auditoria.py (verify-server → user.auditor).
-    if (it.roles === 'auditor' && !u.auditor) return false;
     if (it.roles === 'admin' && !esAdmin(u.role)) return false;
     if (it.roles === 'gestion' && !gestion) return false;
     return gestion || esMercado(u.role) || it.seccion === 'comun' || it.seccion === seccionDe(u);
