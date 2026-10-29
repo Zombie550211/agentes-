@@ -484,6 +484,9 @@ _MIGRATIONS: list[tuple[str, str]] = [
     ("0078_leads_status_grupo", f"ALTER TABLE leads ADD COLUMN status_grupo VARCHAR(10) "
         f"GENERATED ALWAYS AS {_SQL_GRUPO} VIRTUAL"),
     ("0079_idx_leads_status_grupo", "CREATE INDEX idx_leads_status_grupo ON leads (status_grupo, dia_venta)"),
+    # 29-10-2026: CHARGEBACK entra a la lista y cuenta como cancelada (no comisiona).
+    ("0080_status_grupo_chargeback", f"ALTER TABLE leads MODIFY COLUMN status_grupo VARCHAR(10) "
+        f"GENERATED ALWAYS AS {_SQL_GRUPO} VIRTUAL"),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración

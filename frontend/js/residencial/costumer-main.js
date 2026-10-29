@@ -136,10 +136,17 @@
 
   // Grupo del status de comisión, con los nombres que usa esta página (completed, pending,
   // cancelled, hold, oficina, reserva, rescheduled). Igual que estado_comision.grupo() del backend.
-  function grupoComision(v){const s=String(v||'').trim().toUpperCase();if(s.indexOf('ACTIVE')>=0||s.indexOf('COMPLET')===0||s==='ACTIVO'||s==='ACTIVA')return'completed';if(s.indexOf('CANCEL')===0)return'cancelled';if(s==='HOLD')return'hold';if(s==='OFICINA')return'oficina';if(s.indexOf('RESERV')===0)return'reserva';if(s.indexOf('REPRO')>=0||s.indexOf('RESCHED')===0)return'rescheduled';return'pending';}
+  function grupoComision(v){const s=String(v||'').trim().toUpperCase();if(s.indexOf('ACTIVE')>=0||s.indexOf('COMPLET')===0||s==='ACTIVO'||s==='ACTIVA')return'completed';if(s.indexOf('CANCEL')===0||s==='CHARGEBACK')return'cancelled';if(s==='HOLD')return'hold';if(s==='OFICINA')return'oficina';if(s.indexOf('RESERV')===0)return'reserva';if(s.indexOf('REPRO')>=0||s.indexOf('RESCHED')===0)return'rescheduled';return'pending';}
   function normalizeStatus(sv){const s=String(sv||'').trim().toLowerCase();if(!s)return'pending';if(s==='pending'||s==='pendiente'||s.includes('pend'))return'pending';if(s==='reserva'||s.includes('reser'))return'reserva';if(s==='cancelled'||s.includes('cancel'))return'cancelled';if(s==='hold'||s.includes('hold'))return'hold';if(s==='rescheduled'||s.includes('resched')||s.includes('reagend')||s.includes('repro'))return'rescheduled';if(s==='oficina'||(s.includes('active')&&s.includes('oficina')))return'oficina';if(s==='active'||s==='activo'||s==='activa')return'active';if(s==='completed'||s.includes('complet')||s.includes('cerrad'))return'completed';return s;}
   function normalizeRiesgo(rv){const s=String(rv||'').trim().toLowerCase();if(s==='alto'||s==='high'||s==='h')return'Alto';if(s==='medio'||s==='medium'||s==='m')return'Medio';if(s==='bajo'||s==='low'||s==='l')return'Bajo';return String(rv||'');}
   function pickField(obj,keys,fallback){if(!obj)return fallback!==undefined?fallback:'';for(let i=0;i<keys.length;i++){const v=obj[keys[i]];if(v!==undefined&&v!==null&&String(v).trim()!=='')return v;}return fallback!==undefined?fallback:'';}
+
+  /* ── MES DE LA VENTA ──
+     La lista de Clientes ubica cada venta en el mes de su INSTALACIÓN (el mismo criterio que
+     Comisiones); sin fecha de instalación, en el de venta. */
+  function _ym(v){const s=String(v||'').trim();return/^\d{4}-\d{2}/.test(s)?s.slice(0,7):'';}
+  function fechaRef(lead){return lead.dia_instalacion||lead.dia_venta||lead.createdAt||lead.created_at||'';}
+  function mesRef(lead){return _ym(lead.dia_instalacion)||_ym(lead.dia_venta)||_ym(lead.createdAt||lead.created_at);}
 
   /* ── COLCHÓN DETECTION ── */
   function isColchonLead(lead, refMonthStr){
@@ -549,68 +556,19 @@
 
       if(activeStatusTab&&activeStatusTab!=='all'){
         if(activeStatusTab==='colchon'){if(!lead._es_colchon_route)return false;}
-        else if(activeStatusTab==='completed'){if(lead.status_grupo!=='completed')return false;if(lead._es_colchon&&onlyTwoMonths)return false;}
-        else if(activeStatusTab==='pending'){if(lead.status_grupo!=='pending')return false;if(lead._es_colchon&&onlyTwoMonths)return false;}
+        else if(activeStatusTab==='completed'){if(lead.status_grupo!=='completed')return false;}
+        else if(activeStatusTab==='pending'){if(lead.status_grupo!=='pending')return false;}
         else{if(lead.status_grupo!==activeStatusTab)return false;}
       }
 
-      if(month && !__searchResultsOnly){
-        // Convert any date format to YYYY-MM
-        const toYM=function(v){
-          if(!v)return'';
-          const s=String(v).trim();
-          // Try ISO format first: YYYY-MM-DD or YYYY-MM
-          if(/^\d{4}-\d{2}/.test(s)) return s.slice(0,7);
-          // Try DD/MM/YYYY or DD-MM-YYYY
-          const dmyMatch=s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
-          if(dmyMatch){
-            const d=String(dmyMatch[1]).padStart(2,'0');
-            const m=String(dmyMatch[2]).padStart(2,'0');
-            const y=dmyMatch[3];
-            return y+'-'+m;
-          }
-          // Try MMM DD YYYY or DD MMM YYYY (es: "01 mar 2026" or "01 MAR 2026")
-          const mmmMatch=s.match(/(\d{1,2})\s+([a-z]{3})\s+(\d{4})/i);
-          if(mmmMatch){
-            const months={'ene':'01','feb':'02','mar':'03','abr':'04','may':'05','jun':'06','jul':'07','ago':'08','sep':'09','oct':'10','nov':'11','dic':'12'};
-            const mStr=mmmMatch[2].toLowerCase();
-            const mNum=months[mStr]||'00';
-            const y=mmmMatch[3];
-            return y+'-'+mNum;
-          }
-          // Fallback: slice first 7 chars
-          return s.slice(0,7);
-        };
-        if(activeStatusTab==='colchon'){
-          // Pestaña colchón de X: instalado en X (dia_instalacion)
-          const diaInstYM=toYM(lead.dia_instalacion);
-          if(!diaInstYM||diaInstYM!==month)return false;
-        } else if(!onlyTwoMonths){
-          // Modo "Solo 2 meses": leads con dia_instalacion diferente al dia_venta
-          // se enrutan por dia_instalacion (cualquier status).
-          if(lead._es_colchon_route){
-            const diaInstYM=toYM(lead.dia_instalacion);
-            if(!diaInstYM||diaInstYM!==month)return false;
-          } else {
-            const diaVentaYM=toYM(lead.dia_venta);
-            if(!diaVentaYM||diaVentaYM!==month)return false;
-          }
-        } else {
-          // Modo "Todos los meses": solo ventas del mes, sin colchones de ningún tipo
-          const diaVentaYM=toYM(lead.dia_venta);
-          if(!diaVentaYM||diaVentaYM!==month)return false;
-          if(lead._es_colchon_route)return false;
-          // Excluir leads vendidos en este mes pero con instalación en mes futuro
-          const diaInstYMt=toYM(lead.dia_instalacion);
-          if(diaInstYMt&&diaInstYMt>month)return false;
-        }
-      }
+      // Mes = mes de instalación (ver mesRef); la pestaña Colchón deja solo las vendidas antes.
+      if(month && !__searchResultsOnly && mesRef(lead)!==month)return false;
 
-      if(from&&to){const ref=lead._es_colchon_route?(lead.dia_instalacion||lead.dia_venta):(lead.dia_venta||lead.dia_instalacion);if(!ref)return false;const ld=new Date(ref);if(ld<new Date(from))return false;if(ld>new Date(to+'T23:59:59'))return false;}
+      if(from&&to){const ref=fechaRef(lead);if(!ref)return false;const ld=new Date(ref);if(ld<new Date(from))return false;if(ld>new Date(to+'T23:59:59'))return false;}
       return true;
     });
 
-    __filteredLeads.sort(function(a,b){const ra=a._es_colchon_route?(a.dia_instalacion||a.dia_venta):(a.dia_venta||a.dia_instalacion);const rb=b._es_colchon_route?(b.dia_instalacion||b.dia_venta):(b.dia_venta||b.dia_instalacion);return(rb||'').localeCompare(ra||'');});
+    __filteredLeads.sort(function(a,b){return String(fechaRef(b)).localeCompare(String(fechaRef(a)));});
     ordenarLeads();
     currentPage=1;renderTableRows();updateKPIs();setTimeout(refreshFilterOptions,0);
   }
@@ -721,10 +679,10 @@
   /* ── LISTA DEL STATUS DE COMISIÓN ──
      Mismo orden y colores que la columna SISTEMA de la hoja de comisiones (clases sis-* en
      clientes.css), más OFICINA, RESERVA y REPRO del CRM. Ver CRM_PYTHON/estado_comision.py. */
-  const LISTA_COMISION=['ACTIVE','CANCEL','COLLECTION','HOLD','IL','FES','REC AUD','CHECK','CXNC','EDAB','ACTIVE BY SYSTEM','CHB ALERT','CUENTA SUSPENDIDA','CASO PTE','CHB','CANCEL BY SYSTEM','SNAR','NO SE PUEDE VALIDAR','ACTIVE BY FASTGM','NEXT PAY','PENDING','OFICINA','RESERVA','REPRO'];
+  const LISTA_COMISION=['ACTIVE','CANCEL','COLLECTION','HOLD','IL','FES','REC AUD','CHECK','CXNC','EDAB','ACTIVE BY SYSTEM','CHB ALERT','CUENTA SUSPENDIDA','CASO PTE','CHB','CANCEL BY SYSTEM','SNAR','NO SE PUEDE VALIDAR','ACTIVE BY FASTGM','NEXT PAY','PENDING','OFICINA','RESERVA','REPRO','CHARGEBACK'];
   const COLOR_COMISION={
     'ACTIVE':'verde','ACTIVE BY SYSTEM':'verde-osc','ACTIVE BY FASTGM':'verde-osc',
-    'CANCEL':'rojo','CANCEL BY SYSTEM':'rojo','NO SE PUEDE VALIDAR':'rojo-osc','CASO PTE':'rojo-osc',
+    'CANCEL':'rojo','CANCEL BY SYSTEM':'rojo','CHARGEBACK':'rojo','NO SE PUEDE VALIDAR':'rojo-osc','CASO PTE':'rojo-osc',
     'HOLD':'amarillo','COLLECTION':'amarillo','NEXT PAY':'amarillo',
     'CXNC':'azul','PENDING':'azul','FES':'morado',
     'CUENTA SUSPENDIDA':'naranja','CHB':'naranja','CHB ALERT':'naranja','OFICINA':'oficina'
@@ -834,14 +792,15 @@
   /* ── KPIs ── */
   // KPIs respetan filtros activos (mes, team, agente, servicio, mercado)
   // pero NO la pestaña de status activa.
-  // Mes/Activas/Canceladas cuentan solo ventas del mes de referencia;
-  // el colchón (instalado este mes, vendido antes) solo cuenta en su KPI.
+  // Cada venta cuenta en el mes de su instalación (mesRef), igual que la tabla y Comisiones;
+  // Colchón dice cuántas de ese mes se vendieron un mes anterior (ya suman en sus status).
+  // Hoy cuenta las vendidas hoy aunque se instalen otro mes.
   function updateKPIs(){
     const d=new Date(),pad=function(n){return String(n).padStart(2,'0');};
     const today=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
     const selectedMonth=(document.getElementById('monthFilter')&&document.getElementById('monthFilter').value)||'';
-    const curMon=selectedMonth||(d.getFullYear()+'-'+pad(d.getMonth()+1));
-    const refMon=curMon;
+    const realMon=d.getFullYear()+'-'+pad(d.getMonth()+1);
+    const refMon=selectedMonth||realMon;
     let kpi={hoy:0,mes:0,activas:0,colchon:0,pend:0,cancel:0,oficina:0,reserva:0,hold:0};
     const toYM=function(v){if(!v)return'';const s=String(v).trim();return/^\d{4}-\d{2}/.test(s)?s.slice(0,7):'';};
 
@@ -878,24 +837,13 @@
 
       const dv=String(l.dia_venta||'').slice(0,10);
       const st=l.status_grupo;
-      const dvYM=toYM(l.dia_venta);
-      const diYM=toYM(l.dia_instalacion);
+      if(dv===today&&refMon===realMon&&st!=='oficina'&&st!=='reserva'&&st!=='hold')kpi.hoy++;
+      if(mesRef(l)!==refMon)return;
+      const dvYM=toYM(l.dia_venta),diYM=toYM(l.dia_instalacion);
+      if(dvYM&&diYM&&dvYM<diYM)kpi.colchon++;
       if(st==='oficina'){kpi.oficina++;return;}
       if(st==='reserva'){kpi.reserva++;return;}
-      // Hold: ventas del mes (por dia_venta) en status hold
-      if(st==='hold'){if(dvYM===refMon)kpi.hold++;return;}
-      // Colchón: instalado en refMon, vendido en mes anterior
-      const isColForMon=!!(dvYM&&diYM&&diYM===refMon&&dvYM!==refMon);
-      // Normal: dia_venta en el mes
-      const isNormalMon=(dvYM===refMon);
-      if(!isColForMon&&!isNormalMon)return;
-      if(isColForMon){
-        // Colchón: solo cuenta en su propio KPI (no suma a activas)
-        kpi.colchon++;
-        return;
-      }
-      // Lead normal (dia_venta en el mes)
-      if(dv===today)kpi.hoy++;
+      if(st==='hold'){kpi.hold++;return;}
       if(st==='completed'||st==='active'){kpi.mes++;kpi.activas++;}
       else if(st==='pending'){kpi.mes++;kpi.pend++;}
       else if(st==='cancelled')kpi.cancel++;
@@ -2092,7 +2040,7 @@
     if(m==='__all')qs='?allData=true';
     else if(m)qs='?month='+encodeURIComponent(m);
     // Solo equipos de VENTA residencial en los filtros (el backend clasifica la sección)
-    qs += (qs?'&':'?')+'seccion=residencial&salesTeams=1';
+    qs += (qs?'&':'?')+'seccion=residencial&salesTeams=1&por=instalacion';
     var res=await AUTH.secureFetch('/api/leads/bootstrap'+qs);
     if(!res||!res.ok)return null;
     try{return await res.json();}catch(_){return null;}
@@ -2220,11 +2168,12 @@
     var data=await fetchBootstrap();
     if(data&&data.success){
       _bsSave(data);
-      // Solo re-renderizar si los datos cambiaron respecto al caché
+      // Solo re-renderizar si los datos cambiaron respecto al caché. Se compara el contenido
+      // completo: mirar solo cantidad e IDs de los extremos dejaba en pantalla la versión
+      // vieja de un cliente recién editado (mismo número de leads, mismos IDs).
       var freshLeads=data.leads||[];
       var cachedLeads=cached&&cached.leads||[];
-      var changed=freshLeads.length!==cachedLeads.length||
-        (freshLeads.length>0&&(freshLeads[0]._id!==(cachedLeads[0]||{})._id||freshLeads[freshLeads.length-1]._id!==(cachedLeads[cachedLeads.length-1]||{})._id));
+      var changed=JSON.stringify(freshLeads)!==JSON.stringify(cachedLeads);
       if(changed||!cached){
         _applyBootstrapFilters(data);
         window.renderCostumerTable(freshLeads);

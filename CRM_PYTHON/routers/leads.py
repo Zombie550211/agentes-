@@ -196,17 +196,18 @@ async def leads_bootstrap(
     seccion:     Optional[str] = Query(None),   # 'residencial' | 'lineas' — filtra la lista de teams
     salesTeams:  Optional[str] = Query(None),   # '1' → solo equipos con supervisor (venta)
     limit:       int           = Query(5000),
+    por:         Optional[str] = Query(None),   # 'instalacion' → mes por fecha de instalación
     user: dict = Depends(current_user),
 ):
     return await _leads_bootstrap_core(
         month=month, year=year, noAutoMonth=noAutoMonth, allData=allData, stats=stats,
-        seccion=seccion, salesTeams=salesTeams, limit=limit, user=user,
+        seccion=seccion, salesTeams=salesTeams, limit=limit, por=por, user=user,
     )
 
 
 async def _leads_bootstrap_core(
     month=None, year=None, noAutoMonth=None, allData=None, stats=None,
-    seccion=None, salesTeams=None, limit=5000, user=None,
+    seccion=None, salesTeams=None, limit=5000, por=None, user=None,
 ):
     """Lógica de /api/leads/bootstrap como función plana (sin defaults de FastAPI
     Query()), para poder llamarla en proceso desde otros lugares (ej. tools de la IA)
@@ -217,6 +218,7 @@ async def _leads_bootstrap_core(
     # Estadísticas no quedan acotados a las ventas del propio agente. La restricción por
     # mercado (BAMO) sí se mantiene. La Lista de Clientes (sin stats) sigue filtrada.
     is_stats = str(stats or "").lower() in ("1", "true")
+    por_instalacion = str(por or "").lower() == "instalacion"
 
     async def _get_leads():
         where = ["1=1"]
@@ -261,14 +263,27 @@ async def _leads_bootstrap_core(
             params["dts_ym"]      = params["dts"][:7]       # e.g. '2026-06'
             params["dte_excl_ym"] = params["dte_excl"][:7]  # e.g. '2026-07'
 
-            where.append("""(
-                (dia_venta >= :dts AND dia_venta < :dte_excl)
-                OR (dia_instalacion IS NOT NULL
-                    AND LEFT(dia_instalacion,7) >= :dts_ym
-                    AND LEFT(dia_instalacion,7) < :dte_excl_ym
-                    AND (dia_venta IS NULL OR LEFT(dia_venta,7) < LEFT(dia_instalacion,7)))
-                OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at >= :dts AND created_at < :dte_excl)
-            )""")
+            if por_instalacion:
+                # Lista de Clientes: el mes de la venta es el de INSTALACIÓN (el mismo que
+                # usa Comisiones); sin fecha de instalación, el de venta. Se suman las ventas
+                # de hoy que se instalan otro mes, solo para el KPI «Hoy» (el filtro del
+                # navegador las saca de la tabla).
+                params["hoy_sv"] = _sv.strftime("%Y-%m-%d")
+                where.append("""(
+                    (dia_instalacion >= :dts AND dia_instalacion < :dte_excl)
+                    OR (dia_instalacion IS NULL AND dia_venta >= :dts AND dia_venta < :dte_excl)
+                    OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at >= :dts AND created_at < :dte_excl)
+                    OR dia_venta = :hoy_sv
+                )""")
+            else:
+                where.append("""(
+                    (dia_venta >= :dts AND dia_venta < :dte_excl)
+                    OR (dia_instalacion IS NOT NULL
+                        AND LEFT(dia_instalacion,7) >= :dts_ym
+                        AND LEFT(dia_instalacion,7) < :dte_excl_ym
+                        AND (dia_venta IS NULL OR LEFT(dia_venta,7) < LEFT(dia_instalacion,7)))
+                    OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at >= :dts AND created_at < :dte_excl)
+                )""")
         params["_lim"] = min(int(limit), 20000)
         where_sql = " AND ".join(where)
         count_params = {k: v for k, v in params.items() if k != "_lim"}
@@ -308,13 +323,15 @@ async def _leads_bootstrap_core(
 
     async def _get_months():
         async with AsyncSessionLocal() as s:
-            r = await s.execute(text("""
+            # Con por=instalacion (Clientes) el mes de cada venta es el de instalación.
+            fecha = ("COALESCE(dia_instalacion, dia_venta)" if por_instalacion else "dia_venta")
+            r = await s.execute(text(f"""
                 SELECT DISTINCT
-                  CASE WHEN dia_venta IS NOT NULL THEN DATE_FORMAT(dia_venta,'%Y-%m')
+                  CASE WHEN {fecha} IS NOT NULL THEN DATE_FORMAT({fecha},'%Y-%m')
                        ELSE DATE_FORMAT(created_at,'%Y-%m') END AS ym
                 FROM leads
                 WHERE dia_venta IS NOT NULL OR created_at IS NOT NULL
-                HAVING ym IS NOT NULL AND ym REGEXP '^[0-9]{4}-[0-9]{2}$'
+                HAVING ym IS NOT NULL AND ym REGEXP '^[0-9]{{4}}-[0-9]{{2}}$'
                 ORDER BY ym DESC LIMIT 120
             """))
             return [row["ym"] for row in r.mappings().all()]

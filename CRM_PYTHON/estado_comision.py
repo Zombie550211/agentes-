@@ -8,7 +8,7 @@ historial, nada más.
 
 Grupos (los mismos nombres que usaba el status normal, para que la lógica no cambie):
   completed  → comisiona: lleva la palabra ACTIVE (ACTIVE, ACTIVE BY SYSTEM, ACTIVE BY FASTGM)
-  cancelled  → CANCEL, CANCEL BY SYSTEM
+  cancelled  → CANCEL, CANCEL BY SYSTEM, CHARGEBACK
   hold       → HOLD
   oficina    → OFICINA (el semáforo pasa ahí los casos vencidos)
   reserva    → RESERVA
@@ -23,7 +23,7 @@ LISTA = (
     "ACTIVE", "CANCEL", "COLLECTION", "HOLD", "IL", "FES", "REC AUD", "CHECK", "CXNC", "EDAB",
     "ACTIVE BY SYSTEM", "CHB ALERT", "CUENTA SUSPENDIDA", "CASO PTE", "CHB",
     "CANCEL BY SYSTEM", "SNAR", "NO SE PUEDE VALIDAR", "ACTIVE BY FASTGM", "NEXT PAY",
-    "PENDING", "OFICINA", "RESERVA", "REPRO",
+    "PENDING", "OFICINA", "RESERVA", "REPRO", "CHARGEBACK",
 )
 
 # Con el que entra toda venta nueva.
@@ -33,7 +33,7 @@ INICIAL = "PENDING"
 def _sql_grupo(col: str) -> str:
     s = f"UPPER(TRIM(COALESCE({col},'')))"
     return (f"(CASE WHEN {s} LIKE '%ACTIVE%' OR {s} LIKE 'COMPLET%' OR {s} IN ('ACTIVO','ACTIVA') THEN 'completed' "
-            f"WHEN {s} LIKE 'CANCEL%' THEN 'cancelled' "
+            f"WHEN {s} LIKE 'CANCEL%' OR {s} = 'CHARGEBACK' THEN 'cancelled' "
             f"WHEN {s} = 'HOLD' THEN 'hold' "
             f"WHEN {s} = 'OFICINA' THEN 'oficina' "
             f"WHEN {s} LIKE 'RESERV%' THEN 'reserva' "
@@ -49,7 +49,7 @@ def grupo(valor) -> str:
     s = str(valor or "").strip().upper()
     if "ACTIVE" in s or s.startswith("COMPLET") or s in ("ACTIVO", "ACTIVA"):
         return "completed"
-    if s.startswith("CANCEL"):
+    if s.startswith("CANCEL") or s == "CHARGEBACK":
         return "cancelled"
     if s == "HOLD":
         return "hold"
