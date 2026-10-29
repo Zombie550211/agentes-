@@ -15,7 +15,7 @@ Grupos (los mismos nombres que usaba el status normal, para que la lógica no ca
   repro      → REPRO (reprocesa una venta de días atrás; no cuenta como venta)
   pending    → todo lo demás (CXNC, NO SE PUEDE VALIDAR, NEXT PAY, FES…)
 
-En SQL el grupo es la columna generada `leads.status_grupo` (migración 0076), que MySQL calcula
+En SQL el grupo es la columna generada `leads.status_grupo` (migración 0078), que MySQL calcula
 sola desde status_comision; en Python, grupo().
 """
 
@@ -23,11 +23,11 @@ LISTA = (
     "ACTIVE", "CANCEL", "COLLECTION", "HOLD", "IL", "FES", "REC AUD", "CHECK", "CXNC", "EDAB",
     "ACTIVE BY SYSTEM", "CHB ALERT", "CUENTA SUSPENDIDA", "CASO PTE", "CHB",
     "CANCEL BY SYSTEM", "SNAR", "NO SE PUEDE VALIDAR", "ACTIVE BY FASTGM", "NEXT PAY",
-    "PENDIENTE DE VALIDAR POR SISTEMA", "OFICINA", "RESERVA", "REPRO",
+    "PENDING", "OFICINA", "RESERVA", "REPRO",
 )
 
 # Con el que entra toda venta nueva.
-INICIAL = "PENDIENTE DE VALIDAR POR SISTEMA"
+INICIAL = "PENDING"
 
 
 def _sql_grupo(col: str) -> str:

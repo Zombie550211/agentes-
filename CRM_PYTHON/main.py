@@ -466,9 +466,9 @@ _MIGRATIONS: list[tuple[str, str]] = [
     ("0076_status_comision_desde_sistema", """UPDATE leads SET status_comision = UPPER(TRIM(estado_sistema))
         WHERE estado_sistema IS NOT NULL AND TRIM(estado_sistema) <> ''"""),
     # 2) El resto se traduce de los valores viejos: completed → ACTIVE, cancelled → CANCEL,
-    #    pending → PENDIENTE DE VALIDAR POR SISTEMA; los que ya son de la lista quedan en mayúsculas.
+    #    pending → PENDING; los que ya son de la lista quedan en mayúsculas.
     ("0077_status_comision_lista", """UPDATE leads SET status_comision = CASE
-            WHEN UPPER(TRIM(COALESCE(status_comision,''))) IN ('ACTIVE','CANCEL','COLLECTION','HOLD','IL','FES','REC AUD','CHECK','CXNC','EDAB','ACTIVE BY SYSTEM','CHB ALERT','CUENTA SUSPENDIDA','CASO PTE','CHB','CANCEL BY SYSTEM','SNAR','NO SE PUEDE VALIDAR','ACTIVE BY FASTGM','NEXT PAY','PENDIENTE DE VALIDAR POR SISTEMA','OFICINA','RESERVA','REPRO')
+            WHEN UPPER(TRIM(COALESCE(status_comision,''))) IN ('ACTIVE','CANCEL','COLLECTION','HOLD','IL','FES','REC AUD','CHECK','CXNC','EDAB','ACTIVE BY SYSTEM','CHB ALERT','CUENTA SUSPENDIDA','CASO PTE','CHB','CANCEL BY SYSTEM','SNAR','NO SE PUEDE VALIDAR','ACTIVE BY FASTGM','NEXT PAY','PENDING','OFICINA','RESERVA','REPRO')
                  THEN UPPER(TRIM(status_comision))
             WHEN LOWER(TRIM(COALESCE(status_comision,''))) = 'active oficina' THEN 'OFICINA'
             WHEN LOWER(TRIM(COALESCE(status_comision,''))) LIKE 'complet%'
@@ -477,7 +477,7 @@ _MIGRATIONS: list[tuple[str, str]] = [
             WHEN LOWER(TRIM(COALESCE(status_comision,''))) LIKE 'reser%' THEN 'RESERVA'
             WHEN LOWER(TRIM(COALESCE(status_comision,''))) LIKE '%repro%'
                  OR LOWER(TRIM(COALESCE(status_comision,''))) LIKE 'resched%' THEN 'REPRO'
-            ELSE 'PENDIENTE DE VALIDAR POR SISTEMA' END
+            ELSE 'PENDING' END
         WHERE estado_sistema IS NULL OR TRIM(estado_sistema) = ''"""),
     # 3) Grupo del status de comisión (completed/cancelled/pending/hold/oficina/reserva/repro),
     #    calculado por MySQL: es lo que leen KPIs, ranking, semáforo… en lugar de `status`.

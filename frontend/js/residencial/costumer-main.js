@@ -721,12 +721,12 @@
   /* ── LISTA DEL STATUS DE COMISIÓN ──
      Mismo orden y colores que la columna SISTEMA de la hoja de comisiones (clases sis-* en
      clientes.css), más OFICINA, RESERVA y REPRO del CRM. Ver CRM_PYTHON/estado_comision.py. */
-  const LISTA_COMISION=['ACTIVE','CANCEL','COLLECTION','HOLD','IL','FES','REC AUD','CHECK','CXNC','EDAB','ACTIVE BY SYSTEM','CHB ALERT','CUENTA SUSPENDIDA','CASO PTE','CHB','CANCEL BY SYSTEM','SNAR','NO SE PUEDE VALIDAR','ACTIVE BY FASTGM','NEXT PAY','PENDIENTE DE VALIDAR POR SISTEMA','OFICINA','RESERVA','REPRO'];
+  const LISTA_COMISION=['ACTIVE','CANCEL','COLLECTION','HOLD','IL','FES','REC AUD','CHECK','CXNC','EDAB','ACTIVE BY SYSTEM','CHB ALERT','CUENTA SUSPENDIDA','CASO PTE','CHB','CANCEL BY SYSTEM','SNAR','NO SE PUEDE VALIDAR','ACTIVE BY FASTGM','NEXT PAY','PENDING','OFICINA','RESERVA','REPRO'];
   const COLOR_COMISION={
     'ACTIVE':'verde','ACTIVE BY SYSTEM':'verde-osc','ACTIVE BY FASTGM':'verde-osc',
     'CANCEL':'rojo','CANCEL BY SYSTEM':'rojo','NO SE PUEDE VALIDAR':'rojo-osc','CASO PTE':'rojo-osc',
     'HOLD':'amarillo','COLLECTION':'amarillo','NEXT PAY':'amarillo',
-    'CXNC':'azul','PENDIENTE DE VALIDAR POR SISTEMA':'azul','FES':'morado',
+    'CXNC':'azul','PENDING':'azul','FES':'morado',
     'CUENTA SUSPENDIDA':'naranja','CHB':'naranja','CHB ALERT':'naranja','OFICINA':'oficina'
   };
   function comisionCls(v){return v?'sis-'+(COLOR_COMISION[v]||'gris'):'';}
