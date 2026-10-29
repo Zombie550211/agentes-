@@ -114,7 +114,7 @@ async def consolidado(mes: str | None = Query(None), user: dict = Depends(curren
         r = await s.execute(text(f"""
             SELECT TRIM(COALESCE(supervisor, '')) AS supervisor,
                    TRIM(COALESCE(NULLIF(agente, ''), agente_nombre, '')) AS agente,
-                   status, COALESCE(puntaje, 0) AS puntaje
+                   status_grupo AS status, COALESCE(puntaje, 0) AS puntaje
             FROM leads
             WHERE ((dia_venta >= :d AND dia_venta < :h)
                    OR (dia_instalacion >= :d AND dia_instalacion < :h

@@ -943,7 +943,7 @@
     const crmByPhoneAnyTeamRaw=new Map();
     for (const l of (crmLeadsRaw||[])) { for (const p of getCrmPhones(l)) { const arr=crmByPhoneAnyTeamRaw.get(p)||[]; arr.push(l); crmByPhoneAnyTeamRaw.set(p,arr); } }
 
-    const crmLeadsAll=includeExcludedStatuses?crmLeadsRaw:crmLeadsRaw.filter(l=>{ const st=String(l?.status||l?._raw?.status||l?.estado||l?._raw?.estado||'').toLowerCase(); return !st||(!(st.includes('cancel')||st.includes('anulad')||st.includes('no instalado')||st.includes('repro'))); });
+    const crmLeadsAll=includeExcludedStatuses?crmLeadsRaw:crmLeadsRaw.filter(l=>{ const st=String(l?.status_grupo||l?._raw?.status_grupo||'').toLowerCase(); return !st||(!(st.includes('cancel')||st.includes('anulad')||st.includes('no instalado')||st.includes('repro'))); });
 
     const crmByPhoneAnyTeam=new Map();
     for (const l of crmLeadsAll) { for (const p of getCrmPhones(l)) { const arr=crmByPhoneAnyTeam.get(p)||[]; arr.push(l); crmByPhoneAnyTeam.set(p,arr); } }

@@ -106,7 +106,7 @@ async def _equipo_estadisticas_core(fechaInicio=None, fechaFin=None, scope=None,
                 SELECT
                     UPPER(TRIM(COALESCE(supervisor, team, equipo, ''))) AS team_raw,
                     UPPER(TRIM(COALESCE(mercado, 'SIN MERCADO')))       AS mercado_norm,
-                    LOWER(TRIM(COALESCE(status, '')))                   AS status_lower,
+                    LOWER(TRIM(COALESCE(status_grupo, '')))                   AS status_lower,
                     COALESCE(puntaje, 0)                                AS puntaje
                 FROM leads
                 WHERE dia_venta BETWEEN :fi AND :ff
@@ -185,7 +185,7 @@ async def equipo_telefonos(
                     COALESCE(telefono_principal, telefono, '') AS tel,
                     nombre_cliente,
                     UPPER(TRIM(COALESCE(supervisor, team, equipo, ''))) AS team_raw,
-                    status,
+                    status_grupo AS status,
                     dia_venta,
                     dia_instalacion
                 FROM leads
@@ -253,7 +253,7 @@ async def equipo_comparar_telefonos(
                     COALESCE(telefono_principal, telefono, '') AS tel,
                     nombre_cliente,
                     UPPER(TRIM(COALESCE(supervisor, team, equipo, ''))) AS team_raw,
-                    status, dia_venta
+                    status_grupo AS status, dia_venta
                 FROM leads
                 WHERE dia_venta BETWEEN :fi AND :ff
             """), {"fi": fi, "ff": ff})

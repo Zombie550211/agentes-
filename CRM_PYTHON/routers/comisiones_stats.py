@@ -6,7 +6,7 @@ los leads completos de cada mes: 5 llamadas pesadas).
 
 Criterio idéntico al frontend (cuentaParaComision): cuenta la venta en el mes
 en que se INSTALA (colchón) o en el de venta si no hay instalación en otro
-mes; solo status de comisión completed (fallback al status normal).
+mes; solo status de comisión del grupo completed (lleva ACTIVE).
 """
 import datetime as _dt
 import re
@@ -30,7 +30,7 @@ _EFECTIVO_YM = """
     END
 """
 
-_COMPLETED = "LOWER(COALESCE(NULLIF(TRIM(COALESCE(status_comision,'')),''), status, '')) LIKE 'complet%'"
+_COMPLETED = "status_grupo = 'completed'"
 
 
 def _is_admin_or_bo(user: dict) -> bool:

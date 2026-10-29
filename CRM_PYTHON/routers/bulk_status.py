@@ -8,27 +8,7 @@ from typing import List
 import re
 import asyncio
 import realtime
-from notifications import record_status_changes
 
-
-def _notify_bulk(found_rows, new_status: str, user: dict) -> None:
-    """Encola notificaciones persistentes para los agentes/supervisores dueños."""
-    seen, items = set(), []
-    for row in found_rows:
-        if row["id"] in seen:
-            continue
-        seen.add(row["id"])
-        items.append({
-            "seccion": "residencial",
-            "cliente": row.get("nombre_cliente") or "Sin nombre",
-            "old_status": row.get("status") or "",
-            "new_status": new_status,
-            "actor": user.get("name") or user.get("username", ""),
-            "target_agente": row.get("agente_nombre") or row.get("agente") or row.get("created_by") or "",
-            "target_supervisor": row.get("supervisor") or "",
-        })
-    if items:
-        asyncio.create_task(record_status_changes(items))
 
 def _utcnow() -> datetime:
     """UTC naive (reemplazo de _utcnow() deprecado en Python 3.12+)."""
@@ -113,43 +93,15 @@ async def bulk_status_by_phone(body: BulkByPhoneBody, user: dict = Depends(curre
         params: dict = {"status": body.newStatus, "now": now, "by": user.get("username", "Sistema")}
         for i, lid in enumerate(lead_ids):
             params[f"id{i}"] = lid
-        from casos import sql_riesgo_por_status
-        R = sql_riesgo_por_status(":status")
+        # `status` es solo informativo desde el 28-10-2026: se guarda sin efectos (ni llamada,
+        # ni semáforo, ni Riesgo CX, ni avisos). Eso lo mueve el status de comisión.
         r2 = await s.execute(text(f"""
-            UPDATE leads SET
-                fecha_completed = CASE WHEN LOWER(:status) LIKE 'complet%'
-                        AND LOWER(COALESCE(status,'')) NOT LIKE 'complet%'
-                    THEN UTC_TIMESTAMP() ELSE fecha_completed END,
-                llamada_cliente = CASE WHEN LOWER(:status) LIKE 'complet%'
-                        AND LOWER(COALESCE(status,'')) NOT LIKE 'complet%'
-                    THEN 'Pendiente' ELSE llamada_cliente END,
-                -- Semáforo de clientes: al pasar a completed el cliente entra
-                -- (casos.py). Van antes de `status`, que aún tiene el valor viejo.
-                caso_vencido_at = CASE WHEN LOWER(:status) LIKE 'complet%'
-                        AND LOWER(COALESCE(status,'')) NOT LIKE 'complet%'
-                        AND caso_estado = 'vencido'
-                    THEN NULL ELSE caso_vencido_at END,
-                caso_estado = CASE WHEN LOWER(:status) LIKE 'complet%'
-                        AND LOWER(COALESCE(status,'')) NOT LIKE 'complet%'
-                        AND (caso_estado IS NULL OR caso_estado = 'vencido')
-                    THEN 'pendiente' ELSE caso_estado END,
-                -- Riesgo CX automático (si backoffice no lo fijó a mano): nuevo
-                -- riesgo según el status; si cambia, el reloj arranca de nuevo.
-                riesgo_cx_at = CASE WHEN COALESCE(riesgo_cx_manual,0) = 0
-                        AND {R} IS NOT NULL AND COALESCE(riesgo_cx,'') <> {R}
-                    THEN UTC_TIMESTAMP() ELSE riesgo_cx_at END,
-                caso_estado = CASE WHEN COALESCE(riesgo_cx_manual,0) = 0
-                        AND {R} IS NOT NULL AND caso_estado IS NULL
-                    THEN 'pendiente' ELSE caso_estado END,
-                riesgo_cx = CASE WHEN COALESCE(riesgo_cx_manual,0) = 0 AND {R} IS NOT NULL
-                    THEN {R} ELSE riesgo_cx END,
-                status = :status, updated_at = :now, updated_by = :by
+            UPDATE leads SET status = :status, updated_at = :now, updated_by = :by
             WHERE id IN ({placeholders})
         """), params)
         await s.commit()
         updated = r2.rowcount
 
-    _notify_bulk(found_rows, body.newStatus, user)
 
     found_phones_set = set()
     for row in found_rows:
@@ -223,43 +175,15 @@ async def bulk_status_by_name(body: BulkByNameBody, user: dict = Depends(current
         params: dict = {"status": body.newStatus, "now": now, "by": user.get("username", "Sistema")}
         for i, lid in enumerate(lead_ids):
             params[f"id{i}"] = lid
-        from casos import sql_riesgo_por_status
-        R = sql_riesgo_por_status(":status")
+        # `status` es solo informativo desde el 28-10-2026: se guarda sin efectos (ni llamada,
+        # ni semáforo, ni Riesgo CX, ni avisos). Eso lo mueve el status de comisión.
         r2 = await s.execute(text(f"""
-            UPDATE leads SET
-                fecha_completed = CASE WHEN LOWER(:status) LIKE 'complet%'
-                        AND LOWER(COALESCE(status,'')) NOT LIKE 'complet%'
-                    THEN UTC_TIMESTAMP() ELSE fecha_completed END,
-                llamada_cliente = CASE WHEN LOWER(:status) LIKE 'complet%'
-                        AND LOWER(COALESCE(status,'')) NOT LIKE 'complet%'
-                    THEN 'Pendiente' ELSE llamada_cliente END,
-                -- Semáforo de clientes: al pasar a completed el cliente entra
-                -- (casos.py). Van antes de `status`, que aún tiene el valor viejo.
-                caso_vencido_at = CASE WHEN LOWER(:status) LIKE 'complet%'
-                        AND LOWER(COALESCE(status,'')) NOT LIKE 'complet%'
-                        AND caso_estado = 'vencido'
-                    THEN NULL ELSE caso_vencido_at END,
-                caso_estado = CASE WHEN LOWER(:status) LIKE 'complet%'
-                        AND LOWER(COALESCE(status,'')) NOT LIKE 'complet%'
-                        AND (caso_estado IS NULL OR caso_estado = 'vencido')
-                    THEN 'pendiente' ELSE caso_estado END,
-                -- Riesgo CX automático (si backoffice no lo fijó a mano): nuevo
-                -- riesgo según el status; si cambia, el reloj arranca de nuevo.
-                riesgo_cx_at = CASE WHEN COALESCE(riesgo_cx_manual,0) = 0
-                        AND {R} IS NOT NULL AND COALESCE(riesgo_cx,'') <> {R}
-                    THEN UTC_TIMESTAMP() ELSE riesgo_cx_at END,
-                caso_estado = CASE WHEN COALESCE(riesgo_cx_manual,0) = 0
-                        AND {R} IS NOT NULL AND caso_estado IS NULL
-                    THEN 'pendiente' ELSE caso_estado END,
-                riesgo_cx = CASE WHEN COALESCE(riesgo_cx_manual,0) = 0 AND {R} IS NOT NULL
-                    THEN {R} ELSE riesgo_cx END,
-                status = :status, updated_at = :now, updated_by = :by
+            UPDATE leads SET status = :status, updated_at = :now, updated_by = :by
             WHERE id IN ({placeholders})
         """), params)
         await s.commit()
         updated = r2.rowcount
 
-    _notify_bulk(found_rows, body.newStatus, user)
 
     found_names_set = {_normalize_name(row.get("nombre_cliente") or "") for row in found_rows}
     not_found_names = [n for n in normalized_names if n not in found_names_set]

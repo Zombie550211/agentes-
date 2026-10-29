@@ -233,7 +233,7 @@ async def _tool_consultar_mis_ventas(args: dict, user: dict) -> dict:
 
     async with AsyncSessionLocal() as s:
         r = await s.execute(text(f"""
-            SELECT UPPER(TRIM(COALESCE(status,''))) AS status, COALESCE(puntaje,0) AS puntaje
+            SELECT UPPER(TRIM(COALESCE(status_comision,''))) AS status, COALESCE(puntaje,0) AS puntaje
             FROM leads WHERE {' AND '.join(where)}
         """), params)
         rows = r.mappings().all()

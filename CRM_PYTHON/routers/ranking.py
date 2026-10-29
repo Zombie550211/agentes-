@@ -139,7 +139,7 @@ async def _get_ranking_core(
         )""",
         "(agente_nombre IS NOT NULL AND agente_nombre != '') OR (agente IS NOT NULL AND agente != '')",
         "excluir_de_reporte = FALSE OR excluir_de_reporte IS NULL",
-        """UPPER(TRIM(COALESCE(status,''))) IN (
+        """UPPER(TRIM(COALESCE(status_grupo,''))) IN (
             'PENDING','PENDIENTE','PENDIENTES',
             'COMPLETED','ACTIVE','COMPLETADO','ACTIVO','ACTIVA','VENDIDO','CERRADO','CERRADA','VENTA CERRADA',
             'RESERVA'
@@ -167,7 +167,7 @@ async def _get_ranking_core(
                 SELECT
                     agente                                          AS agente_key,
                     COALESCE(agente_nombre, agente)                AS agente_fuente,
-                    UPPER(TRIM(COALESCE(status, '')))              AS status_u,
+                    UPPER(TRIM(COALESCE(status_grupo, '')))              AS status_u,
                     COALESCE(puntaje, 0)                           AS puntaje,
                     dia_venta, dia_instalacion,
                     numero_cuenta, telefono_principal, nombre_cliente
@@ -371,10 +371,10 @@ async def instalaciones_dia(
                 SELECT
                     COUNT(*) AS total,
                     COALESCE(SUM(CASE
-                        WHEN UPPER(COALESCE(status,'')) LIKE '%COMPLET%'
-                          OR UPPER(COALESCE(status,'')) LIKE '%ACTIV%'
-                          OR UPPER(COALESCE(status,'')) LIKE '%VENDIDO%'
-                          OR UPPER(COALESCE(status,'')) LIKE '%CERRAD%'
+                        WHEN UPPER(COALESCE(status_grupo,'')) LIKE '%COMPLET%'
+                          OR UPPER(COALESCE(status_grupo,'')) LIKE '%ACTIV%'
+                          OR UPPER(COALESCE(status_grupo,'')) LIKE '%VENDIDO%'
+                          OR UPPER(COALESCE(status_grupo,'')) LIKE '%CERRAD%'
                         THEN 1 ELSE 0 END), 0) AS completadas
                 FROM leads
                 WHERE LEFT(dia_instalacion, 10) = :f

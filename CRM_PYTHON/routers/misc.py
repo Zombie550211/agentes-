@@ -151,12 +151,12 @@ async def rankings_leads(
         params["start"] = f"{targetMonth}-01"
         params["end"]   = f"{targetMonth}-{str(last_day).zfill(2)}"
         where_clauses.append("""
-            status NOT REGEXP '^(cancelled|hold|rescheduled|repro|reserva|oficina|cancelado|cancelada)$'
+            status_grupo NOT REGEXP '^(cancelled|hold|rescheduled|repro|reserva|oficina|cancelado|cancelada)$'
             AND (
               (dia_venta BETWEEN :start AND :end)
               OR (
                 dia_instalacion BETWEEN :start AND :end
-                AND status REGEXP '^(completed|active|pending|completado|activo|activa|vendido)$'
+                AND status_grupo REGEXP '^(completed|active|pending|completado|activo|activa|vendido)$'
                 AND (dia_venta IS NULL OR dia_venta < :start)
               )
             )
@@ -174,7 +174,7 @@ async def rankings_leads(
               OR (
                 dia_instalacion BETWEEN :fi AND :ft
                 AND (dia_venta IS NULL OR dia_venta < :col_start)
-                AND status REGEXP '^(completed|active|pending|completado|activo|activa|vendido)$'
+                AND status_grupo REGEXP '^(completed|active|pending|completado|activo|activa|vendido)$'
               )
             )
         """)
@@ -187,7 +187,7 @@ async def rankings_leads(
 
     async with AsyncSessionLocal() as s:
         r = await s.execute(text(f"""
-            SELECT id, agente_nombre, agente, status, dia_venta, dia_instalacion,
+            SELECT id, agente_nombre, agente, status_grupo AS status, dia_venta, dia_instalacion,
                    puntaje, supervisor, equipo, team, servicios, tipo_servicio
             FROM leads
             WHERE {where_sql}
@@ -252,7 +252,7 @@ async def get_customers(
         params["ft"] = fechaFin + " 23:59:59"
 
     if status:
-        where.append("status = :status")
+        where.append("status_grupo = :status")
         params["status"] = _normalize_status(status)
 
     if not is_adm:
@@ -455,10 +455,10 @@ async def instalaciones_hoy(
     async with AsyncSessionLocal() as s:
         r = await s.execute(text(f"""
             SELECT id, nombre_cliente, telefono_principal, telefono, direccion,
-                   status, agente_nombre, agente, supervisor, servicios, mercado
+                   status_grupo AS status, agente_nombre, agente, supervisor, servicios, mercado
             FROM leads
             WHERE dia_instalacion = {fecha_expr}
-              AND LOWER(COALESCE(status,'')) NOT LIKE '%cancel%'
+              AND LOWER(COALESCE(status_grupo,'')) NOT LIKE '%cancel%'
               AND {res_where}
             ORDER BY nombre_cliente
             LIMIT 200

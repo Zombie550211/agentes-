@@ -11,6 +11,8 @@ from scoring import score_for
 from validators import ImagenUrl
 import realtime
 from tiempo_sv import ahora_sv
+from estado_comision import INICIAL as INICIAL_COMISION, LISTA as LISTA_COMISION, grupo as grupo_comision, normalizar as normalizar_comision
+_GRUPOS_COMISION = ("completed", "cancelled", "pending", "hold", "oficina", "reserva", "repro")
 
 
 def _utcnow() -> datetime:
@@ -134,7 +136,8 @@ def _serialize_lead_stats(row) -> dict:
         "id":              str(d.get("id", "")),
         "dia_venta":       str(d["dia_venta"])       if d.get("dia_venta")       else None,
         "dia_instalacion": str(d["dia_instalacion"]) if d.get("dia_instalacion") else None,
-        "status":          d.get("status"),
+        # Grupo del status de comisión (completed, pending…): el status que cuenta.
+        "status":          d.get("status_grupo"),
         "puntaje":         d.get("puntaje"),
         "mercado":         d.get("mercado"),
         "team":            d.get("team"),
@@ -420,8 +423,8 @@ async def leads_agents_summary(
             SELECT
               COALESCE(agente_nombre, agente) AS _agente,
               COUNT(*) AS total,
-              SUM(CASE WHEN UPPER(TRIM(COALESCE(status,''))) REGEXP 'COMPLET|ACTIVE' THEN 1 ELSE 0 END) AS completed,
-              SUM(CASE WHEN UPPER(TRIM(COALESCE(status,''))) REGEXP 'CANCEL' THEN 1 ELSE 0 END) AS cancelled,
+              SUM(CASE WHEN UPPER(TRIM(COALESCE(status_grupo,''))) REGEXP 'COMPLET|ACTIVE' THEN 1 ELSE 0 END) AS completed,
+              SUM(CASE WHEN UPPER(TRIM(COALESCE(status_grupo,''))) REGEXP 'CANCEL' THEN 1 ELSE 0 END) AS cancelled,
               SUM(COALESCE(puntaje, 0)) AS puntaje
             FROM leads
             WHERE dia_venta BETWEEN :s AND :e
@@ -456,9 +459,9 @@ async def leads_kpis(
         r = await s.execute(text("""
             SELECT
               COUNT(*) AS total,
-              SUM(CASE WHEN UPPER(TRIM(COALESCE(status,''))) REGEXP 'COMPLET|ACTIVE' THEN 1 ELSE 0 END) AS completed,
-              SUM(CASE WHEN UPPER(TRIM(COALESCE(status,''))) REGEXP 'CANCEL' THEN 1 ELSE 0 END) AS cancelled,
-              SUM(CASE WHEN UPPER(TRIM(COALESCE(status,''))) REGEXP 'PENDING|PENDIENTE' THEN 1 ELSE 0 END) AS `pending`,
+              SUM(CASE WHEN UPPER(TRIM(COALESCE(status_grupo,''))) REGEXP 'COMPLET|ACTIVE' THEN 1 ELSE 0 END) AS completed,
+              SUM(CASE WHEN UPPER(TRIM(COALESCE(status_grupo,''))) REGEXP 'CANCEL' THEN 1 ELSE 0 END) AS cancelled,
+              SUM(CASE WHEN UPPER(TRIM(COALESCE(status_grupo,''))) REGEXP 'PENDING|PENDIENTE' THEN 1 ELSE 0 END) AS `pending`,
               SUM(COALESCE(puntaje, 0)) AS puntajeTotal
             FROM leads
             WHERE dia_venta BETWEEN :s AND :e
@@ -618,7 +621,9 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
     _svc_key = body.servicios[0] if isinstance(body.servicios, list) and body.servicios else body.servicios
     caso_txt, caso_estado = _caso_de_alta(body)
     from casos import riesgo_por_status
-    _rcx = riesgo_por_status(body.status)
+    # Toda venta entra con el status de comisión inicial; `status` se guarda tal cual,
+    # solo informativo (estado_comision.py).
+    _rcx = riesgo_por_status(INICIAL_COMISION)
 
     async with AsyncSessionLocal() as s:
         # Puntaje calculado en el BACKEND (tabla productos). Si el servicio no está
@@ -634,13 +639,13 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
                caso_solventar, caso_estado, caso_creado_at, riesgo_cx, riesgo_cx_at)
             VALUES
               (:nc, :tp, :t2, :talt, :dir, :zip, :srv,
-               :ts, :nc2, :mer, :ml, :st, :st,
+               :ts, :nc2, :mer, :ml, :st, :sc,
                :ap, :sis, :rie,
                :pts, :dv, :di, :sup, :ag, :agn,
                :img, 'leads', :by, :now, :now,
                :caso, :caso_est, :caso_at, :rcx, :rcx_at)
         """), {
-            # Riesgo CX automático según el status con que entra la venta.
+            # Riesgo CX automático según el status de comisión con que entra la venta.
             "rcx":      _rcx,
             "rcx_at":   now if _rcx else None,
             "caso":     caso_txt,
@@ -658,6 +663,7 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
             "mer": body.mercado,
             "ml":  body.motivo_llamada,
             "st":  body.status,
+            "sc":  INICIAL_COMISION,
             "ap":  1 if str(body.autopago or "").lower() in ("si","sí","yes","true","1") else (0 if str(body.autopago or "").lower() in ("no","false","0") else None),
             "sis": body.sistema or None,
             "rie": body.riesgo or None,
@@ -742,8 +748,13 @@ async def list_leads(
 
     # Status filter
     if status and status.lower() != "todos":
-        where.append("status = :status")
-        params["status"] = status
+        # Filtra por el status de comisión: por grupo (completed, pending…) o por valor exacto.
+        if status.lower() in _GRUPOS_COMISION:
+            where.append("status_grupo = :status")
+            params["status"] = status.lower()
+        else:
+            where.append("status_comision = :status")
+            params["status"] = status
 
     # Role-based agent filter
     if _is_supervisor(user):
@@ -824,7 +835,7 @@ async def leads_dashboard(
 
     async with AsyncSessionLocal() as s:
         by_status = await s.execute(text("""
-            SELECT UPPER(TRIM(COALESCE(status,''))) AS status_u, COUNT(*) AS count
+            SELECT UPPER(TRIM(COALESCE(status_grupo,''))) AS status_u, COUNT(*) AS count
             FROM leads WHERE dia_venta BETWEEN :s AND :e
             GROUP BY status_u ORDER BY count DESC
         """), p)
@@ -835,8 +846,8 @@ async def leads_dashboard(
         """), p)
         totals_r = await s.execute(text("""
             SELECT COUNT(*) AS total,
-              SUM(CASE WHEN UPPER(TRIM(COALESCE(status,''))) REGEXP 'COMPLET|ACTIVE' THEN 1 ELSE 0 END) AS completed,
-              SUM(CASE WHEN UPPER(TRIM(COALESCE(status,''))) REGEXP 'CANCEL' THEN 1 ELSE 0 END) AS cancelled,
+              SUM(CASE WHEN UPPER(TRIM(COALESCE(status_grupo,''))) REGEXP 'COMPLET|ACTIVE' THEN 1 ELSE 0 END) AS completed,
+              SUM(CASE WHEN UPPER(TRIM(COALESCE(status_grupo,''))) REGEXP 'CANCEL' THEN 1 ELSE 0 END) AS cancelled,
               SUM(COALESCE(puntaje, 0)) AS puntaje
             FROM leads WHERE dia_venta BETWEEN :s AND :e
         """), p)
@@ -870,7 +881,7 @@ async def semaforo(
         parsed = [x.strip().upper() for x in statuses.split(",") if x.strip()]
         if parsed:
             phs = ",".join([f":st{i}" for i in range(len(parsed))])
-            status_clause = f"AND UPPER(TRIM(COALESCE(status,''))) IN ({phs})"
+            status_clause = f"AND UPPER(TRIM(COALESCE(status_grupo,''))) IN ({phs})"
             for i, v in enumerate(parsed):
                 params[f"st{i}"] = v
 
@@ -886,19 +897,19 @@ async def semaforo(
                 SELECT
                   COALESCE(agente_nombre, agente) AS agente_fuente,
                   SUM(CASE
-                        WHEN UPPER(TRIM(COALESCE(status,''))) REGEXP '{_EXCL}' THEN 0
-                        WHEN TRIM(COALESCE(status,'')) = '' THEN 1
-                        WHEN UPPER(TRIM(status)) REGEXP '{_INCL}' THEN 1
+                        WHEN UPPER(TRIM(COALESCE(status_grupo,''))) REGEXP '{_EXCL}' THEN 0
+                        WHEN TRIM(COALESCE(status_grupo,'')) = '' THEN 1
+                        WHEN UPPER(TRIM(status_grupo)) REGEXP '{_INCL}' THEN 1
                         ELSE 0 END) AS ventas,
                   SUM(CASE
-                        WHEN UPPER(TRIM(COALESCE(status,''))) REGEXP '{_EXCL}' THEN 0
-                        WHEN TRIM(COALESCE(status,'')) = '' THEN COALESCE(puntaje,0)
-                        WHEN UPPER(TRIM(status)) REGEXP '{_INCL}' THEN COALESCE(puntaje,0)
+                        WHEN UPPER(TRIM(COALESCE(status_grupo,''))) REGEXP '{_EXCL}' THEN 0
+                        WHEN TRIM(COALESCE(status_grupo,'')) = '' THEN COALESCE(puntaje,0)
+                        WHEN UPPER(TRIM(status_grupo)) REGEXP '{_INCL}' THEN COALESCE(puntaje,0)
                         ELSE 0 END) AS sum_puntaje,
                   MAX(CASE
-                        WHEN UPPER(TRIM(COALESCE(status,''))) REGEXP '{_EXCL}' THEN NULL
-                        WHEN TRIM(COALESCE(status,'')) = '' THEN DATE(dia_venta)
-                        WHEN UPPER(TRIM(status)) REGEXP '{_INCL}' THEN DATE(dia_venta)
+                        WHEN UPPER(TRIM(COALESCE(status_grupo,''))) REGEXP '{_EXCL}' THEN NULL
+                        WHEN TRIM(COALESCE(status_grupo,'')) = '' THEN DATE(dia_venta)
+                        WHEN UPPER(TRIM(status_grupo)) REGEXP '{_INCL}' THEN DATE(dia_venta)
                         ELSE NULL END) AS ultima_venta
                 FROM leads
                 WHERE dia_venta BETWEEN :s AND :e
@@ -970,7 +981,7 @@ async def comisiones_agents(
                   SUM(COALESCE(puntaje, 0)) AS puntos
                 FROM leads
                 WHERE dia_venta BETWEEN :s AND :e
-                  AND LOWER(TRIM(COALESCE(status,'')))
+                  AND LOWER(TRIM(COALESCE(status_grupo,'')))
                       REGEXP 'completed|completado|complete|active|activo|activa'
                   AND (agente_nombre IS NOT NULL OR agente IS NOT NULL)
                 GROUP BY COALESCE(agente_nombre, agente)
@@ -1175,16 +1186,20 @@ async def leads_lineas(
 #  - cancelled: 1 sola llamada, inmediata (llamadas_realizadas = 0)
 #  - completed: hasta 2 llamadas, cada una 15 días después de la anterior
 #    (la 1ª cuenta desde fecha_completed)
-_LLAMADAS_DUE_SQL = """(
-    (LOWER(COALESCE(status,'')) LIKE '%cancel%'
+_LLAMADAS_DUE_TPL = """(
+    (LOWER(COALESCE({st},'')) LIKE '%cancel%'
      AND COALESCE(llamada_cliente,'') = 'Pendiente'
      AND COALESCE(llamadas_realizadas,0) = 0)
     OR
-    (LOWER(COALESCE(status,'')) LIKE '%complet%'
+    (LOWER(COALESCE({st},'')) LIKE '%complet%'
      AND fecha_completed IS NOT NULL
      AND COALESCE(llamadas_realizadas,0) < 2
      AND COALESCE(fecha_ultima_llamada, fecha_completed) <= (UTC_TIMESTAMP() - INTERVAL 15 DAY))
 )"""
+# En leads manda el status de comisión (su grupo); lineas_clientes sigue con su status.
+_LLAMADAS_DUE_SQL = _LLAMADAS_DUE_TPL.format(st="status_grupo")
+_LLAMADAS_DUE_SQL_LINEAS = _LLAMADAS_DUE_TPL.format(st="status")
+
 
 
 def _owner_where() -> str:
@@ -1214,7 +1229,7 @@ async def llamadas_pendientes(
 
     want_full = str(full or "").lower() in ("1", "true")
     cols = "*" if want_full else (
-        "id, nombre_cliente, telefono_principal, telefono, status, "
+        "id, nombre_cliente, telefono_principal, telefono, status_comision AS status, "
         "COALESCE(llamadas_realizadas,0) AS llamadas_realizadas, "
         "fecha_completed, fecha_ultima_llamada"
     )
@@ -1266,7 +1281,7 @@ async def llamadas_pendientes(
                 FROM lineas_clientes
                 WHERE (agente = :own_u OR agente_nombre = :own_u OR agente_asignado = :own_u
                        OR agente = :own_n OR agente_nombre = :own_n OR agente_asignado = :own_n)
-                  AND {_LLAMADAS_DUE_SQL}
+                  AND {_LLAMADAS_DUE_SQL_LINEAS}
                 ORDER BY COALESCE(fecha_ultima_llamada, fecha_completed, created_at) ASC
             """), _owner_params(user))
             for row in r.mappings().all():
@@ -1433,7 +1448,7 @@ class UpdateStatusBody(BaseModel):
 
 
 def _llamada_sets_on_status_change(old_status: str, new_status: str) -> str:
-    """SQL extra cuando el status cambia.
+    """SQL extra cuando el status de comisión cambia de GRUPO (recibe grupos: completed, cancelled…).
 
     - → completed: fecha_completed=now, llamada pendiente.
     - → cancelled: llamada pendiente inmediata.
@@ -1472,6 +1487,9 @@ async def update_lead_status(
     body: UpdateStatusBody,
     user: dict = Depends(current_user),
 ):
+    """Cambia el status normal. Desde el 28-10-2026 es solo informativo: se guarda y queda en
+    el historial, sin efectos (ni llamadas, ni Riesgo CX, ni avisos). Lo que mueve el CRM es el
+    status de comisión (estado_comision.py)."""
     if not (_is_admin_or_bo(user) or _is_supervisor(user)):
         raise HTTPException(403, "No autorizado")
     if _is_backoffice(user):
@@ -1480,39 +1498,18 @@ async def update_lead_status(
         raise HTTPException(400, "status requerido")
     mysql_id, mongo_id = _find_id(lead_id)
     async with AsyncSessionLocal() as s:
-        pr = await s.execute(text("SELECT status FROM leads WHERE id = :id OR mongo_id = :mid LIMIT 1"),
-                             {"id": mysql_id or 0, "mid": mongo_id or ""})
-        prev_status = (pr.first() or [""])[0] or ""
-        extra = _llamada_sets_on_status_change(prev_status, body.status)
         if mysql_id:
-            r = await s.execute(text(
-                f"UPDATE leads SET status = :st{extra} WHERE id = :id"
-            ), {"st": body.status, "id": mysql_id})
+            r = await s.execute(text("UPDATE leads SET status = :st WHERE id = :id"),
+                                {"st": body.status, "id": mysql_id})
         else:
-            r = await s.execute(text(
-                f"UPDATE leads SET status = :st{extra} WHERE mongo_id = :mid"
-            ), {"st": body.status, "mid": mongo_id})
+            r = await s.execute(text("UPDATE leads SET status = :st WHERE mongo_id = :mid"),
+                                {"st": body.status, "mid": mongo_id})
         await s.commit()
         if r.rowcount == 0:
             raise HTTPException(404, "Lead no encontrado")
-        # Obtener nombre del cliente (y dueños para la notificación) para el log
-        cr = await s.execute(text(
-            "SELECT nombre_cliente, agente, agente_nombre, created_by, supervisor "
-            "FROM leads WHERE id = :id OR mongo_id = :mid LIMIT 1"),
-            {"id": mysql_id or 0, "mid": mongo_id or ""})
-        _row = cr.mappings().first() or {}
-        cn = _row.get("nombre_cliente") or "Sin nombre"
-
-    # Notificación persistente + log de productividad B.O. del cambio de status
-    from notifications import record_status_change
-    asyncio.create_task(record_status_change(
-        seccion="residencial", cliente=cn,
-        old_status=prev_status,
-        new_status=str(body.status or ""),
-        actor=user.get("name") or user.get("username", ""),
-        target_agente=_row.get("agente_nombre") or _row.get("agente") or _row.get("created_by") or "",
-        target_supervisor=_row.get("supervisor") or "",
-    ))
+        cr = await s.execute(text("SELECT nombre_cliente FROM leads WHERE id = :id OR mongo_id = :mid LIMIT 1"),
+                             {"id": mysql_id or 0, "mid": mongo_id or ""})
+        cn = (cr.first() or [None])[0] or "Sin nombre"
 
     asyncio.create_task(_log_activity(
         "Cambio de estado", cn,
@@ -1533,44 +1530,56 @@ async def update_lead_status_comision(
     body: UpdateStatusComisionBody,
     user: dict = Depends(current_user),
 ):
-    """Actualiza SOLO el status de comisión, una columna independiente del status normal.
+    """Cambia el status de comisión: el status que mueve el CRM (estado_comision.py).
 
-    Aislamiento total: no toca `status`, no dispara el ciclo de llamadas de verificación
-    ni notificaciones de status. Únicamente la página de Comisiones residenciales lee este
-    campo, así que cambiarlo no afecta semáforo, estadísticas, inicio ni nada del flujo normal.
-    """
+    Solo valores de la lista. Si cambia de grupo dispara lo que antes hacía el status normal:
+    llamada de verificación, fecha_completed y Riesgo CX automático del semáforo, más el aviso
+    al agente y a su supervisor."""
     if not (_is_admin_or_bo(user) or _is_supervisor(user)):
         raise HTTPException(403, "No autorizado")
-    if not body.status_comision:
-        raise HTTPException(400, "status_comision requerido")
+    nuevo = normalizar_comision(body.status_comision)
+    if not nuevo:
+        raise HTTPException(400, "Status de comisión no válido")
     mysql_id, mongo_id = _find_id(lead_id)
     async with AsyncSessionLocal() as s:
+        pr = await s.execute(text(
+            "SELECT status_comision, nombre_cliente, agente, agente_nombre, created_by, supervisor "
+            "FROM leads WHERE id = :id OR mongo_id = :mid LIMIT 1"),
+            {"id": mysql_id or 0, "mid": mongo_id or ""})
+        _row = dict(pr.mappings().first() or {})
+        if not _row:
+            raise HTTPException(404, "Lead no encontrado")
+        previo = _row.get("status_comision") or ""
+        extra = _llamada_sets_on_status_change(grupo_comision(previo), grupo_comision(nuevo))
         if mysql_id:
-            r = await s.execute(
-                text("UPDATE leads SET status_comision = :sc WHERE id = :id"),
-                {"sc": body.status_comision, "id": mysql_id},
-            )
+            r = await s.execute(text(f"UPDATE leads SET status_comision = :sc{extra} WHERE id = :id"),
+                                {"sc": nuevo, "id": mysql_id})
         else:
-            r = await s.execute(
-                text("UPDATE leads SET status_comision = :sc WHERE mongo_id = :mid"),
-                {"sc": body.status_comision, "mid": mongo_id},
-            )
+            r = await s.execute(text(f"UPDATE leads SET status_comision = :sc{extra} WHERE mongo_id = :mid"),
+                                {"sc": nuevo, "mid": mongo_id})
         await s.commit()
         if r.rowcount == 0:
             raise HTTPException(404, "Lead no encontrado")
-        cr = await s.execute(text(
-            "SELECT nombre_cliente FROM leads WHERE id = :id OR mongo_id = :mid LIMIT 1"),
-            {"id": mysql_id or 0, "mid": mongo_id or ""})
-        cn = (cr.first() or [None])[0] or "Sin nombre"
+    cn = _row.get("nombre_cliente") or "Sin nombre"
 
+    if previo != nuevo:
+        from notifications import record_status_change
+        asyncio.create_task(record_status_change(
+            seccion="residencial", cliente=cn,
+            old_status=previo, new_status=nuevo,
+            actor=user.get("name") or user.get("username", ""),
+            target_agente=_row.get("agente_nombre") or _row.get("agente") or _row.get("created_by") or "",
+            target_supervisor=_row.get("supervisor") or "",
+        ))
     # Registro para Productividad B.O (Back Office trabaja sobre este status)
     asyncio.create_task(_log_activity(
         "Cambio de estado comisión", cn,
-        f"Estado → {body.status_comision}",
+        f"Estado → {nuevo}",
         user
     ))
+    await _notify("residencial", "status")
     return {"success": True, "message": "Status de comisión actualizado",
-            "data": {"id": lead_id, "status_comision": body.status_comision}}
+            "data": {"id": lead_id, "status_comision": nuevo}}
 
 
 class UpdateLeadBody(BaseModel):
@@ -1716,35 +1725,15 @@ async def update_lead(
             ), {"id": mysql_id or 0, "mid": mongo_id or "", "u": uname})
             if own.first() is None:
                 raise HTTPException(403, "No autorizado para modificar este lead")
-        extra_llamada = ""
-        if "status" in data:
-            pr = await s.execute(text("SELECT status FROM leads WHERE id = :id OR mongo_id = :mid LIMIT 1"),
-                                 {"id": mysql_id or 0, "mid": mongo_id or ""})
-            prev_status = (pr.first() or [""])[0] or ""
-            extra_llamada = _llamada_sets_on_status_change(prev_status, data["status"])
-        r = await s.execute(text(f"UPDATE leads SET {', '.join(sets)}{extra_llamada} WHERE {where}"), params)
+        # `status` se guarda sin efectos: lo que dispara llamadas, Riesgo CX y avisos es el
+        # status de comisión (PUT /status-comision).
+        r = await s.execute(text(f"UPDATE leads SET {', '.join(sets)} WHERE {where}"), params)
         await s.commit()
         if r.rowcount == 0:
             raise HTTPException(404, "Lead no encontrado")
-        cr = await s.execute(text(
-            "SELECT nombre_cliente, agente, agente_nombre, created_by, supervisor "
-            "FROM leads WHERE id = :id OR mongo_id = :mid LIMIT 1"),
-            {"id": mysql_id or 0, "mid": mongo_id or ""})
-        _row = cr.mappings().first() or {}
-        cn = _row.get("nombre_cliente") or "Sin nombre"
-
-    # Notificación persistente de cambio de status: el agente dueño y su
-    # supervisor la verán al entrar al CRM aunque no estén conectados ahora.
-    if "status" in data:
-        from notifications import record_status_change
-        asyncio.create_task(record_status_change(
-            seccion="residencial", cliente=cn,
-            old_status=prev_status,
-            new_status=str(data["status"] or ""),
-            actor=user.get("name") or user.get("username", ""),
-            target_agente=_row.get("agente_nombre") or _row.get("agente") or _row.get("created_by") or "",
-            target_supervisor=_row.get("supervisor") or "",
-        ))
+        cr = await s.execute(text("SELECT nombre_cliente FROM leads WHERE id = :id OR mongo_id = :mid LIMIT 1"),
+                             {"id": mysql_id or 0, "mid": mongo_id or ""})
+        cn = (cr.first() or [None])[0] or "Sin nombre"
 
     # Determinar tipo de actividad según campos modificados
     if "dia_venta" in data and data.get("dia_venta"):
@@ -1961,11 +1950,12 @@ async def crm_agente(raw_request: Request, user: dict = Depends(current_user)):
               (nombre_cliente, telefono_principal, status, status_comision, agente, agente_nombre,
                servicios, mercado, supervisor, source_collection, created_by, created_at, updated_at)
             VALUES
-              (:nc, :tp, :st, :st, :ag, :agn, :srv, :mer, :sup, :src, :by, :now, :now)
+              (:nc, :tp, :st, :sc, :ag, :agn, :srv, :mer, :sup, :src, :by, :now, :now)
         """), {
             "nc":  request_data.get("nombre_cliente", ""),
             "tp":  request_data.get("telefono_principal", ""),
             "st":  request_data.get("status", "pending"),
+            "sc":  INICIAL_COMISION,
             "ag":  agent_username,
             "agn": agent_username,
             "srv": json.dumps(servicios) if isinstance(servicios, list) else json.dumps([servicios] if servicios else []),

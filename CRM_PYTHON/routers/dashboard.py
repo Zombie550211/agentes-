@@ -52,7 +52,7 @@ async def dashboard_home(user: dict = Depends(current_user)):
 
             # Solo ventas válidas (excluye CANCELLED/HOLD/REPRO; un REPRO reprocesa una venta de días atrás), igual que /api/ranking,
             # para que "mejor vendedor" y los totales coincidan con Ranking y Promociones.
-            _status_validos = """UPPER(TRIM(COALESCE(status,''))) IN (
+            _status_validos = """UPPER(TRIM(COALESCE(status_grupo,''))) IN (
                 'PENDING','PENDIENTE','PENDIENTES',
                 'COMPLETED','ACTIVE','COMPLETADO','ACTIVO','ACTIVA','VENDIDO','CERRADO','CERRADA','VENTA CERRADA',
                 'RESERVA'
@@ -89,7 +89,7 @@ async def dashboard_home(user: dict = Depends(current_user)):
                 WHERE dia_venta IS NOT NULL
                   AND dia_venta >= :ys
                   AND dia_venta <= :e
-                  AND UPPER(TRIM(COALESCE(status,''))) NOT IN ('CANCELLED','CANCELADO','CANCELADA','CANCEL','HOLD','RESERVA','RESCHEDULED','REAGENDADO','REPRO')
+                  AND UPPER(TRIM(COALESCE(status_grupo,''))) NOT IN ('CANCELLED','CANCELADO','CANCELADA','CANCEL','HOLD','RESERVA','RESCHEDULED','REAGENDADO','REPRO')
                 GROUP BY YEAR(dia_venta), MONTH(dia_venta)
                 ORDER BY YEAR(dia_venta), MONTH(dia_venta)
             """), {"ys": year_start, "e": end})
@@ -100,7 +100,7 @@ async def dashboard_home(user: dict = Depends(current_user)):
                 SELECT DAY(dia_venta) AS dia, COUNT(*) AS ventas
                 FROM leads
                 WHERE dia_venta >= :s AND dia_venta < :ex
-                  AND UPPER(TRIM(COALESCE(status,''))) NOT IN ('CANCELLED','CANCELADO','CANCELADA','CANCEL','HOLD','RESERVA','RESCHEDULED','REAGENDADO','REPRO')
+                  AND UPPER(TRIM(COALESCE(status_grupo,''))) NOT IN ('CANCELLED','CANCELADO','CANCELADA','CANCEL','HOLD','RESERVA','RESCHEDULED','REAGENDADO','REPRO')
                 GROUP BY DAY(dia_venta)
             """), {"s": start, "ex": end_excl})
             diario_rows = r2b.mappings().all()
@@ -112,7 +112,7 @@ async def dashboard_home(user: dict = Depends(current_user)):
                 SELECT DATE(dia_venta) AS fecha, COUNT(*) AS ventas
                 FROM leads
                 WHERE dia_venta >= :d AND dia_venta < :h
-                  AND UPPER(TRIM(COALESCE(status,''))) NOT IN ('CANCELLED','CANCELADO','CANCELADA','CANCEL','HOLD','RESERVA','RESCHEDULED','REAGENDADO','REPRO')
+                  AND UPPER(TRIM(COALESCE(status_grupo,''))) NOT IN ('CANCELLED','CANCELADO','CANCELADA','CANCEL','HOLD','RESERVA','RESCHEDULED','REAGENDADO','REPRO')
                 GROUP BY DATE(dia_venta)
             """), {"d": _desde7.isoformat(), "h": (_hoy + _dt.timedelta(days=1)).isoformat()})
             semana_rows = {str(r["fecha"]): r for r in r2c.mappings().all()}
@@ -144,7 +144,7 @@ async def dashboard_home(user: dict = Depends(current_user)):
                 FROM leads
                 WHERE (dia_venta BETWEEN :s AND :e
                        OR (dia_venta IS NULL AND created_at BETWEEN :s AND :e))
-                  AND UPPER(TRIM(COALESCE(status,''))) NOT IN ('CANCELLED','CANCELADO','CANCELADA','CANCEL','HOLD','RESERVA','RESCHEDULED','REAGENDADO','REPRO')
+                  AND UPPER(TRIM(COALESCE(status_grupo,''))) NOT IN ('CANCELLED','CANCELADO','CANCELADA','CANCEL','HOLD','RESERVA','RESCHEDULED','REAGENDADO','REPRO')
                   AND servicios IS NOT NULL
                   AND TRIM(servicios) NOT IN ('', '[]', 'null')
             """), {"s": start, "e": end})
@@ -155,7 +155,7 @@ async def dashboard_home(user: dict = Depends(current_user)):
                 SELECT nombre_cliente, agente_nombre, servicios, created_at,
                        GREATEST(COALESCE(updated_at, created_at), created_at) AS actividad_at
                 FROM leads
-                WHERE UPPER(TRIM(COALESCE(status,''))) NOT IN (
+                WHERE UPPER(TRIM(COALESCE(status_grupo,''))) NOT IN (
                     'CANCELLED','CANCELADO','CANCELADA','CANCEL','HOLD','RESERVA'
                   )
                   AND GREATEST(COALESCE(updated_at, created_at), created_at) >= DATE_SUB(NOW(), INTERVAL 30 DAY)
@@ -175,7 +175,7 @@ async def dashboard_home(user: dict = Depends(current_user)):
                     dia_venta
                 FROM leads
                 WHERE lat IS NOT NULL AND lng IS NOT NULL
-                  AND LOWER(TRIM(COALESCE(status,''))) IN (
+                  AND LOWER(TRIM(COALESCE(status_grupo,''))) IN (
                     'completed','active','activo','completado',
                     'vendido','cerrado','cerrada','venta cerrada'
                   )
@@ -188,17 +188,17 @@ async def dashboard_home(user: dict = Depends(current_user)):
             # Mismos criterios que routers/leads.py (_LLAMADAS_DUE_SQL) pero sin
             # filtrar por agente: aquí es una visualización general del dashboard.
             r7 = await s.execute(text("""
-                SELECT id, nombre_cliente, telefono_principal, telefono, status,
+                SELECT id, nombre_cliente, telefono_principal, telefono, status_grupo AS status,
                        agente_nombre,
                        COALESCE(llamadas_realizadas,0) AS llamadas_realizadas,
                        fecha_completed, fecha_ultima_llamada, llamada_cliente
                 FROM leads
                 WHERE
-                    (LOWER(COALESCE(status,'')) LIKE '%cancel%'
+                    (LOWER(COALESCE(status_grupo,'')) LIKE '%cancel%'
                      AND COALESCE(llamada_cliente,'') = 'Pendiente'
                      AND COALESCE(llamadas_realizadas,0) = 0)
                     OR
-                    (LOWER(COALESCE(status,'')) LIKE '%complet%'
+                    (LOWER(COALESCE(status_grupo,'')) LIKE '%complet%'
                      AND fecha_completed IS NOT NULL
                      AND COALESCE(llamadas_realizadas,0) < 2)
                 ORDER BY COALESCE(fecha_ultima_llamada, fecha_completed, created_at) ASC
@@ -458,7 +458,7 @@ async def get_actividades(user: dict = Depends(current_user)):
             SELECT nombre_cliente, agente_nombre, servicios, created_at,
                    GREATEST(COALESCE(updated_at, created_at), created_at) AS actividad_at
             FROM leads
-            WHERE UPPER(TRIM(COALESCE(status,''))) NOT IN (
+            WHERE UPPER(TRIM(COALESCE(status_grupo,''))) NOT IN (
                 'CANCELLED','CANCELADO','CANCELADA','CANCEL','HOLD','RESERVA'
               )
               AND GREATEST(COALESCE(updated_at, created_at), created_at) >= DATE_SUB(NOW(), INTERVAL 30 DAY)
@@ -497,7 +497,7 @@ async def ventas_del_dia(fecha: _dt.date | None = None, user: dict = Depends(cur
             SELECT nombre_cliente, COALESCE(agente_nombre, agente) AS agente, team, created_at
             FROM leads
             WHERE dia_venta = :f
-              AND UPPER(TRIM(COALESCE(status,''))) NOT IN ('CANCELLED','CANCELADO','CANCELADA','CANCEL','HOLD','RESERVA','RESCHEDULED','REAGENDADO','REPRO')
+              AND UPPER(TRIM(COALESCE(status_grupo,''))) NOT IN ('CANCELLED','CANCELADO','CANCELADA','CANCEL','HOLD','RESERVA','RESCHEDULED','REAGENDADO','REPRO')
             ORDER BY created_at ASC
             LIMIT 300
         """), {"f": fecha.isoformat()})

@@ -355,12 +355,10 @@ function isColchon(lead, targetYM){
 // - Colchón: dia_venta !== targetYM Y dia_instalacion === targetYM
 // - Venta futura: dia_venta === targetYM pero dia_instalacion en mes siguiente → NO cuenta aún
 function cuentaParaComision(lead, targetYM){
-  // La comisión se controla por status_comision (columna independiente del status normal).
-  // Fallback a status normal para registros previos a la columna (status_comision NULL/vacío).
-  const sc = (lead.status_comision !== null && lead.status_comision !== undefined && lead.status_comision !== '')
-    ? lead.status_comision : lead.status;
-  const st = normalizeStatus(sc);
-  if(st !== 'completed') return false;
+  // Solo comisiona el status de comisión del grupo completed: lleva la palabra ACTIVE
+  // (ACTIVE, ACTIVE BY SYSTEM…). El status normal no cuenta (CRM_PYTHON/estado_comision.py).
+  const grupo = lead.status_grupo || (String(lead.status_comision||'').toUpperCase().indexOf('ACTIVE') >= 0 ? 'completed' : '');
+  if(grupo !== 'completed') return false;
   const dv = String(lead.dia_venta||lead.diaVenta||'').slice(0,7);
   const di = String(lead.dia_instalacion||lead.diaInstalacion||'').slice(0,7);
 

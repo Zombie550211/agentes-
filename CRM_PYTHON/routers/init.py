@@ -154,7 +154,7 @@ async def init_dashboard(user: dict = Depends(current_user)):
 
     async with AsyncSessionLocal() as s:
         r = await s.execute(text(f"""
-            SELECT id, agente_nombre, agente, puntaje, status,
+            SELECT id, agente_nombre, agente, puntaje, status_grupo AS status,
                    dia_venta, dia_instalacion, created_at, nombre_cliente
             FROM leads
             WHERE {where_sql}
@@ -280,7 +280,7 @@ async def init_rankings(user: dict = Depends(current_user)):
                 SELECT LOWER(TRIM(COALESCE(agente_nombre, agente, ''))) AS agente_key,
                        COALESCE(agente_nombre, agente) AS agente_nombre_val,
                        COALESCE(puntaje, 0) AS puntaje,
-                       status
+                       status_grupo AS status
                 FROM leads
                 WHERE (
                     (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR LEFT(dia_instalacion,7)=LEFT(dia_venta,7)))
@@ -329,7 +329,7 @@ async def init_rankings(user: dict = Depends(current_user)):
                     SELECT LOWER(TRIM(COALESCE(agente, agente_nombre, ''))) AS agente_key,
                            COALESCE(agente, agente_nombre) AS agente_nombre_val,
                            COALESCE(puntaje, 0) AS puntaje,
-                           status
+                           status_grupo AS status
                     FROM leads
                     WHERE (
                         (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR LEFT(dia_instalacion,7)=LEFT(dia_venta,7)))
@@ -400,7 +400,7 @@ async def init_estadisticas(user: dict = Depends(current_user)):
         async with AsyncSessionLocal() as s:
             r = await s.execute(text(f"""
                 SELECT COALESCE(supervisor, 'Sin equipo') AS supervisor,
-                       status, COALESCE(puntaje, 0) AS puntaje
+                       status_grupo AS status, COALESCE(puntaje, 0) AS puntaje
                 FROM leads WHERE {date_cond}
             """), params)
             rows = r.mappings().all()
@@ -427,7 +427,7 @@ async def init_estadisticas(user: dict = Depends(current_user)):
             r = await s.execute(text(f"""
                 SELECT COALESCE(agente_nombre, agente) AS agente_nombre_val,
                        agente, supervisor,
-                       status, COALESCE(puntaje, 0) AS puntaje
+                       status_grupo AS status, COALESCE(puntaje, 0) AS puntaje
                 FROM leads WHERE {date_cond}
             """), params)
             rows2 = r.mappings().all()
@@ -456,7 +456,7 @@ async def init_estadisticas(user: dict = Depends(current_user)):
             r = await s.execute(text("""
                 SELECT DATE_FORMAT(COALESCE(dia_venta, created_at), '%Y-%m-%d') AS fecha_key,
                        COUNT(*) AS cnt,
-                       SUM(CASE WHEN LOWER(TRIM(COALESCE(status,''))) IN
+                       SUM(CASE WHEN LOWER(TRIM(COALESCE(status_grupo,''))) IN
                            ('completed','active','completado','activo','activa','vendido','cerrado','cerrada')
                            THEN 1 ELSE 0 END) AS completados
                 FROM leads
@@ -476,7 +476,7 @@ async def init_estadisticas(user: dict = Depends(current_user)):
     try:
         async with AsyncSessionLocal() as s:
             r = await s.execute(text(f"""
-                SELECT LOWER(TRIM(COALESCE(status,''))) AS status_raw, COUNT(*) AS cnt
+                SELECT LOWER(TRIM(COALESCE(status_grupo,''))) AS status_raw, COUNT(*) AS cnt
                 FROM leads WHERE {date_cond}
                 GROUP BY status_raw
                 ORDER BY cnt DESC
@@ -517,7 +517,7 @@ async def init_all_pages(user: dict = Depends(current_user)):
     try:
         async with AsyncSessionLocal() as s:
             r = await s.execute(text(f"""
-                SELECT id, nombre_cliente, status, telefono_principal, numero_cuenta,
+                SELECT id, nombre_cliente, status_grupo AS status, telefono_principal, numero_cuenta,
                        agente, agente_nombre, supervisor, dia_venta, dia_instalacion,
                        autopago, pin_seguridad, direccion, telefonos, cantidad_lineas,
                        servicios, mercado, puntaje
@@ -533,7 +533,7 @@ async def init_all_pages(user: dict = Depends(current_user)):
         async with AsyncSessionLocal() as s:
             r = await s.execute(text(f"""
                 SELECT COALESCE(agente_nombre, agente) AS nombre_val,
-                       COALESCE(puntaje, 0) AS puntaje, status
+                       COALESCE(puntaje, 0) AS puntaje, status_grupo AS status
                 FROM leads WHERE {date_cond}
             """), params)
             rows = r.mappings().all()
@@ -562,7 +562,7 @@ async def init_all_pages(user: dict = Depends(current_user)):
             r = await s.execute(text(f"""
                 SELECT COALESCE(supervisor, 'general') AS sup,
                        COUNT(*) AS total_leads,
-                       SUM(CASE WHEN LOWER(TRIM(COALESCE(status,''))) IN
+                       SUM(CASE WHEN LOWER(TRIM(COALESCE(status_grupo,''))) IN
                            ('completed','active','completado','activo','activa','vendido','cerrado','cerrada')
                            THEN 1 ELSE 0 END) AS total_ventas,
                        AVG(COALESCE(puntaje, 0)) AS promedio
@@ -605,7 +605,7 @@ async def init_lead(user: dict = Depends(current_user)):
     try:
         async with AsyncSessionLocal() as s:
             r = await s.execute(text(f"""
-                SELECT id, nombre_cliente, status, agente, agente_nombre, puntaje, servicios, dia_venta
+                SELECT id, nombre_cliente, status_grupo AS status, agente, agente_nombre, puntaje, servicios, dia_venta
                 FROM leads WHERE {date_cond}
                 LIMIT 200
             """), params)
@@ -617,7 +617,7 @@ async def init_lead(user: dict = Depends(current_user)):
     try:
         async with AsyncSessionLocal() as s:
             r = await s.execute(text(f"""
-                SELECT LOWER(TRIM(COALESCE(status,''))) AS status_raw, COUNT(*) AS cnt
+                SELECT LOWER(TRIM(COALESCE(status_grupo,''))) AS status_raw, COUNT(*) AS cnt
                 FROM leads WHERE {date_cond}
                 GROUP BY status_raw
             """), params)
@@ -652,7 +652,7 @@ async def init_facturacion(user: dict = Depends(current_user)):
     try:
         async with AsyncSessionLocal() as s:
             r = await s.execute(text(f"""
-                SELECT id, nombre_cliente, numero_cuenta, status,
+                SELECT id, nombre_cliente, numero_cuenta, status_grupo AS status,
                        agente, agente_nombre, dia_venta, dia_instalacion,
                        cantidad_lineas, autopago
                 FROM leads WHERE {date_cond}
@@ -667,7 +667,7 @@ async def init_facturacion(user: dict = Depends(current_user)):
         async with AsyncSessionLocal() as s:
             r = await s.execute(text(f"""
                 SELECT COUNT(*) AS total_count,
-                       SUM(CASE WHEN LOWER(TRIM(COALESCE(status,''))) IN
+                       SUM(CASE WHEN LOWER(TRIM(COALESCE(status_grupo,''))) IN
                            ('completed','active','completado','activo','activa','vendido','cerrado','cerrada')
                            THEN 1 ELSE 0 END) AS completadas
                 FROM leads WHERE {date_cond}
@@ -771,7 +771,7 @@ async def recent_activity(user: dict = Depends(current_user)):
 
     async with AsyncSessionLocal() as s:
         r = await s.execute(text(f"""
-            SELECT id, nombre_cliente, agente_nombre, agente, status, servicios,
+            SELECT id, nombre_cliente, agente_nombre, agente, status_grupo AS status, servicios,
                    puntaje, created_at, dia_venta
             FROM leads
             WHERE {where_sql}
@@ -872,7 +872,7 @@ async def agent_history(
 
     async with AsyncSessionLocal() as s:
         r2 = await s.execute(text(f"""
-            SELECT id, nombre_cliente, status, servicios, puntaje, agente_nombre, created_at, dia_venta
+            SELECT id, nombre_cliente, status_grupo AS status, servicios, puntaje, agente_nombre, created_at, dia_venta
             FROM leads
             WHERE {lead_where_sql}
             LIMIT 1000

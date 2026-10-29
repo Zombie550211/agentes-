@@ -134,6 +134,9 @@
       .trim();
   }
 
+  // Grupo del status de comisión, con los nombres que usa esta página (completed, pending,
+  // cancelled, hold, oficina, reserva, rescheduled). Igual que estado_comision.grupo() del backend.
+  function grupoComision(v){const s=String(v||'').trim().toUpperCase();if(s.indexOf('ACTIVE')>=0||s.indexOf('COMPLET')===0||s==='ACTIVO'||s==='ACTIVA')return'completed';if(s.indexOf('CANCEL')===0)return'cancelled';if(s==='HOLD')return'hold';if(s==='OFICINA')return'oficina';if(s.indexOf('RESERV')===0)return'reserva';if(s.indexOf('REPRO')>=0||s.indexOf('RESCHED')===0)return'rescheduled';return'pending';}
   function normalizeStatus(sv){const s=String(sv||'').trim().toLowerCase();if(!s)return'pending';if(s==='pending'||s==='pendiente'||s.includes('pend'))return'pending';if(s==='reserva'||s.includes('reser'))return'reserva';if(s==='cancelled'||s.includes('cancel'))return'cancelled';if(s==='hold'||s.includes('hold'))return'hold';if(s==='rescheduled'||s.includes('resched')||s.includes('reagend')||s.includes('repro'))return'rescheduled';if(s==='oficina'||(s.includes('active')&&s.includes('oficina')))return'oficina';if(s==='active'||s==='activo'||s==='activa')return'active';if(s==='completed'||s.includes('complet')||s.includes('cerrad'))return'completed';return s;}
   function normalizeRiesgo(rv){const s=String(rv||'').trim().toLowerCase();if(s==='alto'||s==='high'||s==='h')return'Alto';if(s==='medio'||s==='medium'||s==='m')return'Medio';if(s==='bajo'||s==='low'||s==='l')return'Bajo';return String(rv||'');}
   function pickField(obj,keys,fallback){if(!obj)return fallback!==undefined?fallback:'';for(let i=0;i<keys.length;i++){const v=obj[keys[i]];if(v!==undefined&&v!==null&&String(v).trim()!=='')return v;}return fallback!==undefined?fallback:'';}
@@ -153,7 +156,7 @@
     }catch(_){return false;}
   }
   function isColchonActivo(lead, refMonthStr){
-    return isColchonLead(lead, refMonthStr) && (normalizeStatus(lead.status)==='completed'||normalizeStatus(lead.status)==='active');
+    return isColchonLead(lead, refMonthStr) && lead.status_grupo==='completed';
   }
 
   function extractMongoId(it, idx) {
@@ -199,10 +202,10 @@
         })(),
         dia_instalacion: String(pick(['dia_instalacion','installDate','fecha_instalacion','fechaInstalacion','diaInstalacion'])).slice(0,10),
         status:          normalizeStatus(pick(['status','Status','estado','state'])),
-        status_comision: (function(){
-          var v=normalizeStatus(pick(['status_comision','statusComision']));
-          return v||normalizeStatus(pick(['status','Status','estado','state']));
-        })(),
+        // Status de comisión: el que mueve el CRM (valor de la lista, en mayúsculas) y su grupo.
+        // `status` queda solo informativo.
+        status_comision: String(pick(['status_comision','statusComision'])||'').trim().toUpperCase(),
+        status_grupo:    grupoComision(pick(['status_grupo'])||pick(['status_comision','statusComision'])),
         servicios:       pick(['servicios','servicios_texto','producto_contratado','serviceDescription']),
         tipo_servicio:   pick(['tipo_servicio','serviceType','tipoServicio','tipo_servicios']),
         mercado:         pick(['mercado','market']),
@@ -221,9 +224,8 @@
         was_reserva:     !!(it&&(it.was_reserva===true||it.was_reserva==='true'||it.was_reserva===1)),
         riesgo_cx:       String((it&&it.riesgo_cx)||'').toLowerCase(),
         riesgo_cx_manual:!!(it&&(it.riesgo_cx_manual===1||it.riesgo_cx_manual===true||it.riesgo_cx_manual==='1')),
-        estado_sistema:  String((it&&it.estado_sistema)||'').toUpperCase(),
       };
-      if(!lead._es_colchon){const st=normalizeStatus(lead.status);lead._es_colchon=isColchonLead(lead)&&(st==='completed'||st==='active');}
+      if(!lead._es_colchon){lead._es_colchon=isColchonLead(lead)&&lead.status_grupo==='completed';}
       return lead;
     });
   }
@@ -463,7 +465,7 @@
     __filteredLeads=__allLeadsData.filter(function(lead){
       // Supervisores SÍ pueden ver leads de oficina de su equipo
       if(!isAdm && !isSup){
-        if(lead.status==='oficina')return false;
+        if(lead.status_grupo==='oficina')return false;
       }
       // Agentes solo ven sus propios leads
       if(isAgt){
@@ -547,9 +549,9 @@
 
       if(activeStatusTab&&activeStatusTab!=='all'){
         if(activeStatusTab==='colchon'){if(!lead._es_colchon_route)return false;}
-        else if(activeStatusTab==='completed'){if(lead.status!=='completed'&&lead.status!=='active')return false;if(lead._es_colchon&&onlyTwoMonths)return false;}
-        else if(activeStatusTab==='pending'){if(lead.status!=='pending')return false;if(lead._es_colchon&&onlyTwoMonths)return false;}
-        else{if(lead.status!==activeStatusTab)return false;}
+        else if(activeStatusTab==='completed'){if(lead.status_grupo!=='completed')return false;if(lead._es_colchon&&onlyTwoMonths)return false;}
+        else if(activeStatusTab==='pending'){if(lead.status_grupo!=='pending')return false;if(lead._es_colchon&&onlyTwoMonths)return false;}
+        else{if(lead.status_grupo!==activeStatusTab)return false;}
       }
 
       if(month && !__searchResultsOnly){
@@ -622,7 +624,6 @@
     estatus:function(l){return String(l.status||'');},
     comision:function(l){return String(l.status_comision||'');},
     riesgo:function(l){return({bajo:1,medio:2,alto:3})[l.riesgo_cx]||0;},
-    sistema:function(l){return l.estado_sistema||'';},
     puntos:function(l){const n=parseFloat(String(l.puntaje==null?'':l.puntaje).replace(',','.'));return isNaN(n)?-1:n;}
   };
   function ordenarLeads(){
@@ -668,18 +669,15 @@
     return'<select class="cl-sel '+cfg.cls+(isColchon?' colchon-select':'')+'" data-lead-id="'+escHTML(lidStr)+'"'+colchonAttr+' onchange="inlineStatusChange(this)" aria-label="Cambiar status">'+opts+'</select>'+colchonChip;
   }
 
-  /* ── STATUS COMISIÓN (columna independiente, solo afecta la página de Comisiones) ── */
-  function statusComisionCellHTML(leadId,currentStatus,isColchon){
-    // Fallback al status normal si aún no se ha asignado uno de comisión (datos previos a la columna)
-    const sc=(currentStatus===null||currentStatus===undefined||currentStatus==='')?null:currentStatus;
+  /* ── STATUS COMISIÓN: el status que mueve el CRM (KPIs, comisión, semáforo, llamadas) ── */
+  function statusComisionCellHTML(leadId,valor,isColchon){
+    const v=LISTA_COMISION.indexOf(valor)>=0?valor:'';
     const colchonChip=isColchon?'<span class="cl-colchon">Colchón</span>':'';
     const ud=getUserData(),role=String(ud.role||ud.rol||'').toLowerCase();
-    if(!isAdminOrBackoffice(role))return badgeHTML(sc||'pending',isColchon);
-    const lidStr=String(leadId);
-    const cfg=STATUS_CFG[sc]||{cls:'badge-hold'};
-    const allOpts=[{value:'pending',label:'Pending'},{value:'completed',label:'Completed'},{value:'cancelled',label:'Cancelled'},{value:'hold',label:'Hold'},{value:'oficina',label:'Oficina'},{value:'reserva',label:'Reserva'}];
-    const _sc=sc==='active'?'completed':sc;const opts=allOpts.map(function(o){return'<option value="'+o.value+'"'+(o.value===_sc?' selected':'')+'>'+o.label+'</option>';}).join('');
-    return'<select class="cl-sel '+cfg.cls+(isColchon?' colchon-select':'')+'" data-lead-id="'+escHTML(lidStr)+'" onchange="inlineStatusComisionChange(this)" aria-label="Cambiar status de comisión">'+opts+'</select>'+colchonChip;
+    if(!isAdminOrBackoffice(role))return'<span class="cl-badge '+comisionCls(v)+'">'+(v?escHTML(v):'—')+'</span>'+colchonChip;
+    const opts=(v?'':'<option value="" selected disabled>—</option>')+
+      LISTA_COMISION.map(function(o){return'<option class="'+comisionCls(o)+'" value="'+o+'"'+(o===v?' selected':'')+'>'+o+'</option>';}).join('');
+    return'<select class="cl-sel cl-sel-sis '+comisionCls(v)+(isColchon?' colchon-select':'')+'" data-lead-id="'+escHTML(String(leadId))+'" onchange="inlineStatusComisionChange(this)" aria-label="Cambiar status de comisión">'+opts+'</select>'+colchonChip;
   }
 
   /* ── RIESGO CX ──
@@ -720,58 +718,29 @@
     }
   };
 
-  /* ── SISTEMA ──
-     Estado de la cuenta en el sistema del proveedor (leads.estado_sistema). Orden y
-     colores iguales a la columna SISTEMA de la hoja de comisiones (clases sis-* en clientes.css). */
-  const ESTADOS_SISTEMA=['ACTIVE','CANCEL','COLLECTION','HOLD','IL','FES','REC AUD','CHECK','CXNC','EDAB','ACTIVE BY SYSTEM','CHB ALERT','CUENTA SUSPENDIDA','CASO PTE','CHB','CANCEL BY SYSTEM','SNAR','NO SE PUEDE VALIDAR','ACTIVE BY FASTGM','NEXT PAY','PENDIENTE DE VALIDAR POR SISTEMA'];
-  const SISTEMA_COLOR={
+  /* ── LISTA DEL STATUS DE COMISIÓN ──
+     Mismo orden y colores que la columna SISTEMA de la hoja de comisiones (clases sis-* en
+     clientes.css), más OFICINA, RESERVA y REPRO del CRM. Ver CRM_PYTHON/estado_comision.py. */
+  const LISTA_COMISION=['ACTIVE','CANCEL','COLLECTION','HOLD','IL','FES','REC AUD','CHECK','CXNC','EDAB','ACTIVE BY SYSTEM','CHB ALERT','CUENTA SUSPENDIDA','CASO PTE','CHB','CANCEL BY SYSTEM','SNAR','NO SE PUEDE VALIDAR','ACTIVE BY FASTGM','NEXT PAY','PENDIENTE DE VALIDAR POR SISTEMA','OFICINA','RESERVA','REPRO'];
+  const COLOR_COMISION={
     'ACTIVE':'verde','ACTIVE BY SYSTEM':'verde-osc','ACTIVE BY FASTGM':'verde-osc',
     'CANCEL':'rojo','CANCEL BY SYSTEM':'rojo','NO SE PUEDE VALIDAR':'rojo-osc','CASO PTE':'rojo-osc',
     'HOLD':'amarillo','COLLECTION':'amarillo','NEXT PAY':'amarillo',
     'CXNC':'azul','PENDIENTE DE VALIDAR POR SISTEMA':'azul','FES':'morado',
-    'CUENTA SUSPENDIDA':'naranja','CHB':'naranja','CHB ALERT':'naranja'
+    'CUENTA SUSPENDIDA':'naranja','CHB':'naranja','CHB ALERT':'naranja','OFICINA':'oficina'
   };
-  function sistemaCls(v){return v?'sis-'+(SISTEMA_COLOR[v]||'gris'):'';}
-  function sistemaCellHTML(leadId,valor){
-    const v=ESTADOS_SISTEMA.indexOf(valor)>=0?valor:'';
-    const ud=getUserData(),role=String(ud.role||ud.rol||'').toLowerCase();
-    if(!isAdminOrBackoffice(role)){
-      return '<span class="cl-badge '+sistemaCls(v)+'">'+(v?escHTML(v):'—')+'</span>';
-    }
-    const opts='<option value=""'+(v?'':' selected')+'>—</option>'+
-      ESTADOS_SISTEMA.map(function(o){return'<option class="'+sistemaCls(o)+'" value="'+o+'"'+(o===v?' selected':'')+'>'+o+'</option>';}).join('');
-    return'<select class="cl-sel cl-sel-sis '+sistemaCls(v)+'" data-lead-id="'+escHTML(String(leadId))+'" onchange="inlineSistemaChange(this)" aria-label="Cambiar Sistema">'+opts+'</select>';
-  }
-  window.inlineSistemaChange=async function(selectEl){
-    const leadId=selectEl.dataset.leadId,v=selectEl.value;
-    const lead=__allLeadsData.find(function(l){return String(l._id)===leadId;});
-    if(!lead)return;
-    if(String(leadId).startsWith('tmp-')){showToast('Este lead no tiene ID válido — recarga la página','error');return;}
-    const previo=lead.estado_sistema;
-    selectEl.disabled=true;
-    const res=await AUTH.secureFetch('/api/leads/'+encodeURIComponent(leadId)+'/estado-sistema',{method:'PUT',body:JSON.stringify({estado_sistema:v})});
-    selectEl.disabled=false;
-    if(res&&res.ok){
-      lead.estado_sistema=v;
-      const td=selectEl.closest('td');if(td)td.innerHTML=sistemaCellHTML(leadId,v);
-      showToast('Sistema: '+(v||'—')+' ✓','ok');
-    }else if(res){
-      const e=await res.json().catch(function(){return{};});
-      selectEl.value=previo||'';
-      showToast(e.detail||'No se pudo cambiar el Sistema','error');
-    }
-  };
+  function comisionCls(v){return v?'sis-'+(COLOR_COMISION[v]||'gris'):'';}
 
   /* ── TABLE ROWS ── */
   function renderTableRows(){
     const tbody=document.getElementById('costumer-tbody');if(!tbody)return;
     const total=__filteredLeads.length,ps=pageSize===99999?total:pageSize,start=(currentPage-1)*ps,paged=__filteredLeads.slice(start,start+ps);
-    if(!paged.length){tbody.innerHTML='<tr class="cl-vacia"><td colspan="10"><div class="cl-vacia-box"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><strong>Sin resultados</strong><span>Prueba con otros filtros o limpia la búsqueda.</span></div></td></tr>';}
+    if(!paged.length){tbody.innerHTML='<tr class="cl-vacia"><td colspan="9"><div class="cl-vacia-box"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><strong>Sin resultados</strong><span>Prueba con otros filtros o limpia la búsqueda.</span></div></td></tr>';}
     else{tbody.innerHTML=paged.map(function(lead){
       const lid=String(lead._id);
       const _dv7=String(lead.dia_venta||'').slice(0,7),_di7=String(lead.dia_instalacion||'').slice(0,7);
       const isCol=!!lead._es_colchon_route||(_dv7&&_di7&&_dv7!==_di7);
-      const _st=String(lead.status||'pending').toLowerCase().replace(/[^a-z]/g,'');
+      const _st=String(lead.status_grupo||'pending');
       const pts=lead.puntaje!==''&&lead.puntaje!==null&&lead.puntaje!==undefined?parseFloat(String(lead.puntaje).replace(',','.')):null;
       const ptsCls=pts===null?'cl-pts-nada':pts>=1?'cl-pts-alto':pts>=0.5?'cl-pts-medio':'cl-pts-bajo';
       const _svcArr=(function(){var s=lead.servicios;if(Array.isArray(s))return s.map(function(x){return String(x||'').trim();}).filter(Boolean);var str=String(s||'').trim();return str?[str]:[];})();
@@ -810,11 +779,10 @@
           '<dt>Venta</dt><dd>'+escHTML(fmtDate(lead.dia_venta))+'</dd>'+
           '<dt>Inst.</dt><dd>'+escHTML(fmtDate(lead.dia_instalacion))+'</dd>'+
         '</dl></td>'+
-        // Estatus · Comisión · Riesgo CX · Sistema
+        // Estatus (informativo) · Comisión · Riesgo CX
         '<td class="cl-td-sel">'+statusCellHTML(lid,lead.status,isCol)+'</td>'+
         '<td class="cl-td-sel">'+statusComisionCellHTML(lid,lead.status_comision,isCol)+'</td>'+
         '<td class="cl-td-sel">'+riesgoCxCellHTML(lid,lead.riesgo_cx,lead.riesgo_cx_manual)+'</td>'+
-        '<td class="cl-td-sel">'+sistemaCellHTML(lid,lead.estado_sistema)+'</td>'+
         // Puntos / Supervisor
         '<td>'+
           '<div class="cl-pts '+ptsCls+'">'+(pts!==null?escHTML(String(lead.puntaje)):'—')+' <small>pts</small></div>'+
@@ -909,7 +877,7 @@
       if(fSvc){const su=fSvc.toUpperCase();if(String(l.servicios||'').toUpperCase().indexOf(su)===-1&&String(l.tipo_servicio||'').toUpperCase().indexOf(su)===-1)return;}
 
       const dv=String(l.dia_venta||'').slice(0,10);
-      const st=l.status;
+      const st=l.status_grupo;
       const dvYM=toYM(l.dia_venta);
       const diYM=toYM(l.dia_instalacion);
       if(st==='oficina'){kpi.oficina++;return;}
@@ -962,20 +930,26 @@
     else if(res){lead.status=oldStatus;selectEl.value=oldStatus;selectEl.classList.remove(newCls);selectEl.classList.add(oldCls);showToast('No se pudo guardar el status','error');}
   };
 
-  /* ── STATUS COMISIÓN: guarda en columna independiente, no toca el status normal ── */
+  /* ── STATUS COMISIÓN: guardar ── */
   window.inlineStatusComisionChange=async function(selectEl){
     const leadId=selectEl.dataset.leadId,newStatus=selectEl.value;
     const lead=__allLeadsData.find(function(l){return String(l._id)===leadId;});
     if(!lead){showToast('Lead no encontrado','error');return;}
     if(String(leadId).startsWith('tmp-')){showToast('Este lead no tiene ID válido — recarga la página','error');return;}
-    const oldStatus=(lead.status_comision===null||lead.status_comision===undefined||lead.status_comision==='')?null:lead.status_comision;
-    const oldCls=(STATUS_CFG[oldStatus]||{cls:'badge-hold'}).cls;
-    const newCls=(STATUS_CFG[newStatus]||{cls:'badge-hold'}).cls;
-    lead.status_comision=newStatus;
-    selectEl.classList.remove(oldCls);selectEl.classList.add(newCls);
+    const oldStatus=lead.status_comision||'';
+    selectEl.disabled=true;
     const res=await AUTH.secureFetch('/api/leads/'+leadId+'/status-comision',{method:'PUT',body:JSON.stringify({status_comision:newStatus})});
-    if(res&&res.ok){showToast('Status de comisión actualizado ✓','ok');}
-    else if(res){lead.status_comision=oldStatus;selectEl.value=oldStatus||'pending';selectEl.classList.remove(newCls);selectEl.classList.add(oldCls);showToast('No se pudo guardar el status de comisión','error');}
+    selectEl.disabled=false;
+    if(res&&res.ok){
+      lead.status_comision=newStatus;lead.status_grupo=grupoComision(newStatus);
+      lead._es_colchon=isColchonLead(lead)&&lead.status_grupo==='completed';
+      showToast('Status de comisión: '+newStatus+' ✓','ok');
+      applyFilters();
+    }else if(res){
+      selectEl.value=oldStatus;
+      const e=await res.json().catch(function(){return{};});
+      showToast(e.detail||'No se pudo guardar el status de comisión','error');
+    }
   };
 
   /* ── EDIT MODAL ── */
@@ -1053,7 +1027,7 @@
     const idSpan=document.getElementById('modal-lead-id');if(idSpan)idSpan.textContent='#'+String(leadId).slice(-4).toUpperCase();
     const isCol=!!lead._es_colchon;
     const container=document.getElementById('liberar-reserva-container');
-    if(container){const showBanner=(lead.status==='reserva'||lead.was_reserva)&&!isCol;container.style.display=showBanner?'block':'none';if(showBanner){const sel=document.getElementById('liberar-agente-select');if(sel){const agentSet=new Set();__allLeadsData.forEach(function(l){const a=l.agente||'';if(a.trim())agentSet.add(a.trim());});sel.innerHTML='<option value="">-- Selecciona agente --</option>';Array.from(agentSet).sort().forEach(function(a){const opt=document.createElement('option');opt.value=a;opt.textContent=a;sel.appendChild(opt);});}}}
+    if(container){const showBanner=(lead.status_grupo==='reserva'||lead.was_reserva)&&!isCol;container.style.display=showBanner?'block':'none';if(showBanner){const sel=document.getElementById('liberar-agente-select');if(sel){const agentSet=new Set();__allLeadsData.forEach(function(l){const a=l.agente||'';if(a.trim())agentSet.add(a.trim());});sel.innerHTML='<option value="">-- Selecciona agente --</option>';Array.from(agentSet).sort().forEach(function(a){const opt=document.createElement('option');opt.value=a;opt.textContent=a;sel.appendChild(opt);});}}}
 
     // ── Permisos de edición: solo Admin y Backoffice pueden modificar ──
     (function(){
@@ -1973,7 +1947,7 @@
   /* ── EXPORT CSV ── */
   function exportToCSV(){
     if(!__filteredLeads.length){showToast('Sin datos para exportar','error');return;}
-    const cols=[{label:'Agente',fn:function(l){return l.agente||'';}},{label:'Nombre cliente',fn:function(l){return l.nombre_cliente||'';}},{label:'Teléfono',fn:function(l){return l.telefono||'';}},{label:'Tel. alterno',fn:function(l){return l.telefono_alt||'';}},{label:'No. cuenta',fn:function(l){return l.numero_cuenta||'';}},{label:'Autopago',fn:function(l){return l.autopago||'';}},{label:'Dirección',fn:function(l){return l.direccion||'';}},{label:'Tipo servicio',fn:function(l){return l.tipo_servicio||'';}},{label:'Sistema',fn:function(l){return l.sistema||'';}},{label:'Riesgo',fn:function(l){return l.riesgo||'';}},{label:'Estado sistema',fn:function(l){return l.estado_sistema||'';}},{label:'Día venta',fn:function(l){return l.dia_venta||'';}},{label:'Día instalación',fn:function(l){return l.dia_instalacion||'';}},{label:'Status',fn:function(l){return l.status||'';}},{label:'Colchón',fn:function(l){return l._es_colchon?'Sí':'No';}},{label:'Servicios',fn:function(l){return l.servicios||'';}},{label:'Mercado',fn:function(l){return l.mercado||'';}},{label:'Supervisor',fn:function(l){return l.supervisor||'';}},{label:'Motivo llamada',fn:function(l){return l.motivo_llamada||'';}},{label:'ZIP',fn:function(l){return l.zip_code||'';}},{label:'Puntaje',fn:function(l){return l.puntaje!==''&&l.puntaje!=null?l.puntaje:'';}}];
+    const cols=[{label:'Agente',fn:function(l){return l.agente||'';}},{label:'Nombre cliente',fn:function(l){return l.nombre_cliente||'';}},{label:'Teléfono',fn:function(l){return l.telefono||'';}},{label:'Tel. alterno',fn:function(l){return l.telefono_alt||'';}},{label:'No. cuenta',fn:function(l){return l.numero_cuenta||'';}},{label:'Autopago',fn:function(l){return l.autopago||'';}},{label:'Dirección',fn:function(l){return l.direccion||'';}},{label:'Tipo servicio',fn:function(l){return l.tipo_servicio||'';}},{label:'Sistema',fn:function(l){return l.sistema||'';}},{label:'Riesgo',fn:function(l){return l.riesgo||'';}},{label:'Día venta',fn:function(l){return l.dia_venta||'';}},{label:'Día instalación',fn:function(l){return l.dia_instalacion||'';}},{label:'Status',fn:function(l){return l.status||'';}},{label:'Status comisión',fn:function(l){return l.status_comision||'';}},{label:'Colchón',fn:function(l){return l._es_colchon?'Sí':'No';}},{label:'Servicios',fn:function(l){return l.servicios||'';}},{label:'Mercado',fn:function(l){return l.mercado||'';}},{label:'Supervisor',fn:function(l){return l.supervisor||'';}},{label:'Motivo llamada',fn:function(l){return l.motivo_llamada||'';}},{label:'ZIP',fn:function(l){return l.zip_code||'';}},{label:'Puntaje',fn:function(l){return l.puntaje!==''&&l.puntaje!=null?l.puntaje:'';}}];
     function escCSV(v){const s=String(v==null?'':v).replace(/"/g,'""');return(s.includes(',')||s.includes('"')||s.includes('\n'))?'"'+s+'"':s;}
     const header=cols.map(function(c){return escCSV(c.label);}).join(',');
     const rows=__filteredLeads.map(function(lead){return cols.map(function(c){return escCSV(c.fn(lead));}).join(',');});
@@ -1994,7 +1968,7 @@
   function updateCuadraturaFilterInfo(){const el=document.getElementById('cuadratura-filter-info');if(!el)return;const agent=getVal('agentFilter');const month=getVal('monthFilter');const status=document.querySelector('#quickStatusChips .stab.is-active');const parts=[];if(agent)parts.push('Agente: '+agent);if(month)parts.push('Mes: '+month);if(status&&status.dataset.status!=='all')parts.push('Status: '+status.textContent.trim());const n=__filteredLeads.length;parts.push(n+' leads');el.textContent=parts.join(' · ')||'Todos los leads ('+n+')';const warn=document.getElementById('cuadratura-filter-warn');if(warn){const hasStatus=status&&status.dataset.status!=='all';warn.style.display=hasStatus?'none':'block';}}
   window.limpiarCuadratura=function(){const inp=document.getElementById('cuadraturaInput');const res=document.getElementById('cuadratura-result');const inpP=document.getElementById('cuadratura-input-panel');const lim=document.getElementById('btn-cuadratura-limpiar');const btn=document.getElementById('btnEjecutarCuadratura');if(inp)inp.value='';if(res)res.style.display='none';if(inpP)inpP.style.display='block';if(lim)lim.style.display='none';if(btn){btn.style.display='';btn.disabled=true;}_cuadData={all:[],currentTab:'diff'};updateCuadraturaFilterInfo();};
   window.switchCuadTab=function(btn){document.querySelectorAll('.cuad-tab').forEach(function(t){t.classList.remove('is-active');});btn.classList.add('is-active');_cuadData.currentTab=btn.dataset.tab;renderCuadTable();};
-  window.ejecutarCuadratura=function(){const ta=document.getElementById('cuadraturaInput');if(!ta||!ta.value.trim()){showToast('Pega tu lista primero','error');return;}const lineas=ta.value.split('\n').map(function(l){return l.trim();}).filter(Boolean);const manual=lineas.map(function(l){var nombre='',puntajeStr='',hasPuntaje=false;if(l.indexOf('\t')!==-1){var p=l.split('\t');nombre=p[0].trim();puntajeStr=p[p.length-1].trim();hasPuntaje=true;}else{var m=l.match(/^(.+?)\s+([0-9]+[.,][0-9]+)\s*$/);if(m){nombre=m[1].trim();puntajeStr=m[2].trim();hasPuntaje=true;}else{var lc=l.lastIndexOf(',');if(lc!==-1){var after=l.slice(lc+1).trim();if(/^[0-9]+([.,][0-9]+)?$/.test(after)){nombre=l.slice(0,lc).trim();puntajeStr=after;hasPuntaje=true;}else{nombre=l;}}else{nombre=l;}}}var puntaje=null;if(hasPuntaje&&puntajeStr){var pN=puntajeStr.replace(',','.');puntaje=parseFloat(pN);if(isNaN(puntaje)){puntaje=null;hasPuntaje=false;}}return{nombre:nombre||l,puntaje:puntaje,hasPuntaje:hasPuntaje};});const leads=__filteredLeads.filter(function(l){const st=normalizeStatus(l.status);if(st==='cancelled'||st==='canceled')return false;if(st==='hold')return false;if(st==='rescheduled')return false;if(st==='reserva')return false;if(st==='oficina')return false;return st==='completed'||st==='active';});const crmMap={};leads.forEach(function(lead){const norm=normForCuad(lead.nombre_cliente);if(!crmMap[norm])crmMap[norm]=[];crmMap[norm].push(lead);});const manualNormSet=new Set(manual.map(function(m){return normForCuad(m.nombre);}));const results=[];const crmUsedIndex={};manual.forEach(function(m){const norm=normForCuad(m.nombre);const crmLeads=crmMap[norm];if(!crmLeads||!crmLeads.length){var found=null;Object.keys(crmMap).forEach(function(k){if(!found&&(k.includes(norm.split(' ')[0])||norm.includes(k.split(' ')[0]))){if(norm.split(' ')[0].length>=4)found={key:k,leads:crmMap[k]};}});if(found){const idx=crmUsedIndex[found.key]||0;const lead=found.leads[idx]||found.leads[0];crmUsedIndex[found.key]=idx+1;const crmPts=parseFloat(lead.puntaje)||0;const diff=m.hasPuntaje?parseFloat((m.puntaje-crmPts).toFixed(2)):null;results.push({tipo:diff===0?'ok':(diff!==null?'diff':'miss-partial'),nombre:m.nombre,nombreCRM:lead.nombre_cliente,puntajeManual:m.puntaje,puntajeCRM:crmPts,diff:diff,parcial:true});}else{results.push({tipo:'miss',nombre:m.nombre,nombreCRM:null,puntajeManual:m.puntaje,puntajeCRM:null,diff:null});}}else{const idx=crmUsedIndex[norm]||0;const lead=crmLeads[idx]||crmLeads[crmLeads.length-1];crmUsedIndex[norm]=idx+1;const crmPts=parseFloat(lead.puntaje)||0;const diff=m.hasPuntaje?parseFloat((m.puntaje-crmPts).toFixed(2)):null;const tipo=diff===null?'ok':(diff===0?'ok':'diff');results.push({tipo:tipo,nombre:m.nombre,nombreCRM:lead.nombre_cliente,puntajeManual:m.puntaje,puntajeCRM:crmPts,diff:diff,parcial:false});}});const sobrantesMap={};leads.forEach(function(lead){const norm=normForCuad(lead.nombre_cliente);if(!manualNormSet.has(norm)){const yaIncluido=results.some(function(r){return normForCuad(r.nombreCRM||'')===norm;});if(!yaIncluido){if(!sobrantesMap[norm])sobrantesMap[norm]={nombre:lead.nombre_cliente,pts:0,count:0};sobrantesMap[norm].pts+=parseFloat(lead.puntaje)||0;sobrantesMap[norm].count++;}}});Object.values(sobrantesMap).forEach(function(s){const nota=s.count>1?' ('+s.count+' registros)':'';results.push({tipo:'extra',nombre:s.nombre+nota,nombreCRM:s.nombre,puntajeManual:null,puntajeCRM:parseFloat(s.pts.toFixed(2)),diff:null});});_cuadData.all=results;_cuadData.currentTab='diff';document.querySelectorAll('.cuad-tab').forEach(function(t){t.classList.remove('is-active');});const diffTab=document.querySelector('.cuad-tab[data-tab="diff"]');if(diffTab)diffTab.classList.add('is-active');document.getElementById('cuadratura-input-panel').style.display='none';document.getElementById('cuadratura-result').style.display='block';document.getElementById('btn-cuadratura-limpiar').style.display='';document.getElementById('btnEjecutarCuadratura').style.display='none';renderCuadKPIs();renderCuadTable();renderCuadTotales();};
+  window.ejecutarCuadratura=function(){const ta=document.getElementById('cuadraturaInput');if(!ta||!ta.value.trim()){showToast('Pega tu lista primero','error');return;}const lineas=ta.value.split('\n').map(function(l){return l.trim();}).filter(Boolean);const manual=lineas.map(function(l){var nombre='',puntajeStr='',hasPuntaje=false;if(l.indexOf('\t')!==-1){var p=l.split('\t');nombre=p[0].trim();puntajeStr=p[p.length-1].trim();hasPuntaje=true;}else{var m=l.match(/^(.+?)\s+([0-9]+[.,][0-9]+)\s*$/);if(m){nombre=m[1].trim();puntajeStr=m[2].trim();hasPuntaje=true;}else{var lc=l.lastIndexOf(',');if(lc!==-1){var after=l.slice(lc+1).trim();if(/^[0-9]+([.,][0-9]+)?$/.test(after)){nombre=l.slice(0,lc).trim();puntajeStr=after;hasPuntaje=true;}else{nombre=l;}}else{nombre=l;}}}var puntaje=null;if(hasPuntaje&&puntajeStr){var pN=puntajeStr.replace(',','.');puntaje=parseFloat(pN);if(isNaN(puntaje)){puntaje=null;hasPuntaje=false;}}return{nombre:nombre||l,puntaje:puntaje,hasPuntaje:hasPuntaje};});const leads=__filteredLeads.filter(function(l){const st=l.status_grupo;if(st==='cancelled'||st==='canceled')return false;if(st==='hold')return false;if(st==='rescheduled')return false;if(st==='reserva')return false;if(st==='oficina')return false;return st==='completed'||st==='active';});const crmMap={};leads.forEach(function(lead){const norm=normForCuad(lead.nombre_cliente);if(!crmMap[norm])crmMap[norm]=[];crmMap[norm].push(lead);});const manualNormSet=new Set(manual.map(function(m){return normForCuad(m.nombre);}));const results=[];const crmUsedIndex={};manual.forEach(function(m){const norm=normForCuad(m.nombre);const crmLeads=crmMap[norm];if(!crmLeads||!crmLeads.length){var found=null;Object.keys(crmMap).forEach(function(k){if(!found&&(k.includes(norm.split(' ')[0])||norm.includes(k.split(' ')[0]))){if(norm.split(' ')[0].length>=4)found={key:k,leads:crmMap[k]};}});if(found){const idx=crmUsedIndex[found.key]||0;const lead=found.leads[idx]||found.leads[0];crmUsedIndex[found.key]=idx+1;const crmPts=parseFloat(lead.puntaje)||0;const diff=m.hasPuntaje?parseFloat((m.puntaje-crmPts).toFixed(2)):null;results.push({tipo:diff===0?'ok':(diff!==null?'diff':'miss-partial'),nombre:m.nombre,nombreCRM:lead.nombre_cliente,puntajeManual:m.puntaje,puntajeCRM:crmPts,diff:diff,parcial:true});}else{results.push({tipo:'miss',nombre:m.nombre,nombreCRM:null,puntajeManual:m.puntaje,puntajeCRM:null,diff:null});}}else{const idx=crmUsedIndex[norm]||0;const lead=crmLeads[idx]||crmLeads[crmLeads.length-1];crmUsedIndex[norm]=idx+1;const crmPts=parseFloat(lead.puntaje)||0;const diff=m.hasPuntaje?parseFloat((m.puntaje-crmPts).toFixed(2)):null;const tipo=diff===null?'ok':(diff===0?'ok':'diff');results.push({tipo:tipo,nombre:m.nombre,nombreCRM:lead.nombre_cliente,puntajeManual:m.puntaje,puntajeCRM:crmPts,diff:diff,parcial:false});}});const sobrantesMap={};leads.forEach(function(lead){const norm=normForCuad(lead.nombre_cliente);if(!manualNormSet.has(norm)){const yaIncluido=results.some(function(r){return normForCuad(r.nombreCRM||'')===norm;});if(!yaIncluido){if(!sobrantesMap[norm])sobrantesMap[norm]={nombre:lead.nombre_cliente,pts:0,count:0};sobrantesMap[norm].pts+=parseFloat(lead.puntaje)||0;sobrantesMap[norm].count++;}}});Object.values(sobrantesMap).forEach(function(s){const nota=s.count>1?' ('+s.count+' registros)':'';results.push({tipo:'extra',nombre:s.nombre+nota,nombreCRM:s.nombre,puntajeManual:null,puntajeCRM:parseFloat(s.pts.toFixed(2)),diff:null});});_cuadData.all=results;_cuadData.currentTab='diff';document.querySelectorAll('.cuad-tab').forEach(function(t){t.classList.remove('is-active');});const diffTab=document.querySelector('.cuad-tab[data-tab="diff"]');if(diffTab)diffTab.classList.add('is-active');document.getElementById('cuadratura-input-panel').style.display='none';document.getElementById('cuadratura-result').style.display='block';document.getElementById('btn-cuadratura-limpiar').style.display='';document.getElementById('btnEjecutarCuadratura').style.display='none';renderCuadKPIs();renderCuadTable();renderCuadTotales();};
   function renderCuadKPIs(){const all=_cuadData.all;const ok=all.filter(function(r){return r.tipo==='ok';}).length;const diff=all.filter(function(r){return r.tipo==='diff'||r.tipo==='miss-partial';}).length;const miss=all.filter(function(r){return r.tipo==='miss';}).length;const extra=all.filter(function(r){return r.tipo==='extra';}).length;const kpiEl=document.getElementById('cuadratura-kpis');if(!kpiEl)return;function kpi(icon,label,val,color){return'<div style="background:var(--sheet);border:1px solid var(--line-1);border-radius:var(--r2);padding:10px 12px;text-align:center;"><div style="font-size:1.1rem;">'+icon+'</div><div style="font-family:var(--f-mono);font-size:1.1rem;font-weight:800;color:'+color+';">'+val+'</div><div style="font-size:.63rem;color:var(--ink-4);text-transform:uppercase;letter-spacing:.06em;">'+label+'</div></div>';}kpiEl.innerHTML=kpi('✅','Coinciden',ok,'var(--go)')+kpi('⚠️','Diferencias',diff,'var(--warn)')+kpi('❌','No en CRM',miss,'var(--stop)')+kpi('🔍','Sobrantes CRM',extra,'var(--info)');}
   function renderCuadTable(){const tab=_cuadData.currentTab;const all=_cuadData.all;const tbody=document.getElementById('cuadratura-tbody');if(!tbody)return;const filtered=all.filter(function(r){if(tab==='ok')return r.tipo==='ok';if(tab==='diff')return r.tipo==='diff'||r.tipo==='miss-partial';if(tab==='miss')return r.tipo==='miss';if(tab==='extra')return r.tipo==='extra';return true;});if(!filtered.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--ink-4);">Sin registros en esta categoría</td></tr>';return;}tbody.innerHTML=filtered.map(function(r){var icon='',rowCls='';if(r.tipo==='ok'){icon='✅';rowCls='cuad-row-ok';}else if(r.tipo==='diff'){icon='⚠️';rowCls='cuad-row-diff';}else if(r.tipo==='miss-partial'){icon='⚠️~';rowCls='cuad-row-diff';}else if(r.tipo==='miss'){icon='❌';rowCls='cuad-row-miss';}else if(r.tipo==='extra'){icon='🔍';rowCls='cuad-row-extra';}var ptsManual=r.puntajeManual!=null?r.puntajeManual.toFixed(2):'—';var ptsCRM=r.puntajeCRM!=null?r.puntajeCRM.toFixed(2):'—';var diffStr='—';var diffColor='';if(r.diff!=null){diffStr=(r.diff>0?'+':'')+r.diff.toFixed(2);diffColor=r.diff>0?'color:var(--warn)':r.diff<0?'color:var(--stop)':'color:var(--go)';}var nombre=escHTML(r.nombre||(r.tipo==='extra'?r.nombreCRM:''));if(r.parcial)nombre+=' <span style="font-size:.6rem;color:var(--ink-4);">(parcial)</span>';return'<tr class="'+rowCls+'"><td>'+icon+'</td><td>'+nombre+'</td><td style="text-align:right;font-family:var(--f-mono);">'+escHTML(ptsManual)+'</td><td style="text-align:right;font-family:var(--f-mono);">'+escHTML(ptsCRM)+'</td><td style="text-align:right;font-family:var(--f-mono);'+diffColor+'">'+escHTML(diffStr)+'</td></tr>';}).join('');}
   function renderCuadTotales(){const el=document.getElementById('cuadratura-totales');if(!el)return;const all=_cuadData.all;const totManual=all.filter(function(r){return r.tipo!=='extra';}).reduce(function(s,r){return s+(r.puntajeManual||0);},0);const totCRMMatchados=all.filter(function(r){return r.tipo!=='extra'&&r.puntajeCRM!=null;}).reduce(function(s,r){return s+(r.puntajeCRM||0);},0);const totCRMReal=all.filter(function(r){return r.puntajeCRM!=null;}).reduce(function(s,r){return s+(r.puntajeCRM||0);},0);const diff=parseFloat((totManual-totCRMMatchados).toFixed(2));const diffColor=diff===0?'var(--go)':diff>0?'var(--warn)':'var(--stop)';el.innerHTML='<span>Manual: <b>'+totManual.toFixed(2)+' pts</b></span><span>CRM (matchados): <b>'+totCRMMatchados.toFixed(2)+' pts</b></span>'+(totCRMReal!==totCRMMatchados?'<span style="color:var(--info)">CRM total: <b>'+totCRMReal.toFixed(2)+' pts</b></span>':'')+'<span style="color:'+diffColor+'">Diferencia: <b>'+(diff>0?'+':'')+diff.toFixed(2)+' pts</b></span>';}
@@ -2027,7 +2001,7 @@
         if(!crmPhoneSet.has(phone)){
           crmPhoneSet.add(phone);
           if(!inputPhones.has(phone)){
-            crmNotInInput.push({phone:phone,cliente:lead.nombre_cliente||'—',status:lead.status||'—'});
+            crmNotInInput.push({phone:phone,cliente:lead.nombre_cliente||'—',status:lead.status_comision||'—'});
           }
         }
       });
@@ -2097,7 +2071,7 @@
   function initScrollMirror(){const scroll=document.querySelector('.tscroll'),mirror=document.getElementById('scrollbarMirror'),inner=document.getElementById('scrollbarMirrorInner');if(!scroll||!mirror||!inner)return;function syncWidth(){inner.style.width=scroll.scrollWidth+'px';}scroll.addEventListener('scroll',function(){mirror.scrollLeft=scroll.scrollLeft;});mirror.addEventListener('scroll',function(){scroll.scrollLeft=mirror.scrollLeft;});if(window.ResizeObserver)new ResizeObserver(syncWidth).observe(scroll);syncWidth();}
 
   function getLoaderTR(){
-    return '<tr><td colspan="10" style="padding:48px 0;text-align:center;">'
+    return '<tr><td colspan="9" style="padding:48px 0;text-align:center;">'
       + '<div style="display:inline-flex;gap:7px;align-items:center;">'
       + '<span style="width:7px;height:7px;border-radius:50%;background:var(--a);opacity:.9;animation:dotBounce .9s ease-in-out infinite;animation-delay:0s;"></span>'
       + '<span style="width:7px;height:7px;border-radius:50%;background:var(--a);opacity:.9;animation:dotBounce .9s ease-in-out infinite;animation-delay:.18s;"></span>'

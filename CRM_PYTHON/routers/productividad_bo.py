@@ -4,7 +4,7 @@ Para la fecha (día local UTC-6) cuenta, POR CLIENTE, solo su ÚLTIMO cambio de
 status del día: si un cliente fue movido dos veces, cuenta únicamente el status
 final y se atribuye al usuario que hizo ese último cambio. Fuente: tabla
 activities (description 'Estado → X') con dos tracks independientes:
-  - 'Cambio de estado'          → status normal (Icon, admins…)
+  - 'Cambio de estado'          → status normal: desde el 28-10-2026 es informativo y NO cuenta
   - 'Cambio de estado comisión' → status de comisión (lo que trabaja Back Office)
 El dedupe es por (track, cliente): el último cambio normal Y el último cambio
 de comisión de un mismo cliente cuentan cada uno por separado.
@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, Query
 from typing import Optional
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import text
+from estado_comision import grupo as grupo_comision
 from database_mysql import AsyncSessionLocal
 from deps import current_user
 import re
@@ -38,13 +39,8 @@ _TEAM_BO = re.compile(r"back\s*office|\bicon\b|\busa\b|\bbamo\b|monitoreo", re.I
 _FIXED_TEAMS = ["TEAM BACKOFFICE", "TEAM ICON", "TEAM USA"]
 
 # Columnas fijas; cualquier otro status presente ese día se agrega alfabético después
-_STATUS_ORDER = ["COMPLETED", "CANCELLED", "HOLD", "PENDING"]
-_STATUS_LABEL = {
-    "COMPLETED": "Completed",
-    "CANCELLED": "Cancelled",
-    "HOLD":      "Hold",
-    "PENDING":   "Pending",
-}
+_STATUS_ORDER = ["ACTIVE", "ACTIVE BY SYSTEM", "CXNC", "NO SE PUEDE VALIDAR", "CANCEL", "HOLD"]
+_STATUS_LABEL = {st: st for st in _STATUS_ORDER}
 
 
 def _local_today() -> str:
@@ -98,7 +94,8 @@ async def productividad_bo(
                        a.actor_username AS actor, a.actor_role AS rol,
                        a.description AS descr
                 FROM activities a
-                WHERE a.activity_type IN ('Cambio de estado', 'Cambio de estado comisión')
+                -- Solo el status de comisión cuenta (28-10-2026): el status normal es informativo.
+                WHERE a.activity_type = 'Cambio de estado comisión'
                   AND DATE(a.timestamp - INTERVAL :off HOUR) = :f
                 ORDER BY a.timestamp, a.id
             """), {"off": _LOCAL_OFFSET_HOURS, "f": f})
@@ -208,8 +205,8 @@ async def productividad_bo(
 
     # ── Instalaciones del día ──────────────────────────────────────
     # instalan_hoy   = ventas cuya fecha de instalación (programada) es 'f'
-    # instaladas_hoy = clientes cuyo ÚLTIMO status NORMAL del día quedó en
-    #                  COMPLETED (el track de comisión no cuenta aquí)
+    # instaladas_hoy = clientes cuyo ÚLTIMO status de comisión del día quedó en el
+    #                  grupo completed (lleva ACTIVE)
     instalan_hoy = 0
     try:
         async with AsyncSessionLocal() as s:
@@ -223,17 +220,17 @@ async def productividad_bo(
         pass
     instaladas_hoy = sum(
         1 for (tipo, _cli), item in last_by_client.items()
-        if tipo == "Cambio de estado" and item["status"] == "COMPLETED"
+        if tipo == "Cambio de estado comisión" and grupo_comision(item["status"]) == "completed"
     )
     # Clientes únicos cuyo status de COMISIÓN cambió ese día (trabajo de B.O.)
-    # y cuántos de ellos quedaron en COMPLETED
+    # y cuántos de ellos quedaron en el grupo completed
     comisiones_hoy = sum(
         1 for (tipo, _cli) in last_by_client
         if tipo == "Cambio de estado comisión"
     )
     comisiones_completadas = sum(
         1 for (tipo, _cli), item in last_by_client.items()
-        if tipo == "Cambio de estado comisión" and item["status"] == "COMPLETED"
+        if tipo == "Cambio de estado comisión" and grupo_comision(item["status"]) == "completed"
     )
 
     return {

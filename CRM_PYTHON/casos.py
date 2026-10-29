@@ -18,10 +18,10 @@ desfase del riesgo (bajo 0, medio 72, alto 120) sobre la escala de siempre:
 
     0 – 72 h verde · 72 – 120 h amarillo · 120 – 144 h rojo · ≥ 144 h negro
 
-En negro el lead pasa solo a status y status comisión "oficina".
+En negro el status de comisión del lead pasa solo a "OFICINA".
 
 Mientras backoffice no lo fija a mano (`riesgo_cx_manual`), el Riesgo CX sigue al
-status: completed → bajo, pending → medio, cancelled → alto (RIESGO_POR_STATUS).
+status de comisión (su grupo): completed → bajo, pending → medio, cancelled → alto.
 
 El caso queda SOLVENTADO en cuanto el agente sube un comprobante (captura o audio
 de la llamada). Un caso solventado se muestra en verde y ya no corre el reloj.
@@ -43,6 +43,8 @@ from typing import Optional
 
 from sqlalchemy import text
 
+from estado_comision import grupo as grupo_comision, _sql_grupo
+
 HORAS_VERDE = 72
 HORAS_AMARILLO = 120
 HORAS_ROJO = 144
@@ -55,22 +57,17 @@ DESFASE_RIESGO = {"bajo": 0, "medio": HORAS_VERDE, "alto": HORAS_AMARILLO}
 
 
 def riesgo_por_status(status) -> Optional[str]:
-    """Riesgo CX automático según el status normal (None = no lo cambia)."""
-    s = str(status or "").strip().lower()
-    if s.startswith("complet") or s in ("active", "activo", "activa"):
-        return "bajo"
-    if s.startswith("pend"):
-        return "medio"
-    if s.startswith("cancel"):
-        return "alto"
-    return None
+    """Riesgo CX automático según el status de comisión (None = no lo cambia). Acepta un
+    valor de la lista (ACTIVE, CXNC…) o su grupo (completed, pending…)."""
+    g = grupo_comision(status)
+    return {"completed": "bajo", "pending": "medio", "cancelled": "alto"}.get(g)
 
 
-# Lo mismo en SQL, sobre una expresión de status (p. ej. ':status' o 'status').
+# Lo mismo en SQL, sobre una expresión con un valor de status de comisión (p. ej. ':status').
 def sql_riesgo_por_status(expr: str) -> str:
-    return (f"(CASE WHEN LOWER({expr}) LIKE 'complet%' OR LOWER({expr}) IN ('active','activo','activa') THEN 'bajo' "
-            f"WHEN LOWER({expr}) LIKE 'pend%' THEN 'medio' "
-            f"WHEN LOWER({expr}) LIKE 'cancel%' THEN 'alto' ELSE NULL END)")
+    g = _sql_grupo(expr)
+    return (f"(CASE {g} WHEN 'completed' THEN 'bajo' WHEN 'pending' THEN 'medio' "
+            f"WHEN 'cancelled' THEN 'alto' ELSE NULL END)")
 
 
 # Inicio del reloj de un caso (SQL).
@@ -79,11 +76,8 @@ SQL_DESFASE = "(CASE riesgo_cx WHEN 'medio' THEN 72 WHEN 'alto' THEN 120 ELSE 0 
 # Momento en que el caso llega a negro.
 SQL_VENCE = f"DATE_ADD(riesgo_cx_at, INTERVAL ({HORAS_ROJO} - {SQL_DESFASE}) HOUR)"
 
-# El lead sigue en completed (o active, sinónimo en datos antiguos).
-SQL_STATUS_COMPLETED = (
-    "(LOWER(COALESCE(status,'')) LIKE 'complet%' "
-    "OR LOWER(COALESCE(status,'')) IN ('active','activo','activa'))"
-)
+# El status de comisión del lead sigue en el grupo completed (lleva ACTIVE).
+SQL_STATUS_COMPLETED = "(status_grupo = 'completed')"
 
 # Qué leads están en el semáforo (necesita el parámetro :inicio).
 SQL_EN_SEMAFORO = f"""(
@@ -388,7 +382,7 @@ async def get_inicio(session) -> datetime:
 
 # ── Paso automático a negro / oficina ───────────────────────────────
 async def vencer_casos() -> int:
-    """Pasa a oficina (status y status comisión) los casos pendientes que llevan
+    """Pasa a OFICINA el status de comisión de los casos pendientes que llevan
     144 h o más sin comprobante. Devuelve cuántos leads cambió.
 
     Idempotente: solo toca caso_estado = 'pendiente', y los deja en 'vencido'."""
@@ -399,7 +393,7 @@ async def vencer_casos() -> int:
             return 0  # paso a oficina apagado (app_config.semaforo_oficina)
         inicio = await get_inicio(s)
         r = await s.execute(text(f"""
-            SELECT id, nombre_cliente, status, agente, agente_nombre, created_by, supervisor
+            SELECT id, nombre_cliente, status_comision, agente, agente_nombre, created_by, supervisor
             FROM leads
             WHERE caso_estado = 'pendiente'
               AND riesgo_cx IS NOT NULL
@@ -416,7 +410,7 @@ async def vencer_casos() -> int:
         from sqlalchemy import bindparam
         await s.execute(text("""
             UPDATE leads
-               SET status = 'oficina', status_comision = 'oficina',
+               SET status_comision = 'OFICINA',
                    caso_estado = 'vencido', caso_vencido_at = :ahora,
                    updated_at = :ahora, updated_by = 'semaforo'
              WHERE id IN :ids AND caso_estado = 'pendiente'
@@ -428,7 +422,7 @@ async def vencer_casos() -> int:
         from notifications import record_status_changes
         await record_status_changes([{
             "seccion": "residencial", "cliente": f.get("nombre_cliente") or "Sin nombre",
-            "old_status": f.get("status") or "", "new_status": "oficina",
+            "old_status": f.get("status_comision") or "", "new_status": "OFICINA",
             "actor": "Semáforo de clientes",
             "target_agente": f.get("agente_nombre") or f.get("agente") or f.get("created_by") or "",
             "target_supervisor": f.get("supervisor") or "",

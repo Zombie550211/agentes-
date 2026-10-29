@@ -30,6 +30,7 @@ from limiter import limiter
 from deps import decode_token
 from database_mysql import init_mysql, close_mysql, engine
 from sqlalchemy import text as _sa_text
+from estado_comision import SQL_GRUPO as _SQL_GRUPO
 from routers import auth as auth_router
 from routers import dashboard as dashboard_router
 from routers import (
@@ -460,6 +461,29 @@ _MIGRATIONS: list[tuple[str, str]] = [
     # Estado de la cuenta según el sistema del proveedor (ACTIVE BY SYSTEM, CXNC, NEXT PAY…),
     # columna "Sistema" de Clientes. Distinto de leads.sistema (SARA/CHUZO).
     ("0075_leads_estado_sistema", "ALTER TABLE leads ADD COLUMN estado_sistema VARCHAR(40) NULL"),
+    # 28-10-2026: el status de comisión pasa a ser EL status del CRM, con la lista de Sistema
+    # (estado_comision.py). 1) Donde ya hay Sistema (septiembre, cargado del Excel) manda ese valor.
+    ("0076_status_comision_desde_sistema", """UPDATE leads SET status_comision = UPPER(TRIM(estado_sistema))
+        WHERE estado_sistema IS NOT NULL AND TRIM(estado_sistema) <> ''"""),
+    # 2) El resto se traduce de los valores viejos: completed → ACTIVE, cancelled → CANCEL,
+    #    pending → PENDIENTE DE VALIDAR POR SISTEMA; los que ya son de la lista quedan en mayúsculas.
+    ("0077_status_comision_lista", """UPDATE leads SET status_comision = CASE
+            WHEN UPPER(TRIM(COALESCE(status_comision,''))) IN ('ACTIVE','CANCEL','COLLECTION','HOLD','IL','FES','REC AUD','CHECK','CXNC','EDAB','ACTIVE BY SYSTEM','CHB ALERT','CUENTA SUSPENDIDA','CASO PTE','CHB','CANCEL BY SYSTEM','SNAR','NO SE PUEDE VALIDAR','ACTIVE BY FASTGM','NEXT PAY','PENDIENTE DE VALIDAR POR SISTEMA','OFICINA','RESERVA','REPRO')
+                 THEN UPPER(TRIM(status_comision))
+            WHEN LOWER(TRIM(COALESCE(status_comision,''))) = 'active oficina' THEN 'OFICINA'
+            WHEN LOWER(TRIM(COALESCE(status_comision,''))) LIKE 'complet%'
+                 OR LOWER(TRIM(COALESCE(status_comision,''))) IN ('activo','activa') THEN 'ACTIVE'
+            WHEN LOWER(TRIM(COALESCE(status_comision,''))) LIKE 'cancel%' THEN 'CANCEL'
+            WHEN LOWER(TRIM(COALESCE(status_comision,''))) LIKE 'reser%' THEN 'RESERVA'
+            WHEN LOWER(TRIM(COALESCE(status_comision,''))) LIKE '%repro%'
+                 OR LOWER(TRIM(COALESCE(status_comision,''))) LIKE 'resched%' THEN 'REPRO'
+            ELSE 'PENDIENTE DE VALIDAR POR SISTEMA' END
+        WHERE estado_sistema IS NULL OR TRIM(estado_sistema) = ''"""),
+    # 3) Grupo del status de comisión (completed/cancelled/pending/hold/oficina/reserva/repro),
+    #    calculado por MySQL: es lo que leen KPIs, ranking, semáforo… en lugar de `status`.
+    ("0078_leads_status_grupo", f"ALTER TABLE leads ADD COLUMN status_grupo VARCHAR(10) "
+        f"GENERATED ALWAYS AS {_SQL_GRUPO} VIRTUAL"),
+    ("0079_idx_leads_status_grupo", "CREATE INDEX idx_leads_status_grupo ON leads (status_grupo, dia_venta)"),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración
