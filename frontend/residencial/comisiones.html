@@ -458,13 +458,20 @@ function aggregateAgents(leads, targetYM){
       pct:      tipo > 0 ? getEscalaPctNuevo(p, tipo)  : getEscalaPct(p),
       totalVentas: a.ventas + a.colchones,
     };
-  }).sort((a,b) => {
-    // Primero los que comisionan (desc), luego los que no (desc por puntos)
-    if(a.comision > 0 && b.comision === 0) return -1;
-    if(b.comision > 0 && a.comision === 0) return 1;
-    if(a.comision > 0 && b.comision > 0) return b.comision - a.comision;
-    return b.puntos - a.puntos;
-  });
+  }).sort((a,b) => ordenComision(a,b,targetYM));
+}
+
+// Comisiona = llega a la meta y no está desmarcado en «Comisiona este mes» (_excluidos).
+function comisionaEnMes(a, ym){
+  const agKey = (a.rawName||a.name||'').toLowerCase().replace(/\s+/g,'_');
+  return a.comision > 0 && !_excluidos[ym+'_'+agKey];
+}
+// Primero los que comisionan (mayor monto arriba), luego los que no (por puntos).
+function ordenComision(a, b, ym){
+  const ca = comisionaEnMes(a, ym), cb = comisionaEnMes(b, ym);
+  if(ca !== cb) return ca ? -1 : 1;
+  if(ca && b.comision !== a.comision) return b.comision - a.comision;
+  return b.puntos - a.puntos;
 }
 
 /* ══════════════════════════════════════════════════════
@@ -903,9 +910,10 @@ function dcbAggregates(leads, ym){
 
 function renderDcbKpis(){
   const totalPuntos = _agents.reduce((s,a)=>s+a.puntos,0).toFixed(2);
-  const totalComision = _agents.reduce((s,a)=>s+a.comision,0);
+  const ym = getYM(_month.year, _month.month);
+  const totalComision = _agents.reduce((s,a)=>s+(comisionaEnMes(a, ym)?a.comision:0),0);
   const totalVentas = _agents.reduce((s,a)=>s+a.totalVentas,0);
-  const conMeta = _agents.filter(a=>a.comision>0).length;
+  const conMeta = _agents.filter(a=>comisionaEnMes(a, ym)).length;
   const metaPct = _agents.length ? Math.round(conMeta/_agents.length*100) : 0;
   const k = (label,value,sub,accent,progressPct)=>`
     <div class="dcb-kpi in-glass" style="border-top:3px solid ${accent};">
@@ -1162,14 +1170,17 @@ function renderDcbTopAgentes(){
   const RANK3={bg:'#eaf6fb',color:'#004e6b'};
   const RANKN={bg:'#fff',color:'#53616b'};
   const RANKS=i=> i===0?RANK1 : i===1?RANK2 : i===2?RANK3 : RANKN;
-  const sorted = _agents.slice().sort((a,b)=>b.puntos-a.puntos);
+  const ym = getYM(_month.year, _month.month);
+  const sorted = _agents.slice().sort((a,b)=>ordenComision(a,b,ym));
   const top = _dcbTopAll ? sorted : sorted.slice(0,6);
   if(!top.length) return '';
+  const nCom = sorted.filter(a=>comisionaEnMes(a, ym)).length;
   return `<div class="dcb-card in-glass">
-    <div class="dcb-card-head" style="margin-bottom:12px;"><h3>Top Agentes por Puntos</h3>
+    <div class="dcb-card-head" style="margin-bottom:12px;"><h3>Agentes · ${nCom} comisionan</h3>
       <a href="#" class="dcb-card-tag" style="text-decoration:none;cursor:pointer;" onclick="dcbToggleTop();return false;">${_dcbTopAll?'Ver top 6 ←':'Ver todos →'}</a></div>
-    <div class="dcb-top-grid">${top.map((a,i)=>`
-      <div class="dcb-top-card">
+    <div class="dcb-top-grid">${top.map((a,i)=>`${i===nCom&&i>0?`
+      <div class="dcb-t4" style="grid-column:1/-1;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;border-top:1px solid currentColor;padding-top:10px;margin-top:4px;opacity:.8;">No comisionan</div>`:''}
+      <div class="dcb-top-card"${comisionaEnMes(a, ym)?'':' style="opacity:.6;"'}>
         <div style="display:flex;align-items:center;gap:9px;">
           <div class="dcb-rank" style="background:${RANKS(i).bg};color:${RANKS(i).color};">${i+1}</div>
           <div style="min-width:0;">
@@ -1179,7 +1190,7 @@ function renderDcbTopAgentes(){
         </div>
         <div class="dcb-mono dcb-t1" style="font-size:19px;font-weight:700;margin-top:10px;">${a.puntos.toFixed(2)}<span class="dcb-t4" style="font-size:11px;font-weight:500;"> pts</span></div>
         <div class="dcb-mono dcb-t4" style="display:flex;justify-content:space-between;font-size:10.5px;margin-top:6px;">
-          <span class="dcb-t4">${a.totalVentas} vtas</span><span class="dcb-t4">${fmtUSD(a.comision)}</span>
+          <span class="dcb-t4">${a.totalVentas} vtas</span><span class="dcb-t4">${fmtUSD(comisionaEnMes(a, ym)?a.comision:0)}</span>
         </div>
       </div>`).join('')}</div>
   </div>`;
