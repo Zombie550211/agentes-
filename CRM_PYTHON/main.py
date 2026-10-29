@@ -457,6 +457,9 @@ _MIGRATIONS: list[tuple[str, str]] = [
         KEY idx_monitoreo_faltas_user_fecha (user_id, fecha),
         KEY idx_monitoreo_faltas_fecha (fecha)
     ) ENGINE=InnoDB"""),
+    # Estado de la cuenta según el sistema del proveedor (ACTIVE BY SYSTEM, CXNC, NEXT PAY…),
+    # columna "Sistema" de Clientes. Distinto de leads.sistema (SARA/CHUZO).
+    ("0075_leads_estado_sistema", "ALTER TABLE leads ADD COLUMN estado_sistema VARCHAR(40) NULL"),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración

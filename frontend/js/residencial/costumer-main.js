@@ -221,6 +221,7 @@
         was_reserva:     !!(it&&(it.was_reserva===true||it.was_reserva==='true'||it.was_reserva===1)),
         riesgo_cx:       String((it&&it.riesgo_cx)||'').toLowerCase(),
         riesgo_cx_manual:!!(it&&(it.riesgo_cx_manual===1||it.riesgo_cx_manual===true||it.riesgo_cx_manual==='1')),
+        estado_sistema:  String((it&&it.estado_sistema)||'').toUpperCase(),
       };
       if(!lead._es_colchon){const st=normalizeStatus(lead.status);lead._es_colchon=isColchonLead(lead)&&(st==='completed'||st==='active');}
       return lead;
@@ -621,6 +622,7 @@
     estatus:function(l){return String(l.status||'');},
     comision:function(l){return String(l.status_comision||'');},
     riesgo:function(l){return({bajo:1,medio:2,alto:3})[l.riesgo_cx]||0;},
+    sistema:function(l){return l.estado_sistema||'';},
     puntos:function(l){const n=parseFloat(String(l.puntaje==null?'':l.puntaje).replace(',','.'));return isNaN(n)?-1:n;}
   };
   function ordenarLeads(){
@@ -718,11 +720,53 @@
     }
   };
 
+  /* ── SISTEMA ──
+     Estado de la cuenta en el sistema del proveedor (leads.estado_sistema). Orden y
+     colores iguales a la columna SISTEMA de la hoja de comisiones (clases sis-* en clientes.css). */
+  const ESTADOS_SISTEMA=['ACTIVE','CANCEL','COLLECTION','HOLD','IL','FES','REC AUD','CHECK','CXNC','EDAB','ACTIVE BY SYSTEM','CHB ALERT','CUENTA SUSPENDIDA','CASO PTE','CHB','CANCEL BY SYSTEM','SNAR','NO SE PUEDE VALIDAR','ACTIVE BY FASTGM','NEXT PAY','PENDIENTE DE VALIDAR POR SISTEMA'];
+  const SISTEMA_COLOR={
+    'ACTIVE':'verde','ACTIVE BY SYSTEM':'verde-osc','ACTIVE BY FASTGM':'verde-osc',
+    'CANCEL':'rojo','CANCEL BY SYSTEM':'rojo','NO SE PUEDE VALIDAR':'rojo-osc','CASO PTE':'rojo-osc',
+    'HOLD':'amarillo','COLLECTION':'amarillo','NEXT PAY':'amarillo',
+    'CXNC':'azul','PENDIENTE DE VALIDAR POR SISTEMA':'azul','FES':'morado',
+    'CUENTA SUSPENDIDA':'naranja','CHB':'naranja','CHB ALERT':'naranja'
+  };
+  function sistemaCls(v){return v?'sis-'+(SISTEMA_COLOR[v]||'gris'):'';}
+  function sistemaCellHTML(leadId,valor){
+    const v=ESTADOS_SISTEMA.indexOf(valor)>=0?valor:'';
+    const ud=getUserData(),role=String(ud.role||ud.rol||'').toLowerCase();
+    if(!isAdminOrBackoffice(role)){
+      return '<span class="cl-badge '+sistemaCls(v)+'">'+(v?escHTML(v):'—')+'</span>';
+    }
+    const opts='<option value=""'+(v?'':' selected')+'>—</option>'+
+      ESTADOS_SISTEMA.map(function(o){return'<option class="'+sistemaCls(o)+'" value="'+o+'"'+(o===v?' selected':'')+'>'+o+'</option>';}).join('');
+    return'<select class="cl-sel cl-sel-sis '+sistemaCls(v)+'" data-lead-id="'+escHTML(String(leadId))+'" onchange="inlineSistemaChange(this)" aria-label="Cambiar Sistema">'+opts+'</select>';
+  }
+  window.inlineSistemaChange=async function(selectEl){
+    const leadId=selectEl.dataset.leadId,v=selectEl.value;
+    const lead=__allLeadsData.find(function(l){return String(l._id)===leadId;});
+    if(!lead)return;
+    if(String(leadId).startsWith('tmp-')){showToast('Este lead no tiene ID válido — recarga la página','error');return;}
+    const previo=lead.estado_sistema;
+    selectEl.disabled=true;
+    const res=await AUTH.secureFetch('/api/leads/'+encodeURIComponent(leadId)+'/estado-sistema',{method:'PUT',body:JSON.stringify({estado_sistema:v})});
+    selectEl.disabled=false;
+    if(res&&res.ok){
+      lead.estado_sistema=v;
+      const td=selectEl.closest('td');if(td)td.innerHTML=sistemaCellHTML(leadId,v);
+      showToast('Sistema: '+(v||'—')+' ✓','ok');
+    }else if(res){
+      const e=await res.json().catch(function(){return{};});
+      selectEl.value=previo||'';
+      showToast(e.detail||'No se pudo cambiar el Sistema','error');
+    }
+  };
+
   /* ── TABLE ROWS ── */
   function renderTableRows(){
     const tbody=document.getElementById('costumer-tbody');if(!tbody)return;
     const total=__filteredLeads.length,ps=pageSize===99999?total:pageSize,start=(currentPage-1)*ps,paged=__filteredLeads.slice(start,start+ps);
-    if(!paged.length){tbody.innerHTML='<tr class="cl-vacia"><td colspan="9"><div class="cl-vacia-box"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><strong>Sin resultados</strong><span>Prueba con otros filtros o limpia la búsqueda.</span></div></td></tr>';}
+    if(!paged.length){tbody.innerHTML='<tr class="cl-vacia"><td colspan="10"><div class="cl-vacia-box"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><strong>Sin resultados</strong><span>Prueba con otros filtros o limpia la búsqueda.</span></div></td></tr>';}
     else{tbody.innerHTML=paged.map(function(lead){
       const lid=String(lead._id);
       const _dv7=String(lead.dia_venta||'').slice(0,7),_di7=String(lead.dia_instalacion||'').slice(0,7);
@@ -766,10 +810,11 @@
           '<dt>Venta</dt><dd>'+escHTML(fmtDate(lead.dia_venta))+'</dd>'+
           '<dt>Inst.</dt><dd>'+escHTML(fmtDate(lead.dia_instalacion))+'</dd>'+
         '</dl></td>'+
-        // Estatus · Comisión · Riesgo CX
+        // Estatus · Comisión · Riesgo CX · Sistema
         '<td class="cl-td-sel">'+statusCellHTML(lid,lead.status,isCol)+'</td>'+
         '<td class="cl-td-sel">'+statusComisionCellHTML(lid,lead.status_comision,isCol)+'</td>'+
         '<td class="cl-td-sel">'+riesgoCxCellHTML(lid,lead.riesgo_cx,lead.riesgo_cx_manual)+'</td>'+
+        '<td class="cl-td-sel">'+sistemaCellHTML(lid,lead.estado_sistema)+'</td>'+
         // Puntos / Supervisor
         '<td>'+
           '<div class="cl-pts '+ptsCls+'">'+(pts!==null?escHTML(String(lead.puntaje)):'—')+' <small>pts</small></div>'+
@@ -1928,7 +1973,7 @@
   /* ── EXPORT CSV ── */
   function exportToCSV(){
     if(!__filteredLeads.length){showToast('Sin datos para exportar','error');return;}
-    const cols=[{label:'Agente',fn:function(l){return l.agente||'';}},{label:'Nombre cliente',fn:function(l){return l.nombre_cliente||'';}},{label:'Teléfono',fn:function(l){return l.telefono||'';}},{label:'Tel. alterno',fn:function(l){return l.telefono_alt||'';}},{label:'No. cuenta',fn:function(l){return l.numero_cuenta||'';}},{label:'Autopago',fn:function(l){return l.autopago||'';}},{label:'Dirección',fn:function(l){return l.direccion||'';}},{label:'Tipo servicio',fn:function(l){return l.tipo_servicio||'';}},{label:'Sistema',fn:function(l){return l.sistema||'';}},{label:'Riesgo',fn:function(l){return l.riesgo||'';}},{label:'Día venta',fn:function(l){return l.dia_venta||'';}},{label:'Día instalación',fn:function(l){return l.dia_instalacion||'';}},{label:'Status',fn:function(l){return l.status||'';}},{label:'Colchón',fn:function(l){return l._es_colchon?'Sí':'No';}},{label:'Servicios',fn:function(l){return l.servicios||'';}},{label:'Mercado',fn:function(l){return l.mercado||'';}},{label:'Supervisor',fn:function(l){return l.supervisor||'';}},{label:'Motivo llamada',fn:function(l){return l.motivo_llamada||'';}},{label:'ZIP',fn:function(l){return l.zip_code||'';}},{label:'Puntaje',fn:function(l){return l.puntaje!==''&&l.puntaje!=null?l.puntaje:'';}}];
+    const cols=[{label:'Agente',fn:function(l){return l.agente||'';}},{label:'Nombre cliente',fn:function(l){return l.nombre_cliente||'';}},{label:'Teléfono',fn:function(l){return l.telefono||'';}},{label:'Tel. alterno',fn:function(l){return l.telefono_alt||'';}},{label:'No. cuenta',fn:function(l){return l.numero_cuenta||'';}},{label:'Autopago',fn:function(l){return l.autopago||'';}},{label:'Dirección',fn:function(l){return l.direccion||'';}},{label:'Tipo servicio',fn:function(l){return l.tipo_servicio||'';}},{label:'Sistema',fn:function(l){return l.sistema||'';}},{label:'Riesgo',fn:function(l){return l.riesgo||'';}},{label:'Estado sistema',fn:function(l){return l.estado_sistema||'';}},{label:'Día venta',fn:function(l){return l.dia_venta||'';}},{label:'Día instalación',fn:function(l){return l.dia_instalacion||'';}},{label:'Status',fn:function(l){return l.status||'';}},{label:'Colchón',fn:function(l){return l._es_colchon?'Sí':'No';}},{label:'Servicios',fn:function(l){return l.servicios||'';}},{label:'Mercado',fn:function(l){return l.mercado||'';}},{label:'Supervisor',fn:function(l){return l.supervisor||'';}},{label:'Motivo llamada',fn:function(l){return l.motivo_llamada||'';}},{label:'ZIP',fn:function(l){return l.zip_code||'';}},{label:'Puntaje',fn:function(l){return l.puntaje!==''&&l.puntaje!=null?l.puntaje:'';}}];
     function escCSV(v){const s=String(v==null?'':v).replace(/"/g,'""');return(s.includes(',')||s.includes('"')||s.includes('\n'))?'"'+s+'"':s;}
     const header=cols.map(function(c){return escCSV(c.label);}).join(',');
     const rows=__filteredLeads.map(function(lead){return cols.map(function(c){return escCSV(c.fn(lead));}).join(',');});
@@ -2052,7 +2097,7 @@
   function initScrollMirror(){const scroll=document.querySelector('.tscroll'),mirror=document.getElementById('scrollbarMirror'),inner=document.getElementById('scrollbarMirrorInner');if(!scroll||!mirror||!inner)return;function syncWidth(){inner.style.width=scroll.scrollWidth+'px';}scroll.addEventListener('scroll',function(){mirror.scrollLeft=scroll.scrollLeft;});mirror.addEventListener('scroll',function(){scroll.scrollLeft=mirror.scrollLeft;});if(window.ResizeObserver)new ResizeObserver(syncWidth).observe(scroll);syncWidth();}
 
   function getLoaderTR(){
-    return '<tr><td colspan="9" style="padding:48px 0;text-align:center;">'
+    return '<tr><td colspan="10" style="padding:48px 0;text-align:center;">'
       + '<div style="display:inline-flex;gap:7px;align-items:center;">'
       + '<span style="width:7px;height:7px;border-radius:50%;background:var(--a);opacity:.9;animation:dotBounce .9s ease-in-out infinite;animation-delay:0s;"></span>'
       + '<span style="width:7px;height:7px;border-radius:50%;background:var(--a);opacity:.9;animation:dotBounce .9s ease-in-out infinite;animation-delay:.18s;"></span>'

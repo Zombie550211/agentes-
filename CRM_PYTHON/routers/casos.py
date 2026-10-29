@@ -501,3 +501,35 @@ async def cambiar_riesgo_cx(lead_id: str, body: RiesgoCxBody, user: dict = Depen
     await realtime.publish("residencial", {"type": "residencial", "action": "riesgo_cx"})
     return {"success": True, "riesgo_cx": nuevo, "riesgo_cx_manual": manual,
             "riesgo_cx_at": ahora.isoformat()}
+
+
+# ── Sistema: estado de la cuenta en el sistema del proveedor (admin y backoffice) ──
+ESTADOS_SISTEMA = (
+    "ACTIVE", "CANCEL", "COLLECTION", "HOLD", "IL", "FES", "REC AUD", "CHECK", "CXNC", "EDAB",
+    "ACTIVE BY SYSTEM", "CHB ALERT", "CUENTA SUSPENDIDA", "CASO PTE", "CHB",
+    "CANCEL BY SYSTEM", "SNAR", "NO SE PUEDE VALIDAR", "ACTIVE BY FASTGM", "NEXT PAY",
+    "PENDIENTE DE VALIDAR POR SISTEMA",
+)
+
+
+class EstadoSistemaBody(BaseModel):
+    estado_sistema: str   # uno de ESTADOS_SISTEMA, o '' para dejarlo vacío
+
+
+@router.put("/api/leads/{lead_id}/estado-sistema")
+async def cambiar_estado_sistema(lead_id: str, body: EstadoSistemaBody, user: dict = Depends(current_user)):
+    if not _is_admin_or_bo(user):
+        raise HTTPException(403, "Solo administración o backoffice pueden cambiar el Sistema")
+    v = str(body.estado_sistema or "").strip().upper()
+    if v and v not in ESTADOS_SISTEMA:
+        raise HTTPException(400, "Sistema no válido")
+    async with AsyncSessionLocal() as s:
+        row = await _lead_visible(s, lead_id, user)
+        await s.execute(text("""
+            UPDATE leads SET estado_sistema = :v, updated_at = :now, updated_by = :by WHERE id = :id
+        """), {"v": v or None, "now": _utcnow(), "by": user.get("username", ""), "id": row["id"]})
+        await s.commit()
+    asyncio.create_task(_log_activity(
+        "Sistema", row.get("nombre_cliente") or "", f"Sistema → {v or '(vacío)'}", user))
+    await realtime.publish("residencial", {"type": "residencial", "action": "estado_sistema"})
+    return {"success": True, "estado_sistema": v}
