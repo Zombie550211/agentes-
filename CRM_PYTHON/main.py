@@ -487,6 +487,14 @@ _MIGRATIONS: list[tuple[str, str]] = [
     # 29-10-2026: CHARGEBACK entra a la lista y cuenta como cancelada (no comisiona).
     ("0080_status_grupo_chargeback", f"ALTER TABLE leads MODIFY COLUMN status_grupo VARCHAR(10) "
         f"GENERATED ALWAYS AS {_SQL_GRUPO} VIRTUAL"),
+    # Agentes que no comisionan un mes (casilla «Comisiona este mes» de Comisiones).
+    ("0081_create_comision_excluidos", """CREATE TABLE IF NOT EXISTS comision_excluidos (
+        ym           CHAR(7)      NOT NULL,
+        agente_key   VARCHAR(150) NOT NULL,
+        excluido_por VARCHAR(150) NULL,
+        created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (ym, agente_key)
+    ) ENGINE=InnoDB"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración

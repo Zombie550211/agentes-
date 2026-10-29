@@ -88,3 +88,39 @@ async def tendencia(
         mo["pts"] = round(mo["pts"], 2)
 
     return {"success": True, "months": months}
+
+
+# ── Agentes que NO comisionan un mes ────────────────────────────────────────
+# La casilla «Comisiona este mes» de Comisiones. Antes vivía en el localStorage de
+# cada navegador; aquí la ven todos y el total del mes la descuenta.
+# agente_key = nombre del agente en minúsculas con _ (el mismo que arma el frontend).
+_YM_RE = re.compile(r"^\d{4}-\d{2}$")
+
+
+@router.get("/excluidos")
+async def excluidos(ym: str = Query(...), user: dict = Depends(current_user)):
+    if not _YM_RE.match(ym):
+        raise HTTPException(400, "Mes no válido")
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("SELECT agente_key FROM comision_excluidos WHERE ym = :ym"), {"ym": ym})
+        return {"success": True, "ym": ym, "excluidos": [row[0] for row in r.all()]}
+
+
+@router.put("/excluidos")
+async def set_excluido(body: dict, user: dict = Depends(current_user)):
+    if not _is_admin_or_bo(user):
+        raise HTTPException(403, "No autorizado")
+    ym = str(body.get("ym") or "")
+    key = str(body.get("agente_key") or "").strip().lower()[:150]
+    if not _YM_RE.match(ym) or not key:
+        raise HTTPException(400, "Datos no válidos")
+    async with AsyncSessionLocal() as s:
+        if body.get("excluido"):
+            await s.execute(text("""INSERT IGNORE INTO comision_excluidos (ym, agente_key, excluido_por)
+                                    VALUES (:ym, :k, :por)"""),
+                            {"ym": ym, "k": key, "por": user.get("username", "")})
+        else:
+            await s.execute(text("DELETE FROM comision_excluidos WHERE ym = :ym AND agente_key = :k"),
+                            {"ym": ym, "k": key})
+        await s.commit()
+    return {"success": True}

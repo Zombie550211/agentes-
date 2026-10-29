@@ -482,11 +482,15 @@ let _view = 'admin'; // 'admin' | 'agent'
 // Persistir CB y Anticipo por mes: { '2026-04_cb': 18.90, '2026-04_ant': 50 }
 let _payInputs = (()=>{ try{ return JSON.parse(localStorage.getItem('com_pay_inputs')||'{}'); }catch{ return {}; } })();
 // Agentes excluidos de comisión: { 'ym_agkey': true }
-let _excluidos = (()=>{ try{ return JSON.parse(localStorage.getItem('com_excluidos')||'{}'); }catch{ return {}; } })();
+// Se llena desde el servidor (/api/comisiones/excluidos) al cargar cada mes.
+let _excluidos = {};
 
 window.toggleExcluido = function(payKey, totalCom) {
   _excluidos[payKey] = !_excluidos[payKey];
-  try{ localStorage.setItem('com_excluidos', JSON.stringify(_excluidos)); }catch{}
+  const _sep = payKey.indexOf('_');
+  AUTH.sf('/api/comisiones/excluidos', { method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ ym: payKey.slice(0,_sep), agente_key: payKey.slice(_sep+1), excluido: !!_excluidos[payKey] }) })
+    .then(r => { if(!r || !r.ok) toast('No se pudo guardar «Comisiona este mes»', 'err'); });
   // Si se excluye, poner KPIs en 0; si se incluye, recalcular
   const excluido = !!_excluidos[payKey];
   const chk = document.getElementById('chk-comisiona');
@@ -1305,11 +1309,20 @@ window.navAgent = function(delta){
 /* ══════════════════════════════════════════════════════
    LOAD DATA
 ══════════════════════════════════════════════════════ */
+async function fetchExcluidos(ym){
+  try{
+    const r = await AUTH.sf('/api/comisiones/excluidos?ym='+ym);
+    const d = r && r.ok ? await r.json() : null;
+    Object.keys(_excluidos).forEach(k => { if(k.startsWith(ym+'_')) delete _excluidos[k]; });
+    (d && d.excluidos || []).forEach(k => { _excluidos[ym+'_'+k] = true; });
+  }catch(_){}
+}
+
 async function loadData(){
   _loading = true;
-  const leads = await fetchLeads();
-  _leads = leads;
   const ym = getYM(_month.year, _month.month);
+  const [leads] = await Promise.all([fetchLeads(), fetchExcluidos(ym)]);
+  _leads = leads;
   _agents = aggregateAgents(leads, ym);
   _scopeAgentsForRole();
   _loading = false;
