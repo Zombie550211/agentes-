@@ -69,12 +69,36 @@
 
   function render() {
     panel.innerHTML =
-      // Orden: formulario (lo que más se usa) → resumen → mis transferencias → ranking.
+      // Arriba el resumen (cifras + barra de resultados) con los filtros, que mandan en toda la
+      // página; debajo el formulario y el ranking lado a lado; al final la tabla, a todo el ancho.
+      '<section class="trf-card trf-resumen" aria-labelledby="trf-res-title">' +
+        '<div class="trf-head">' +
+          '<div class="trf-ic"><i class="ph ph-chart-bar"></i></div>' +
+          '<div class="trf-head-txt">' +
+            '<h2 class="trf-title" id="trf-res-title">Resumen de transferencias</h2>' +
+            '<p class="trf-sub" id="trf-res-sub">Las que enviaste y las que te transfirieron hoy.</p>' +
+          '</div>' +
+          '<div class="trf-hist-filtros">' +
+            '<div class="trf-seg" role="group" aria-label="Periodo">' +
+              '<button type="button" data-dias="0" class="trf-seg-on" aria-pressed="true">Hoy</button>' +
+              '<button type="button" data-dias="7" aria-pressed="false">7 días</button>' +
+              '<button type="button" data-dias="30" aria-pressed="false">30 días</button>' +
+            '</div>' +
+            '<div class="trf-seg" role="group" aria-label="Tipo">' +
+              '<button type="button" data-tipo="" class="trf-seg-on" aria-pressed="true">Todas</button>' +
+              '<button type="button" data-tipo="enviada" aria-pressed="false">Enviadas</button>' +
+              '<button type="button" data-tipo="recibida" aria-pressed="false">Recibidas</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="trf-kpis" id="trf-kpis" aria-live="polite"></div>' +
+      '</section>' +
+      '<div class="trf-fila">' +
       '<section class="trf-card" aria-labelledby="trf-title">' +
         '<div class="trf-head">' +
           '<div class="trf-ic"><i class="fas fa-phone-volume"></i></div>' +
           '<div class="trf-head-txt">' +
-            '<h2 class="trf-title" id="trf-title">Transferencia de llamada</h2>' +
+            '<h2 class="trf-title" id="trf-title">Nueva transferencia</h2>' +
             '<p class="trf-sub">Registra la llamada que transfieres a un agente de ' + esc(DESTINO_LABEL) + '.</p>' +
           '</div>' +
         '</div>' +
@@ -109,30 +133,18 @@
           '<button type="submit" class="trf-btn"><i class="fas fa-share"></i> Registrar transferencia</button>' +
         '</form>' +
       '</section>' +
-      // Resumen: KPIs con los filtros de periodo (Hoy por defecto) y tipo, que también
-      // filtran «Mis transferencias» y el ranking.
-      '<section class="trf-card trf-resumen" aria-labelledby="trf-res-title">' +
+      // Ranking: transferencias hechas por cada agente de la sección en el periodo.
+      '<section class="trf-card trf-rank" aria-labelledby="trf-rank-title">' +
         '<div class="trf-head">' +
-          '<div class="trf-ic"><i class="ph ph-chart-bar"></i></div>' +
+          '<div class="trf-ic"><i class="ph ph-trophy"></i></div>' +
           '<div class="trf-head-txt">' +
-            '<h2 class="trf-title" id="trf-res-title">Resumen de transferencias</h2>' +
-            '<p class="trf-sub" id="trf-res-sub">Las que enviaste y las que te transfirieron hoy.</p>' +
-          '</div>' +
-          '<div class="trf-hist-filtros">' +
-            '<div class="trf-seg" role="group" aria-label="Periodo">' +
-              '<button type="button" data-dias="0" class="trf-seg-on" aria-pressed="true">Hoy</button>' +
-              '<button type="button" data-dias="7" aria-pressed="false">7 días</button>' +
-              '<button type="button" data-dias="30" aria-pressed="false">30 días</button>' +
-            '</div>' +
-            '<div class="trf-seg" role="group" aria-label="Tipo">' +
-              '<button type="button" data-tipo="" class="trf-seg-on" aria-pressed="true">Todas</button>' +
-              '<button type="button" data-tipo="enviada" aria-pressed="false">Enviadas</button>' +
-              '<button type="button" data-tipo="recibida" aria-pressed="false">Recibidas</button>' +
-            '</div>' +
+            '<h2 class="trf-title" id="trf-rank-title">Transferencias por agente</h2>' +
+            '<p class="trf-sub" id="trf-rank-sub">Quién lleva más y quién lleva menos hoy.</p>' +
           '</div>' +
         '</div>' +
-        '<div class="trf-kpis" id="trf-kpis" aria-live="polite"></div>' +
+        '<div class="trf-rank-body" id="trf-rank-body" aria-live="polite"></div>' +
       '</section>' +
+      '</div>' +
       '<section class="trf-card trf-hist" aria-labelledby="trf-hist-title">' +
         '<div class="trf-head">' +
           '<div class="trf-ic"><i class="fas fa-clock-rotate-left"></i></div>' +
@@ -147,17 +159,6 @@
           '</label>' +
         '</div>' +
         '<div class="trf-hist-body" id="trf-hist-body"></div>' +
-      '</section>' +
-      // Ranking: transferencias hechas por cada agente de la sección en el periodo.
-      '<section class="trf-card trf-rank" aria-labelledby="trf-rank-title">' +
-        '<div class="trf-head">' +
-          '<div class="trf-ic"><i class="ph ph-trophy"></i></div>' +
-          '<div class="trf-head-txt">' +
-            '<h2 class="trf-title" id="trf-rank-title">Transferencias por agente</h2>' +
-            '<p class="trf-sub" id="trf-rank-sub">Quién lleva más y quién lleva menos hoy.</p>' +
-          '</div>' +
-        '</div>' +
-        '<div class="trf-rank-body" id="trf-rank-body" aria-live="polite"></div>' +
       '</section>';
 
     q('#trf-team').addEventListener('change', onTeamChange);
@@ -250,6 +251,8 @@
     const marcarMin = max > min && enMin <= 3;
     const nota = !max ? '<div class="trf-rank-nota">Sin transferencias ' + que + ' en este periodo.</div>'
       : (max > min && !marcarMin ? '<div class="trf-rank-nota">' + enMin + ' agentes empatan con lo mínimo: ' + min + '.</div>' : '');
+    // Nadie con movimiento: una frase en vez de una lista de ceros.
+    if (!max) { box.innerHTML = '<p class="trf-sin-mov">Nadie tiene transferencias ' + que + ' ' + (periodo ? 'en los últimos ' + periodo + ' días' : 'hoy') + '.</p>'; return; }
     const resto = filas.length - RANK_TOP;
     const verTodos = resto > 0
       ? '<button type="button" class="trf-rank-ver" aria-expanded="' + rankTodos + '">' +
@@ -340,26 +343,29 @@
     }, 0);
     const conLineas = filas.some((f) => f.resultado === 'completada' && f.lineas);
     const dinero = '$' + (vendidas * PAGO_POR_VENTA).toFixed(2);
-    const tarjetas = [
-      { cls: 'tot',  ic: 'fa-phone-volume',   label: 'Transferidas',   v: n.total,        sub: filtroTipo === 'enviada' ? 'Enviadas' : filtroTipo === 'recibida' ? 'Recibidas' : 'Enviadas y recibidas' },
-      { cls: 'ok',   ic: RESULTADOS.completada.ic,   label: 'Cerradas',       v: n.completada,   sub: pct(n.completada) },
-    ].concat(VIGENTES.filter((k) => k !== 'completada').map(function (k) {
-      const r = RESULTADOS[k];
-      return { cls: r.cls, ic: r.ic, label: r.label, v: n[k], sub: pct(n[k]) };
-    })).concat([
-      { cls: 'pend', ic: 'fa-hourglass-half', label: 'Pendientes',     v: n.pendiente,    sub: 'Sin resultado' },
-      { cls: 'mon',  ic: 'ph-coins',         label: 'Monedero',       v: dinero,
-        sub: vendidas + (conLineas ? (vendidas === 1 ? ' línea/venta' : ' líneas/ventas') : (vendidas === 1 ? ' venta' : ' ventas')) +
-          ' × $' + PAGO_POR_VENTA.toFixed(2) },
-    ]);
-    q('#trf-kpis').innerHTML = tarjetas.map(function (t) {
-      return '<div class="trf-kpi ' + t.cls + '">' +
-        '<div class="trf-kpi-head"><span class="trf-kpi-label">' + esc(t.label) + '</span>' +
-          '<span class="trf-kpi-ic"><i class="' + (t.ic.indexOf('ph-') === 0 ? 'ph ' : 'fas ') + t.ic + '"></i></span></div>' +
-        '<div class="trf-kpi-num">' + t.v + '</div>' +
-        '<div class="trf-kpi-sub">' + esc(t.sub) + '</div>' +
-      '</div>';
-    }).join('');
+    const cifras = [
+      { cls: 'tot', v: n.total, label: n.total === 1 ? 'transferencia' : 'transferencias' },
+      { cls: 'ok',  v: n.completada, label: n.completada === 1 ? 'cerrada como venta' : 'cerradas como venta' },
+      { cls: 'pend', v: n.pendiente, label: 'sin resultado' },
+      { cls: 'mon', v: dinero, label: 'en el monedero · ' + vendidas +
+          (conLineas ? (vendidas === 1 ? ' línea' : ' líneas') : (vendidas === 1 ? ' venta' : ' ventas')) + ' × $' + PAGO_POR_VENTA.toFixed(2) },
+    ];
+    // Barra de resultados: un tramo por resultado, proporcional a cuántas hay.
+    const tramos = VIGENTES.map((k) => ({ cls: RESULTADOS[k].cls, label: RESULTADOS[k].label, v: n[k] }))
+      .concat([{ cls: 'pend', label: 'Sin resultado', v: n.pendiente }]);
+    q('#trf-kpis').innerHTML =
+      '<div class="trf-cifras">' + cifras.map(function (c) {
+        return '<p class="trf-cifra ' + c.cls + '"><b>' + c.v + '</b><span>' + esc(c.label) + '</span></p>';
+      }).join('') + '</div>' +
+      (n.total
+        ? '<div class="trf-barra-res" role="img" aria-label="' + esc(tramos.filter((t) => t.v).map((t) => t.label + ': ' + t.v).join(', ')) + '">' +
+            tramos.filter((t) => t.v).map(function (t) {
+              return '<i class="' + t.cls + '" style="flex-grow:' + t.v + '" title="' + esc(t.label + ': ' + t.v) + '"></i>';
+            }).join('') + '</div>' +
+          '<ul class="trf-leyenda">' + tramos.map(function (t) {
+            return '<li class="' + t.cls + (t.v ? '' : ' cero') + '"><i aria-hidden="true"></i>' + esc(t.label) + ' <b>' + t.v + '</b></li>';
+          }).join('') + '</ul>'
+        : '<p class="trf-sin-mov">Todavía no hay transferencias ' + (periodo ? 'en los últimos ' + periodo + ' días' : 'hoy') + '. Registra la primera en «Nueva transferencia».</p>');
   }
 
   function pintarHistorial() {

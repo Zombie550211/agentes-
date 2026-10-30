@@ -97,13 +97,41 @@
 .trf-motivo-txt{max-height:5.6em;overflow-y:auto;overscroll-behavior:contain;padding-right:6px;line-height:1.4}
 .trf-motivo-txt:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:2px}
 
-/* Resumen más compacto: los 9 indicadores en una o dos filas según el ancho. */
-.trf-resumen .trf-kpis{grid-template-columns:repeat(auto-fit,minmax(124px,1fr));gap:8px}
-.trf-resumen .trf-kpi{gap:4px;padding:10px 12px}
-.trf-resumen .trf-kpi-num{font-size:1.25rem}
 /* Ranking plegado a los 10 primeros: sin scroll propio; «Ver todos» lo despliega. */
 .trf-rank-lista{max-height:none;overflow:visible}
 .trf-rank-ver{display:inline-flex;align-items:center;margin:8px 0 0;padding:6px 12px;border:1px solid rgb(0 112 152 / .18);border-radius:8px;
   background:#fff;font:inherit;font-size:12px;font-weight:600;color:var(--color-accent-2-600);cursor:pointer}
 .trf-rank-ver:hover{border-color:rgb(0 112 152 / .4)}
 .trf-rank-ver:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:2px}
+
+/* ═══ Página de transferencias: resumen en cifras, formulario y ranking lado a lado ═══ */
+.trf-resumen .trf-kpis{display:block;padding:18px 22px 20px}
+.trf-cifras{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px 40px}
+.trf-cifra{display:flex;align-items:baseline;gap:8px;margin:0}
+.trf-cifra b{font-family:"Inter",system-ui,sans-serif;font-size:30px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;color:var(--texto-1)}
+.trf-cifra span{font-size:13px;color:var(--texto-3)}
+.trf-cifra.ok b{color:#15803d}
+.trf-cifra.mon b{color:var(--color-accent-2-600)}
+/* Barra de resultados: un tramo por resultado, con los colores de las etiquetas de la tabla. */
+.trf-barra-res{display:flex;gap:2px;height:12px;margin-top:18px;background:rgb(0 112 152 / .06)}
+.trf-barra-res i{display:block;min-width:6px}
+.trf-barra-res .ok,.trf-leyenda .ok i{background:#16a34a}
+.trf-barra-res .fra,.trf-leyenda .fra i{background:#dc2626}
+.trf-barra-res .bal,.trf-leyenda .bal i{background:#d97706}
+.trf-barra-res .full,.trf-leyenda .full i{background:#2563eb}
+.trf-barra-res .noi,.trf-leyenda .noi i{background:#94a3b8}
+.trf-barra-res .seg,.trf-leyenda .seg i{background:#eab308}
+.trf-barra-res .pend,.trf-leyenda .pend i{background:#cbd5e1}
+.trf-leyenda{display:flex;flex-wrap:wrap;gap:6px 20px;margin:10px 0 0;padding:0;list-style:none;font-size:12px;color:var(--texto-2)}
+.trf-leyenda li{display:inline-flex;align-items:center;gap:6px}
+.trf-leyenda li i{width:8px;height:8px}
+.trf-leyenda b{font-family:"Inter",system-ui,sans-serif;font-weight:600;font-variant-numeric:tabular-nums;color:var(--texto-1)}
+.trf-leyenda li.cero{color:var(--texto-3)}
+.trf-leyenda li.cero b{color:var(--texto-3);font-weight:500}
+.trf-sin-mov{margin:14px 0 0;font-size:13px;color:var(--texto-3)}
+/* Formulario (angosto) y ranking lado a lado; en pantallas chicas, uno debajo del otro. */
+.trf-fila{display:grid;grid-template-columns:minmax(340px,5fr) minmax(0,7fr);gap:var(--space-3);align-items:start}
+.trf-fila .trf-card{margin:0}
+.trf-fila .trf-rank-fila{grid-template-columns:24px minmax(120px,200px) minmax(0,1fr) 32px}
+@media (max-width:1000px){ .trf-fila{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:560px){ .trf-cifras{gap:10px 24px} .trf-cifra b{font-size:24px} }
