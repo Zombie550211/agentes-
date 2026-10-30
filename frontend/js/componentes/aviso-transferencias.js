@@ -53,7 +53,7 @@
       '<p>Pasaron 24 h sin gestionarse. Cualquier agente de ' + depto + ' puede tomarlas.</p>' +
       (ev.clientes && ev.clientes.length
         ? '<ul>' + ev.clientes.slice(0, 5).map(function (c) { return '<li>' + esc(c) + '</li>'; }).join('') + '</ul>' : '') +
-      '<a href="/' + (ev.seccion === 'lineas' ? 'lineas' : 'residencial') + '/transferencia.html#trf-dep">Ver y tomar</a>';
+      '<a href="/' + (ev.seccion === 'lineas' ? 'lineas' : 'residencial') + '/transferencia.html#trf-hist-title">Ver y tomar</a>';
     caja.querySelector('button').addEventListener('click', function () { caja.remove(); });
     document.body.appendChild(caja);
   });

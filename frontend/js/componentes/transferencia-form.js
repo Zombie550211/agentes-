@@ -166,19 +166,6 @@
         '</div>' +
         '<div class="trf-hist-body" id="trf-hist-body"></div>' +
       '</section>' +
-      // Las que llegaron a esta sección: protegidas (candado) y libres (Tomar). La ve el
-      // departamento; a quien no es de la sección el backend le responde 403 y se oculta.
-      '<section class="trf-card trf-dep" id="trf-dep" aria-labelledby="trf-dep-title" hidden>' +
-        '<div class="trf-head">' +
-          '<div class="trf-ic">' + ICONOS.ICO_CANDADO + '</div>' +
-          '<div class="trf-head-txt">' +
-            '<h2 class="trf-title" id="trf-dep-title">Transferencias del departamento</h2>' +
-            '<p class="trf-sub" id="trf-dep-sub"></p>' +
-          '</div>' +
-        '</div>' +
-        '<p class="trf-dep-msg" id="trf-dep-msg" role="alert" hidden></p>' +
-        '<div class="trf-dep-body" id="trf-dep-body"></div>' +
-      '</section>' +
       // Ranking: transferencias hechas por cada agente de la sección en el periodo.
       '<section class="trf-card trf-rank" aria-labelledby="trf-rank-title">' +
         '<div class="trf-head">' +
@@ -497,7 +484,7 @@
           '<td data-l="Fecha" class="trf-nw">' + esc(fmtFecha(f.created_at)) + '</td>' +
           '<td data-l="Tipo"><span class="trf-chip ' + (env ? 'env' : 'rec') + '">' + (env ? 'Enviada' : 'Recibida') + '</span></td>' +
           '<td data-l="Cliente">' + recorte(f.nombre_cliente, 'span') + recorte(f.direccion, 'small', 1) + '</td>' +
-          '<td data-l="Teléfono" class="trf-nw">' + esc(fmtTel(f.telefono)) + '</td>' +
+          '<td data-l="Teléfono" class="trf-nw">' + (f.protegida_otro ? '<span class="trf-oculto-dato">' + ICONOS.ICO_CANDADO + ' Protegido</span>' : esc(fmtTel(f.telefono))) + '</td>' +
           // Motivo largo: caja de alto fijo con scroll propio, para que la fila no crezca.
           '<td data-l="Motivo" class="trf-motivo"><div class="trf-motivo-txt" tabindex="0" aria-label="Motivo de la llamada">' + esc(f.motivo) + '</div></td>' +
           '<td data-l="De">' + recorte(f.created_by_nombre || f.created_by, 'span') + recorte(f.created_by_team || '', 'small', 1) + '</td>' +
@@ -512,6 +499,10 @@
         const f = origen.find((x) => String(x.id) === b.getAttribute('data-trf-res'));
         if (f) abrirResultado(f);
       });
+    });
+    box.querySelectorAll('[data-trf-tomar]').forEach(function (b) {
+      b.dataset.ok = '1';
+      b.addEventListener('click', function () { tomarTransferencia(b); });
     });
     box.querySelectorAll('[data-trf-lin]').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -535,9 +526,34 @@
    *  transferencia para él; «Libre» si venció sin resultado; «Gestionada» si ya lo tiene. */
   function celdaProtegido(f) {
     if (f.resultado) return '<span class="trf-prot gest">' + ICONOS.ICO_CHECK + ' Gestionada</span>';
-    if (f.libre || !f.protegido_hasta) return '<span class="trf-prot libre">' + ICONOS.ICO_ABIERTO + ' Libre</span>';
-    return '<span class="trf-prot on" data-hasta="' + esc(f.protegido_hasta) + '" title="Protegida para ' + esc(f.agente_destino_nombre || '') + '">' +
+    if (f.libre || !f.protegido_hasta) return chipLibre(f.id, f.tomable);
+    return '<span class="trf-prot on" data-hasta="' + esc(f.protegido_hasta) + '"' + (f.tomable ? ' data-tomable="' + esc(f.id) + '"' : '') +
+      ' title="Protegida para ' + esc(f.agente_destino_nombre || '') + '">' +
       ICONOS.ICO_CANDADO + ' <b>' + restante(f.protegido_hasta) + '</b></span>';
+  }
+
+  /** Candado abierto. Si el agente puede tomarla, el contador es un botón: al presionarlo
+   *  se le asigna y vuelven a correr las 24 h. */
+  function chipLibre(id, tomable) {
+    return tomable
+      ? '<button type="button" class="trf-prot libre trf-tomar" data-trf-tomar="' + esc(id) + '" title="Tomar esta transferencia: se te asigna y tienes 24 h">' +
+          ICONOS.ICO_ABIERTO + ' 00:00:00</button>'
+      : '<span class="trf-prot libre">' + ICONOS.ICO_ABIERTO + ' Libre</span>';
+  }
+
+  async function tomarTransferencia(b) {
+    b.disabled = true;
+    try {
+      const r = await fetch('/api/transferencias/' + b.dataset.trfTomar + '/tomar', { method: 'POST' });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(typeof j.detail === 'string' ? j.detail : 'No se pudo tomar');
+      mensaje('ok', j.message || 'La tomaste');
+      cargarHistorial();
+    } catch (e) {
+      b.disabled = false;
+      mensaje('err', e.message);
+      cargarHistorial();
+    }
   }
 
   function restante(iso) {
@@ -554,74 +570,17 @@
     panel.querySelectorAll('.trf-prot.on[data-hasta]').forEach(function (el) {
       const ms = new Date(el.dataset.hasta).getTime() - Date.now();
       if (ms <= 0) {
-        el.className = 'trf-prot libre';
-        el.removeAttribute('data-hasta');
-        el.innerHTML = ICONOS.ICO_ABIERTO + ' Libre';
+        el.outerHTML = chipLibre(el.dataset.tomable, !!el.dataset.tomable);
         vencio = true;
       } else {
         const b = el.querySelector('b');
         if (b) b.textContent = restante(el.dataset.hasta);
       }
     });
-    if (vencio) cargarDepartamento();
-  }, 1000);
-
-  // ── Transferencias del departamento (las que llegaron a esta sección) ──
-  async function cargarDepartamento() {
-    const sec = q('#trf-dep');
-    if (!sec) return;
-    let filas;
-    try {
-      const r = await fetch('/api/transferencias/departamento?seccion=' + ORIGEN);
-      if (r.status === 403) { sec.hidden = true; return; }
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.detail || 'Error');
-      filas = j.transferencias || [];
-    } catch (e) {
-      q('#trf-dep-body').innerHTML = '<div class="trf-vacio">No se pudo cargar la lista</div>';
-      return;
-    }
-    sec.hidden = false;
-    const libres = filas.filter((f) => f.libre).length;
-    q('#trf-dep-sub').textContent = filas.length
-      ? libres + (libres === 1 ? ' libre' : ' libres') + ' para tomar · ' + (filas.length - libres) + ' protegidas por 24 h.'
-      : 'Las transferencias sin gestionar que llegan a ' + (ORIGEN === 'lineas' ? 'Líneas' : 'Residencial') + '.';
-    const body = q('#trf-dep-body');
-    if (!filas.length) { body.innerHTML = '<div class="trf-vacio">No hay transferencias pendientes en el departamento.</div>'; return; }
-    body.innerHTML = '<div class="trf-tabla-wrap"><table class="trf-tabla trf-dep-tabla"><thead><tr>' +
-      '<th>Cliente</th><th>Teléfono</th><th>Transferida</th><th>Asignada a</th><th>Protegido</th><th></th>' +
-      '</tr></thead><tbody>' + filas.map(function (f) {
-        return '<tr class="' + (f.libre ? 'libre' : 'prot') + '">' +
-          '<td data-l="Cliente">' + recorte(f.nombre_cliente, 'span') + (f.libre ? recorte(f.direccion, 'small', 1) : '') + '</td>' +
-          '<td data-l="Teléfono" class="trf-nw">' + (f.libre ? esc(fmtTel(f.telefono)) : '<span class="trf-oculto-dato">' + ICONOS.ICO_CANDADO + ' Protegido</span>') + '</td>' +
-          '<td data-l="Transferida" class="trf-nw">' + esc(fmtFecha(f.created_at)) + recorte(f.created_by_nombre, 'small', 1) + '</td>' +
-          '<td data-l="Asignada a">' + recorte(f.agente_destino_nombre, 'span', 1) + recorte(f.team_destino, 'small', 1) + '</td>' +
-          '<td data-l="Protegido">' + celdaProtegido(f) + '</td>' +
-          '<td>' + (f.libre ? '<button type="button" class="trf-res-btn trf-tomar" data-trf-tomar="' + esc(f.id) + '">' + ICONOS.ICO_TOMAR + ' Tomar</button>' : '') + '</td>' +
-        '</tr>';
-      }).join('') + '</tbody></table></div>';
-    body.querySelectorAll('[data-trf-tomar]').forEach(function (b) {
-      b.addEventListener('click', async function () {
-        b.disabled = true;
-        try {
-          const r = await fetch('/api/transferencias/' + b.dataset.trfTomar + '/tomar', { method: 'POST' });
-          const j = await r.json().catch(() => ({}));
-          if (!r.ok) throw new Error(typeof j.detail === 'string' ? j.detail : 'No se pudo tomar');
-          mensaje('ok', j.message || 'La tomaste');
-          cargarHistorial();
-          cargarDepartamento();
-        } catch (e) {
-          b.disabled = false;
-          alertaDep(e.message);
-        }
-      });
+    if (vencio) panel.querySelectorAll('[data-trf-tomar]').forEach(function (b) {
+      if (!b.dataset.ok) { b.dataset.ok = '1'; b.addEventListener('click', function () { tomarTransferencia(b); }); }
     });
-  }
-
-  function alertaDep(texto) {
-    const n = q('#trf-dep-msg');
-    if (n) { n.textContent = texto; n.hidden = false; setTimeout(function () { n.hidden = true; }, 5000); }
-  }
+  }, 1000);
 
   /** Texto de la tabla recortado a 2 líneas (o 1) con «…», para que un texto largo no
    *  estire la fila; el completo sale al pasar el mouse. */
@@ -1197,9 +1156,7 @@
       panel.classList.remove('trf-oculto');
       cargarDestinos();
       cargarHistorial();
-      cargarDepartamento();
-      if (window.CRMNotificaciones) window.CRMNotificaciones.on('transferencias_libres', cargarDepartamento);
-      setInterval(function () { if (!document.hidden) cargarDepartamento(); }, 60000);
+      if (window.CRMNotificaciones) window.CRMNotificaciones.on('transferencias_libres', cargarHistorial);
       vigilarCola();
       if (ORIGEN === 'lineas') avisoLineasPendientes();
       return;

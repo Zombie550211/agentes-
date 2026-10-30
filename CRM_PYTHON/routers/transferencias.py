@@ -244,36 +244,6 @@ async def _seccion_de(s, user: dict) -> str:
     return team_seccion(mi_team, user.get("role", "")) if mi_team else ""
 
 
-# ── GET /api/transferencias/departamento?seccion=lineas ──
-@router.get("/departamento")
-async def departamento(seccion: str, user: dict = Depends(current_user)):
-    """Transferencias sin resultado que llegaron a la sección (de los últimos 7 días):
-    las protegidas (con candado, sin datos de contacto) y las libres (se pueden tomar).
-    No incluye las asignadas a quien consulta: esas ya están en «Mis transferencias»."""
-    seccion = _validar_seccion(seccion)
-    async with AsyncSessionLocal() as s:
-        if not _es_admin_bo(user.get("role", "")) and await _seccion_de(s, user) != seccion:
-            raise HTTPException(403, "Solo los agentes de esta sección ven sus transferencias")
-        r = await s.execute(text(f"""
-            SELECT t.id, t.nombre_cliente, t.telefono, t.direccion, t.motivo, t.team_destino,
-                   t.agente_destino_nombre, t.created_by_nombre,
-                   DATE_FORMAT(t.created_at, '%Y-%m-%dT%H:%i:%sZ') AS created_at,
-                   DATE_FORMAT({_FIN_PROTECCION}, '%Y-%m-%dT%H:%i:%sZ') AS protegido_hasta
-            FROM transferencias_llamadas t
-            WHERE t.seccion_origen <> :sec AND t.resultado IS NULL
-              AND t.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 DAY)
-              AND t.agente_destino_id <> :yo
-            ORDER BY {_FIN_PROTECCION} ASC
-            LIMIT 300
-        """), {"sec": seccion, "yo": _uid(user)})
-        filas = [dict(x) for x in r.mappings().all()]
-    for f in filas:
-        f["libre"] = _vencida(f["protegido_hasta"])
-        if not f["libre"]:   # protegida: sin datos para contactar al cliente
-            f["telefono"] = f["direccion"] = f["motivo"] = None
-    return {"success": True, "transferencias": filas}
-
-
 # ── POST /api/transferencias/{id}/tomar ── un agente del departamento toma una libre ──
 @router.post("/{tid}/tomar")
 async def tomar(tid: int, user: dict = Depends(current_user)):
@@ -496,11 +466,16 @@ async def listar(seccion: str, desde: str = "", hasta: str = "", buscar: str = "
     if not _es_admin_bo(role):
         async with AsyncSessionLocal() as s:
             mi_team = await _mi_team(s, user)
+        mi_seccion = team_seccion(mi_team, role) if mi_team else ""
+        # Lo que llegó a la sección del usuario lo ve todo ese departamento (con candado
+        # mientras está protegido para otro), además de lo que hizo o recibió él / su team.
+        depto = "t.seccion_origen <> :mi_sec" if mi_seccion else "0"
+        params["mi_sec"] = mi_seccion
         if _es_supervisor(role) and mi_team:
-            where.append("(t.created_by_team = :team OR t.team_destino = :team)")
+            where.append(f"(t.created_by_team = :team OR t.team_destino = :team OR {depto})")
             params["team"] = mi_team
         else:
-            where.append("(t.created_by = :yo OR t.agente_destino_id = :yo_id)")
+            where.append(f"(t.created_by = :yo OR t.agente_destino_id = :yo_id OR {depto})")
             params["yo"] = user.get("username")
             params["yo_id"] = _uid(user)
 
@@ -523,10 +498,19 @@ async def listar(seccion: str, desde: str = "", hasta: str = "", buscar: str = "
 
     gestion = _es_admin_bo(role)
     yo_id = _uid(user)
+    mi_seccion = team_seccion(mi_team, role) if mi_team else ""
     mi_team_sup = mi_team.lower() if _es_supervisor(role) else ""
     for f in filas:
         f["direccion_tipo"] = "enviada" if f["seccion_origen"] == seccion else "recibida"
         f["libre"] = not f["resultado"] and _vencida(f["protegido_hasta"])
+        mia = f["agente_destino_id"] == yo_id
+        # La puede tomar (al vencer la protección) un agente del departamento que la recibió.
+        f["tomable"] = (not f["resultado"] and not mia and bool(mi_seccion)
+                        and _contraria(f["seccion_origen"]) == mi_seccion)
+        # Protegida para otro: sin datos de contacto del cliente.
+        if f["tomable"] and not f["libre"] and str(f["created_by"] or "").lower() != str(user.get("username") or "").lower():
+            f["telefono"] = f["direccion"] = f["motivo"] = None
+            f["protegida_otro"] = True
         fid = f.pop("captura_file_id", None)
         f["captura_url"] = f"/api/files/{fid}/image" if fid else None
         receptor = f["agente_destino_id"] == yo_id or (
