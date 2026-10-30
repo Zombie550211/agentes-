@@ -116,8 +116,14 @@ async def _agentes_por_team(s, seccion_destino: str) -> dict[str, list[dict]]:
             "id": int(u["id"]),
             "nombre": (u["username"] or "").strip(),
             "username": u["username"],
+            "role": u["role"] or "",
         })
     return teams
+
+
+# Ranking: los supervisores y Control de calidad no venden; solo salen si tienen alguna
+# transferencia en el periodo (siguen pudiendo recibirlas en el formulario).
+_FUERA_RANKING = re.compile(r"calidad", re.I)
 
 
 # ── GET /api/transferencias/destinos?origen=residencial ─────────────
@@ -140,7 +146,8 @@ async def ranking(seccion: str, desde: str = "", hasta: str = "",
     """Por cada agente de la sección, en el periodo: transferencias que HIZO (enviadas) y
     que RECIBIÓ de la otra sección (recibidas), con las cerradas como venta de cada una.
     Lo ve cualquier usuario: solo nombres y cantidades, como los rankings. Entran todos los
-    agentes de los teams de la sección, también con 0. La página elige qué contar según su
+    agentes de los teams de la sección, también con 0 (menos supervisores y Control de
+    calidad sin movimiento). La página elige qué contar según su
     filtro Todas / Enviadas / Recibidas."""
     seccion = _validar_seccion(seccion)
     where = []
@@ -179,6 +186,8 @@ async def ranking(seccion: str, desde: str = "", hasta: str = "",
         for a in agentes:
             e = enviadas.get(str(a["username"] or "").lower())
             rc = recibidas.get(a["id"])
+            if not e and not rc and (_es_supervisor(a["role"]) or _FUERA_RANKING.search(team)):
+                continue
             filas.append({
                 "nombre": a["nombre"], "team": team,
                 "enviadas": int(e["total"]) if e else 0,

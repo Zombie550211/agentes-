@@ -69,40 +69,7 @@
 
   function render() {
     panel.innerHTML =
-      // Resumen arriba del todo: KPIs con los filtros de periodo (Hoy por defecto) y tipo.
-      '<section class="trf-card trf-resumen" aria-labelledby="trf-res-title">' +
-        '<div class="trf-head">' +
-          '<div class="trf-ic"><i class="ph ph-chart-bar"></i></div>' +
-          '<div class="trf-head-txt">' +
-            '<h2 class="trf-title" id="trf-res-title">Resumen de transferencias</h2>' +
-            '<p class="trf-sub" id="trf-res-sub">Las que enviaste y las que te transfirieron hoy.</p>' +
-          '</div>' +
-          '<div class="trf-hist-filtros">' +
-            '<div class="trf-seg" role="group" aria-label="Periodo">' +
-              '<button type="button" data-dias="0" class="trf-seg-on" aria-pressed="true">Hoy</button>' +
-              '<button type="button" data-dias="7" aria-pressed="false">7 días</button>' +
-              '<button type="button" data-dias="30" aria-pressed="false">30 días</button>' +
-            '</div>' +
-            '<div class="trf-seg" role="group" aria-label="Tipo">' +
-              '<button type="button" data-tipo="" class="trf-seg-on" aria-pressed="true">Todas</button>' +
-              '<button type="button" data-tipo="enviada" aria-pressed="false">Enviadas</button>' +
-              '<button type="button" data-tipo="recibida" aria-pressed="false">Recibidas</button>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-        '<div class="trf-kpis" id="trf-kpis" aria-live="polite"></div>' +
-      '</section>' +
-      // Ranking: transferencias hechas por cada agente de la sección en el periodo.
-      '<section class="trf-card trf-rank" aria-labelledby="trf-rank-title">' +
-        '<div class="trf-head">' +
-          '<div class="trf-ic"><i class="ph ph-trophy"></i></div>' +
-          '<div class="trf-head-txt">' +
-            '<h2 class="trf-title" id="trf-rank-title">Transferencias por agente</h2>' +
-            '<p class="trf-sub" id="trf-rank-sub">Quién lleva más y quién lleva menos hoy.</p>' +
-          '</div>' +
-        '</div>' +
-        '<div class="trf-rank-body" id="trf-rank-body" aria-live="polite"></div>' +
-      '</section>' +
+      // Orden: formulario (lo que más se usa) → resumen → mis transferencias → ranking.
       '<section class="trf-card" aria-labelledby="trf-title">' +
         '<div class="trf-head">' +
           '<div class="trf-ic"><i class="fas fa-phone-volume"></i></div>' +
@@ -142,6 +109,30 @@
           '<button type="submit" class="trf-btn"><i class="fas fa-share"></i> Registrar transferencia</button>' +
         '</form>' +
       '</section>' +
+      // Resumen: KPIs con los filtros de periodo (Hoy por defecto) y tipo, que también
+      // filtran «Mis transferencias» y el ranking.
+      '<section class="trf-card trf-resumen" aria-labelledby="trf-res-title">' +
+        '<div class="trf-head">' +
+          '<div class="trf-ic"><i class="ph ph-chart-bar"></i></div>' +
+          '<div class="trf-head-txt">' +
+            '<h2 class="trf-title" id="trf-res-title">Resumen de transferencias</h2>' +
+            '<p class="trf-sub" id="trf-res-sub">Las que enviaste y las que te transfirieron hoy.</p>' +
+          '</div>' +
+          '<div class="trf-hist-filtros">' +
+            '<div class="trf-seg" role="group" aria-label="Periodo">' +
+              '<button type="button" data-dias="0" class="trf-seg-on" aria-pressed="true">Hoy</button>' +
+              '<button type="button" data-dias="7" aria-pressed="false">7 días</button>' +
+              '<button type="button" data-dias="30" aria-pressed="false">30 días</button>' +
+            '</div>' +
+            '<div class="trf-seg" role="group" aria-label="Tipo">' +
+              '<button type="button" data-tipo="" class="trf-seg-on" aria-pressed="true">Todas</button>' +
+              '<button type="button" data-tipo="enviada" aria-pressed="false">Enviadas</button>' +
+              '<button type="button" data-tipo="recibida" aria-pressed="false">Recibidas</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="trf-kpis" id="trf-kpis" aria-live="polite"></div>' +
+      '</section>' +
       '<section class="trf-card trf-hist" aria-labelledby="trf-hist-title">' +
         '<div class="trf-head">' +
           '<div class="trf-ic"><i class="fas fa-clock-rotate-left"></i></div>' +
@@ -156,6 +147,17 @@
           '</label>' +
         '</div>' +
         '<div class="trf-hist-body" id="trf-hist-body"></div>' +
+      '</section>' +
+      // Ranking: transferencias hechas por cada agente de la sección en el periodo.
+      '<section class="trf-card trf-rank" aria-labelledby="trf-rank-title">' +
+        '<div class="trf-head">' +
+          '<div class="trf-ic"><i class="ph ph-trophy"></i></div>' +
+          '<div class="trf-head-txt">' +
+            '<h2 class="trf-title" id="trf-rank-title">Transferencias por agente</h2>' +
+            '<p class="trf-sub" id="trf-rank-sub">Quién lleva más y quién lleva menos hoy.</p>' +
+          '</div>' +
+        '</div>' +
+        '<div class="trf-rank-body" id="trf-rank-body" aria-live="polite"></div>' +
       '</section>';
 
     q('#trf-team').addEventListener('change', onTeamChange);
@@ -212,6 +214,8 @@
   // ── Transferencias por agente (barras ordenadas de más a menos) ──
   let rankPedido = 0;
   let rankDatos = [];   // última respuesta de /ranking (enviadas y recibidas por agente)
+  let rankTodos = false;   // false = solo los RANK_TOP primeros
+  const RANK_TOP = 10;
   async function cargarRanking() {
     const box = q('#trf-rank-body');
     if (!box) return;
@@ -246,7 +250,13 @@
     const marcarMin = max > min && enMin <= 3;
     const nota = !max ? '<div class="trf-rank-nota">Sin transferencias ' + que + ' en este periodo.</div>'
       : (max > min && !marcarMin ? '<div class="trf-rank-nota">' + enMin + ' agentes empatan con lo mínimo: ' + min + '.</div>' : '');
-    box.innerHTML = nota + '<ol class="trf-rank-lista">' + filas.map(function (f, i) {
+    const resto = filas.length - RANK_TOP;
+    const verTodos = resto > 0
+      ? '<button type="button" class="trf-rank-ver" aria-expanded="' + rankTodos + '">' +
+          (rankTodos ? 'Ver solo los ' + RANK_TOP + ' primeros' : 'Ver todos (' + resto + ' más)') + '</button>'
+      : '';
+    const visibles = rankTodos ? filas : filas.slice(0, RANK_TOP);
+    box.innerHTML = nota + '<ol class="trf-rank-lista">' + visibles.map(function (f, i) {
       const tags = [];
       if (max && f.total === max) tags.push('<span class="trf-rank-tag mas"><i class="ph ph-caret-up"></i> Más</span>');
       if (marcarMin && f.total === min) tags.push('<span class="trf-rank-tag menos"><i class="ph ph-caret-down"></i> Menos</span>');
@@ -260,7 +270,9 @@
         '<span class="trf-rank-barra" aria-hidden="true"><i style="width:' + ancho + '%"></i></span>' +
         '<span class="trf-rank-num">' + f.total + '</span>' +
       '</li>';
-    }).join('') + '</ol>';
+    }).join('') + '</ol>' + verTodos;
+    const btn = box.querySelector('.trf-rank-ver');
+    if (btn) btn.addEventListener('click', function () { rankTodos = !rankTodos; pintarRanking(); });
   }
 
   /** Buscador: busca en todas las fechas por nombre del cliente o teléfono (el backend
