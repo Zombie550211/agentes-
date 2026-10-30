@@ -277,3 +277,9 @@ button.trf-prot.trf-tomar{cursor:pointer;font:inherit;font-size:11.5px;font-weig
 button.trf-prot.trf-tomar:hover{background:rgb(234 179 8 / .24)}
 button.trf-prot.trf-tomar:focus-visible{outline:2px solid #a16207;outline-offset:2px}
 button.trf-prot.trf-tomar:disabled{cursor:wait;opacity:.6}
+/* Sin cola (página de Líneas): el formulario ocupa todo el ancho y sus campos van en 4 columnas. */
+.trf-fila:not(:has(.trf-cola)){grid-template-columns:minmax(0,1fr)}
+@media (min-width:1001px){
+  .trf-fila:not(:has(.trf-cola)) .trf-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .trf-fila:not(:has(.trf-cola)) .trf-field.trf-full{grid-column:span 2}
+}
