@@ -70,6 +70,21 @@
 
   const q = (sel) => panel.querySelector(sel);
 
+  /** Tarjeta «Transferencias por agente»: en Residencial va al final como gráfica de
+   *  barras; en Líneas (sin cola), al lado del formulario como lista con barras. */
+  function seccionRanking() {
+    return '<section class="trf-card trf-rank" aria-labelledby="trf-rank-title">' +
+        '<div class="trf-head">' +
+          '<div class="trf-ic"><i class="ph ph-trophy"></i></div>' +
+          '<div class="trf-head-txt">' +
+            '<h2 class="trf-title" id="trf-rank-title">Transferencias por agente</h2>' +
+            '<p class="trf-sub" id="trf-rank-sub">Cuántas lleva cada agente hoy.</p>' +
+          '</div>' +
+        '</div>' +
+        '<div class="trf-rank-body" id="trf-rank-body" aria-live="polite"></div>' +
+      '</section>';
+  }
+
   function render() {
     panel.innerHTML =
       // Arriba el resumen (cifras + barra de resultados) con los filtros, que mandan en toda la
@@ -149,7 +164,8 @@
             '</div>' +
             '<ol class="trf-cola-lista" id="trf-cola-lista" aria-live="polite"></ol>' +
           '</section>'
-        : '') +
+        // Líneas (sin cola): el ranking en lista, al lado del formulario.
+        : seccionRanking()) +
       '</div>' +
       '<section class="trf-card trf-hist" aria-labelledby="trf-hist-title">' +
         '<div class="trf-head">' +
@@ -166,17 +182,8 @@
         '</div>' +
         '<div class="trf-hist-body" id="trf-hist-body"></div>' +
       '</section>' +
-      // Ranking: transferencias hechas por cada agente de la sección en el periodo.
-      '<section class="trf-card trf-rank" aria-labelledby="trf-rank-title">' +
-        '<div class="trf-head">' +
-          '<div class="trf-ic"><i class="ph ph-trophy"></i></div>' +
-          '<div class="trf-head-txt">' +
-            '<h2 class="trf-title" id="trf-rank-title">Transferencias por agente</h2>' +
-            '<p class="trf-sub" id="trf-rank-sub">Cuántas lleva cada agente hoy.</p>' +
-          '</div>' +
-        '</div>' +
-        '<div class="trf-rank-body" id="trf-rank-body" aria-live="polite"></div>' +
-      '</section>';
+      // Residencial: el ranking va al final, como gráfica de barras.
+      (COLA ? seccionRanking() : '');
 
     if (q('#trf-team')) q('#trf-team').addEventListener('change', onTeamChange);
     q('form').addEventListener('submit', onSubmit);
@@ -297,6 +304,15 @@
     q('#trf-rank-title').textContent = 'Transferencias por agente · ' + rk.que;
     if (!rk.filas.length) { box.innerHTML = '<div class="trf-vacio">Sin agentes en esta sección</div>'; return; }
     if (!rk.max) { box.innerHTML = '<p class="trf-sin-mov">Nadie tiene transferencias ' + rk.que + ' ' + rk.cuando + '.</p>'; return; }
+    if (!COLA) {
+      // Líneas: lista con barras al lado del formulario (los 10 primeros + «Ver todos»).
+      box.innerHTML = notaEmpate(rk) + filasRanking(rk, rk.filas.slice(0, RANK_TOP)) +
+        (rk.filas.length > RANK_TOP
+          ? '<button type="button" class="trf-rank-ver" aria-haspopup="dialog">Ver todos (' + rk.filas.length + ' agentes)</button>' : '');
+      const ver = box.querySelector('.trf-rank-ver');
+      if (ver) ver.addEventListener('click', function () { abrirRankingTodos(ver); });
+      return;
+    }
     const con = rk.filas.filter((f) => f.total > 0);
     const ceros = rk.filas.length - con.length;
     const BW = 24, GAP = 12, H = 200, IZQ = 34, ARR = 18, ABJ = 96;
