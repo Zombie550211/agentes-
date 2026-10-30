@@ -135,3 +135,44 @@
 .trf-fila .trf-rank-fila{grid-template-columns:24px minmax(120px,200px) minmax(0,1fr) 32px}
 @media (max-width:1000px){ .trf-fila{grid-template-columns:minmax(0,1fr)} }
 @media (max-width:560px){ .trf-cifras{gap:10px 24px} .trf-cifra b{font-size:24px} }
+
+/* «Ver todos» del ranking: ventana con la lista completa y scroll propio. */
+/* Cuadrada: esquinas rectas y alto = ancho (lo que quepa en la pantalla); la lista ocupa el resto. */
+.trf-dlg-rank{width:min(100%,620px,calc(100vh - 32px));height:min(100%,620px,calc(100vh - 32px));max-height:none;aspect-ratio:1 / 1;
+  gap:12px;overflow:hidden;border-radius:0}
+.trf-dlg-rank-cab{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.trf-dlg-rank-cab .trf-dlg-sub{margin:4px 0 0}
+.trf-dlg-x{flex:none;display:grid;place-items:center;width:32px;height:32px;margin:0;padding:0;border:1px solid rgb(0 112 152 / .18);
+  background:#fff;color:var(--texto-2);cursor:pointer;font-size:16px}
+.trf-dlg-x:hover{border-color:rgb(0 112 152 / .4);color:var(--texto-1)}
+.trf-dlg-x:focus-visible,.trf-rank-scroll:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:2px}
+.trf-rank-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;border-top:1px solid rgb(0 112 152 / .1)}
+.trf-dlg-rank .trf-rank-fila{grid-template-columns:28px minmax(140px,220px) minmax(0,1fr) 36px}
+
+/* «Mis transferencias» se ajusta a la pantalla: columnas fijas que reparten el ancho (sin
+   scroll lateral), alto hasta el borde de la ventana con la cabecera fija. */
+.trf-hist .trf-tabla-wrap{max-height:calc(100vh - 140px);overflow:auto;overscroll-behavior:contain}
+.trf-hist .trf-tabla{table-layout:fixed;width:100%}
+.trf-hist .trf-tabla th{position:sticky;top:0;z-index:1;background:#f4f9fb;white-space:normal}
+.trf-hist .trf-tabla td{overflow-wrap:anywhere;padding:10px 12px}
+.trf-hist .trf-tabla td.trf-nw{white-space:normal}
+.trf-hist .trf-tabla td.trf-motivo{min-width:0;max-width:none}
+.trf-hist .trf-res-cel *{white-space:normal;max-width:100%}
+.trf-hist .trf-tabla th:nth-child(1){width:10%}  /* Fecha */
+.trf-hist .trf-tabla th:nth-child(2){width:8%}   /* Tipo */
+.trf-hist .trf-tabla th:nth-child(3){width:16%}  /* Cliente */
+.trf-hist .trf-tabla th:nth-child(4){width:11%}  /* Teléfono */
+.trf-hist .trf-tabla th:nth-child(5){width:21%}  /* Motivo */
+.trf-hist .trf-tabla th:nth-child(6){width:11%}  /* De */
+.trf-hist .trf-tabla th:nth-child(7){width:11%}  /* Para */
+.trf-hist .trf-tabla th:nth-child(8){width:12%}  /* Resultado */
+/* Pantallas angostas: cada transferencia es una ficha con sus rótulos. */
+@media (max-width:900px){
+  .trf-hist .trf-tabla,.trf-hist .trf-tabla tbody,.trf-hist .trf-tabla tr,.trf-hist .trf-tabla td{display:block;width:100%}
+  .trf-hist .trf-tabla thead{display:none}
+  .trf-hist .trf-tabla tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 12px;padding:10px 4px;border-bottom:1px solid rgb(0 112 152 / .1)}
+  .trf-hist .trf-tabla td{padding:6px 8px;border:0}
+  .trf-hist .trf-tabla td::before{content:attr(data-l);display:block;margin-bottom:2px;font-size:11px;color:var(--texto-3)}
+  .trf-hist .trf-tabla td.trf-motivo{grid-column:1 / -1}
+}
+@media (max-width:480px){ .trf-hist .trf-tabla tr{grid-template-columns:minmax(0,1fr)} }

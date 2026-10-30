@@ -215,7 +215,6 @@
   // ── Transferencias por agente (barras ordenadas de más a menos) ──
   let rankPedido = 0;
   let rankDatos = [];   // última respuesta de /ranking (enviadas y recibidas por agente)
-  let rankTodos = false;   // false = solo los RANK_TOP primeros
   const RANK_TOP = 10;
   async function cargarRanking() {
     const box = q('#trf-rank-body');
@@ -233,37 +232,29 @@
   }
   // Según el filtro de tipo: Enviadas (las que hizo), Recibidas (las que le llegaron) o
   // Todas (la suma). Ordenadas de más a menos.
-  function pintarRanking() {
-    const box = q('#trf-rank-body');
+  /** Ranking con el filtro actual (Todas / Enviadas / Recibidas), de más a menos. */
+  function rankingActual() {
     const filas = rankDatos.map(function (a) {
       const env = filtroTipo !== 'recibida', rec = filtroTipo !== 'enviada';
       return { nombre: a.nombre, team: a.team,
         total: (env ? a.enviadas : 0) + (rec ? a.recibidas : 0),
         cerradas: (env ? a.enviadas_cerradas : 0) + (rec ? a.recibidas_cerradas : 0) };
     }).sort(function (x, y) { return y.total - x.total || y.cerradas - x.cerradas || x.nombre.localeCompare(y.nombre); });
-    const que = filtroTipo === 'enviada' ? 'hechas' : filtroTipo === 'recibida' ? 'recibidas' : 'hechas y recibidas';
-    q('#trf-rank-title').textContent = 'Transferencias por agente · ' + que;
-    if (!filas.length) { box.innerHTML = '<div class="trf-vacio">Sin agentes en esta sección</div>'; return; }
     const max = filas.reduce((m, f) => Math.max(m, f.total), 0);
     const min = filas.reduce((m, f) => Math.min(m, f.total), Infinity);
     // Si el mínimo lo comparten muchos, se resume en una nota en vez de etiquetar cada fila.
     const enMin = filas.filter((f) => f.total === min).length;
-    const marcarMin = max > min && enMin <= 3;
-    const nota = !max ? '<div class="trf-rank-nota">Sin transferencias ' + que + ' en este periodo.</div>'
-      : (max > min && !marcarMin ? '<div class="trf-rank-nota">' + enMin + ' agentes empatan con lo mínimo: ' + min + '.</div>' : '');
-    // Nadie con movimiento: una frase en vez de una lista de ceros.
-    if (!max) { box.innerHTML = '<p class="trf-sin-mov">Nadie tiene transferencias ' + que + ' ' + (periodo ? 'en los últimos ' + periodo + ' días' : 'hoy') + '.</p>'; return; }
-    const resto = filas.length - RANK_TOP;
-    const verTodos = resto > 0
-      ? '<button type="button" class="trf-rank-ver" aria-expanded="' + rankTodos + '">' +
-          (rankTodos ? 'Ver solo los ' + RANK_TOP + ' primeros' : 'Ver todos (' + resto + ' más)') + '</button>'
-      : '';
-    const visibles = rankTodos ? filas : filas.slice(0, RANK_TOP);
-    box.innerHTML = nota + '<ol class="trf-rank-lista">' + visibles.map(function (f, i) {
+    return { filas, max, min, enMin, marcarMin: max > min && enMin <= 3,
+      que: filtroTipo === 'enviada' ? 'hechas' : filtroTipo === 'recibida' ? 'recibidas' : 'hechas y recibidas',
+      cuando: periodo ? 'en los últimos ' + periodo + ' días' : 'hoy' };
+  }
+
+  function filasRanking(rk, lista) {
+    return '<ol class="trf-rank-lista">' + lista.map(function (f, i) {
       const tags = [];
-      if (max && f.total === max) tags.push('<span class="trf-rank-tag mas"><i class="ph ph-caret-up"></i> Más</span>');
-      if (marcarMin && f.total === min) tags.push('<span class="trf-rank-tag menos"><i class="ph ph-caret-down"></i> Menos</span>');
-      const ancho = max ? Math.round(f.total * 100 / max) : 0;
+      if (rk.max && f.total === rk.max) tags.push('<span class="trf-rank-tag mas"><i class="ph ph-caret-up"></i> Más</span>');
+      if (rk.marcarMin && f.total === rk.min) tags.push('<span class="trf-rank-tag menos"><i class="ph ph-caret-down"></i> Menos</span>');
+      const ancho = rk.max ? Math.round(f.total * 100 / rk.max) : 0;
       const tip = f.nombre + ' · ' + f.team + ': ' + f.total + (f.total === 1 ? ' transferencia' : ' transferencias') +
         ', ' + f.cerradas + (f.cerradas === 1 ? ' cerrada' : ' cerradas');
       return '<li class="trf-rank-fila" title="' + esc(tip) + '">' +
@@ -273,9 +264,54 @@
         '<span class="trf-rank-barra" aria-hidden="true"><i style="width:' + ancho + '%"></i></span>' +
         '<span class="trf-rank-num">' + f.total + '</span>' +
       '</li>';
-    }).join('') + '</ol>' + verTodos;
+    }).join('') + '</ol>';
+  }
+
+  function notaEmpate(rk) {
+    return rk.max > rk.min && !rk.marcarMin
+      ? '<div class="trf-rank-nota">' + rk.enMin + ' agentes empatan con lo mínimo: ' + rk.min + '.</div>' : '';
+  }
+
+  function pintarRanking() {
+    const box = q('#trf-rank-body');
+    const rk = rankingActual();
+    q('#trf-rank-title').textContent = 'Transferencias por agente · ' + rk.que;
+    if (!rk.filas.length) { box.innerHTML = '<div class="trf-vacio">Sin agentes en esta sección</div>'; return; }
+    // Nadie con movimiento: una frase en vez de una lista de ceros.
+    if (!rk.max) { box.innerHTML = '<p class="trf-sin-mov">Nadie tiene transferencias ' + rk.que + ' ' + rk.cuando + '.</p>'; return; }
+    box.innerHTML = notaEmpate(rk) + filasRanking(rk, rk.filas.slice(0, RANK_TOP)) +
+      (rk.filas.length > RANK_TOP
+        ? '<button type="button" class="trf-rank-ver" aria-haspopup="dialog">Ver todos (' + rk.filas.length + ' agentes)</button>' : '');
     const btn = box.querySelector('.trf-rank-ver');
-    if (btn) btn.addEventListener('click', function () { rankTodos = !rankTodos; pintarRanking(); });
+    if (btn) btn.addEventListener('click', function () { abrirRankingTodos(btn); });
+  }
+
+  /** «Ver todos»: ventana con el ranking completo del filtro elegido; la lista tiene su propio scroll. */
+  function abrirRankingTodos(origenBtn) {
+    const rk = rankingActual();
+    const fondo = document.createElement('div');
+    fondo.className = 'trf-dlg-fondo';
+    fondo.innerHTML =
+      '<div class="trf-dlg trf-dlg-rank" role="dialog" aria-modal="true" aria-labelledby="trf-rkt-t">' +
+        '<div class="trf-dlg-rank-cab">' +
+          '<div><h3 class="trf-dlg-t" id="trf-rkt-t">Transferencias por agente · ' + esc(rk.que) + '</h3>' +
+          '<p class="trf-dlg-sub">' + rk.filas.length + ' agentes, ' + esc(rk.cuando) + '.</p></div>' +
+          '<button type="button" class="trf-dlg-x" aria-label="Cerrar"><i class="ph ph-x" aria-hidden="true"></i></button>' +
+        '</div>' +
+        notaEmpate(rk) +
+        '<div class="trf-rank-scroll" tabindex="0" aria-label="Lista de agentes">' + filasRanking(rk, rk.filas) + '</div>' +
+      '</div>';
+    function cerrar() {
+      document.removeEventListener('keydown', onKey, true);
+      fondo.remove();
+      if (origenBtn && document.contains(origenBtn)) origenBtn.focus();
+    }
+    function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); cerrar(); } }
+    fondo.addEventListener('click', function (e) { if (e.target === fondo) cerrar(); });
+    fondo.querySelector('.trf-dlg-x').addEventListener('click', cerrar);
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(fondo);
+    fondo.querySelector('.trf-dlg-x').focus();
   }
 
   /** Buscador: busca en todas las fechas por nombre del cliente o teléfono (el backend
@@ -390,15 +426,15 @@
       filas.map((f) => {
         const env = f.direccion_tipo === 'enviada';
         return '<tr>' +
-          '<td class="trf-nw">' + esc(fmtFecha(f.created_at)) + '</td>' +
-          '<td><span class="trf-chip ' + (env ? 'env' : 'rec') + '">' + (env ? 'Enviada' : 'Recibida') + '</span></td>' +
-          '<td>' + esc(f.nombre_cliente) + '<small>' + esc(f.direccion) + '</small></td>' +
-          '<td class="trf-nw">' + esc(fmtTel(f.telefono)) + '</td>' +
+          '<td data-l="Fecha" class="trf-nw">' + esc(fmtFecha(f.created_at)) + '</td>' +
+          '<td data-l="Tipo"><span class="trf-chip ' + (env ? 'env' : 'rec') + '">' + (env ? 'Enviada' : 'Recibida') + '</span></td>' +
+          '<td data-l="Cliente">' + esc(f.nombre_cliente) + '<small>' + esc(f.direccion) + '</small></td>' +
+          '<td data-l="Teléfono" class="trf-nw">' + esc(fmtTel(f.telefono)) + '</td>' +
           // Motivo largo: caja de alto fijo con scroll propio, para que la fila no crezca.
-          '<td class="trf-motivo"><div class="trf-motivo-txt" tabindex="0" aria-label="Motivo de la llamada">' + esc(f.motivo) + '</div></td>' +
-          '<td>' + esc(f.created_by_nombre || f.created_by) + '<small>' + esc(f.created_by_team || '') + '</small></td>' +
-          '<td>' + esc(f.agente_destino_nombre) + '<small>' + esc(f.team_destino) + '</small></td>' +
-          '<td class="trf-res-cel">' + celdaResultado(f) + '</td>' +
+          '<td data-l="Motivo" class="trf-motivo"><div class="trf-motivo-txt" tabindex="0" aria-label="Motivo de la llamada">' + esc(f.motivo) + '</div></td>' +
+          '<td data-l="De">' + esc(f.created_by_nombre || f.created_by) + '<small>' + esc(f.created_by_team || '') + '</small></td>' +
+          '<td data-l="Para">' + esc(f.agente_destino_nombre) + '<small>' + esc(f.team_destino) + '</small></td>' +
+          '<td data-l="Resultado" class="trf-res-cel">' + celdaResultado(f) + '</td>' +
         '</tr>';
       }).join('') +
       '</tbody></table></div>';
