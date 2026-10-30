@@ -94,7 +94,7 @@
 @media (max-width:1200px){ .trf-resumen .trf-kpis{grid-template-columns:repeat(3,minmax(0,1fr))} }
 @media (max-width:560px){ .trf-resumen .trf-kpis{grid-template-columns:repeat(2,minmax(0,1fr))} }
 /* Motivo en Mis transferencias: alto fijo (~4 líneas) con scroll, la fila mantiene su altura. */
-.trf-motivo-txt{max-height:5.6em;overflow-y:auto;overscroll-behavior:contain;padding-right:6px;line-height:1.4}
+.trf-motivo-txt{max-height:4.2em;overflow-y:auto;overscroll-behavior:contain;padding-right:6px;line-height:1.4}
 .trf-motivo-txt:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:2px}
 
 /* Ranking plegado a los 10 primeros: sin scroll propio; «Ver todos» lo despliega. */
@@ -158,14 +158,14 @@
 .trf-hist .trf-tabla td.trf-nw{white-space:normal}
 .trf-hist .trf-tabla td.trf-motivo{min-width:0;max-width:none}
 .trf-hist .trf-res-cel *{white-space:normal;max-width:100%}
-.trf-hist .trf-tabla th:nth-child(1){width:10%}  /* Fecha */
-.trf-hist .trf-tabla th:nth-child(2){width:8%}   /* Tipo */
-.trf-hist .trf-tabla th:nth-child(3){width:16%}  /* Cliente */
-.trf-hist .trf-tabla th:nth-child(4){width:11%}  /* Teléfono */
-.trf-hist .trf-tabla th:nth-child(5){width:21%}  /* Motivo */
+.trf-hist .trf-tabla th:nth-child(1){width:9%}  /* Fecha */
+.trf-hist .trf-tabla th:nth-child(2){width:7%}   /* Tipo */
+.trf-hist .trf-tabla th:nth-child(3){width:15%}  /* Cliente */
+.trf-hist .trf-tabla th:nth-child(4){width:10%}  /* Teléfono */
+.trf-hist .trf-tabla th:nth-child(5){width:19%}  /* Motivo */
 .trf-hist .trf-tabla th:nth-child(6){width:11%}  /* De */
 .trf-hist .trf-tabla th:nth-child(7){width:11%}  /* Para */
-.trf-hist .trf-tabla th:nth-child(8){width:12%}  /* Resultado */
+.trf-hist .trf-tabla th:nth-child(8){width:18%}  /* Resultado */
 /* Pantallas angostas: cada transferencia es una ficha con sus rótulos. */
 @media (max-width:900px){
   .trf-hist .trf-tabla,.trf-hist .trf-tabla tbody,.trf-hist .trf-tabla tr,.trf-hist .trf-tabla td{display:block;width:100%}
@@ -176,3 +176,18 @@
   .trf-hist .trf-tabla td.trf-motivo{grid-column:1 / -1}
 }
 @media (max-width:480px){ .trf-hist .trf-tabla tr{grid-template-columns:minmax(0,1fr)} }
+
+/* Textos largos de la tabla: 2 líneas (o 1) con «…»; el completo en el title. El motivo
+   tiene su propia caja de 3 líneas con scroll. Así un texto largo no estira la fila. */
+.trf-hist .trf-recorte{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden}
+.trf-hist .trf-recorte.l1{-webkit-line-clamp:1;line-clamp:1}
+.trf-hist .trf-tabla td small.trf-recorte{display:-webkit-box}
+/* Celda Resultado de alto fijo: etiqueta en una línea (+ icono de captura) y el botón. */
+.trf-hist .trf-res-linea{display:flex;align-items:center;gap:6px;min-width:0}
+.trf-hist .trf-res-linea .trf-res{min-width:0;white-space:nowrap !important;overflow:hidden;text-overflow:ellipsis;cursor:help}
+.trf-res-hay-nota{margin-left:2px;opacity:.75}
+.trf-res-cap-ic{flex:none;display:grid;place-items:center;width:24px;height:24px;border:1px solid rgb(0 112 152 / .18);color:var(--color-accent-2-600);background:#fff}
+.trf-res-cap-ic:hover{border-color:rgb(0 112 152 / .4)}
+.trf-res-cap-ic:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:1px}
+.trf-hist .trf-res-cel .trf-res-btn{margin-top:6px}
+.trf-hist .trf-tabla td small.trf-res-lin{display:inline;flex:none;margin:0;white-space:nowrap;font-size:11px;color:var(--texto-2)}

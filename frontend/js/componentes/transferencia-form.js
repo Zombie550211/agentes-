@@ -428,12 +428,12 @@
         return '<tr>' +
           '<td data-l="Fecha" class="trf-nw">' + esc(fmtFecha(f.created_at)) + '</td>' +
           '<td data-l="Tipo"><span class="trf-chip ' + (env ? 'env' : 'rec') + '">' + (env ? 'Enviada' : 'Recibida') + '</span></td>' +
-          '<td data-l="Cliente">' + esc(f.nombre_cliente) + '<small>' + esc(f.direccion) + '</small></td>' +
+          '<td data-l="Cliente">' + recorte(f.nombre_cliente, 'span') + recorte(f.direccion, 'small', 1) + '</td>' +
           '<td data-l="Teléfono" class="trf-nw">' + esc(fmtTel(f.telefono)) + '</td>' +
           // Motivo largo: caja de alto fijo con scroll propio, para que la fila no crezca.
           '<td data-l="Motivo" class="trf-motivo"><div class="trf-motivo-txt" tabindex="0" aria-label="Motivo de la llamada">' + esc(f.motivo) + '</div></td>' +
-          '<td data-l="De">' + esc(f.created_by_nombre || f.created_by) + '<small>' + esc(f.created_by_team || '') + '</small></td>' +
-          '<td data-l="Para">' + esc(f.agente_destino_nombre) + '<small>' + esc(f.team_destino) + '</small></td>' +
+          '<td data-l="De">' + recorte(f.created_by_nombre || f.created_by, 'span') + recorte(f.created_by_team || '', 'small', 1) + '</td>' +
+          '<td data-l="Para">' + recorte(f.agente_destino_nombre, 'span') + recorte(f.team_destino, 'small', 1) + '</td>' +
           '<td data-l="Resultado" class="trf-res-cel">' + celdaResultado(f) + '</td>' +
         '</tr>';
       }).join('') +
@@ -452,19 +452,28 @@
     });
   }
 
+  /** Texto de la tabla recortado a 2 líneas (o 1) con «…», para que un texto largo no
+   *  estire la fila; el completo sale al pasar el mouse. */
+  function recorte(txt, tag, lineas) {
+    const t = String(txt == null ? '' : txt);
+    if (!t) return '';
+    return '<' + tag + ' class="trf-recorte' + (lineas === 1 ? ' l1' : '') + '" title="' + esc(t) + '">' + esc(t) + '</' + tag + '>';
+  }
+
   function celdaResultado(f) {
     const r = RESULTADOS[f.resultado];
-    let html = r
-      ? '<span class="trf-res ' + r.cls + '"><i class="fas ' + r.ic + '"></i> ' + esc(r.label) + '</span>'
-      : '<span class="trf-res pend"><i class="fas fa-hourglass-half"></i> Pendiente</span>';
-    if (f.lineas) html += '<small>' + f.lineas + (f.lineas === 1 ? ' línea' : ' líneas') + '</small>';
-    else if (faltanLineas(f)) html += '<small class="trf-falta"><i class="fas fa-triangle-exclamation"></i> Faltan las líneas</small>';
-    if (f.captura_url) {
-      html += '<a class="trf-res-cap" href="' + esc(f.captura_url) + '" target="_blank" rel="noopener">' +
-        '<i class="fas fa-image"></i> Ver captura</a>';
-    }
-    if (f.resultado_nota) html += '<small>' + esc(f.resultado_nota) + '</small>';
-    if (f.resultado_por) html += '<small>' + esc(f.resultado_por) + ' · ' + esc(fmtFecha(f.resultado_at)) + '</small>';
+    // Nota, quién lo registró y cuándo van en el title de la etiqueta: así la celda tiene
+    // siempre el mismo alto (etiqueta + botón) aunque la nota sea larga.
+    const detalle = [f.resultado_nota, f.resultado_por ? f.resultado_por + ' · ' + fmtFecha(f.resultado_at) : '']
+      .filter(Boolean).join('\n');
+    const etiqueta = r ? r.label : 'Pendiente';
+    let html = '<span class="trf-res-linea">' +
+      '<span class="trf-res ' + (r ? r.cls : 'pend') + '" title="' + esc(etiqueta + (detalle ? '\n' + detalle : '')) + '">' +
+        '<i class="fas ' + (r ? r.ic : 'fa-hourglass-half') + '"></i> ' + esc(etiqueta) + (detalle ? ' <i class="ph ph-note trf-res-hay-nota" aria-label="Tiene nota"></i>' : '') + '</span>' +
+      (f.lineas ? '<small class="trf-res-lin" title="Líneas vendidas">' + f.lineas + (f.lineas === 1 ? ' línea' : ' líneas') + '</small>'
+        : faltanLineas(f) ? '<small class="trf-falta trf-res-lin" title="Faltan las líneas"><i class="fas fa-triangle-exclamation"></i> Líneas</small>' : '') +
+      (f.captura_url ? '<a class="trf-res-cap-ic" href="' + esc(f.captura_url) + '" target="_blank" rel="noopener" title="Ver captura" aria-label="Ver captura de la venta"><i class="fas fa-image"></i></a>' : '') +
+    '</span>';
     if (f.puede_lineas && !f.puede_registrar) {
       html += '<button type="button" class="trf-res-btn" data-trf-lin="' + esc(f.id) + '" title="Indicar la cantidad de líneas vendidas">' +
         '<i class="fas fa-list-ol"></i> Indicar líneas</button>';
