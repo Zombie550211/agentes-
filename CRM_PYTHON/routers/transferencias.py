@@ -24,6 +24,7 @@ Visibilidad del historial:
   - agente              → las que hizo o recibió él.
 """
 import asyncio
+import os
 from datetime import datetime, timezone
 import re
 
@@ -225,8 +226,13 @@ class TransferenciaIn(BaseModel):
 _cola_lock = asyncio.Lock()
 
 
+# En el CRM local (COLA_TODOS=1 en .env.local) los agentes reales están conectados a
+# producción, no al local: la cola los muestra a todos para poder probarla.
+_COLA_TODOS = os.getenv("COLA_TODOS", "").strip() == "1"
+
+
 def _conectado(user_id: int) -> bool:
-    return bool(realtime._subscribers.get(realtime.canal_usuario(user_id)))
+    return _COLA_TODOS or bool(realtime._subscribers.get(realtime.canal_usuario(user_id)))
 
 
 async def _cola_lineas(s) -> list[dict]:
