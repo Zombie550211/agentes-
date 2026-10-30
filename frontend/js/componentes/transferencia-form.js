@@ -1016,6 +1016,7 @@
   // final. Cada fila se identifica por el id del agente, así al cambiar el orden las filas
   // se deslizan a su nuevo lugar (técnica FLIP) en vez de redibujarse de golpe.
   let colaTimer = null;
+  let colaOrdenar = false;   // admin/BO: puede poner a un agente primero (una vez)
   let colaPedido = 0;
   const sinAnimar = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1039,6 +1040,7 @@
       const j = await r.json();
       if (!r.ok) throw new Error(j.detail || 'Error');
       agentes = j.agentes || [];
+      colaOrdenar = !!j.puede_ordenar;
     } catch (e) {
       if (pedido === colaPedido && !lista.children.length) {
         lista.innerHTML = '<li class="trf-cola-vacia">No se pudo cargar la cola.</li>';
@@ -1079,8 +1081,19 @@
       li.innerHTML = '<span class="trf-cola-pos">' + (i + 1) + '</span>' +
         '<span class="trf-cola-nom"><b>' + esc(a.nombre) + '</b><small>' +
           esc(String(a.team).replace(/^TEAM\s+/i, '')) + ' · ' + esc(haceCuanto(a.ultima)) + '</small></span>' +
-        (i === 0 ? '<span class="trf-cola-tag">Siguiente</span>' : '');
+        (i === 0 ? '<span class="trf-cola-tag">Siguiente</span>'
+          : colaOrdenar ? '<button type="button" class="trf-cola-subir" data-primero="' + a.id + '" title="Que ' + esc(a.nombre) +
+              ' reciba la próxima transferencia (una sola vez)">Poner primero</button>' : '');
       lista.appendChild(li);
+    });
+    lista.querySelectorAll('[data-primero]').forEach(function (b) {
+      b.addEventListener('click', async function () {
+        b.disabled = true;
+        const r = await fetch('/api/transferencias/cola/primero', { method: 'POST',
+          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: parseInt(b.dataset.primero, 10) }) });
+        if (!r.ok) { b.disabled = false; mensaje('err', 'No se pudo cambiar el orden de la cola'); return; }
+        cargarCola();
+      });
     });
     if (sinAnimar) return;
     lista.querySelectorAll('li[data-id]').forEach(function (li) {

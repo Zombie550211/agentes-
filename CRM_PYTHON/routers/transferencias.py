@@ -329,6 +329,9 @@ async def bucle_liberadas():
 
 # ── Cola de Líneas ──────────────────────────────────────────────────
 _cola_lock = asyncio.Lock()
+# «Poner primero» (admin/BO): ese agente recibe la PRÓXIMA transferencia aunque no le toque;
+# al recibirla vuelve a su lugar. En memoria (un solo worker): un reinicio lo olvida.
+_cola_primero: Optional[int] = None
 
 
 # En el CRM local (COLA_TODOS=1 en .env.local) los agentes reales están conectados a
@@ -356,7 +359,8 @@ async def _cola_lineas(s) -> list[dict]:
     ultima = {int(x["id"]): x["ultima"] for x in r.mappings().all()}
     for a in agentes:
         a["ultima"] = ultima.get(a["id"])
-    agentes.sort(key=lambda a: (a["ultima"] is not None, a["ultima"] or datetime.min, a["nombre"].lower()))
+    agentes.sort(key=lambda a: (a["id"] != _cola_primero, a["ultima"] is not None,
+                                a["ultima"] or datetime.min, a["nombre"].lower()))
     return agentes
 
 
@@ -369,7 +373,17 @@ async def cola(user: dict = Depends(current_user)):
     return {"success": True, "agentes": [{
         "id": a["id"], "nombre": a["nombre"], "team": a["team"], "conectado": True,
         "ultima": a["ultima"].replace(tzinfo=timezone.utc).isoformat() if a["ultima"] else None,
-    } for a in agentes]}
+    } for a in agentes], "puede_ordenar": _es_admin_bo(user.get("role", "")), "primero": _cola_primero}
+
+
+# ── POST /api/transferencias/cola/primero {id} ── admin/BO: ese agente va primero (una vez) ──
+@router.post("/cola/primero")
+async def cola_primero(body: dict, user: dict = Depends(current_user)):
+    global _cola_primero
+    if not _es_admin_bo(user.get("role", "")):
+        raise HTTPException(403, "Solo administración puede cambiar el orden de la cola")
+    _cola_primero = int(body.get("id") or 0) or None
+    return {"success": True, "primero": _cola_primero}
 
 
 # ── POST /api/transferencias ────────────────────────────────────────
@@ -392,6 +406,9 @@ async def crear(body: TransferenciaIn, user: dict = Depends(current_user)):
             if not turno:
                 raise HTTPException(409, "No hay agentes de Líneas conectados para recibir la transferencia")
             agente, team = turno[0], turno[0]["team"]
+            global _cola_primero
+            if agente["id"] == _cola_primero:
+                _cola_primero = None   # «Poner primero» vale para una sola transferencia
         else:
             # Líneas → Residencial: el destino se valida contra la BD: el team debe ser de
             # la sección contraria y el agente pertenecer a ese team.
