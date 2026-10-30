@@ -166,6 +166,19 @@
         '</div>' +
         '<div class="trf-hist-body" id="trf-hist-body"></div>' +
       '</section>' +
+      // Las que llegaron a esta sección: protegidas (candado) y libres (Tomar). La ve el
+      // departamento; a quien no es de la sección el backend le responde 403 y se oculta.
+      '<section class="trf-card trf-dep" id="trf-dep" aria-labelledby="trf-dep-title" hidden>' +
+        '<div class="trf-head">' +
+          '<div class="trf-ic">' + ICONOS.ICO_CANDADO + '</div>' +
+          '<div class="trf-head-txt">' +
+            '<h2 class="trf-title" id="trf-dep-title">Transferencias del departamento</h2>' +
+            '<p class="trf-sub" id="trf-dep-sub"></p>' +
+          '</div>' +
+        '</div>' +
+        '<p class="trf-dep-msg" id="trf-dep-msg" role="alert" hidden></p>' +
+        '<div class="trf-dep-body" id="trf-dep-body"></div>' +
+      '</section>' +
       // Ranking: transferencias hechas por cada agente de la sección en el periodo.
       '<section class="trf-card trf-rank" aria-labelledby="trf-rank-title">' +
         '<div class="trf-head">' +
@@ -476,7 +489,7 @@
           ' para «' + esc(busqueda) + '» en todas las fechas' + (filas.length >= 500 ? ' (se muestran los 500 más recientes)' : '') + '</div>'
         : '') +
       '<div class="trf-tabla-wrap"><table class="trf-tabla"><thead><tr>' +
-      '<th>Fecha</th><th>Tipo</th><th>Cliente</th><th>Teléfono</th><th>Motivo</th><th>De</th><th>Para</th><th>Resultado</th>' +
+      '<th>Fecha</th><th>Tipo</th><th>Cliente</th><th>Teléfono</th><th>Motivo</th><th>De</th><th>Para</th><th>Resultado</th><th>Protegido</th>' +
       '</tr></thead><tbody>' +
       filas.map((f) => {
         const env = f.direccion_tipo === 'enviada';
@@ -490,6 +503,7 @@
           '<td data-l="De">' + recorte(f.created_by_nombre || f.created_by, 'span') + recorte(f.created_by_team || '', 'small', 1) + '</td>' +
           '<td data-l="Para">' + recorte(f.agente_destino_nombre, 'span') + recorte(f.team_destino, 'small', 1) + '</td>' +
           '<td data-l="Resultado" class="trf-res-cel">' + celdaResultado(f) + '</td>' +
+          '<td data-l="Protegido" class="trf-prot-cel">' + celdaProtegido(f) + '</td>' +
         '</tr>';
       }).join('') +
       '</tbody></table></div>';
@@ -505,6 +519,108 @@
         if (f) dialogoLineas([f], false);
       });
     });
+  }
+
+  // Iconos de línea (el subconjunto de Phosphor de la página no trae estos).
+  const svgIco = (d) => '<svg class="trf-svg" viewBox="0 0 256 256" aria-hidden="true" focusable="false"><path d="' + d + '"/></svg>';
+  const ICONOS = {
+    ICO_CANDADO: svgIco('M56 104h144a8 8 0 0 1 8 8v96a8 8 0 0 1-8 8H56a8 8 0 0 1-8-8v-96a8 8 0 0 1 8-8Zm32 0V72a40 40 0 0 1 80 0v32'),
+    ICO_ABIERTO: svgIco('M56 104h144a8 8 0 0 1 8 8v96a8 8 0 0 1-8 8H56a8 8 0 0 1-8-8v-96a8 8 0 0 1 8-8Zm32 0V72a40 40 0 0 1 76-17'),
+    ICO_CHECK: svgIco('M40 144l56 56L216 80'),
+    ICO_TOMAR: svgIco('M128 40v136m-48-48 48 48 48-48M48 216h160'),
+  };
+
+  // ── Protección de 24 h ─────────────────────────────────────────
+  /** Celda «Protegido»: cuenta regresiva con candado mientras el agente asignado tiene la
+   *  transferencia para él; «Libre» si venció sin resultado; «Gestionada» si ya lo tiene. */
+  function celdaProtegido(f) {
+    if (f.resultado) return '<span class="trf-prot gest">' + ICONOS.ICO_CHECK + ' Gestionada</span>';
+    if (f.libre || !f.protegido_hasta) return '<span class="trf-prot libre">' + ICONOS.ICO_ABIERTO + ' Libre</span>';
+    return '<span class="trf-prot on" data-hasta="' + esc(f.protegido_hasta) + '" title="Protegida para ' + esc(f.agente_destino_nombre || '') + '">' +
+      ICONOS.ICO_CANDADO + ' <b>' + restante(f.protegido_hasta) + '</b></span>';
+  }
+
+  function restante(iso) {
+    const ms = new Date(iso).getTime() - Date.now();
+    if (ms <= 0) return '00:00:00';
+    const t = Math.floor(ms / 1000), p = (n) => String(n).padStart(2, '0');
+    return p(Math.floor(t / 3600)) + ':' + p(Math.floor(t / 60) % 60) + ':' + p(t % 60);
+  }
+
+  // Un solo reloj para todas las cuentas regresivas de la página.
+  setInterval(function () {
+    if (!panel || document.hidden) return;
+    let vencio = false;
+    panel.querySelectorAll('.trf-prot.on[data-hasta]').forEach(function (el) {
+      const ms = new Date(el.dataset.hasta).getTime() - Date.now();
+      if (ms <= 0) {
+        el.className = 'trf-prot libre';
+        el.removeAttribute('data-hasta');
+        el.innerHTML = ICONOS.ICO_ABIERTO + ' Libre';
+        vencio = true;
+      } else {
+        const b = el.querySelector('b');
+        if (b) b.textContent = restante(el.dataset.hasta);
+      }
+    });
+    if (vencio) cargarDepartamento();
+  }, 1000);
+
+  // ── Transferencias del departamento (las que llegaron a esta sección) ──
+  async function cargarDepartamento() {
+    const sec = q('#trf-dep');
+    if (!sec) return;
+    let filas;
+    try {
+      const r = await fetch('/api/transferencias/departamento?seccion=' + ORIGEN);
+      if (r.status === 403) { sec.hidden = true; return; }
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.detail || 'Error');
+      filas = j.transferencias || [];
+    } catch (e) {
+      q('#trf-dep-body').innerHTML = '<div class="trf-vacio">No se pudo cargar la lista</div>';
+      return;
+    }
+    sec.hidden = false;
+    const libres = filas.filter((f) => f.libre).length;
+    q('#trf-dep-sub').textContent = filas.length
+      ? libres + (libres === 1 ? ' libre' : ' libres') + ' para tomar · ' + (filas.length - libres) + ' protegidas por 24 h.'
+      : 'Las transferencias sin gestionar que llegan a ' + (ORIGEN === 'lineas' ? 'Líneas' : 'Residencial') + '.';
+    const body = q('#trf-dep-body');
+    if (!filas.length) { body.innerHTML = '<div class="trf-vacio">No hay transferencias pendientes en el departamento.</div>'; return; }
+    body.innerHTML = '<div class="trf-tabla-wrap"><table class="trf-tabla trf-dep-tabla"><thead><tr>' +
+      '<th>Cliente</th><th>Teléfono</th><th>Transferida</th><th>Asignada a</th><th>Protegido</th><th></th>' +
+      '</tr></thead><tbody>' + filas.map(function (f) {
+        return '<tr class="' + (f.libre ? 'libre' : 'prot') + '">' +
+          '<td data-l="Cliente">' + recorte(f.nombre_cliente, 'span') + (f.libre ? recorte(f.direccion, 'small', 1) : '') + '</td>' +
+          '<td data-l="Teléfono" class="trf-nw">' + (f.libre ? esc(fmtTel(f.telefono)) : '<span class="trf-oculto-dato">' + ICONOS.ICO_CANDADO + ' Protegido</span>') + '</td>' +
+          '<td data-l="Transferida" class="trf-nw">' + esc(fmtFecha(f.created_at)) + recorte(f.created_by_nombre, 'small', 1) + '</td>' +
+          '<td data-l="Asignada a">' + recorte(f.agente_destino_nombre, 'span', 1) + recorte(f.team_destino, 'small', 1) + '</td>' +
+          '<td data-l="Protegido">' + celdaProtegido(f) + '</td>' +
+          '<td>' + (f.libre ? '<button type="button" class="trf-res-btn trf-tomar" data-trf-tomar="' + esc(f.id) + '">' + ICONOS.ICO_TOMAR + ' Tomar</button>' : '') + '</td>' +
+        '</tr>';
+      }).join('') + '</tbody></table></div>';
+    body.querySelectorAll('[data-trf-tomar]').forEach(function (b) {
+      b.addEventListener('click', async function () {
+        b.disabled = true;
+        try {
+          const r = await fetch('/api/transferencias/' + b.dataset.trfTomar + '/tomar', { method: 'POST' });
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(typeof j.detail === 'string' ? j.detail : 'No se pudo tomar');
+          mensaje('ok', j.message || 'La tomaste');
+          cargarHistorial();
+          cargarDepartamento();
+        } catch (e) {
+          b.disabled = false;
+          alertaDep(e.message);
+        }
+      });
+    });
+  }
+
+  function alertaDep(texto) {
+    const n = q('#trf-dep-msg');
+    if (n) { n.textContent = texto; n.hidden = false; setTimeout(function () { n.hidden = true; }, 5000); }
   }
 
   /** Texto de la tabla recortado a 2 líneas (o 1) con «…», para que un texto largo no
@@ -1081,6 +1197,9 @@
       panel.classList.remove('trf-oculto');
       cargarDestinos();
       cargarHistorial();
+      cargarDepartamento();
+      if (window.CRMNotificaciones) window.CRMNotificaciones.on('transferencias_libres', cargarDepartamento);
+      setInterval(function () { if (!document.hidden) cargarDepartamento(); }, 60000);
       vigilarCola();
       if (ORIGEN === 'lineas') avisoLineasPendientes();
       return;

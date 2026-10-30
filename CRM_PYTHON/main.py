@@ -487,6 +487,14 @@ _MIGRATIONS: list[tuple[str, str]] = [
     # 29-10-2026: CHARGEBACK entra a la lista y cuenta como cancelada (no comisiona).
     ("0080_status_grupo_chargeback", f"ALTER TABLE leads MODIFY COLUMN status_grupo VARCHAR(10) "
         f"GENERATED ALWAYS AS {_SQL_GRUPO} VIRTUAL"),
+    # Protección de 24 h de cada transferencia (routers/transferencias.py): desde cuándo está
+    # asignada (al tomarla otro agente se reinicia) y cuándo se avisó al departamento que quedó libre.
+    ("0082_transferencias_proteccion", """ALTER TABLE transferencias_llamadas
+        ADD COLUMN asignada_at DATETIME NULL, ADD COLUMN libre_aviso_at DATETIME NULL"""),
+    # Las que ya están fuera del plazo no se avisan de golpe al desplegar: solo las nuevas.
+    ("0083_transferencias_proteccion_viejas", """UPDATE transferencias_llamadas
+        SET asignada_at = created_at,
+            libre_aviso_at = IF(created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR), UTC_TIMESTAMP(), NULL)"""),
     # Agentes que no comisionan un mes (casilla «Comisiona este mes» de Comisiones).
     ("0081_create_comision_excluidos", """CREATE TABLE IF NOT EXISTS comision_excluidos (
         ym           CHAR(7)      NOT NULL,
@@ -667,7 +675,7 @@ async def _inicializar_esquema_y_datos():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_mysql()
-    tarea_semaforo = tarea_horarios = tarea_recibos = None
+    tarea_semaforo = tarea_horarios = tarea_recibos = tarea_liberadas = None
     if _debe_inicializar_bd():
         await _inicializar_esquema_y_datos()
         # Semáforo de clientes: pasa a oficina los casos vencidos cada 5 min.
@@ -681,13 +689,16 @@ async def lifespan(app: FastAPI):
         # Recibos de Google Ads → Cuadratura (solo lectura allí): reintenta los pendientes.
         from recibos_cuadratura import bucle_envio_recibos
         tarea_recibos = asyncio.create_task(bucle_envio_recibos())
+        # Transferencias que cumplen 24 h sin gestionar: aviso a todo su departamento.
+        from routers.transferencias import bucle_liberadas
+        tarea_liberadas = asyncio.create_task(bucle_liberadas())
     else:
         print("[init] Migraciones y seeds OMITIDOS: esta instancia no es dueña del "
               "esquema (NODE_ENV != production y RUN_DB_INIT no activo). La app "
               "arranca y sirve, pero NO altera el esquema ni siembra datos. Para "
               "forzarlo (p.ej. contra una BD local), exporta RUN_DB_INIT=1.")
     yield
-    for tarea in (tarea_semaforo, tarea_horarios, tarea_recibos):
+    for tarea in (tarea_semaforo, tarea_horarios, tarea_recibos, tarea_liberadas):
         if tarea:
             tarea.cancel()
     await close_mysql()
