@@ -42,12 +42,26 @@ if [[ "$URL_DB" != *"127.0.0.1:${PUERTO_DB}"* ]]; then
   exit 1
 fi
 
+# Copia con datos reales de producción (sync_prod_local.sh --inicial): se mantiene al día
+# en segundo plano mientras corre el CRM local. Producción solo se lee.
+SYNC_PID=""
+if [[ -f "${BASE_DIR}/db-backups/.sync-prod-corte" ]]; then
+  bash "${BASE_DIR}/CRM_PYTHON/scripts/sync_prod_local.sh" > /dev/null 2>&1 &
+  SYNC_PID=$!
+  trap '[[ -n "$SYNC_PID" ]] && kill "$SYNC_PID" 2>/dev/null' EXIT
+  DATOS="datos REALES de produccion, sincronizados cada minuto (log: logs/sync-prod-local.log)"
+  ACCESO="tu usuario y contrasena reales"
+else
+  DATOS="datos anonimizados (para datos reales: bash CRM_PYTHON/scripts/sync_prod_local.sh --inicial)"
+  ACCESO="cualquier usuario del CRM, contrasena: local123"
+fi
+
 echo
-echo "  BD .......... MySQL local en Docker (127.0.0.1:${PUERTO_DB}) — datos anonimizados"
-echo "  Produccion .. sin tocar (no hace falta el tunel SSH)"
+echo "  BD .......... MySQL local en Docker (127.0.0.1:${PUERTO_DB}) — ${DATOS}"
+echo "  Produccion .. solo se lee; nada de lo que hagas en el local llega a produccion"
 echo "  CRM ......... http://localhost:8001"
-echo "  Acceso ...... cualquier usuario del CRM, contrasena: local123"
+echo "  Acceso ...... ${ACCESO}"
 echo
 
 cd "${BASE_DIR}/CRM_PYTHON"
-exec ./.venv/bin/python run.py
+./.venv/bin/python run.py
