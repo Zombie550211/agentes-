@@ -12,11 +12,18 @@ porque la promoción paga por línea. Una vez completada
 solo admin / back office pueden cambiarla, porque es lo que cuenta para la
 promoción de transferencias.
 
+Cola de Líneas: lo que Residencial transfiere ya no se dirige a mano. Se asigna solo al
+primero de la cola = los agentes de Líneas CONECTADOS (con el centro de notificaciones
+abierto, realtime) ordenados por la última transferencia que recibieron (el que hace más
+que no recibe, o nunca, va primero). Al recibir una baja al final. Un lock serializa las
+asignaciones simultáneas (el despliegue corre con un solo worker, ver realtime.py).
+
 Visibilidad del historial:
   - admin / back office → todas las transferencias de la sección.
   - supervisor          → las que hizo o recibió su team.
   - agente              → las que hizo o recibió él.
 """
+import asyncio
 from datetime import datetime, timezone
 import re
 
@@ -28,6 +35,7 @@ from sqlalchemy import text
 
 from database_mysql import AsyncSessionLocal
 from deps import current_user, team_seccion
+import realtime
 
 router = APIRouter(prefix="/api/transferencias", tags=["Transferencias de llamadas"])
 
@@ -50,11 +58,6 @@ RESULTADOS = {
 # Solo capturas subidas al propio CRM como imagen (/api/files/upload las guarda en BD).
 _URL_CAPTURA = re.compile(r"^/api/files/(\d+)/image$")
 _MAX_LINEAS = 5
-
-
-def codigo(tid: int) -> str:
-    """ID visible de una transferencia (el mismo que arma transferencia-form.js)."""
-    return f"TRF-{int(tid):06d}"
 
 
 # «TRF-000123», «trf123», «#123» o «123» en el buscador → id 123.
@@ -213,8 +216,48 @@ class TransferenciaIn(BaseModel):
     motivo: str = Field(..., max_length=1000)
     nombre_cliente: str = Field(..., max_length=150)
     direccion: str = Field(..., max_length=300)
-    team_destino: str = Field(..., max_length=100)
-    agente_destino_id: int
+    # Solo Líneas → Residencial elige destino; Residencial → Líneas lo asigna la cola.
+    team_destino: str = Field("", max_length=100)
+    agente_destino_id: int = 0
+
+
+# ── Cola de Líneas ──────────────────────────────────────────────────
+_cola_lock = asyncio.Lock()
+
+
+def _conectado(user_id: int) -> bool:
+    return bool(realtime._subscribers.get(realtime.canal_usuario(user_id)))
+
+
+async def _cola_lineas(s) -> list[dict]:
+    """Agentes de Líneas conectados, en orden de turno (el primero recibe la siguiente)."""
+    teams = await _agentes_por_team(s, "lineas")
+    agentes = [dict(a, team=t) for t, lista in teams.items() for a in lista if _conectado(a["id"])]
+    if not agentes:
+        return []
+    r = await s.execute(text(f"""
+        SELECT agente_destino_id AS id, MAX(created_at) AS ultima
+        FROM transferencias_llamadas
+        WHERE seccion_origen = 'residencial'
+          AND agente_destino_id IN ({",".join(str(int(a["id"])) for a in agentes)})
+        GROUP BY agente_destino_id
+    """))
+    ultima = {int(x["id"]): x["ultima"] for x in r.mappings().all()}
+    for a in agentes:
+        a["ultima"] = ultima.get(a["id"])
+    agentes.sort(key=lambda a: (a["ultima"] is not None, a["ultima"] or datetime.min, a["nombre"].lower()))
+    return agentes
+
+
+# ── GET /api/transferencias/cola ── agentes de Líneas en turno ──
+@router.get("/cola")
+async def cola(user: dict = Depends(current_user)):
+    async with AsyncSessionLocal() as s:
+        agentes = await _cola_lineas(s)
+    return {"success": True, "agentes": [{
+        "id": a["id"], "nombre": a["nombre"], "team": a["team"],
+        "ultima": a["ultima"].replace(tzinfo=timezone.utc).isoformat() if a["ultima"] else None,
+    } for a in agentes]}
 
 
 # ── POST /api/transferencias ────────────────────────────────────────
@@ -230,14 +273,21 @@ async def crear(body: TransferenciaIn, user: dict = Depends(current_user)):
     if not motivo or not nombre or not direccion:
         raise HTTPException(400, "Todos los campos son obligatorios")
 
-    async with AsyncSessionLocal() as s:
-        # El destino se valida contra la BD: el team debe ser de la sección
-        # contraria y el agente pertenecer a ese team.
-        teams = await _agentes_por_team(s, _contraria(origen))
-        team = (body.team_destino or "").strip()
-        agente = next((a for a in teams.get(team, []) if a["id"] == body.agente_destino_id), None)
-        if not agente:
-            raise HTTPException(400, "El agente seleccionado no pertenece a ese team")
+    async with _cola_lock, AsyncSessionLocal() as s:
+        if origen == "residencial":
+            # Residencial → Líneas: el primero de la cola (agentes de Líneas conectados).
+            turno = await _cola_lineas(s)
+            if not turno:
+                raise HTTPException(409, "No hay agentes de Líneas conectados para recibir la transferencia")
+            agente, team = turno[0], turno[0]["team"]
+        else:
+            # Líneas → Residencial: el destino se valida contra la BD: el team debe ser de
+            # la sección contraria y el agente pertenecer a ese team.
+            teams = await _agentes_por_team(s, _contraria(origen))
+            team = (body.team_destino or "").strip()
+            agente = next((a for a in teams.get(team, []) if a["id"] == body.agente_destino_id), None)
+            if not agente:
+                raise HTTPException(400, "El agente seleccionado no pertenece a ese team")
 
         r = await s.execute(text("SELECT name, username, team FROM users WHERE id = :id"),
                             {"id": _uid(user)})
@@ -260,8 +310,12 @@ async def crear(body: TransferenciaIn, user: dict = Depends(current_user)):
         })
         nuevo_id = int(r.lastrowid or 0)
         await s.commit()
+    # Aviso al agente que la recibe (centro de notificaciones).
+    await realtime.publish(realtime.canal_usuario(agente["id"]), {
+        "type": "transferencia_asignada", "id": nuevo_id, "cliente": nombre,
+        "de": (yo.get("username") or user.get("username") or "").strip()})
     return {"success": True, "message": "Transferencia registrada",
-            "id": nuevo_id, "codigo": codigo(nuevo_id)}
+            "id": nuevo_id, "agente": agente["nombre"], "team": team}
 
 
 # ── GET /api/transferencias?seccion=residencial&desde=YYYY-MM-DD&hasta=YYYY-MM-DD

@@ -32,6 +32,9 @@
 
   const ORIGEN = location.pathname.indexOf('/lineas/') === 0 ? 'lineas' : 'residencial';
   const DESTINO_LABEL = ORIGEN === 'lineas' ? 'Residencial' : 'Líneas';
+  // Residencial → Líneas no elige destino: lo asigna la cola de agentes de Líneas conectados.
+  const COLA = ORIGEN === 'residencial';
+  const COLA_MS = 8000;   // cada cuánto se refresca la cola mientras la página está visible
   const SALIDA_MS = 160;   // = duración de trfSale en transferencia-form.css
 
   let destinos = null;   // [{team, agentes:[{id,nombre,username}]}] — se carga al abrir la pestaña
@@ -120,19 +123,33 @@
               '<label for="trf-motivo">Motivo de la llamada <span class="trf-req">*</span></label>' +
               '<textarea id="trf-motivo" maxlength="1000"></textarea>' +
             '</div>' +
-            '<div class="trf-field">' +
+            (COLA
+              ? '<div class="trf-field trf-full trf-asigna" id="trf-asigna" aria-live="polite">Buscando agentes de Líneas conectados…</div>'
+              : '<div class="trf-field">' +
               '<label for="trf-team">Team de ' + esc(DESTINO_LABEL) + ' <span class="trf-req">*</span></label>' +
               '<select id="trf-team"><option value="">Cargando…</option></select>' +
             '</div>' +
             '<div class="trf-field">' +
               '<label for="trf-agente">Agente <span class="trf-req">*</span></label>' +
               '<select id="trf-agente" disabled><option value="">Primero elige un team</option></select>' +
-            '</div>' +
+            '</div>') +
           '</div>' +
           '<div class="trf-msg" role="status" aria-live="polite"></div>' +
           '<button type="submit" class="trf-btn"><i class="fas fa-share"></i> Registrar transferencia</button>' +
         '</form>' +
       '</section>' +
+      (COLA
+        ? '<section class="trf-card trf-cola" aria-labelledby="trf-cola-title">' +
+            '<div class="trf-head">' +
+              '<div class="trf-ic"><i class="ph ph-users-three"></i></div>' +
+              '<div class="trf-head-txt">' +
+                '<h2 class="trf-title" id="trf-cola-title">Cola de Líneas</h2>' +
+                '<p class="trf-sub">Conectados ahora. La próxima transferencia va al primero.</p>' +
+              '</div>' +
+            '</div>' +
+            '<ol class="trf-cola-lista" id="trf-cola-lista" aria-live="polite"></ol>' +
+          '</section>'
+        : '') +
       // Ranking: transferencias hechas por cada agente de la sección en el periodo.
       '<section class="trf-card trf-rank" aria-labelledby="trf-rank-title">' +
         '<div class="trf-head">' +
@@ -155,13 +172,13 @@
           '<label class="trf-buscar">' +
             '<i class="ph ph-magnifying-glass" aria-hidden="true"></i>' +
             '<input type="search" id="trf-buscar" maxlength="100" autocomplete="off" ' +
-              'placeholder="Buscar por ID, cliente o teléfono" aria-label="Buscar transferencia por ID, nombre del cliente o teléfono">' +
+              'placeholder="Buscar por cliente o teléfono" aria-label="Buscar venta por nombre del cliente o teléfono">' +
           '</label>' +
         '</div>' +
         '<div class="trf-hist-body" id="trf-hist-body"></div>' +
       '</section>';
 
-    q('#trf-team').addEventListener('change', onTeamChange);
+    if (q('#trf-team')) q('#trf-team').addEventListener('change', onTeamChange);
     q('form').addEventListener('submit', onSubmit);
     q('#trf-buscar').addEventListener('input', function () {
       clearTimeout(busqTimer);
@@ -205,12 +222,6 @@
     const d = new Date(iso);
     if (isNaN(d.getTime())) return '';
     return d.toLocaleString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-  }
-
-  /** ID visible de la transferencia: TRF- y su número a 6 cifras (igual que el backend). */
-  function codigoTrf(id) {
-    const n = parseInt(id, 10);
-    return n ? 'TRF-' + String(n).padStart(6, '0') : '';
   }
 
   function fmtTel(t) {
@@ -432,7 +443,7 @@
       filas.map((f) => {
         const env = f.direccion_tipo === 'enviada';
         return '<tr>' +
-          '<td data-l="Fecha" class="trf-nw"><b class="trf-id">' + codigoTrf(f.id) + '</b>' + esc(fmtFecha(f.created_at)) + '</td>' +
+          '<td data-l="Fecha" class="trf-nw">' + esc(fmtFecha(f.created_at)) + '</td>' +
           '<td data-l="Tipo"><span class="trf-chip ' + (env ? 'env' : 'rec') + '">' + (env ? 'Enviada' : 'Recibida') + '</span></td>' +
           '<td data-l="Cliente">' + recorte(f.nombre_cliente, 'span') + recorte(f.direccion, 'small', 1) + '</td>' +
           '<td data-l="Teléfono" class="trf-nw">' + esc(fmtTel(f.telefono)) + '</td>' +
@@ -611,7 +622,7 @@
     dlg.querySelector('form').reset();
     dlg.querySelector('.trf-drop-img').classList.add('trf-oculto');
     dlg.querySelector('.trf-drop-txt').innerHTML = '<i class="fas fa-cloud-arrow-up"></i> Elige la imagen o pégala aquí con Ctrl+V';
-    dlg.querySelector('#trf-dlg-sub').textContent = codigoTrf(f.id) + ' · ' + f.nombre_cliente + ' · ' + fmtTel(f.telefono);
+    dlg.querySelector('#trf-dlg-sub').textContent = f.nombre_cliente + ' · ' + fmtTel(f.telefono);
     if (f.resultado) {
       const r = dlg.querySelector('input[name="trf-res"][value="' + f.resultado + '"]');
       if (r) r.checked = true;
@@ -785,6 +796,7 @@
 
   async function cargarDestinos() {
     const sel = q('#trf-team');
+    if (!sel) return;   // con cola no se elige destino
     try {
       const r = await fetch('/api/transferencias/destinos?origen=' + ORIGEN);
       const j = await r.json();
@@ -801,6 +813,7 @@
 
   function onTeamChange() {
     const sel = q('#trf-agente');
+    if (!sel) return;
     const t = (destinos || []).find((x) => x.team === q('#trf-team').value);
     if (!t) {
       sel.innerHTML = '<option value="">Primero elige un team</option>';
@@ -826,10 +839,10 @@
       motivo: q('#trf-motivo').value.trim(),
       nombre_cliente: q('#trf-nombre').value.trim(),
       direccion: q('#trf-direccion').value.trim(),
-      team_destino: q('#trf-team').value,
-      agente_destino_id: parseInt(q('#trf-agente').value, 10) || 0,
+      team_destino: COLA ? '' : q('#trf-team').value,
+      agente_destino_id: COLA ? 0 : parseInt(q('#trf-agente').value, 10) || 0,
     };
-    if (!body.motivo || !body.nombre_cliente || !body.direccion || !body.team_destino || !body.agente_destino_id) {
+    if (!body.motivo || !body.nombre_cliente || !body.direccion || (!COLA && (!body.team_destino || !body.agente_destino_id))) {
       mensaje('err', 'Completa todos los campos');
       return;
     }
@@ -845,13 +858,105 @@
       if (!r.ok) throw new Error(typeof j.detail === 'string' ? j.detail : 'No se pudo guardar');
       q('form').reset();
       onTeamChange();
-      mensaje('ok', 'Transferencia ' + (j.codigo || codigoTrf(j.id)) + ' registrada');
+      mensaje('ok', COLA && j.agente
+        ? 'Transferencia registrada y asignada a ' + j.agente + ' (' + String(j.team || '').replace(/^TEAM\s+/i, '') + ').'
+        : 'Transferencia registrada');
       cargarHistorial();
+      if (COLA) cargarCola();
     } catch (e) {
       mensaje('err', e.message);
     } finally {
       btn.disabled = false;
     }
+  }
+
+  // ── Cola de Líneas ─────────────────────────────────────────────
+  // Lista vertical: el primero recibe la próxima transferencia y, al recibirla, baja al
+  // final. Cada fila se identifica por el id del agente, así al cambiar el orden las filas
+  // se deslizan a su nuevo lugar (técnica FLIP) en vez de redibujarse de golpe.
+  let colaTimer = null;
+  let colaPedido = 0;
+  const sinAnimar = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function haceCuanto(iso) {
+    if (!iso) return 'Sin transferencias aún';
+    const min = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+    if (min < 1) return 'Recibió hace un momento';
+    if (min < 60) return 'Recibió hace ' + min + ' min';
+    const h = Math.floor(min / 60);
+    if (h < 24) return 'Recibió hace ' + h + ' h';
+    return 'Recibió hace ' + Math.floor(h / 24) + ' d';
+  }
+
+  async function cargarCola() {
+    const lista = q('#trf-cola-lista');
+    if (!lista) return;
+    const pedido = ++colaPedido;
+    let agentes;
+    try {
+      const r = await fetch('/api/transferencias/cola');
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.detail || 'Error');
+      agentes = j.agentes || [];
+    } catch (e) {
+      if (pedido === colaPedido && !lista.children.length) {
+        lista.innerHTML = '<li class="trf-cola-vacia">No se pudo cargar la cola.</li>';
+      }
+      return;
+    }
+    if (pedido !== colaPedido) return;
+    pintarCola(lista, agentes);
+  }
+
+  function pintarCola(lista, agentes) {
+    const asigna = q('#trf-asigna');
+    const btn = q('.trf-btn');
+    if (!agentes.length) {
+      lista.innerHTML = '<li class="trf-cola-vacia">Ningún agente de Líneas está conectado.</li>';
+      if (asigna) asigna.innerHTML = '<i class="ph ph-warning" aria-hidden="true"></i> No hay agentes de Líneas conectados: no se puede transferir ahora.';
+      if (btn) btn.disabled = true;
+      return;
+    }
+    if (btn) btn.disabled = false;
+    const sig = agentes[0];
+    if (asigna) {
+      asigna.innerHTML = '<span>Se asignará a</span> <b>' + esc(sig.nombre) + '</b> <small>' +
+        esc(String(sig.team).replace(/^TEAM\s+/i, '')) + '</small>';
+    }
+    // FLIP: posición antes del cambio, por id de agente.
+    const antes = {};
+    lista.querySelectorAll('li[data-id]').forEach((li) => { antes[li.dataset.id] = li.getBoundingClientRect().top; });
+    const previos = {};
+    lista.querySelectorAll('li[data-id]').forEach((li) => { previos[li.dataset.id] = li; });
+    lista.innerHTML = '';
+    agentes.forEach(function (a, i) {
+      const li = previos[a.id] || document.createElement('li');
+      li.dataset.id = a.id;
+      li.className = 'trf-cola-fila' + (i === 0 ? ' sig' : '');
+      li.innerHTML = '<span class="trf-cola-pos">' + (i + 1) + '</span>' +
+        '<span class="trf-cola-nom"><b>' + esc(a.nombre) + '</b><small>' +
+          esc(String(a.team).replace(/^TEAM\s+/i, '')) + ' · ' + esc(haceCuanto(a.ultima)) + '</small></span>' +
+        (i === 0 ? '<span class="trf-cola-tag">Siguiente</span>' : '');
+      lista.appendChild(li);
+    });
+    if (sinAnimar) return;
+    lista.querySelectorAll('li[data-id]').forEach(function (li) {
+      const y0 = antes[li.dataset.id];
+      const dy = y0 === undefined ? 0 : y0 - li.getBoundingClientRect().top;
+      if (y0 === undefined) {
+        li.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 240, easing: 'ease-out' });
+      } else if (dy) {
+        li.animate([{ transform: 'translateY(' + dy + 'px)' }, { transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.2,.8,.2,1)' });
+      }
+    });
+  }
+
+  function vigilarCola() {
+    if (!COLA) return;
+    cargarCola();
+    clearInterval(colaTimer);
+    colaTimer = setInterval(function () { if (!document.hidden) cargarCola(); }, COLA_MS);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) cargarCola(); });
   }
 
   // ── Pestañas ───────────────────────────────────────────────────
@@ -938,6 +1043,7 @@
       panel.classList.remove('trf-oculto');
       cargarDestinos();
       cargarHistorial();
+      vigilarCola();
       if (ORIGEN === 'lineas') avisoLineasPendientes();
       return;
     }
