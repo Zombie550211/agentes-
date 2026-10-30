@@ -438,6 +438,15 @@ async def crear(body: TransferenciaIn, user: dict = Depends(current_user)):
             "now": _utcnow(),
         })
         nuevo_id = int(r.lastrowid or 0)
+        # Notificación guardada (campana del CRM): le llega al agente aunque en ese momento
+        # no esté escuchando el aviso en vivo. old_status «TRANSFERENCIA» la distingue.
+        await s.execute(text("""
+            INSERT INTO status_notifications
+                (seccion, cliente, old_status, new_status, actor, target_agente, target_supervisor, created_at)
+            VALUES (:sec, :cli, 'TRANSFERENCIA', 'ASIGNADA', :act, :ag, '', :ts)"""), {
+            "sec": _contraria(origen), "cli": nombre[:150],
+            "act": (yo.get("username") or user.get("username") or "").strip(),
+            "ag": agente["nombre"], "ts": _utcnow()})
         await s.commit()
     # Aviso al agente que la recibe (centro de notificaciones).
     await realtime.publish(realtime.canal_usuario(agente["id"]), {

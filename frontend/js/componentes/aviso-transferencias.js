@@ -90,13 +90,40 @@
     } catch (e) { /* sin audio */ }
   }
 
-  window.CRMNotificaciones.on('transferencia_asignada', function (ev) {
-    var horas = ev.horas || 24;
+  // Hasta qué momento (UTC, «AAAA-MM-DD HH:MM:SS») ya se mostraron asignaciones en este navegador.
+  var VISTO = 'crm_trf_asignadas_vistas';
+  function ahoraUTC() { return new Date().toISOString().replace('T', ' ').slice(0, 19); }
+  function leerVisto() { try { return localStorage.getItem(VISTO) || ''; } catch (e) { return ''; } }
+  function marcarVisto(f) { try { if (f > leerVisto()) localStorage.setItem(VISTO, f); } catch (e) { /* sin storage */ } }
+
+  function avisoAsignada(cliente, de, seccion, horas) {
     mostrar('nueva',
       '<h3>Te asignaron una transferencia</h3>' +
-      '<p>Cliente: <b>' + esc(ev.cliente) + '</b>' + (ev.de ? '<br>La transfirió: ' + esc(ev.de) : '') +
-        '<br>Tienes ' + horas + ' h para gestionarla.</p>' +
-      '<a href="' + pagina(ev.seccion) + '">Ver transferencia</a>');
+      '<p>Cliente: <b>' + esc(cliente) + '</b>' + (de ? '<br>La transfirió: ' + esc(de) : '') +
+        '<br>Tienes ' + (horas || 24) + ' h para gestionarla.</p>' +
+      '<a href="' + pagina(seccion) + '">Ver transferencia</a>');
+  }
+
+  // Al abrir cualquier página: las asignadas en la última hora que este navegador no mostró
+  // (por ejemplo, si llegaron con la página cerrada o sin conexión en vivo).
+  fetch('/api/notificaciones/status', { credentials: 'include' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      var hace1h = new Date(Date.now() - 3600e3).toISOString().replace('T', ' ').slice(0, 19);
+      var visto = leerVisto();
+      var nuevas = ((d && d.items) || []).filter(function (n) {
+        var f = String(n.fecha).slice(0, 19);
+        return n.old_status === 'TRANSFERENCIA' && f > hace1h && f > visto;
+      });
+      nuevas.slice(0, 3).reverse().forEach(function (n) { avisoAsignada(n.cliente, n.actor, n.seccion, 24); });
+      if (nuevas.length) marcarVisto(String(nuevas[0].fecha).slice(0, 19));
+    })
+    .catch(function () { /* la campana también las muestra */ });
+
+  window.CRMNotificaciones.on('transferencia_asignada', function (ev) {
+    var horas = ev.horas || 24;
+    marcarVisto(ahoraUTC());
+    avisoAsignada(ev.cliente, ev.de, ev.seccion, horas);
     sonar();
     if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
       try {

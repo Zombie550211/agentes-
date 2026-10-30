@@ -111,6 +111,12 @@
     if (punto) punto.hidden = !avisos.some(function (n) { return String(n.fecha) > visto; });
     if (!lista) return;
     lista.innerHTML = avisos.length ? avisos.map(function (n) {
+      if (n.old_status === 'TRANSFERENCIA') {   // transferencia asignada (routers/transferencias.py)
+        return '<a class="tb-aviso" style="color:inherit;text-decoration:none" href="/' + (n.seccion === 'lineas' ? 'lineas' : 'residencial') + '/transferencia.html#trf-hist-title">' +
+          '<i class="ph ph-bell-ringing" aria-hidden="true"></i><div>' +
+          '<div>Te asignaron la transferencia de <strong>' + esc(n.cliente || 'un cliente') + '</strong></div>' +
+          '<div class="tb-meta">' + (n.actor ? esc(n.actor) + ' · ' : '') + esc(hace(n.fecha)) + ' · 24 h para gestionarla</div></div></a>';
+      }
       return '<div class="tb-aviso"><i class="ph ph-check-circle" aria-hidden="true"></i><div>' +
         '<div><strong>' + esc(n.cliente || 'Cliente') + '</strong> pasó a <strong>' + esc(n.new_status || '—') + '</strong>' +
           (n.seccion === 'lineas' ? ' (Líneas)' : '') + '</div>' +
@@ -303,7 +309,7 @@
     if (cont) iniciar(cont);
     // Centro de notificaciones (una conexión en vivo por navegador) y, sobre él, los avisos
     // de faltas de Monitoreo. async=false: se ejecutan en este orden.
-    ['/js/core/notificaciones.js?v=20261026a', '/js/componentes/aviso-faltas.js?v=20261026d', '/js/componentes/aviso-transferencias.js?v=20261030c'].forEach(function (src) {
+    ['/js/core/notificaciones.js?v=20261026a', '/js/componentes/aviso-faltas.js?v=20261026d', '/js/componentes/aviso-transferencias.js?v=20261030d'].forEach(function (src) {
       var s = document.createElement('script');
       s.src = src;
       s.async = false;
