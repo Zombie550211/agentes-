@@ -91,6 +91,12 @@ def _es_admin_bo(role: str) -> bool:
     return r in ("admin", "administrador", "administrativo") or "backoffice" in r
 
 
+def _es_agente(role: str) -> bool:
+    """Agente de venta: roles «Agente», «Lineas-Agentes» y «vendedor»."""
+    r = str(role or "").lower()
+    return ("agente" in r or "vendedor" in r) and "supervisor" not in r
+
+
 def _es_supervisor(role: str) -> bool:
     return "supervisor" in str(role or "").lower()
 
@@ -130,6 +136,9 @@ async def _agentes_por_team(s, seccion_destino: str) -> dict[str, list[dict]]:
     for u in r.mappings().all():
         team = u["team"]
         if team_seccion(team) != seccion_destino or _TEAM_EXCLUIDO.search(team):
+            continue
+        # Solo agentes: fuera supervisores, administradores, back office…
+        if not _es_agente(u["role"]):
             continue
         teams.setdefault(team, []).append({
             "id": int(u["id"]),
@@ -351,15 +360,21 @@ async def _cola_lineas(s) -> list[dict]:
     return agentes
 
 
-# ── GET /api/transferencias/cola ── agentes de Líneas en turno ──
+# ── GET /api/transferencias/cola ── agentes de Líneas: los conectados en turno, luego el resto ──
 @router.get("/cola")
 async def cola(user: dict = Depends(current_user)):
     async with AsyncSessionLocal() as s:
         agentes = await _cola_lineas(s)
+        en_cola = {a["id"] for a in agentes}
+        teams = await _agentes_por_team(s, "lineas")
+    fuera = sorted((dict(a, team=t) for t, lista in teams.items() for a in lista if a["id"] not in en_cola),
+                   key=lambda a: a["nombre"].lower())
     return {"success": True, "agentes": [{
-        "id": a["id"], "nombre": a["nombre"], "team": a["team"],
+        "id": a["id"], "nombre": a["nombre"], "team": a["team"], "conectado": True,
         "ultima": a["ultima"].replace(tzinfo=timezone.utc).isoformat() if a["ultima"] else None,
-    } for a in agentes]}
+    } for a in agentes] + [{
+        "id": a["id"], "nombre": a["nombre"], "team": a["team"], "conectado": False, "ultima": None,
+    } for a in fuera]}
 
 
 # ── POST /api/transferencias ────────────────────────────────────────
