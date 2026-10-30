@@ -196,7 +196,7 @@ async def leads_bootstrap(
     seccion:     Optional[str] = Query(None),   # 'residencial' | 'lineas' — filtra la lista de teams
     salesTeams:  Optional[str] = Query(None),   # '1' → solo equipos con supervisor (venta)
     limit:       int           = Query(5000),
-    por:         Optional[str] = Query(None),   # 'instalacion' → mes por fecha de instalación
+    por:         Optional[str] = Query(None),   # 'instalacion' | 'venta' → criterio del mes
     user: dict = Depends(current_user),
 ):
     return await _leads_bootstrap_core(
@@ -219,6 +219,7 @@ async def _leads_bootstrap_core(
     # mercado (BAMO) sí se mantiene. La Lista de Clientes (sin stats) sigue filtrada.
     is_stats = str(stats or "").lower() in ("1", "true")
     por_instalacion = str(por or "").lower() == "instalacion"
+    por_venta       = str(por or "").lower() == "venta"
 
     async def _get_leads():
         where = ["1=1"]
@@ -263,7 +264,14 @@ async def _leads_bootstrap_core(
             params["dts_ym"]      = params["dts"][:7]       # e.g. '2026-06'
             params["dte_excl_ym"] = params["dte_excl"][:7]  # e.g. '2026-07'
 
-            if por_instalacion:
+            if por_venta:
+                # Lista de Clientes con un mes elegido en el filtro: ventas con día de venta
+                # del primer al último día del mes (sin colchón de otros meses).
+                where.append("""(
+                    (dia_venta >= :dts AND dia_venta < :dte_excl)
+                    OR (dia_venta IS NULL AND created_at >= :dts AND created_at < :dte_excl)
+                )""")
+            elif por_instalacion:
                 # Lista de Clientes: el mes de la venta es el de INSTALACIÓN (el mismo que
                 # usa Comisiones); sin fecha de instalación, el de venta. Se suman las ventas
                 # de hoy que se instalan otro mes, solo para el KPI «Hoy» (el filtro del
@@ -324,6 +332,7 @@ async def _leads_bootstrap_core(
     async def _get_months():
         async with AsyncSessionLocal() as s:
             # Con por=instalacion (Clientes) el mes de cada venta es el de instalación.
+            # Con por=venta, el de venta.
             fecha = ("COALESCE(dia_instalacion, dia_venta)" if por_instalacion else "dia_venta")
             r = await s.execute(text(f"""
                 SELECT DISTINCT

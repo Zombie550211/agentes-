@@ -14,6 +14,9 @@
   let onlyTwoMonths   = false;
   // Flag: true cuando __allLeadsData fue cargado con allData=true (sin límite de fechas)
   let __allDataLoaded = false;
+  // true cuando el usuario ELIGE un mes en el filtro: entonces el mes es por día de venta.
+  // En la carga inicial (sin tocar el filtro) el mes es por día de instalación.
+  let __mesPorVenta = false;
   // Flag: true cuando __allLeadsData contiene solo resultados de búsqueda (no el mes completo)
   let __searchResultsOnly = false;
   let __socket        = null;
@@ -142,11 +145,12 @@
   function pickField(obj,keys,fallback){if(!obj)return fallback!==undefined?fallback:'';for(let i=0;i<keys.length;i++){const v=obj[keys[i]];if(v!==undefined&&v!==null&&String(v).trim()!=='')return v;}return fallback!==undefined?fallback:'';}
 
   /* ── MES DE LA VENTA ──
-     La lista de Clientes ubica cada venta en el mes de su INSTALACIÓN (el mismo criterio que
-     Comisiones); sin fecha de instalación, en el de venta. */
+     Sin mes elegido, la lista de Clientes ubica cada venta en el mes de su INSTALACIÓN (el
+     mismo criterio que Comisiones); sin fecha de instalación, en el de venta. Con un mes
+     elegido en el filtro (__mesPorVenta), en el mes de su día de VENTA. */
   function _ym(v){const s=String(v||'').trim();return/^\d{4}-\d{2}/.test(s)?s.slice(0,7):'';}
-  function fechaRef(lead){return lead.dia_instalacion||lead.dia_venta||lead.createdAt||lead.created_at||'';}
-  function mesRef(lead){return _ym(lead.dia_instalacion)||_ym(lead.dia_venta)||_ym(lead.createdAt||lead.created_at);}
+  function fechaRef(lead){if(__mesPorVenta)return lead.dia_venta||lead.createdAt||lead.created_at||'';return lead.dia_instalacion||lead.dia_venta||lead.createdAt||lead.created_at||'';}
+  function mesRef(lead){if(__mesPorVenta)return _ym(lead.dia_venta)||_ym(lead.createdAt||lead.created_at);return _ym(lead.dia_instalacion)||_ym(lead.dia_venta)||_ym(lead.createdAt||lead.created_at);}
 
   /* ── COLCHÓN DETECTION ── */
   function isColchonLead(lead, refMonthStr){
@@ -155,6 +159,8 @@
       const di=String(lead.dia_instalacion||lead.diaInstalacion||'').slice(0,7);
       if(!dv||!di||dv===di)return false;
       if(refMonthStr){
+        // Mes por venta: vendido EN X e instalado otro mes
+        if(__mesPorVenta)return dv===refMonthStr&&di!==refMonthStr;
         // Colchón de X: instalado EN X, vendido en mes anterior
         return dv!==refMonthStr&&di===refMonthStr;
       }
@@ -2049,7 +2055,7 @@
     if(m==='__all')qs='?allData=true';
     else if(m)qs='?month='+encodeURIComponent(m);
     // Solo equipos de VENTA residencial en los filtros (el backend clasifica la sección)
-    qs += (qs?'&':'?')+'seccion=residencial&salesTeams=1&por=instalacion';
+    qs += (qs?'&':'?')+'seccion=residencial&salesTeams=1&por='+(__mesPorVenta?'venta':'instalacion');
     var res=await AUTH.secureFetch('/api/leads/bootstrap'+qs);
     if(!res||!res.ok)return null;
     try{return await res.json();}catch(_){return null;}
@@ -2377,6 +2383,7 @@
     const monthFilterEl=document.getElementById('monthFilter');
     if(monthFilterEl)monthFilterEl.addEventListener('change',async function(){
       const m=this.value;
+      __mesPorVenta=!!m; // mes elegido → por día de venta
       // Todos → onlyTwoMonths=true (sin colchones); mes específico → false (incluye colchones)
       if(!m){onlyTwoMonths=true;if(tmBtn){tmBtn.textContent='Todos los meses';tmBtn.classList.add('active');}}
       else{onlyTwoMonths=false;__allDataLoaded=false;if(tmBtn){tmBtn.textContent='Solo 2 meses';tmBtn.classList.remove('active');}
