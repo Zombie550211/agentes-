@@ -315,20 +315,25 @@
     }
     const con = rk.filas.filter((f) => f.total > 0);
     const ceros = rk.filas.length - con.length;
-    const BW = 24, GAP = 12, H = 200, IZQ = 34, ARR = 18, ABJ = 96;
+    // Las barras se reparten el ancho de la tarjeta (entre 30 y 72 px por agente); si no
+    // caben, la gráfica se desplaza de lado. MARGEN deja sitio al primer nombre inclinado.
+    const H = 200, IZQ = 34, ARR = 18, ABJ = 96, MARGEN = 64, DER = 24;
+    const disponible = Math.max(0, (box.clientWidth || 600) - 8 - IZQ - MARGEN - DER);
+    const slot = Math.max(30, Math.min(72, disponible / con.length));
+    const BW = Math.round(Math.min(40, slot * 0.62)), GAP = slot - BW;
     // Escala con números redondos (4 líneas guía).
     const paso = Math.max(1, Math.ceil(rk.max / 4));
     const tope = paso * 4;
-    const ancho = IZQ + con.length * (BW + GAP) + GAP;
+    const ancho = Math.max((box.clientWidth || 0) - 12, IZQ + MARGEN + con.length * slot + DER);
     const y = (v) => ARR + H - (v * H / tope);
     let svg = '';
     for (let k = 0; k <= 4; k++) {
       const v = paso * k, yy = y(v);
-      svg += '<line class="trf-gb-guia" x1="' + IZQ + '" x2="' + ancho + '" y1="' + yy + '" y2="' + yy + '"/>' +
+      svg += '<line class="trf-gb-guia" x1="' + IZQ + '" x2="' + (ancho - DER) + '" y1="' + yy + '" y2="' + yy + '"/>' +
         '<text class="trf-gb-eje" x="' + (IZQ - 8) + '" y="' + (yy + 4) + '" text-anchor="end">' + v + '</text>';
     }
     con.forEach(function (f, i) {
-      const x = IZQ + GAP + i * (BW + GAP);
+      const x = IZQ + MARGEN + i * slot + (slot - BW) / 2;
       const alto = Math.max(2, f.total * H / tope);
       const top = ARR + H - alto;
       const r = Math.min(4, alto / 2);
@@ -356,6 +361,13 @@
     const btn = box.querySelector('.trf-rank-ver');
     btn.addEventListener('click', function () { abrirRankingTodos(btn); });
   }
+
+  let anchoRank = 0;
+  window.addEventListener('resize', function () {
+    const box = panel && q('#trf-rank-body');
+    if (!box || !COLA || !rankDatos.length) return;
+    if (Math.abs(box.clientWidth - anchoRank) > 20) { anchoRank = box.clientWidth; pintarRanking(); }
+  });
 
   /** «Ver todos»: ventana con el ranking completo del filtro elegido; la lista tiene su propio scroll. */
   function abrirRankingTodos(origenBtn) {
