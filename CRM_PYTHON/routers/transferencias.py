@@ -52,6 +52,15 @@ _URL_CAPTURA = re.compile(r"^/api/files/(\d+)/image$")
 _MAX_LINEAS = 5
 
 
+def codigo(tid: int) -> str:
+    """ID visible de una transferencia (el mismo que arma transferencia-form.js)."""
+    return f"TRF-{int(tid):06d}"
+
+
+# «TRF-000123», «trf123», «#123» o «123» en el buscador → id 123.
+_BUSCA_ID = re.compile(r"^(?:#|trf-?)?0*(\d{1,9})$", re.I)
+
+
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
@@ -234,7 +243,7 @@ async def crear(body: TransferenciaIn, user: dict = Depends(current_user)):
                             {"id": _uid(user)})
         yo = r.mappings().first() or {}
 
-        await s.execute(text("""
+        r = await s.execute(text("""
             INSERT INTO transferencias_llamadas
                 (seccion_origen, telefono, motivo, nombre_cliente, direccion,
                  team_destino, agente_destino_id, agente_destino_nombre,
@@ -249,8 +258,10 @@ async def crear(body: TransferenciaIn, user: dict = Depends(current_user)):
             "by_team": (yo.get("team") or user.get("team") or "").strip(),
             "now": _utcnow(),
         })
+        nuevo_id = int(r.lastrowid or 0)
         await s.commit()
-    return {"success": True, "message": "Transferencia registrada"}
+    return {"success": True, "message": "Transferencia registrada",
+            "id": nuevo_id, "codigo": codigo(nuevo_id)}
 
 
 # ── GET /api/transferencias?seccion=residencial&desde=YYYY-MM-DD&hasta=YYYY-MM-DD
@@ -260,7 +271,7 @@ async def listar(seccion: str, desde: str = "", hasta: str = "", buscar: str = "
     """Transferencias en las que participa la sección: hechas desde ella
     (seccion_origen) o recibidas por ella (la contraria las originó).
 
-    Con `buscar` (nombre del cliente o teléfono) se ignora el rango de fechas, para
+    Con `buscar` (nombre del cliente, teléfono o ID «TRF-000123») se ignora el rango de fechas, para
     encontrar la venta aunque sea antigua; la visibilidad por rol se mantiene."""
     seccion = _validar_seccion(seccion)
     where = ["1=1"]
@@ -273,6 +284,10 @@ async def listar(seccion: str, desde: str = "", hasta: str = "", buscar: str = "
         literal = re.sub(r"([\\%_])", r"\\\1", buscar)
         cond = ["t.nombre_cliente LIKE :q_nombre"]
         params["q_nombre"] = f"%{literal}%"
+        m_id = _BUSCA_ID.match(buscar.replace(" ", ""))
+        if m_id:
+            cond.append("t.id = :q_id")
+            params["q_id"] = int(m_id.group(1))
         digitos = re.sub(r"\D", "", buscar)
         if len(digitos) >= 3:
             cond.append("t.telefono LIKE :q_tel")

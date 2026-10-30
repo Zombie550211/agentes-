@@ -155,7 +155,7 @@
           '<label class="trf-buscar">' +
             '<i class="ph ph-magnifying-glass" aria-hidden="true"></i>' +
             '<input type="search" id="trf-buscar" maxlength="100" autocomplete="off" ' +
-              'placeholder="Buscar por cliente o teléfono" aria-label="Buscar venta por nombre del cliente o teléfono">' +
+              'placeholder="Buscar por ID, cliente o teléfono" aria-label="Buscar transferencia por ID, nombre del cliente o teléfono">' +
           '</label>' +
         '</div>' +
         '<div class="trf-hist-body" id="trf-hist-body"></div>' +
@@ -205,6 +205,12 @@
     const d = new Date(iso);
     if (isNaN(d.getTime())) return '';
     return d.toLocaleString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  }
+
+  /** ID visible de la transferencia: TRF- y su número a 6 cifras (igual que el backend). */
+  function codigoTrf(id) {
+    const n = parseInt(id, 10);
+    return n ? 'TRF-' + String(n).padStart(6, '0') : '';
   }
 
   function fmtTel(t) {
@@ -426,7 +432,7 @@
       filas.map((f) => {
         const env = f.direccion_tipo === 'enviada';
         return '<tr>' +
-          '<td data-l="Fecha" class="trf-nw">' + esc(fmtFecha(f.created_at)) + '</td>' +
+          '<td data-l="Fecha" class="trf-nw"><b class="trf-id">' + codigoTrf(f.id) + '</b>' + esc(fmtFecha(f.created_at)) + '</td>' +
           '<td data-l="Tipo"><span class="trf-chip ' + (env ? 'env' : 'rec') + '">' + (env ? 'Enviada' : 'Recibida') + '</span></td>' +
           '<td data-l="Cliente">' + recorte(f.nombre_cliente, 'span') + recorte(f.direccion, 'small', 1) + '</td>' +
           '<td data-l="Teléfono" class="trf-nw">' + esc(fmtTel(f.telefono)) + '</td>' +
@@ -605,7 +611,7 @@
     dlg.querySelector('form').reset();
     dlg.querySelector('.trf-drop-img').classList.add('trf-oculto');
     dlg.querySelector('.trf-drop-txt').innerHTML = '<i class="fas fa-cloud-arrow-up"></i> Elige la imagen o pégala aquí con Ctrl+V';
-    dlg.querySelector('#trf-dlg-sub').textContent = f.nombre_cliente + ' · ' + fmtTel(f.telefono);
+    dlg.querySelector('#trf-dlg-sub').textContent = codigoTrf(f.id) + ' · ' + f.nombre_cliente + ' · ' + fmtTel(f.telefono);
     if (f.resultado) {
       const r = dlg.querySelector('input[name="trf-res"][value="' + f.resultado + '"]');
       if (r) r.checked = true;
@@ -839,7 +845,7 @@
       if (!r.ok) throw new Error(typeof j.detail === 'string' ? j.detail : 'No se pudo guardar');
       q('form').reset();
       onTeamChange();
-      mensaje('ok', 'Transferencia registrada');
+      mensaje('ok', 'Transferencia ' + (j.codigo || codigoTrf(j.id)) + ' registrada');
       cargarHistorial();
     } catch (e) {
       mensaje('err', e.message);
