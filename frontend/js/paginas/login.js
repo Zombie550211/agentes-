@@ -563,13 +563,11 @@
     } catch (_) {}
   }
 
+  // Solo lo que alguna página lee de sessionStorage (ranking-main.js, multimedia.html). Las
+  // otras cinco precargas no las usaba nadie y, con toda la oficina entrando a la vez,
+  // cargaban al servidor y al navegador justo al iniciar sesión.
   function preheatPages() {
-    preheatOne('/api/init-dashboard',    'dashboardData');
-    preheatOne('/api/init-all-pages',    'allPagesData');
-    preheatOne('/api/init-estadisticas', 'estadisticasData');
     preheatOne('/api/init-rankings',     'rankingsData');
-    preheatOne('/api/init-lead',         'leadData');
-    preheatOne('/api/init-facturacion',  'facturacionData');
     preheatOne('/api/init-multimedia',   'multimediaData');
   }
 
