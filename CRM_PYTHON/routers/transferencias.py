@@ -18,6 +18,12 @@ abierto, realtime) ordenados por la última transferencia que recibieron (el que
 que no recibe, o nunca, va primero). Al recibir una baja al final. Un lock serializa las
 asignaciones simultáneas (el despliegue corre con un solo worker, ver realtime.py).
 
+Protección de 24 h: desde que una transferencia se asigna (asignada_at; las viejas, su
+created_at), el agente que la recibió tiene PROTECCION_H horas para registrar el resultado.
+Mientras tanto los demás agentes del departamento destino la ven con candado. Si pasa el
+plazo sin resultado queda LIBRE: bucle_liberadas() avisa a todo ese departamento y
+cualquiera de sus agentes puede tomarla (POST /{id}/tomar), con una protección nueva.
+
 Visibilidad del historial:
   - admin / back office → todas las transferencias de la sección.
   - supervisor          → las que hizo o recibió su team.
@@ -222,6 +228,96 @@ class TransferenciaIn(BaseModel):
     agente_destino_id: int = 0
 
 
+# ── Protección de 24 h y transferencias libres ──────────────────────
+PROTECCION_H = 24
+_FIN_PROTECCION = f"DATE_ADD(COALESCE(t.asignada_at, t.created_at), INTERVAL {PROTECCION_H} HOUR)"
+
+
+def _vencida(iso_z) -> bool:
+    if not iso_z:
+        return False
+    return datetime.strptime(iso_z, "%Y-%m-%dT%H:%M:%SZ") <= _utcnow()
+
+
+async def _seccion_de(s, user: dict) -> str:
+    mi_team = await _mi_team(s, user)
+    return team_seccion(mi_team, user.get("role", "")) if mi_team else ""
+
+
+# ── POST /api/transferencias/{id}/tomar ── un agente del departamento toma una libre ──
+@router.post("/{tid}/tomar")
+async def tomar(tid: int, user: dict = Depends(current_user)):
+    async with _cola_lock, AsyncSessionLocal() as s:
+        r = await s.execute(text(f"""
+            SELECT t.id, t.seccion_origen, t.resultado, t.agente_destino_id,
+                   DATE_FORMAT({_FIN_PROTECCION}, '%Y-%m-%dT%H:%i:%sZ') AS protegido_hasta
+            FROM transferencias_llamadas t WHERE t.id = :id"""), {"id": tid})
+        t = r.mappings().first()
+        if not t:
+            raise HTTPException(404, "Transferencia no encontrada")
+        if t["resultado"]:
+            raise HTTPException(409, "Esa transferencia ya fue gestionada")
+        if not _vencida(t["protegido_hasta"]):
+            raise HTTPException(409, "Sigue protegida para el agente que la recibió")
+        if await _seccion_de(s, user) != _contraria(t["seccion_origen"]):
+            raise HTTPException(403, "Solo los agentes del departamento que la recibió pueden tomarla")
+        r = await s.execute(text("SELECT username, team FROM users WHERE id = :id"), {"id": _uid(user)})
+        yo = r.mappings().first() or {}
+        await s.execute(text("""
+            UPDATE transferencias_llamadas
+            SET agente_destino_id = :yo, agente_destino_nombre = :nombre, team_destino = :team,
+                asignada_at = :ahora, libre_aviso_at = NULL
+            WHERE id = :id AND resultado IS NULL"""), {
+            "yo": _uid(user), "nombre": (yo.get("username") or user.get("username") or "").strip(),
+            "team": (yo.get("team") or "").strip(), "ahora": _utcnow(), "id": tid})
+        await s.commit()
+    return {"success": True, "message": f"La tomaste: tienes {PROTECCION_H} h para gestionarla"}
+
+
+async def _avisar_liberadas() -> int:
+    """Marca las transferencias que acaban de quedar libres y avisa a todo el departamento
+    destino (canal personal de cada uno de sus usuarios). Devuelve cuántas liberó."""
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text(f"""
+            SELECT t.id, t.seccion_origen, t.nombre_cliente, t.agente_destino_nombre
+            FROM transferencias_llamadas t
+            WHERE t.resultado IS NULL AND t.libre_aviso_at IS NULL
+              AND {_FIN_PROTECCION} <= UTC_TIMESTAMP()
+              AND t.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 DAY)"""))
+        libres = [dict(x) for x in r.mappings().all()]
+        if not libres:
+            return 0
+        await s.execute(text(f"UPDATE transferencias_llamadas SET libre_aviso_at = :ahora "
+                             f"WHERE id IN ({','.join(str(int(x['id'])) for x in libres)})"),
+                        {"ahora": _utcnow()})
+        await s.commit()
+        r = await s.execute(text("""SELECT id, role, team FROM users
+                                    WHERE COALESCE(active, 1) = 1 AND COALESCE(acceso_crm, 1) = 1"""))
+        usuarios = [dict(x) for x in r.mappings().all()]
+    for seccion in ("lineas", "residencial"):
+        grupo = [x for x in libres if _contraria(x["seccion_origen"]) == seccion]
+        if not grupo:
+            continue
+        evento = {"type": "transferencias_libres", "seccion": seccion, "cantidad": len(grupo),
+                  "clientes": [x["nombre_cliente"] for x in grupo][:10]}
+        for u in usuarios:
+            if (u["team"] or "").strip() and team_seccion(u["team"], u["role"] or "") == seccion:
+                await realtime.publish(realtime.canal_usuario(u["id"]), evento)
+    return len(libres)
+
+
+async def bucle_liberadas():
+    """Cada minuto: avisa de las transferencias que cumplieron sus 24 h sin gestionar."""
+    while True:
+        try:
+            n = await _avisar_liberadas()
+            if n:
+                print(f"[transferencias] {n} liberadas: aviso al departamento")
+        except Exception as e:
+            print(f"[transferencias] bucle_liberadas: {e}")
+        await asyncio.sleep(60)
+
+
 # ── Cola de Líneas ──────────────────────────────────────────────────
 _cola_lock = asyncio.Lock()
 
@@ -303,9 +399,9 @@ async def crear(body: TransferenciaIn, user: dict = Depends(current_user)):
             INSERT INTO transferencias_llamadas
                 (seccion_origen, telefono, motivo, nombre_cliente, direccion,
                  team_destino, agente_destino_id, agente_destino_nombre,
-                 created_by, created_by_nombre, created_by_team, created_at)
+                 created_by, created_by_nombre, created_by_team, created_at, asignada_at)
             VALUES (:origen, :tel, :motivo, :nombre, :dir, :team, :ag_id, :ag_nombre,
-                    :by, :by_nombre, :by_team, :now)
+                    :by, :by_nombre, :by_team, :now, :now)
         """), {
             "origen": origen, "tel": telefono, "motivo": motivo, "nombre": nombre,
             "dir": direccion, "team": team, "ag_id": agente["id"],
@@ -370,11 +466,16 @@ async def listar(seccion: str, desde: str = "", hasta: str = "", buscar: str = "
     if not _es_admin_bo(role):
         async with AsyncSessionLocal() as s:
             mi_team = await _mi_team(s, user)
+        mi_seccion = team_seccion(mi_team, role) if mi_team else ""
+        # Lo que llegó a la sección del usuario lo ve todo ese departamento (con candado
+        # mientras está protegido para otro), además de lo que hizo o recibió él / su team.
+        depto = "t.seccion_origen <> :mi_sec" if mi_seccion else "0"
+        params["mi_sec"] = mi_seccion
         if _es_supervisor(role) and mi_team:
-            where.append("(t.created_by_team = :team OR t.team_destino = :team)")
+            where.append(f"(t.created_by_team = :team OR t.team_destino = :team OR {depto})")
             params["team"] = mi_team
         else:
-            where.append("(t.created_by = :yo OR t.agente_destino_id = :yo_id)")
+            where.append(f"(t.created_by = :yo OR t.agente_destino_id = :yo_id OR {depto})")
             params["yo"] = user.get("username")
             params["yo_id"] = _uid(user)
 
@@ -386,7 +487,8 @@ async def listar(seccion: str, desde: str = "", hasta: str = "", buscar: str = "
                    t.created_by_team, t.resultado, t.resultado_nota, t.lineas,
                    t.captura_file_id, t.resultado_por,
                    DATE_FORMAT(t.resultado_at, '%Y-%m-%dT%H:%i:%sZ') AS resultado_at,
-                   DATE_FORMAT(t.created_at, '%Y-%m-%dT%H:%i:%sZ') AS created_at
+                   DATE_FORMAT(t.created_at, '%Y-%m-%dT%H:%i:%sZ') AS created_at,
+                   DATE_FORMAT({_FIN_PROTECCION}, '%Y-%m-%dT%H:%i:%sZ') AS protegido_hasta
             FROM transferencias_llamadas t
             WHERE {' AND '.join(where)}
             ORDER BY t.created_at DESC
@@ -396,9 +498,19 @@ async def listar(seccion: str, desde: str = "", hasta: str = "", buscar: str = "
 
     gestion = _es_admin_bo(role)
     yo_id = _uid(user)
+    mi_seccion = team_seccion(mi_team, role) if mi_team else ""
     mi_team_sup = mi_team.lower() if _es_supervisor(role) else ""
     for f in filas:
         f["direccion_tipo"] = "enviada" if f["seccion_origen"] == seccion else "recibida"
+        f["libre"] = not f["resultado"] and _vencida(f["protegido_hasta"])
+        mia = f["agente_destino_id"] == yo_id
+        # La puede tomar (al vencer la protección) un agente del departamento que la recibió.
+        f["tomable"] = (not f["resultado"] and not mia and bool(mi_seccion)
+                        and _contraria(f["seccion_origen"]) == mi_seccion)
+        # Protegida para otro: sin datos de contacto del cliente.
+        if f["tomable"] and not f["libre"] and str(f["created_by"] or "").lower() != str(user.get("username") or "").lower():
+            f["telefono"] = f["direccion"] = f["motivo"] = None
+            f["protegida_otro"] = True
         fid = f.pop("captura_file_id", None)
         f["captura_url"] = f"/api/files/{fid}/image" if fid else None
         receptor = f["agente_destino_id"] == yo_id or (

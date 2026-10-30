@@ -70,6 +70,21 @@
 
   const q = (sel) => panel.querySelector(sel);
 
+  /** Tarjeta «Transferencias por agente»: en Residencial va al final como gráfica de
+   *  barras; en Líneas (sin cola), al lado del formulario como lista con barras. */
+  function seccionRanking() {
+    return '<section class="trf-card trf-rank" aria-labelledby="trf-rank-title">' +
+        '<div class="trf-head">' +
+          '<div class="trf-ic"><i class="ph ph-trophy"></i></div>' +
+          '<div class="trf-head-txt">' +
+            '<h2 class="trf-title" id="trf-rank-title">Transferencias por agente</h2>' +
+            '<p class="trf-sub" id="trf-rank-sub">Cuántas lleva cada agente hoy.</p>' +
+          '</div>' +
+        '</div>' +
+        '<div class="trf-rank-body" id="trf-rank-body" aria-live="polite"></div>' +
+      '</section>';
+  }
+
   function render() {
     panel.innerHTML =
       // Arriba el resumen (cifras + barra de resultados) con los filtros, que mandan en toda la
@@ -149,18 +164,8 @@
             '</div>' +
             '<ol class="trf-cola-lista" id="trf-cola-lista" aria-live="polite"></ol>' +
           '</section>'
-        : '') +
-      // Ranking: transferencias hechas por cada agente de la sección en el periodo.
-      '<section class="trf-card trf-rank" aria-labelledby="trf-rank-title">' +
-        '<div class="trf-head">' +
-          '<div class="trf-ic"><i class="ph ph-trophy"></i></div>' +
-          '<div class="trf-head-txt">' +
-            '<h2 class="trf-title" id="trf-rank-title">Transferencias por agente</h2>' +
-            '<p class="trf-sub" id="trf-rank-sub">Quién lleva más y quién lleva menos hoy.</p>' +
-          '</div>' +
-        '</div>' +
-        '<div class="trf-rank-body" id="trf-rank-body" aria-live="polite"></div>' +
-      '</section>' +
+        // Líneas (sin cola): el ranking en lista, al lado del formulario.
+        : seccionRanking()) +
       '</div>' +
       '<section class="trf-card trf-hist" aria-labelledby="trf-hist-title">' +
         '<div class="trf-head">' +
@@ -176,7 +181,9 @@
           '</label>' +
         '</div>' +
         '<div class="trf-hist-body" id="trf-hist-body"></div>' +
-      '</section>';
+      '</section>' +
+      // Residencial: el ranking va al final, como gráfica de barras.
+      (COLA ? seccionRanking() : '');
 
     if (q('#trf-team')) q('#trf-team').addEventListener('change', onTeamChange);
     q('form').addEventListener('submit', onSubmit);
@@ -198,7 +205,7 @@
             const txt = periodo ? 'de los últimos ' + periodo + ' días' : 'de hoy';
             q('#trf-res-sub').textContent = 'Las que enviaste y las que te transfirieron ' + (periodo ? 'en los últimos ' + periodo + ' días' : 'hoy') + '.';
             q('#trf-hist-sub').textContent = 'Las ' + txt + ', según los filtros del resumen.';
-            q('#trf-rank-sub').textContent = 'Quién lleva más y quién lleva menos ' + (periodo ? 'en los últimos ' + periodo + ' días' : 'hoy') + '.';
+            q('#trf-rank-sub').textContent = 'Cuántas lleva cada agente ' + (periodo ? 'en los últimos ' + periodo + ' días' : 'hoy') + '.';
             cargarHistorial();
           } else {
             filtroTipo = b.getAttribute('data-tipo');
@@ -289,18 +296,65 @@
       ? '<div class="trf-rank-nota">' + rk.enMin + ' agentes empatan con lo mínimo: ' + rk.min + '.</div>' : '';
   }
 
+  /** Gráfica de barras verticales: una barra por agente con movimiento, de más a menos.
+   *  Una sola serie (el filtro Todas / Enviadas / Recibidas), en el azul del logo. */
   function pintarRanking() {
     const box = q('#trf-rank-body');
     const rk = rankingActual();
     q('#trf-rank-title').textContent = 'Transferencias por agente · ' + rk.que;
     if (!rk.filas.length) { box.innerHTML = '<div class="trf-vacio">Sin agentes en esta sección</div>'; return; }
-    // Nadie con movimiento: una frase en vez de una lista de ceros.
     if (!rk.max) { box.innerHTML = '<p class="trf-sin-mov">Nadie tiene transferencias ' + rk.que + ' ' + rk.cuando + '.</p>'; return; }
-    box.innerHTML = notaEmpate(rk) + filasRanking(rk, rk.filas.slice(0, RANK_TOP)) +
-      (rk.filas.length > RANK_TOP
-        ? '<button type="button" class="trf-rank-ver" aria-haspopup="dialog">Ver todos (' + rk.filas.length + ' agentes)</button>' : '');
+    if (!COLA) {
+      // Líneas: lista con barras al lado del formulario (los 10 primeros + «Ver todos»).
+      box.innerHTML = notaEmpate(rk) + filasRanking(rk, rk.filas.slice(0, RANK_TOP)) +
+        (rk.filas.length > RANK_TOP
+          ? '<button type="button" class="trf-rank-ver" aria-haspopup="dialog">Ver todos (' + rk.filas.length + ' agentes)</button>' : '');
+      const ver = box.querySelector('.trf-rank-ver');
+      if (ver) ver.addEventListener('click', function () { abrirRankingTodos(ver); });
+      return;
+    }
+    const con = rk.filas.filter((f) => f.total > 0);
+    const ceros = rk.filas.length - con.length;
+    const BW = 24, GAP = 12, H = 200, IZQ = 34, ARR = 18, ABJ = 96;
+    // Escala con números redondos (4 líneas guía).
+    const paso = Math.max(1, Math.ceil(rk.max / 4));
+    const tope = paso * 4;
+    const ancho = IZQ + con.length * (BW + GAP) + GAP;
+    const y = (v) => ARR + H - (v * H / tope);
+    let svg = '';
+    for (let k = 0; k <= 4; k++) {
+      const v = paso * k, yy = y(v);
+      svg += '<line class="trf-gb-guia" x1="' + IZQ + '" x2="' + ancho + '" y1="' + yy + '" y2="' + yy + '"/>' +
+        '<text class="trf-gb-eje" x="' + (IZQ - 8) + '" y="' + (yy + 4) + '" text-anchor="end">' + v + '</text>';
+    }
+    con.forEach(function (f, i) {
+      const x = IZQ + GAP + i * (BW + GAP);
+      const alto = Math.max(2, f.total * H / tope);
+      const top = ARR + H - alto;
+      const r = Math.min(4, alto / 2);
+      // Barra con las esquinas de arriba redondeadas y anclada a la base.
+      const d = 'M' + x + ',' + (ARR + H) + 'V' + (top + r) + 'Q' + x + ',' + top + ' ' + (x + r) + ',' + top +
+        'H' + (x + BW - r) + 'Q' + (x + BW) + ',' + top + ' ' + (x + BW) + ',' + (top + r) + 'V' + (ARR + H) + 'Z';
+      const tip = f.nombre + ' · ' + String(f.team).replace(/^TEAM\s+/i, '') + '\n' + f.total +
+        (f.total === 1 ? ' transferencia' : ' transferencias') + ', ' + f.cerradas + (f.cerradas === 1 ? ' cerrada' : ' cerradas');
+      svg += '<g class="trf-gb-barra" tabindex="0" role="img" aria-label="' + esc(tip.replace('\n', ': ')) + '">' +
+        '<title>' + esc(tip) + '</title>' +
+        '<rect class="trf-gb-hit" x="' + (x - GAP / 2) + '" y="' + ARR + '" width="' + (BW + GAP) + '" height="' + H + '"/>' +
+        '<path d="' + d + '"/>' +
+        '<text class="trf-gb-val" x="' + (x + BW / 2) + '" y="' + (top - 5) + '" text-anchor="middle">' + f.total + '</text>' +
+        '<text class="trf-gb-nom" transform="translate(' + (x + BW / 2 + 4) + ',' + (ARR + H + 10) + ') rotate(-45)" text-anchor="end">' +
+          esc(f.nombre.length > 16 ? f.nombre.slice(0, 15) + '…' : f.nombre) + '</text>' +
+      '</g>';
+    });
+    box.innerHTML =
+      '<div class="trf-gb-scroll"><svg class="trf-gb" width="' + ancho + '" height="' + (ARR + H + ABJ) + '" ' +
+        'viewBox="0 0 ' + ancho + ' ' + (ARR + H + ABJ) + '" aria-label="Transferencias por agente">' + svg + '</svg></div>' +
+      '<div class="trf-gb-pie">' +
+        (ceros ? '<span>' + ceros + (ceros === 1 ? ' agente sin transferencias' : ' agentes sin transferencias') + ' ' + rk.cuando + '.</span>' : '<span></span>') +
+        '<button type="button" class="trf-rank-ver" aria-haspopup="dialog">Ver como lista</button>' +
+      '</div>';
     const btn = box.querySelector('.trf-rank-ver');
-    if (btn) btn.addEventListener('click', function () { abrirRankingTodos(btn); });
+    btn.addEventListener('click', function () { abrirRankingTodos(btn); });
   }
 
   /** «Ver todos»: ventana con el ranking completo del filtro elegido; la lista tiene su propio scroll. */
@@ -438,7 +492,7 @@
           ' para «' + esc(busqueda) + '» en todas las fechas' + (filas.length >= 500 ? ' (se muestran los 500 más recientes)' : '') + '</div>'
         : '') +
       '<div class="trf-tabla-wrap"><table class="trf-tabla"><thead><tr>' +
-      '<th>Fecha</th><th>Tipo</th><th>Cliente</th><th>Teléfono</th><th>Motivo</th><th>De</th><th>Para</th><th>Resultado</th>' +
+      '<th>Fecha</th><th>Tipo</th><th>Cliente</th><th>Teléfono</th><th>Motivo</th><th>De</th><th>Para</th><th>Resultado</th><th>Protegido</th>' +
       '</tr></thead><tbody>' +
       filas.map((f) => {
         const env = f.direccion_tipo === 'enviada';
@@ -446,12 +500,13 @@
           '<td data-l="Fecha" class="trf-nw">' + esc(fmtFecha(f.created_at)) + '</td>' +
           '<td data-l="Tipo"><span class="trf-chip ' + (env ? 'env' : 'rec') + '">' + (env ? 'Enviada' : 'Recibida') + '</span></td>' +
           '<td data-l="Cliente">' + recorte(f.nombre_cliente, 'span') + recorte(f.direccion, 'small', 1) + '</td>' +
-          '<td data-l="Teléfono" class="trf-nw">' + esc(fmtTel(f.telefono)) + '</td>' +
+          '<td data-l="Teléfono" class="trf-nw">' + (f.protegida_otro ? '<span class="trf-oculto-dato">' + ICONOS.ICO_CANDADO + ' Protegido</span>' : esc(fmtTel(f.telefono))) + '</td>' +
           // Motivo largo: caja de alto fijo con scroll propio, para que la fila no crezca.
           '<td data-l="Motivo" class="trf-motivo"><div class="trf-motivo-txt" tabindex="0" aria-label="Motivo de la llamada">' + esc(f.motivo) + '</div></td>' +
           '<td data-l="De">' + recorte(f.created_by_nombre || f.created_by, 'span') + recorte(f.created_by_team || '', 'small', 1) + '</td>' +
           '<td data-l="Para">' + recorte(f.agente_destino_nombre, 'span') + recorte(f.team_destino, 'small', 1) + '</td>' +
           '<td data-l="Resultado" class="trf-res-cel">' + celdaResultado(f) + '</td>' +
+          '<td data-l="Protegido" class="trf-prot-cel">' + celdaProtegido(f) + '</td>' +
         '</tr>';
       }).join('') +
       '</tbody></table></div>';
@@ -461,6 +516,10 @@
         if (f) abrirResultado(f);
       });
     });
+    box.querySelectorAll('[data-trf-tomar]').forEach(function (b) {
+      b.dataset.ok = '1';
+      b.addEventListener('click', function () { tomarTransferencia(b); });
+    });
     box.querySelectorAll('[data-trf-lin]').forEach(function (b) {
       b.addEventListener('click', function () {
         const f = origen.find((x) => String(x.id) === b.getAttribute('data-trf-lin'));
@@ -468,6 +527,76 @@
       });
     });
   }
+
+  // Iconos de línea (el subconjunto de Phosphor de la página no trae estos).
+  const svgIco = (d) => '<svg class="trf-svg" viewBox="0 0 256 256" aria-hidden="true" focusable="false"><path d="' + d + '"/></svg>';
+  const ICONOS = {
+    ICO_CANDADO: svgIco('M56 104h144a8 8 0 0 1 8 8v96a8 8 0 0 1-8 8H56a8 8 0 0 1-8-8v-96a8 8 0 0 1 8-8Zm32 0V72a40 40 0 0 1 80 0v32'),
+    ICO_ABIERTO: svgIco('M56 104h144a8 8 0 0 1 8 8v96a8 8 0 0 1-8 8H56a8 8 0 0 1-8-8v-96a8 8 0 0 1 8-8Zm32 0V72a40 40 0 0 1 76-17'),
+    ICO_CHECK: svgIco('M40 144l56 56L216 80'),
+    ICO_TOMAR: svgIco('M128 40v136m-48-48 48 48 48-48M48 216h160'),
+  };
+
+  // ── Protección de 24 h ─────────────────────────────────────────
+  /** Celda «Protegido»: cuenta regresiva con candado mientras el agente asignado tiene la
+   *  transferencia para él; «Libre» si venció sin resultado; «Gestionada» si ya lo tiene. */
+  function celdaProtegido(f) {
+    if (f.resultado) return '<span class="trf-prot gest">' + ICONOS.ICO_CHECK + ' Gestionada</span>';
+    if (f.libre || !f.protegido_hasta) return chipLibre(f.id, f.tomable);
+    return '<span class="trf-prot on" data-hasta="' + esc(f.protegido_hasta) + '"' + (f.tomable ? ' data-tomable="' + esc(f.id) + '"' : '') +
+      ' title="Protegida para ' + esc(f.agente_destino_nombre || '') + '">' +
+      ICONOS.ICO_CANDADO + ' <b>' + restante(f.protegido_hasta) + '</b></span>';
+  }
+
+  /** Candado abierto. Si el agente puede tomarla, el contador es un botón: al presionarlo
+   *  se le asigna y vuelven a correr las 24 h. */
+  function chipLibre(id, tomable) {
+    return tomable
+      ? '<button type="button" class="trf-prot libre trf-tomar" data-trf-tomar="' + esc(id) + '" title="Tomar esta transferencia: se te asigna y tienes 24 h">' +
+          ICONOS.ICO_ABIERTO + ' 00:00:00</button>'
+      : '<span class="trf-prot libre">' + ICONOS.ICO_ABIERTO + ' Libre</span>';
+  }
+
+  async function tomarTransferencia(b) {
+    b.disabled = true;
+    try {
+      const r = await fetch('/api/transferencias/' + b.dataset.trfTomar + '/tomar', { method: 'POST' });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(typeof j.detail === 'string' ? j.detail : 'No se pudo tomar');
+      mensaje('ok', j.message || 'La tomaste');
+      cargarHistorial();
+    } catch (e) {
+      b.disabled = false;
+      mensaje('err', e.message);
+      cargarHistorial();
+    }
+  }
+
+  function restante(iso) {
+    const ms = new Date(iso).getTime() - Date.now();
+    if (ms <= 0) return '00:00:00';
+    const t = Math.floor(ms / 1000), p = (n) => String(n).padStart(2, '0');
+    return p(Math.floor(t / 3600)) + ':' + p(Math.floor(t / 60) % 60) + ':' + p(t % 60);
+  }
+
+  // Un solo reloj para todas las cuentas regresivas de la página.
+  setInterval(function () {
+    if (!panel || document.hidden) return;
+    let vencio = false;
+    panel.querySelectorAll('.trf-prot.on[data-hasta]').forEach(function (el) {
+      const ms = new Date(el.dataset.hasta).getTime() - Date.now();
+      if (ms <= 0) {
+        el.outerHTML = chipLibre(el.dataset.tomable, !!el.dataset.tomable);
+        vencio = true;
+      } else {
+        const b = el.querySelector('b');
+        if (b) b.textContent = restante(el.dataset.hasta);
+      }
+    });
+    if (vencio) panel.querySelectorAll('[data-trf-tomar]').forEach(function (b) {
+      if (!b.dataset.ok) { b.dataset.ok = '1'; b.addEventListener('click', function () { tomarTransferencia(b); }); }
+    });
+  }, 1000);
 
   /** Texto de la tabla recortado a 2 líneas (o 1) con «…», para que un texto largo no
    *  estire la fila; el completo sale al pasar el mouse. */
@@ -1043,6 +1172,7 @@
       panel.classList.remove('trf-oculto');
       cargarDestinos();
       cargarHistorial();
+      if (window.CRMNotificaciones) window.CRMNotificaciones.on('transferencias_libres', cargarHistorial);
       vigilarCola();
       if (ORIGEN === 'lineas') avisoLineasPendientes();
       return;

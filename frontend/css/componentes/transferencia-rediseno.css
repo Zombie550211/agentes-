@@ -158,14 +158,14 @@
 .trf-hist .trf-tabla td.trf-nw{white-space:normal}
 .trf-hist .trf-tabla td.trf-motivo{min-width:0;max-width:none}
 .trf-hist .trf-res-cel *{white-space:normal;max-width:100%}
-.trf-hist .trf-tabla th:nth-child(1){width:9%}  /* Fecha */
+.trf-hist .trf-tabla th:nth-child(1){width:7%}  /* Fecha */
 .trf-hist .trf-tabla th:nth-child(2){width:7%}   /* Tipo */
-.trf-hist .trf-tabla th:nth-child(3){width:15%}  /* Cliente */
+.trf-hist .trf-tabla th:nth-child(3){width:13%}  /* Cliente */
 .trf-hist .trf-tabla th:nth-child(4){width:10%}  /* Teléfono */
-.trf-hist .trf-tabla th:nth-child(5){width:19%}  /* Motivo */
-.trf-hist .trf-tabla th:nth-child(6){width:11%}  /* De */
-.trf-hist .trf-tabla th:nth-child(7){width:11%}  /* Para */
-.trf-hist .trf-tabla th:nth-child(8){width:18%}  /* Resultado */
+.trf-hist .trf-tabla th:nth-child(5){width:16%}  /* Motivo */
+.trf-hist .trf-tabla th:nth-child(6){width:10%}  /* De */
+.trf-hist .trf-tabla th:nth-child(7){width:10%}  /* Para */
+.trf-hist .trf-tabla th:nth-child(8){width:13%}  /* Resultado */
 /* Pantallas angostas: cada transferencia es una ficha con sus rótulos. */
 @media (max-width:900px){
   .trf-hist .trf-tabla,.trf-hist .trf-tabla tbody,.trf-hist .trf-tabla tr,.trf-hist .trf-tabla td{display:block;width:100%}
@@ -223,3 +223,60 @@
    formulario y el ranking) y la lista se desplaza por dentro. */
 .trf-fila .trf-cola{align-self:stretch;display:flex;flex-direction:column;min-height:360px}
 .trf-cola .trf-cola-lista{flex:1 1 0;min-height:0;max-height:none;height:0;overflow-y:auto}
+
+/* ═══ Transferencias por agente: gráfica de barras verticales (debajo de la lista) ═══ */
+.trf-gb-scroll{overflow-x:auto;overscroll-behavior-x:contain;padding-bottom:4px}
+.trf-gb{display:block;font-family:"Inter",system-ui,sans-serif}
+.trf-gb-guia{stroke:rgb(0 112 152 / .1);stroke-width:1}
+.trf-gb-eje{font-size:10px;fill:var(--texto-3,#64748b);font-variant-numeric:tabular-nums}
+.trf-gb-barra path{fill:#007098;transition:fill .15s}
+.trf-gb-hit{fill:transparent}
+.trf-gb-val{font-size:11px;font-weight:600;fill:var(--texto-1,#0f172a);font-variant-numeric:tabular-nums}
+.trf-gb-nom{font-size:11px;fill:var(--texto-2,#334155)}
+.trf-gb-barra{cursor:default;outline:none}
+.trf-gb-barra:hover path,.trf-gb-barra:focus-visible path{fill:#004e6b}
+.trf-gb-barra:hover .trf-gb-hit,.trf-gb-barra:focus-visible .trf-gb-hit{fill:rgb(0 112 152 / .05)}
+.trf-gb-barra:focus-visible .trf-gb-nom{font-weight:600;fill:var(--texto-1,#0f172a)}
+.trf-gb-pie{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px;font-size:12px;color:var(--texto-3,#64748b)}
+.trf-gb-pie .trf-rank-ver{margin:0}
+@media (prefers-reduced-motion:reduce){ .trf-gb-barra path{transition:none} }
+/* El ranking ya no va en la fila: formulario y cola, dos columnas. */
+.trf-fila:has(.trf-cola){grid-template-columns:minmax(320px,3fr) minmax(260px,2fr)}
+@media (max-width:1000px){ .trf-fila:has(.trf-cola){grid-template-columns:minmax(0,1fr)} }
+
+/* 9.ª columna «Protegido» */
+.trf-hist .trf-tabla th:nth-child(9){width:14%}
+/* Resultado ordenado: etiqueta y botón del mismo ancho, uno debajo del otro. */
+.trf-hist .trf-res-cel .trf-res-linea{width:100%}
+.trf-hist .trf-res-cel .trf-res-linea .trf-res{flex:1;justify-content:flex-start}
+.trf-hist .trf-res-cel .trf-res-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:6px;box-sizing:border-box}
+/* Iconos SVG de línea */
+.trf-svg{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:18;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px}
+.trf-ic .trf-svg{width:16px;height:16px}
+/* Protegido: cuenta regresiva con candado / Libre / Gestionada */
+.trf-prot{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;font-size:12px;white-space:nowrap;border:1px solid}
+.trf-prot b{font-family:"Inter",system-ui,sans-serif;font-weight:600;font-variant-numeric:tabular-nums}
+.trf-prot.on{color:#0f5e7a;background:rgb(0 112 152 / .07);border-color:rgb(0 112 152 / .2)}
+.trf-prot.libre{color:#a16207;background:rgb(234 179 8 / .12);border-color:rgb(234 179 8 / .35)}
+.trf-prot.gest{color:var(--texto-3);background:transparent;border-color:transparent;padding-left:0}
+/* Transferencias del departamento */
+.trf-dep-body{padding:0 0 4px}
+.trf-dep .trf-tabla-wrap{max-height:calc(100vh - 220px);overflow:auto;overscroll-behavior:contain}
+.trf-dep-tabla{table-layout:fixed;width:100%}
+.trf-dep-tabla th{position:sticky;top:0;z-index:1;background:#f4f9fb}
+.trf-dep-tabla td{overflow-wrap:anywhere}
+.trf-dep-tabla tr.prot td{color:var(--texto-3)}
+.trf-dep-tabla th:nth-child(1){width:24%} .trf-dep-tabla th:nth-child(2){width:14%} .trf-dep-tabla th:nth-child(3){width:16%}
+.trf-dep-tabla th:nth-child(4){width:18%} .trf-dep-tabla th:nth-child(5){width:16%} .trf-dep-tabla th:nth-child(6){width:12%}
+.trf-oculto-dato{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--texto-3)}
+.trf-tomar{display:inline-flex;align-items:center;gap:6px}
+.trf-dep-msg{margin:0 22px 10px;padding:8px 12px;font-size:13px;color:#991b1b;background:#fee2e2;border:1px solid #fecaca}
+.trf-hist .trf-prot{max-width:100%;box-sizing:border-box;padding:3px 6px;font-size:11.5px}
+/* El contador abierto que se presiona para tomar la transferencia. */
+button.trf-prot.trf-tomar{cursor:pointer;font:inherit;font-size:11.5px;font-weight:600}
+button.trf-prot.trf-tomar:hover{background:rgb(234 179 8 / .24)}
+button.trf-prot.trf-tomar:focus-visible{outline:2px solid #a16207;outline-offset:2px}
+button.trf-prot.trf-tomar:disabled{cursor:wait;opacity:.6}
+/* Líneas: formulario y ranking en lista, lado a lado (la regla .trf-fila de arriba). */
+.trf-fila .trf-field{min-width:0}
+.trf-fila .trf-field input,.trf-fila .trf-field select,.trf-fila .trf-field textarea,.trf-fila .trf-field .sel{width:100%;min-width:0;box-sizing:border-box}
