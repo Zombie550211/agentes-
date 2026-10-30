@@ -1052,13 +1052,10 @@
   function pintarCola(lista, agentes) {
     const asigna = q('#trf-asigna');
     const btn = q('.trf-btn');
-    const todos = agentes;
-    agentes = todos.filter((a) => a.conectado !== false);   // en turno
+    // Solo los conectados: un agente desconectado no puede recibir transferencias.
+    agentes = agentes.filter((a) => a.conectado !== false);
     if (!agentes.length) {
-      lista.innerHTML = '<li class="trf-cola-vacia">Ningún agente de Líneas está conectado.</li>' +
-        todos.map((a) => '<li class="trf-cola-fila off" data-id="' + a.id + '"><span class="trf-cola-pos"></span>' +
-          '<span class="trf-cola-nom"><b>' + esc(a.nombre) + '</b><small>' + esc(String(a.team).replace(/^TEAM\s+/i, '')) +
-          ' · Desconectado</small></span></li>').join('');
+      lista.innerHTML = '<li class="trf-cola-vacia">Ningún agente de Líneas está conectado.</li>';
       if (asigna) asigna.innerHTML = '<i class="ph ph-warning" aria-hidden="true"></i> No hay agentes de Líneas conectados: no se puede transferir ahora.';
       if (btn) btn.disabled = true;
       return;
@@ -1075,21 +1072,8 @@
     const previos = {};
     lista.querySelectorAll('li[data-id]').forEach((li) => { previos[li.dataset.id] = li; });
     lista.innerHTML = '';
-    todos.forEach(function (a) {
-      if (a.conectado !== false) return;
-      // Desconectados: al final, en gris y sin turno.
-      agentes.push(Object.assign({}, a, { off: true }));
-    });
     agentes.forEach(function (a, i) {
       const li = previos[a.id] || document.createElement('li');
-      if (a.off) {
-        li.dataset.id = a.id;
-        li.className = 'trf-cola-fila off';
-        li.innerHTML = '<span class="trf-cola-pos"></span><span class="trf-cola-nom"><b>' + esc(a.nombre) + '</b><small>' +
-          esc(String(a.team).replace(/^TEAM\s+/i, '')) + ' · Desconectado</small></span>';
-        lista.appendChild(li);
-        return;
-      }
       li.dataset.id = a.id;
       li.className = 'trf-cola-fila' + (i === 0 ? ' sig' : '');
       li.innerHTML = '<span class="trf-cola-pos">' + (i + 1) + '</span>' +

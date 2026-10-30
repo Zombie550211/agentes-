@@ -360,21 +360,16 @@ async def _cola_lineas(s) -> list[dict]:
     return agentes
 
 
-# ── GET /api/transferencias/cola ── agentes de Líneas: los conectados en turno, luego el resto ──
+# ── GET /api/transferencias/cola ── solo agentes de Líneas conectados, en orden de turno ──
+# Un agente desconectado no puede recibir transferencias, así que no aparece en la cola.
 @router.get("/cola")
 async def cola(user: dict = Depends(current_user)):
     async with AsyncSessionLocal() as s:
         agentes = await _cola_lineas(s)
-        en_cola = {a["id"] for a in agentes}
-        teams = await _agentes_por_team(s, "lineas")
-    fuera = sorted((dict(a, team=t) for t, lista in teams.items() for a in lista if a["id"] not in en_cola),
-                   key=lambda a: a["nombre"].lower())
     return {"success": True, "agentes": [{
         "id": a["id"], "nombre": a["nombre"], "team": a["team"], "conectado": True,
         "ultima": a["ultima"].replace(tzinfo=timezone.utc).isoformat() if a["ultima"] else None,
-    } for a in agentes] + [{
-        "id": a["id"], "nombre": a["nombre"], "team": a["team"], "conectado": False, "ultima": None,
-    } for a in fuera]}
+    } for a in agentes]}
 
 
 # ── POST /api/transferencias ────────────────────────────────────────
