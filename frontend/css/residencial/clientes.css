@@ -27,7 +27,8 @@ body.cl-pagina{font-size:13px;--font-mono:"JetBrains Mono",ui-monospace,"SFMono-
 /* Fila 1: búsqueda + 5 filtros en columnas que llenan el ancho (nunca se parten).
    Fila 2: chips de status a la izquierda; recuento, puntos y Actualizar a la derecha. */
 .cl-filtros{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-3) var(--space-4)}
-.cl-fila-filtros{display:grid;grid-template-columns:minmax(220px,1.7fr) repeat(5,minmax(0,1fr));gap:var(--space-2)}
+.cl-fila-filtros{display:grid;grid-template-columns:minmax(220px,1.6fr) repeat(7,minmax(0,1fr));gap:var(--space-2)}
+@media (max-width:1500px){ .cl-fila-filtros{grid-template-columns:repeat(4,minmax(0,1fr))} }
 .cl-fila-estado{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3)}
 @media (max-width:1100px){ .cl-fila-filtros{grid-template-columns:repeat(3,minmax(0,1fr))} .cl-buscar{grid-column:1 / -1} }
 @media (max-width:600px){ .cl-fila-filtros{grid-template-columns:minmax(0,1fr)} }
@@ -45,6 +46,15 @@ body.cl-pagina{font-size:13px;--font-mono:"JetBrains Mono",ui-monospace,"SFMono-
 .cl-filtro .sel-btn{width:100%;height:36px;border:0;background:transparent;box-shadow:none;padding-left:8px;font-weight:600}
 .cl-filtro .sel-abierto .sel-btn,.cl-filtro .sel-btn:focus-visible{box-shadow:none;background:transparent}
 .cl-filtro .sel-vacio .sel-txt{color:var(--color-text)}   /* «Todos» no es un vacío: se lee normal */
+/* Día de venta / Día de instalación: calendario nativo dentro de la misma caja. */
+.cl-filtro-fecha > label{flex:none;padding:0 0 0 11px;font-size:11px;color:var(--color-neutral-600);white-space:nowrap}
+.cl-pagina .cl-filtro-fecha input[type=date]{flex:1;min-width:0;height:36px;margin:0;padding:0 4px 0 8px;border:0;border-radius:0;background:transparent;
+  box-shadow:none;font:inherit;font-size:13px;font-weight:600;color:var(--color-text);outline:none;cursor:pointer}
+.cl-filtro-fecha:has(input:focus-visible){border-color:var(--color-accent-2-500);box-shadow:0 0 0 3px rgb(0 112 152 / .12)}
+.cl-fecha-x{flex:none;display:grid;place-items:center;width:28px;height:36px;margin:0;padding:0;border:0;background:transparent;
+  color:var(--color-neutral-600);cursor:pointer}
+.cl-fecha-x:hover{color:var(--color-text)}
+.cl-fecha-x:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:-2px}
 
 /* Las hojas antiguas ponen mayúsculas y letra monoespaciada a estos elementos: fuera. */
 .cl-pagina .cl-chip,.cl-pagina #recuentoCount,.cl-pagina #puntajeTotalCount,.cl-pagina #pageInfo,.cl-pagina .cl-btn,.cl-pagina #toggleMonthsBtn{

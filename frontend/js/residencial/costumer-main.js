@@ -421,6 +421,7 @@
   function applyFilters(){
     const search=getVal('costumer-search').toUpperCase();
     const svc=getVal('serviceFilter'),team=getVal('teamFilter'),agent=getVal('agentFilter'),mercado=getVal('mercadoFilter'),month=getVal('monthFilter'),from=getVal('dateFrom'),to=getVal('dateTo');
+    const fVenta=getVal('fechaVentaFilter'),fInst=getVal('fechaInstFilter');
 
     // Si se borró el buscador y teníamos resultados de búsqueda, recargar el mes completo
     if(!search && __searchResultsOnly){
@@ -563,6 +564,9 @@
 
       // Mes = mes de instalación (ver mesRef); la pestaña Colchón deja solo las vendidas antes.
       if(month && !__searchResultsOnly && mesRef(lead)!==month)return false;
+      // Día exacto de venta / de instalación (calendarios junto al Mes).
+      if(fVenta && String(lead.dia_venta||'').slice(0,10)!==fVenta)return false;
+      if(fInst && String(lead.dia_instalacion||'').slice(0,10)!==fInst)return false;
 
       if(from&&to){const ref=fechaRef(lead);if(!ref)return false;const ld=new Date(ref);if(ld<new Date(from))return false;if(ld>new Date(to+'T23:59:59'))return false;}
       return true;
@@ -801,6 +805,7 @@
     const selectedMonth=(document.getElementById('monthFilter')&&document.getElementById('monthFilter').value)||'';
     const realMon=d.getFullYear()+'-'+pad(d.getMonth()+1);
     const refMon=selectedMonth||realMon;
+    const fVenta=getVal('fechaVentaFilter'),fInst=getVal('fechaInstFilter');
     let kpi={hoy:0,mes:0,activas:0,colchon:0,pend:0,cancel:0,oficina:0,reserva:0,hold:0};
     const toYM=function(v){if(!v)return'';const s=String(v).trim();return/^\d{4}-\d{2}/.test(s)?s.slice(0,7):'';};
 
@@ -838,7 +843,11 @@
       const dv=String(l.dia_venta||'').slice(0,10);
       const st=l.status_grupo;
       if(dv===today&&refMon===realMon&&st!=='oficina'&&st!=='reserva'&&st!=='hold')kpi.hoy++;
-      if(mesRef(l)!==refMon)return;
+      if(fVenta||fInst){
+        // Con un día elegido los KPIs cuentan ese día, no el mes.
+        if(fVenta&&dv!==fVenta)return;
+        if(fInst&&String(l.dia_instalacion||'').slice(0,10)!==fInst)return;
+      } else if(mesRef(l)!==refMon)return;
       const dvYM=toYM(l.dia_venta),diYM=toYM(l.dia_instalacion);
       if(dvYM&&diYM&&dvYM<diYM)kpi.colchon++;
       if(st==='oficina'){kpi.oficina++;return;}
@@ -2370,11 +2379,25 @@
       const m=this.value;
       // Todos → onlyTwoMonths=true (sin colchones); mes específico → false (incluye colchones)
       if(!m){onlyTwoMonths=true;if(tmBtn){tmBtn.textContent='Todos los meses';tmBtn.classList.add('active');}}
-      else{onlyTwoMonths=false;__allDataLoaded=false;if(tmBtn){tmBtn.textContent='Solo 2 meses';tmBtn.classList.remove('active');}}
+      else{onlyTwoMonths=false;__allDataLoaded=false;if(tmBtn){tmBtn.textContent='Solo 2 meses';tmBtn.classList.remove('active');}
+        ['fechaVentaFilter','fechaInstFilter'].forEach(function(id){setVal(id,'');const x=document.querySelector('.cl-fecha-x[data-limpia="'+id+'"]');if(x)x.hidden=true;});}
       const data=await fetchBootstrap(m===''?'__all':m);
       if(data){if(!m)__allDataLoaded=true;_applyBootstrapFilters(data);window.renderCostumerTable(data.leads||[]);}
     });
     ['serviceFilter','teamFilter','agentFilter','mercadoFilter'].forEach(function(id){const el=document.getElementById(id);if(el)el.addEventListener('change',applyFiltersDebounced);});
+    // Día de venta / Día de instalación: un día puede caer en cualquier mes de carga (una venta
+    // de hoy se instala el mes que viene), así que al elegir uno se pasa el Mes a «Todos».
+    ['fechaVentaFilter','fechaInstFilter'].forEach(function(id){
+      const el=document.getElementById(id);if(!el)return;
+      const x=document.querySelector('.cl-fecha-x[data-limpia="'+id+'"]');
+      el.addEventListener('change',function(){
+        if(x)x.hidden=!el.value;
+        const mEl=document.getElementById('monthFilter');
+        if(el.value&&mEl&&mEl.value){mEl.value='';mEl.dispatchEvent(new Event('change'));}
+        else applyFiltersDebounced();
+      });
+      if(x)x.addEventListener('click',function(){el.value='';x.hidden=true;applyFiltersDebounced();el.focus();});
+    });
     const compactBtn=document.getElementById('toggle-compact'),table=document.querySelector('.costumer-table');if(compactBtn&&table)compactBtn.addEventListener('click',function(){table.classList.toggle('compact-mode');});
     document.querySelectorAll('.token select').forEach(function(sel){sel.addEventListener('change',function(){const token=sel.closest('.token');if(!token)return;const tvId=token.querySelector('[id^="tv-"]');if(tvId){const chosen=sel.options[sel.selectedIndex];tvId.textContent=chosen.text;token.classList.toggle('active',!!sel.value);}applyFiltersDebounced();});});
     const cuadBtn=document.getElementById('btn-cuadratura');if(cuadBtn)cuadBtn.addEventListener('click',window.openCuadraturaModal);
