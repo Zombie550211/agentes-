@@ -70,25 +70,52 @@
     return '/' + (seccion === 'lineas' ? 'lineas' : 'residencial') + '/transferencia.html#trf-hist-title';
   }
 
-  // Dos tonos cortos (sin archivo de audio). El navegador puede bloquearlo si aún no hubo
-  // ninguna interacción con la página: entonces solo se ve el aviso.
+  // Aviso sonoro: tres tonos cortos (sin archivo de audio). Los navegadores no dejan sonar
+  // nada hasta que la persona interactúa con la página, así que el AudioContext se crea y se
+  // «desbloquea» con el primer clic o tecla; desde ahí cualquier aviso suena al llegar.
+  var audio = null;
+  function contexto() {
+    var C = window.AudioContext || window.webkitAudioContext;
+    if (!C) return null;
+    if (!audio) { try { audio = new C(); } catch (e) { return null; } }
+    if (audio.state === 'suspended') { try { audio.resume(); } catch (e) { /* sigue bloqueado */ } }
+    return audio;
+  }
+  ['pointerdown', 'keydown'].forEach(function (t) {
+    document.addEventListener(t, function () { contexto(); }, { capture: true, passive: true });
+  });
+  var pendiente = false;   // llegó un aviso con el audio bloqueado: suena al primer clic
   function sonar() {
+    var ctx = contexto();
+    if (!ctx || ctx.state !== 'running') {
+      if (!pendiente) {
+        pendiente = true;
+        var luego = function () {
+          document.removeEventListener('pointerdown', luego, true);
+          document.removeEventListener('keydown', luego, true);
+          pendiente = false;
+          setTimeout(sonar, 50);
+        };
+        document.addEventListener('pointerdown', luego, true);
+        document.addEventListener('keydown', luego, true);
+      }
+      return;
+    }
     try {
-      var C = window.AudioContext || window.webkitAudioContext;
-      if (!C) return;
-      var ctx = new C();
-      [880, 1175].forEach(function (f, i) {
-        var o = ctx.createOscillator(), g = ctx.createGain();
+      var t0 = ctx.currentTime + 0.02;
+      [784, 988, 1319].forEach(function (f, i) {
+        var o = ctx.createOscillator(), g = ctx.createGain(), t = t0 + i * 0.16;
+        o.type = 'sine';
         o.frequency.value = f;
-        g.gain.setValueAtTime(0.0001, ctx.currentTime + i * 0.18);
-        g.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + i * 0.18 + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i * 0.18 + 0.16);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.35, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
         o.connect(g); g.connect(ctx.destination);
-        o.start(ctx.currentTime + i * 0.18); o.stop(ctx.currentTime + i * 0.18 + 0.17);
+        o.start(t); o.stop(t + 0.24);
       });
-      setTimeout(function () { ctx.close(); }, 800);
     } catch (e) { /* sin audio */ }
   }
+
 
   // Hasta qué momento (UTC, «AAAA-MM-DD HH:MM:SS») ya se mostraron asignaciones en este navegador.
   var VISTO = 'crm_trf_asignadas_vistas';
@@ -116,6 +143,7 @@
         return n.old_status === 'TRANSFERENCIA' && f > hace1h && f > visto;
       });
       nuevas.slice(0, 3).reverse().forEach(function (n) { avisoAsignada(n.cliente, n.actor, n.seccion, 24); });
+      if (nuevas.length) sonar();
       if (nuevas.length) marcarVisto(String(nuevas[0].fecha).slice(0, 19));
     })
     .catch(function () { /* la campana también las muestra */ });
