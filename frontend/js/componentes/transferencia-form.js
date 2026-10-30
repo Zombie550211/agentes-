@@ -1199,7 +1199,10 @@
       panel.classList.remove('trf-oculto');
       cargarDestinos();
       cargarHistorial();
-      if (window.CRMNotificaciones) window.CRMNotificaciones.on('transferencias_libres', cargarHistorial);
+      if (window.CRMNotificaciones) {
+        window.CRMNotificaciones.on('transferencias_libres', cargarHistorial);
+        window.CRMNotificaciones.on('transferencia_asignada', cargarHistorial);   // aparece en la lista al instante
+      }
       vigilarCola();
       if (ORIGEN === 'lineas') avisoLineasPendientes();
       return;

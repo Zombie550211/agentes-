@@ -442,6 +442,7 @@ async def crear(body: TransferenciaIn, user: dict = Depends(current_user)):
     # Aviso al agente que la recibe (centro de notificaciones).
     await realtime.publish(realtime.canal_usuario(agente["id"]), {
         "type": "transferencia_asignada", "id": nuevo_id, "cliente": nombre,
+        "seccion": _contraria(origen), "horas": PROTECCION_H,
         "de": (yo.get("username") or user.get("username") or "").strip()})
     return {"success": True, "message": "Transferencia registrada",
             "id": nuevo_id, "agente": agente["nombre"], "team": team}
