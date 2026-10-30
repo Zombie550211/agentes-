@@ -223,3 +223,23 @@
    formulario y el ranking) y la lista se desplaza por dentro. */
 .trf-fila .trf-cola{align-self:stretch;display:flex;flex-direction:column;min-height:360px}
 .trf-cola .trf-cola-lista{flex:1 1 0;min-height:0;max-height:none;height:0;overflow-y:auto}
+
+/* ═══ Transferencias por agente: gráfica de barras verticales (debajo de la lista) ═══ */
+.trf-gb-scroll{overflow-x:auto;overscroll-behavior-x:contain;padding-bottom:4px}
+.trf-gb{display:block;font-family:"Inter",system-ui,sans-serif}
+.trf-gb-guia{stroke:rgb(0 112 152 / .1);stroke-width:1}
+.trf-gb-eje{font-size:10px;fill:var(--texto-3,#64748b);font-variant-numeric:tabular-nums}
+.trf-gb-barra path{fill:#007098;transition:fill .15s}
+.trf-gb-hit{fill:transparent}
+.trf-gb-val{font-size:11px;font-weight:600;fill:var(--texto-1,#0f172a);font-variant-numeric:tabular-nums}
+.trf-gb-nom{font-size:11px;fill:var(--texto-2,#334155)}
+.trf-gb-barra{cursor:default;outline:none}
+.trf-gb-barra:hover path,.trf-gb-barra:focus-visible path{fill:#004e6b}
+.trf-gb-barra:hover .trf-gb-hit,.trf-gb-barra:focus-visible .trf-gb-hit{fill:rgb(0 112 152 / .05)}
+.trf-gb-barra:focus-visible .trf-gb-nom{font-weight:600;fill:var(--texto-1,#0f172a)}
+.trf-gb-pie{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px;font-size:12px;color:var(--texto-3,#64748b)}
+.trf-gb-pie .trf-rank-ver{margin:0}
+@media (prefers-reduced-motion:reduce){ .trf-gb-barra path{transition:none} }
+/* El ranking ya no va en la fila: formulario y cola, dos columnas. */
+.trf-fila:has(.trf-cola){grid-template-columns:minmax(320px,3fr) minmax(260px,2fr)}
+@media (max-width:1000px){ .trf-fila:has(.trf-cola){grid-template-columns:minmax(0,1fr)} }
