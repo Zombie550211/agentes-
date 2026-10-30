@@ -456,25 +456,31 @@
     });
     const pct = (v) => (n.total ? Math.round(v * 100 / n.total) : 0) + '% del total';
     // Monedero: transferencias del periodo y del filtro (Todas / Enviadas / Recibidas)
-    // cerradas como venta completada, a PAGO_POR_VENTA cada una o cada línea si llegó a Líneas.
-    const vendidas = filas.reduce(function (t, f) {
-      return t + (f.resultado === 'completada' ? (f.lineas || 1) : 0);
-    }, 0);
+    // cerradas como venta completada. Cada línea (o venta, si no llegó a Líneas) vale lo que
+    // fijó el backend al cerrarla según lo que tardó (valor_linea: $1 / $0.50 / $0.25).
+    let vendidas = 0, monto = 0;
+    filas.forEach(function (f) {
+      if (f.resultado !== 'completada') return;
+      const l = f.lineas || 1;
+      vendidas += l;
+      monto += l * (f.valor_linea == null ? PAGO_POR_VENTA : f.valor_linea);
+    });
     const conLineas = filas.some((f) => f.resultado === 'completada' && f.lineas);
-    const dinero = '$' + (vendidas * PAGO_POR_VENTA).toFixed(2);
+    const dinero = '$' + monto.toFixed(2);
     const cifras = [
       { cls: 'tot', v: n.total, label: n.total === 1 ? 'transferencia' : 'transferencias' },
       { cls: 'ok',  v: n.completada, label: n.completada === 1 ? 'cerrada como venta' : 'cerradas como venta' },
       { cls: 'pend', v: n.pendiente, label: 'sin resultado' },
       { cls: 'mon', v: dinero, label: 'en el monedero · ' + vendidas +
-          (conLineas ? (vendidas === 1 ? ' línea' : ' líneas') : (vendidas === 1 ? ' venta' : ' ventas')) + ' × $' + PAGO_POR_VENTA.toFixed(2) },
+          (conLineas ? (vendidas === 1 ? ' línea' : ' líneas') : (vendidas === 1 ? ' venta' : ' ventas')) },
     ];
     // Barra de resultados: un tramo por resultado, proporcional a cuántas hay.
     const tramos = VIGENTES.map((k) => ({ cls: RESULTADOS[k].cls, label: RESULTADOS[k].label, v: n[k] }))
       .concat([{ cls: 'pend', label: 'Sin resultado', v: n.pendiente }]);
     q('#trf-kpis').innerHTML =
       '<div class="trf-cifras">' + cifras.map(function (c) {
-        return '<p class="trf-cifra ' + c.cls + '"><b>' + c.v + '</b><span>' + esc(c.label) + '</span></p>';
+        return '<p class="trf-cifra ' + c.cls + '"' + (c.cls === 'mon' ? ' id="trf-monedero"' : '') + '>' +
+          (c.cls === 'mon' ? MONEDERO_SVG : '') + '<b>' + c.v + '</b><span>' + esc(c.label) + '</span></p>';
       }).join('') + '</div>' +
       (n.total
         ? '<div class="trf-barra-res" role="img" aria-label="' + esc(tramos.filter((t) => t.v).map((t) => t.label + ': ' + t.v).join(', ')) + '">' +
@@ -489,6 +495,7 @@
 
   function pintarHistorial() {
     const box = q('#trf-hist-body');
+    setTimeout(revisarMonedas, 400);   // una vez por visita, ya con el monedero pintado
     // Los KPIs son siempre del periodo; la tabla, del periodo o de la búsqueda.
     pintarKpis(filtrarTipo(historial));
     const origen = busqueda ? encontradas : historial;
@@ -548,6 +555,67 @@
     ICO_CHECK: svgIco('M40 144l56 56L216 80'),
     ICO_TOMAR: svgIco('M128 40v136m-48-48 48 48 48-48M48 216h160'),
   };
+
+  // ── Monedero: moneda que entra cuando una venta transferida se completa ──
+  // Para quien transfirió, al entrar a esta página y una sola vez por venta
+  // (GET monedas-pendientes → animación → POST monedas-vistas).
+  const MONEDERO_SVG =
+    '<svg class="trf-monedero-ic" viewBox="0 0 150 110" aria-hidden="true">' +
+      '<path d="M14 30 Q14 14 30 14 H120 Q136 14 136 30 V36 H14 Z" fill="#004e6b"/>' +
+      '<rect x="48" y="22" width="54" height="7" rx="3.5" fill="#00293a"/>' +
+      '<rect x="6" y="32" width="138" height="74" rx="12" fill="#007098"/>' +
+      '<rect x="14" y="40" width="122" height="58" rx="8" fill="none" stroke="#5fb2cf" stroke-width="2" stroke-dasharray="5 5" opacity=".7"/>' +
+      '<rect x="112" y="58" width="32" height="22" rx="8" fill="#004e6b"/>' +
+      '<circle cx="126" cy="69" r="5" fill="#f2b705" stroke="#c98a00" stroke-width="1.5"/>' +
+    '</svg>';
+  const MONEDA_SVG =
+    '<svg viewBox="0 0 40 40" aria-hidden="true"><g class="trf-moneda-cara">' +
+      '<circle cx="20" cy="20" r="18" fill="#f2b705" stroke="#c98a00" stroke-width="2.5"/>' +
+      '<circle cx="20" cy="20" r="12.5" fill="none" stroke="#c98a00" stroke-width="1.5" opacity=".6"/>' +
+      '<text x="20" y="25.5" text-anchor="middle" font-size="15" font-weight="700" fill="#8a5d00">$</text>' +
+    '</g></svg>';
+  let monedasRevisadas = false;
+
+  async function revisarMonedas() {
+    if (monedasRevisadas) return;
+    monedasRevisadas = true;
+    let ventas;
+    try {
+      const r = await fetch('/api/transferencias/monedas-pendientes');
+      if (!r.ok) return;
+      ventas = (await r.json()).ventas || [];
+    } catch (e) { return; }
+    if (!ventas.length) return;
+    for (const v of ventas.slice(0, 5)) await animarMoneda(v);   // más de 5: una por venta sería eterno
+    if (ventas.length > 5) {
+      await animarMoneda({ cliente: (ventas.length - 5) + ' ventas más',
+        monto: ventas.slice(5).reduce((t, v) => t + v.monto, 0) });
+    }
+    fetch('/api/transferencias/monedas-vistas', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: ventas.map((v) => v.id) }) }).catch(function () {});
+  }
+
+  function animarMoneda(v) {
+    return new Promise(function (listo) {
+      const caja = q('#trf-monedero');
+      if (!caja) { listo(); return; }
+      const ic = caja.querySelector('.trf-monedero-ic');
+      const moneda = document.createElement('span');
+      moneda.className = 'trf-moneda';
+      moneda.innerHTML = MONEDA_SVG;
+      const suma = document.createElement('span');
+      suma.className = 'trf-moneda-suma';
+      suma.textContent = '+$' + Number(v.monto || 0).toFixed(2) + ' · ' + (v.cliente || 'Venta completada');
+      caja.appendChild(moneda);
+      caja.appendChild(suma);
+      const sinMov = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      setTimeout(function () {                    // la moneda entra por la ranura
+        if (ic) { ic.classList.remove('rebota'); void ic.offsetWidth; ic.classList.add('rebota'); }
+        suma.classList.add('sube');
+      }, sinMov ? 0 : 650);
+      setTimeout(function () { moneda.remove(); suma.remove(); listo(); }, sinMov ? 1200 : 1700);
+    });
+  }
 
   // ── Protección de 24 h ─────────────────────────────────────────
   /** Celda «Protegido»: cuenta regresiva con candado mientras el agente asignado tiene la
@@ -668,7 +736,7 @@
           '<select id="trf-lineas"><option value="">Selecciona</option>' +
             Array.from({ length: MAX_LINEAS }, (_, i) => '<option value="' + (i + 1) + '">' + (i + 1) + '</option>').join('') +
           '</select>' +
-          '<small class="trf-dlg-ayuda">Obligatoria para "Venta completada": se paga $' + PAGO_POR_VENTA.toFixed(2) + ' por línea al agente que transfirió.</small>' +
+          '<small class="trf-dlg-ayuda">Obligatoria para "Venta completada": se paga por línea al agente que transfirió ($1 si se cierra dentro de 15 días, $0.50 hasta el día 22, $0.25 después).</small>' +
         '</div>' +
         '<div class="trf-field">' +
           '<label>Captura de la venta <span class="trf-req" id="trf-cap-req">*</span></label>' +
@@ -865,7 +933,7 @@
         '<p class="trf-dlg-sub" id="trf-aviso-sub">' + (obligatorio
           ? 'Tienes ' + filas.length + (filas.length === 1 ? ' venta completada' : ' ventas completadas') + ' de transferencias sin la cantidad de líneas. '
           : 'Esta venta completada no tiene la cantidad de líneas. ') +
-          'Se paga $' + PAGO_POR_VENTA.toFixed(2) + ' por línea al agente que transfirió: indica las líneas de cada cliente para recalcularlo.</p>' +
+          'Se paga por línea al agente que transfirió: indica las líneas de cada cliente para recalcularlo.</p>' +
         '<ul class="trf-aviso-lista">' + filas.map(function (f) {
           return '<li class="trf-aviso-fila">' +
             '<div class="trf-aviso-cli"><b>' + esc(f.nombre_cliente) + '</b>' +

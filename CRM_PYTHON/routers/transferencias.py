@@ -237,6 +237,52 @@ class TransferenciaIn(BaseModel):
     agente_destino_id: int = 0
 
 
+# ── Valor de cada línea (monedero de quien transfirió) ─────────────
+# Según los días desde la transferencia hasta que se cierra como venta completada.
+# Las completadas antes de existir la regla no tienen valor_linea y cuentan $1.
+VALOR_LINEA = ((15, 1.00), (22, 0.50))   # hasta el día 15: $1 · hasta el día 22: $0.50
+VALOR_LINEA_DESPUES = 0.25                 # desde el día 23
+
+
+def valor_por_linea(transferida, completada) -> float:
+    dias = (completada - transferida).total_seconds() / 86400
+    for tope, valor in VALOR_LINEA:
+        if dias <= tope:
+            return valor
+    return VALOR_LINEA_DESPUES
+
+
+# ── GET /api/transferencias/monedas-pendientes ── ventas completadas de lo que YO transferí
+#    cuya moneda aún no vi (la página la anima una vez y luego llama a monedas-vistas) ──
+@router.get("/monedas-pendientes")
+async def monedas_pendientes(user: dict = Depends(current_user)):
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            SELECT id, nombre_cliente, lineas, COALESCE(valor_linea, 1.00) AS valor_linea
+            FROM transferencias_llamadas
+            WHERE created_by = :yo AND resultado = 'completada' AND moneda_vista_at IS NULL
+            ORDER BY resultado_at ASC LIMIT 50"""), {"yo": user.get("username")})
+        filas = [{"id": int(x["id"]), "cliente": x["nombre_cliente"], "lineas": int(x["lineas"] or 1),
+                  "valor_linea": float(x["valor_linea"])} for x in r.mappings().all()]
+    for f in filas:
+        f["monto"] = round(f["lineas"] * f["valor_linea"], 2)
+    return {"success": True, "ventas": filas}
+
+
+# ── POST /api/transferencias/monedas-vistas {ids} ── la animación de la moneda ya se vio ──
+@router.post("/monedas-vistas")
+async def monedas_vistas(body: dict, user: dict = Depends(current_user)):
+    ids = [int(x) for x in (body.get("ids") or []) if str(x).isdigit()][:200]
+    if ids:
+        async with AsyncSessionLocal() as s:
+            await s.execute(text(f"""
+                UPDATE transferencias_llamadas SET moneda_vista_at = :ahora
+                WHERE id IN ({",".join(map(str, ids))}) AND created_by = :yo AND moneda_vista_at IS NULL"""),
+                {"ahora": _utcnow(), "yo": user.get("username")})
+            await s.commit()
+    return {"success": True}
+
+
 # ── Protección de 24 h y transferencias libres ──────────────────────
 PROTECCION_H = 24
 _FIN_PROTECCION = f"DATE_ADD(COALESCE(t.asignada_at, t.created_at), INTERVAL {PROTECCION_H} HOUR)"
@@ -522,7 +568,8 @@ async def listar(seccion: str, desde: str = "", hasta: str = "", buscar: str = "
                    t.direccion, t.team_destino, t.agente_destino_id,
                    t.agente_destino_nombre, t.created_by, t.created_by_nombre,
                    t.created_by_team, t.resultado, t.resultado_nota, t.lineas,
-                   t.captura_file_id, t.resultado_por,
+                   t.captura_file_id, t.resultado_por, t.valor_linea,
+                   (t.resultado = 'completada' AND t.moneda_vista_at IS NULL) AS moneda_pendiente,
                    DATE_FORMAT(t.resultado_at, '%Y-%m-%dT%H:%i:%sZ') AS resultado_at,
                    DATE_FORMAT(t.created_at, '%Y-%m-%dT%H:%i:%sZ') AS created_at,
                    DATE_FORMAT({_FIN_PROTECCION}, '%Y-%m-%dT%H:%i:%sZ') AS protegido_hasta
@@ -540,6 +587,10 @@ async def listar(seccion: str, desde: str = "", hasta: str = "", buscar: str = "
     for f in filas:
         f["direccion_tipo"] = "enviada" if f["seccion_origen"] == seccion else "recibida"
         f["libre"] = not f["resultado"] and _vencida(f["protegido_hasta"])
+        f["valor_linea"] = float(f["valor_linea"]) if f["valor_linea"] is not None else (1.0 if f["resultado"] == "completada" else None)
+        # La animación de la moneda es solo para quien transfirió.
+        f["moneda_pendiente"] = bool(f["moneda_pendiente"]) and \
+            str(f["created_by"] or "").lower() == str(user.get("username") or "").lower()
         mia = f["agente_destino_id"] == yo_id
         # La puede tomar (al vencer la protección) un agente del departamento que la recibió.
         f["tomable"] = (not f["resultado"] and not mia and bool(mi_seccion)
@@ -634,7 +685,8 @@ async def registrar_resultado(tid: int, body: ResultadoIn, user: dict = Depends(
 
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
-            SELECT seccion_origen, agente_destino_id, team_destino, resultado, captura_file_id
+            SELECT seccion_origen, agente_destino_id, team_destino, resultado, captura_file_id,
+                   created_at, valor_linea
             FROM transferencias_llamadas WHERE id = :id
         """), {"id": tid})
         row = r.mappings().first()
@@ -673,12 +725,24 @@ async def registrar_resultado(tid: int, body: ResultadoIn, user: dict = Depends(
                 raise HTTPException(400, f"Indica la cantidad de líneas vendidas (1 a {_MAX_LINEAS})")
 
         nota = (body.nota or "").strip() or None
+        ahora = _utcnow()
+        # Valor de cada línea para quien transfirió: se fija la primera vez que pasa a
+        # «Venta completada», según lo que tardó desde la transferencia (valor_por_linea).
+        valor = row["valor_linea"]
+        if resultado == "completada" and row["resultado"] != "completada":
+            valor = valor_por_linea(row["created_at"], ahora)
+        elif resultado != "completada":
+            valor = None
         await s.execute(text("""
             UPDATE transferencias_llamadas
                SET resultado = :res, resultado_nota = :nota, captura_file_id = :cap,
-                   lineas = :lineas, resultado_por = :por, resultado_at = :now
+                   lineas = :lineas, resultado_por = :por, resultado_at = :now,
+                   valor_linea = :valor,
+                   moneda_vista_at = IF(:nueva_venta = 1, NULL, moneda_vista_at)
              WHERE id = :id
         """), {"res": resultado, "nota": nota, "cap": captura_id, "lineas": lineas,
-               "por": (user.get("name") or username).strip(), "now": _utcnow(), "id": tid})
+               "por": (user.get("name") or username).strip(), "now": ahora, "valor": valor, "id": tid,
+               # Recién pasa a venta completada: quien transfirió verá la moneda al entrar.
+               "nueva_venta": int(resultado == "completada" and row["resultado"] != "completada")})
         await s.commit()
     return {"success": True, "message": RESULTADOS[resultado]}

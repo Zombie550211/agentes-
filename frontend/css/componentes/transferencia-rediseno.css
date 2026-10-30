@@ -290,3 +290,26 @@ button.trf-prot.trf-tomar:disabled{cursor:wait;opacity:.6}
 .trf-cola-fila:hover .trf-cola-subir,.trf-cola-subir:focus-visible{opacity:1}
 .trf-cola-subir:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:1px}
 @media (hover:none){ .trf-cola-subir{opacity:1} }
+
+/* ═══ Monedero: icono junto a la cifra y moneda que entra (para quien transfirió) ═══ */
+.trf-cifra.mon{position:relative;align-items:center}
+.trf-monedero-ic{width:40px;height:30px;flex:none;align-self:center;transform-origin:50% 100%}
+.trf-monedero-ic.rebota{animation:trfRebote .45s cubic-bezier(.3,1.6,.5,1)}
+@keyframes trfRebote{0%{transform:scale(1,1)}30%{transform:scale(1.12,.86)}60%{transform:scale(.96,1.06)}100%{transform:scale(1,1)}}
+.trf-moneda{position:absolute;left:10px;top:-34px;width:20px;height:20px;pointer-events:none;
+  animation:trfCae .7s cubic-bezier(.45,0,.75,.4) forwards}
+.trf-moneda svg{display:block;width:100%;height:100%}
+.trf-moneda-cara{transform-origin:20px 20px;animation:trfGira .22s linear infinite}
+@keyframes trfCae{0%{opacity:0;transform:translateY(-16px)}15%{opacity:1}80%{opacity:1;transform:translateY(30px)}
+  100%{opacity:0;transform:translateY(40px) scale(.5,.2)}}
+@keyframes trfGira{0%,100%{transform:scaleX(1)}50%{transform:scaleX(.15)}}
+.trf-moneda-suma{position:absolute;left:0;top:-6px;white-space:nowrap;font-size:13px;font-weight:700;color:#15803d;
+  opacity:0;pointer-events:none}
+.trf-moneda-suma.sube{animation:trfSube 1.05s ease-out forwards}
+@keyframes trfSube{0%{opacity:0;transform:translateY(6px)}20%{opacity:1}75%{opacity:1}100%{opacity:0;transform:translateY(-30px)}}
+@media (prefers-reduced-motion:reduce){
+  .trf-moneda{display:none}
+  .trf-monedero-ic.rebota{animation:none}
+  .trf-moneda-suma.sube{animation:trfSubeQuieto 1.1s linear forwards}
+  @keyframes trfSubeQuieto{0%,85%{opacity:1;transform:translateY(-22px)}100%{opacity:0;transform:translateY(-22px)}}
+}

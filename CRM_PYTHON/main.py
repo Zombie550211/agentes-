@@ -495,6 +495,13 @@ _MIGRATIONS: list[tuple[str, str]] = [
     ("0083_transferencias_proteccion_viejas", """UPDATE transferencias_llamadas
         SET asignada_at = created_at,
             libre_aviso_at = IF(created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR), UTC_TIMESTAMP(), NULL)"""),
+    # Monedero de quien transfiere: valor de cada línea según lo que tardó en cerrarse
+    # ($1 / $0.50 / $0.25, ver transferencias.valor_por_linea) y si ya vio la animación de
+    # la moneda. Las completadas antes de la regla quedan sin valor (= $1) y ya vistas.
+    ("0084_transferencias_valor_linea", """ALTER TABLE transferencias_llamadas
+        ADD COLUMN valor_linea DECIMAL(4,2) NULL, ADD COLUMN moneda_vista_at DATETIME NULL"""),
+    ("0085_transferencias_monedas_viejas", """UPDATE transferencias_llamadas
+        SET moneda_vista_at = UTC_TIMESTAMP() WHERE resultado = 'completada'"""),
     # Agentes que no comisionan un mes (casilla «Comisiona este mes» de Comisiones).
     ("0081_create_comision_excluidos", """CREATE TABLE IF NOT EXISTS comision_excluidos (
         ym           CHAR(7)      NOT NULL,
