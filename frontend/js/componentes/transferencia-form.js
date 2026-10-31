@@ -586,16 +586,41 @@
       ventas = (await r.json()).ventas || [];
     } catch (e) { return; }
     if (!ventas.length) return;
-    for (const v of ventas.slice(0, 5)) await animarMoneda(v);   // más de 5: una por venta sería eterno
+    // El monedero arranca SIN las ventas nuevas que ya cuenta (las del periodo y filtro
+    // que se ven) y cada moneda que entra suma la suya hasta llegar al total real.
+    const visibles = new Set(filtrarTipo(historial).map((f) => String(f.id)));
+    ventas.forEach((v) => { v.suma = visibles.has(String(v.id)); });
+    const b = q('#trf-monedero b');
+    const total = b ? parseFloat(b.textContent.replace(/[^0-9.]/g, '')) || 0 : 0;
+    let actual = total - ventas.filter((v) => v.suma).reduce((t, v) => t + v.monto, 0);
+    if (b) b.textContent = '$' + Math.max(0, actual).toFixed(2);
+    const tandas = ventas.slice(0, 5);   // más de 5: una por venta sería eterno
     if (ventas.length > 5) {
-      await animarMoneda({ cliente: (ventas.length - 5) + ' ventas más',
-        monto: ventas.slice(5).reduce((t, v) => t + v.monto, 0) });
+      const resto = ventas.slice(5);
+      tandas.push({ cliente: resto.length + ' ventas más', monto: resto.reduce((t, v) => t + v.monto, 0),
+        suma: resto.some((v) => v.suma), montoSuma: resto.filter((v) => v.suma).reduce((t, v) => t + v.monto, 0) });
     }
+    for (const v of tandas) {
+      await animarMoneda(v, function () {   // al entrar la moneda: sube la cifra
+        const sumar = v.montoSuma != null ? v.montoSuma : (v.suma ? v.monto : 0);
+        if (b && sumar) { contarHasta(b, actual, actual + sumar, 600); actual += sumar; }
+      });
+    }
+    if (b) b.textContent = '$' + total.toFixed(2);
     fetch('/api/transferencias/monedas-vistas', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids: ventas.map((v) => v.id) }) }).catch(function () {});
   }
 
-  function animarMoneda(v) {
+  function contarHasta(el, desde, hasta, ms) {
+    const t0 = performance.now();
+    (function paso(t) {
+      const p = Math.min(1, (t - t0) / ms);
+      el.textContent = '$' + (desde + (hasta - desde) * (1 - Math.pow(1 - p, 3))).toFixed(2);
+      if (p < 1) requestAnimationFrame(paso);
+    })(t0);
+  }
+
+  function animarMoneda(v, alEntrar) {
     return new Promise(function (listo) {
       const caja = q('#trf-monedero');
       if (!caja) { listo(); return; }
@@ -612,6 +637,7 @@
       setTimeout(function () {                    // la moneda entra por la ranura
         if (ic) { ic.classList.remove('rebota'); void ic.offsetWidth; ic.classList.add('rebota'); }
         suma.classList.add('sube');
+        if (alEntrar) alEntrar();
       }, sinMov ? 0 : 650);
       setTimeout(function () { moneda.remove(); suma.remove(); listo(); }, sinMov ? 1200 : 1700);
     });
