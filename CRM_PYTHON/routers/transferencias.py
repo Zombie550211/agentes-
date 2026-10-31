@@ -12,8 +12,8 @@ porque la promoción paga por línea. Una vez completada
 solo admin / back office pueden cambiarla, porque es lo que cuenta para la
 promoción de transferencias.
 
-Cola de Líneas: lo que Residencial transfiere ya no se dirige a mano. Se asigna solo al
-primero de la cola = los agentes de Líneas CONECTADOS (con el centro de notificaciones
+Cola: ninguna transferencia se dirige a mano. Se asigna sola al primero de la cola de la
+sección que la recibe (Líneas para lo que transfiere Residencial y al revés) = sus agentes CONECTADOS (con el centro de notificaciones
 abierto, realtime) ordenados por la última transferencia que recibieron (el que hace más
 que no recibe, o nunca, va primero). Al recibir una baja al final. Un lock serializa las
 asignaciones simultáneas (el despliegue corre con un solo worker, ver realtime.py).
@@ -283,6 +283,27 @@ async def monedas_vistas(body: dict, user: dict = Depends(current_user)):
     return {"success": True}
 
 
+async def _supervisor_por_team(s) -> dict[str, str]:
+    """team (minúsculas) → supervisor. users.supervisor guarda iniciales, así que se toma del
+    team: quien tiene rol de supervisor (o administrador) en él, prefiriendo al que comparte
+    nombre con el team («TEAM LINEAS JONATHAN» → JONATHAN F)."""
+    r = await s.execute(text("""
+        SELECT username, role, TRIM(team) AS team FROM users
+        WHERE team IS NOT NULL AND TRIM(team) <> '' AND COALESCE(active, 1) = 1
+          AND (LOWER(role) LIKE '%supervisor%' OR LOWER(role) LIKE '%admin%')"""))
+    por_team: dict[str, list] = {}
+    for u in r.mappings().all():
+        por_team.setdefault(u["team"].lower(), []).append(u)
+    out = {}
+    for team, us in por_team.items():
+        palabras = {w for w in re.split(r"\W+", team) if len(w) > 2 and w not in ("team", "lineas")}
+        def puntos(u):
+            nombre = {w for w in re.split(r"\W+", str(u["username"] or "").lower()) if w}
+            return (len(palabras & nombre), "supervisor" in str(u["role"] or "").lower())
+        out[team] = max(us, key=puntos)["username"].strip()
+    return out
+
+
 # ── Protección de 24 h y transferencias libres ──────────────────────
 PROTECCION_H = 24
 _FIN_PROTECCION = f"DATE_ADD(COALESCE(t.asignada_at, t.created_at), INTERVAL {PROTECCION_H} HOUR)"
@@ -374,11 +395,11 @@ async def bucle_liberadas():
         await asyncio.sleep(60)
 
 
-# ── Cola de Líneas ──────────────────────────────────────────────────
+# ── Cola de agentes (de Líneas para lo que transfiere Residencial y viceversa) ──
 _cola_lock = asyncio.Lock()
-# «Poner primero» (admin/BO): ese agente recibe la PRÓXIMA transferencia aunque no le toque;
-# al recibirla vuelve a su lugar. En memoria (un solo worker): un reinicio lo olvida.
-_cola_primero: Optional[int] = None
+# «Poner primero» (admin/BO), por sección destino: ese agente recibe la PRÓXIMA transferencia
+# aunque no le toque; al recibirla vuelve a su lugar. En memoria (un solo worker).
+_cola_primero: dict[str, int] = {}
 
 
 # En el CRM local (COLA_TODOS=1 en .env.local) los agentes reales están conectados a
@@ -390,10 +411,10 @@ def _conectado(user_id: int) -> bool:
     return _COLA_TODOS or bool(realtime._subscribers.get(realtime.canal_usuario(user_id)))
 
 
-async def _cola_lineas(s, solo_conectados: bool = True) -> list[dict]:
-    """Agentes de Líneas en orden de turno (el primero recibe la siguiente): los conectados,
-    o todos con solo_conectados=False (cuando no hay nadie conectado)."""
-    teams = await _agentes_por_team(s, "lineas")
+async def _cola(s, seccion: str, solo_conectados: bool = True) -> list[dict]:
+    """Agentes de la sección (destino) en orden de turno (el primero recibe la siguiente):
+    los conectados, o todos con solo_conectados=False (cuando no hay nadie conectado)."""
+    teams = await _agentes_por_team(s, seccion)
     agentes = [dict(a, team=t) for t, lista in teams.items() for a in lista
                if not solo_conectados or _conectado(a["id"])]
     if not agentes:
@@ -401,10 +422,10 @@ async def _cola_lineas(s, solo_conectados: bool = True) -> list[dict]:
     r = await s.execute(text(f"""
         SELECT agente_destino_id AS id, MAX(created_at) AS ultima
         FROM transferencias_llamadas
-        WHERE seccion_origen = 'residencial'
+        WHERE seccion_origen = :origen
           AND agente_destino_id IN ({",".join(str(int(a["id"])) for a in agentes)})
         GROUP BY agente_destino_id
-    """))
+    """), {"origen": _contraria(seccion)})
     ultima = {int(x["id"]): x["ultima"] for x in r.mappings().all()}
     for a in agentes:
         a["ultima"] = ultima.get(a["id"])
@@ -414,36 +435,43 @@ async def _cola_lineas(s, solo_conectados: bool = True) -> list[dict]:
     for a in agentes:
         desde = realtime.conectado_desde(a["id"]) if solo_conectados and not _COLA_TODOS else None
         a["turno"] = max([x for x in (a["ultima"], desde) if x is not None], default=None)
-    agentes.sort(key=lambda a: (a["id"] != _cola_primero, a["turno"] is not None,
+    primero = _cola_primero.get(seccion)
+    agentes.sort(key=lambda a: (a["id"] != primero, a["turno"] is not None,
                                 a["turno"] or datetime.min, a["nombre"].lower()))
     return agentes
 
 
-# ── GET /api/transferencias/cola ── solo agentes de Líneas conectados, en orden de turno ──
-# Un agente desconectado no puede recibir transferencias, así que no aparece en la cola.
+# ── GET /api/transferencias/cola?seccion=lineas|residencial ── agentes conectados de esa
+#    sección (la que RECIBE), en orden de turno ──
 @router.get("/cola")
-async def cola(user: dict = Depends(current_user)):
+async def cola(seccion: str = "lineas", user: dict = Depends(current_user)):
+    seccion = _validar_seccion(seccion)
     async with AsyncSessionLocal() as s:
-        agentes = await _cola_lineas(s)
+        agentes = await _cola(s, seccion)
         sig_sin = None
         if not agentes:
-            todos = await _cola_lineas(s, solo_conectados=False)
+            todos = await _cola(s, seccion, solo_conectados=False)
             if todos:
                 sig_sin = {"id": todos[0]["id"], "nombre": todos[0]["nombre"], "team": todos[0]["team"]}
     return {"success": True, "siguiente_sin_conexion": sig_sin, "agentes": [{
         "id": a["id"], "nombre": a["nombre"], "team": a["team"], "conectado": True,
         "ultima": a["ultima"].replace(tzinfo=timezone.utc).isoformat() if a["ultima"] else None,
-    } for a in agentes], "puede_ordenar": _es_admin_bo(user.get("role", "")), "primero": _cola_primero}
+    } for a in agentes], "puede_ordenar": _es_admin_bo(user.get("role", "")),
+        "primero": _cola_primero.get(seccion)}
 
 
 # ── POST /api/transferencias/cola/primero {id} ── admin/BO: ese agente va primero (una vez) ──
 @router.post("/cola/primero")
 async def cola_primero(body: dict, user: dict = Depends(current_user)):
-    global _cola_primero
     if not _es_admin_bo(user.get("role", "")):
         raise HTTPException(403, "Solo administración puede cambiar el orden de la cola")
-    _cola_primero = int(body.get("id") or 0) or None
-    return {"success": True, "primero": _cola_primero}
+    seccion = _validar_seccion(body.get("seccion") or "lineas")
+    aid = int(body.get("id") or 0)
+    if aid:
+        _cola_primero[seccion] = aid
+    else:
+        _cola_primero.pop(seccion, None)
+    return {"success": True, "primero": _cola_primero.get(seccion)}
 
 
 # ── POST /api/transferencias ────────────────────────────────────────
@@ -460,27 +488,19 @@ async def crear(body: TransferenciaIn, user: dict = Depends(current_user)):
         raise HTTPException(400, "Todos los campos son obligatorios")
 
     async with _cola_lock, AsyncSessionLocal() as s:
-        if origen == "residencial":
-            # Residencial → Líneas: el primero de la cola (agentes de Líneas conectados).
-            turno = await _cola_lineas(s)
-            if not turno:
-                # Nadie de Líneas conectado: igual se asigna, al siguiente por turno entre
-                # todos; le llega a la campana al entrar y corren sus 24 h.
-                turno = await _cola_lineas(s, solo_conectados=False)
-            if not turno:
-                raise HTTPException(409, "No hay agentes de Líneas para recibir la transferencia")
-            agente, team = turno[0], turno[0]["team"]
-            global _cola_primero
-            if agente["id"] == _cola_primero:
-                _cola_primero = None   # «Poner primero» vale para una sola transferencia
-        else:
-            # Líneas → Residencial: el destino se valida contra la BD: el team debe ser de
-            # la sección contraria y el agente pertenecer a ese team.
-            teams = await _agentes_por_team(s, _contraria(origen))
-            team = (body.team_destino or "").strip()
-            agente = next((a for a in teams.get(team, []) if a["id"] == body.agente_destino_id), None)
-            if not agente:
-                raise HTTPException(400, "El agente seleccionado no pertenece a ese team")
+        # El primero de la cola de la sección contraria (sus agentes conectados). Las mismas
+        # reglas en las dos direcciones.
+        destino = _contraria(origen)
+        turno = await _cola(s, destino)
+        if not turno:
+            # Nadie conectado: igual se asigna, al siguiente por turno entre todos; le llega
+            # a la campana al entrar y corren sus 24 h.
+            turno = await _cola(s, destino, solo_conectados=False)
+        if not turno:
+            raise HTTPException(409, "No hay agentes para recibir la transferencia")
+        agente, team = turno[0], turno[0]["team"]
+        if agente["id"] == _cola_primero.get(destino):
+            _cola_primero.pop(destino, None)   # «Poner primero» vale para una sola transferencia
 
         r = await s.execute(text("SELECT name, username, team FROM users WHERE id = :id"),
                             {"id": _uid(user)})
@@ -599,6 +619,10 @@ async def listar(seccion: str, desde: str = "", hasta: str = "", buscar: str = "
             LIMIT 500
         """), params)
         filas = [dict(x) for x in r.mappings().all()]
+        sup_de = await _supervisor_por_team(s)
+    for f in filas:   # para el filtro Supervisor de la página
+        f["created_by_supervisor"] = sup_de.get(str(f["created_by_team"] or "").strip().lower(), "")
+        f["destino_supervisor"] = sup_de.get(str(f["team_destino"] or "").strip().lower(), "")
 
     gestion = _es_admin_bo(role)
     yo_id = _uid(user)
