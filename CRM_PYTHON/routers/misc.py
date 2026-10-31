@@ -562,7 +562,7 @@ async def notificaciones_status(
 
     async with AsyncSessionLocal() as s:
         r = await s.execute(text(f"""
-            SELECT seccion, cliente, old_status, new_status, actor, created_at
+            SELECT seccion, cliente, old_status, new_status, actor, target_agente, created_at
             FROM status_notifications
             WHERE {' AND '.join(where)}
             ORDER BY created_at DESC
@@ -574,6 +574,7 @@ async def notificaciones_status(
             "old_status": row["old_status"],
             "new_status": row["new_status"],
             "actor":      row["actor"],
+            "agente":     row["target_agente"],
             "fecha":      str(row["created_at"]),
         } for row in r.mappings().all()]
 

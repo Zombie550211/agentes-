@@ -358,6 +358,7 @@ async def _avisar_liberadas() -> int:
         for u in usuarios:
             if (u["team"] or "").strip() and team_seccion(u["team"], u["role"] or "") == seccion:
                 await realtime.publish(realtime.canal_usuario(u["id"]), evento)
+        await realtime.publish(realtime.CANAL_ADMIN, evento)   # los administradores ven todas
     return len(libres)
 
 
@@ -494,11 +495,13 @@ async def crear(body: TransferenciaIn, user: dict = Depends(current_user)):
             "act": (yo.get("username") or user.get("username") or "").strip(),
             "ag": agente["nombre"], "ts": _utcnow()})
         await s.commit()
-    # Aviso al agente que la recibe (centro de notificaciones).
-    await realtime.publish(realtime.canal_usuario(agente["id"]), {
+    # Aviso al agente que la recibe y a los administradores (centro de notificaciones).
+    evento = {
         "type": "transferencia_asignada", "id": nuevo_id, "cliente": nombre,
-        "seccion": _contraria(origen), "horas": PROTECCION_H,
-        "de": (yo.get("username") or user.get("username") or "").strip()})
+        "seccion": _contraria(origen), "horas": PROTECCION_H, "agente": agente["nombre"],
+        "de": (yo.get("username") or user.get("username") or "").strip()}
+    await realtime.publish(realtime.canal_usuario(agente["id"]), evento)
+    await realtime.publish(realtime.CANAL_ADMIN, evento)
     return {"success": True, "message": "Transferencia registrada",
             "id": nuevo_id, "agente": agente["nombre"], "team": team}
 

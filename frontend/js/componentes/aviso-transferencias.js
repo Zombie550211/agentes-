@@ -13,6 +13,17 @@
   if (window.__avisoTransferencias || !window.CRMNotificaciones || window.PORTAL) return;
   window.__avisoTransferencias = true;
 
+  // Quién soy (lo guarda el login): para distinguir «te asignaron» de «se asignó a otro»,
+  // que es lo que ven los administradores (reciben todas por el canal rol:admin).
+  function yo() {
+    try {
+      var u = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
+      return String(u.username || '').trim().toLowerCase();
+    } catch (e) { return ''; }
+  }
+  function esMia(agente) { return !agente || String(agente).trim().toLowerCase() === yo(); }
+  var vistos = {};   // id de transferencia ya avisada (al admin-agente le llega por dos canales)
+
   function esc(s) {
     var d = document.createElement('div');
     d.textContent = String(s == null ? '' : s);
@@ -140,7 +151,7 @@
       var visto = leerVisto();
       var nuevas = ((d && d.items) || []).filter(function (n) {
         var f = String(n.fecha).slice(0, 19);
-        return n.old_status === 'TRANSFERENCIA' && f > hace1h && f > visto;
+        return n.old_status === 'TRANSFERENCIA' && esMia(n.agente) && f > hace1h && f > visto;
       });
       nuevas.slice(0, 3).reverse().forEach(function (n) { avisoAsignada(n.cliente, n.actor, n.seccion, 24); });
       if (nuevas.length) sonar();
@@ -149,7 +160,18 @@
     .catch(function () { /* la campana también las muestra */ });
 
   window.CRMNotificaciones.on('transferencia_asignada', function (ev) {
+    if (ev.id && vistos[ev.id]) return;
+    if (ev.id) vistos[ev.id] = true;
     var horas = ev.horas || 24;
+    if (!esMia(ev.agente)) {   // administrador: aviso de una asignación a otro agente
+      mostrar('',
+        '<h3>Transferencia asignada</h3>' +
+        '<p>Cliente: <b>' + esc(ev.cliente) + '</b><br>Asignada a: <b>' + esc(ev.agente) + '</b>' +
+          (ev.de ? '<br>La transfirió: ' + esc(ev.de) : '') + '</p>' +
+        '<a href="' + pagina(ev.seccion) + '">Ver transferencias</a>');
+      sonar();
+      return;
+    }
     marcarVisto(ahoraUTC());
     avisoAsignada(ev.cliente, ev.de, ev.seccion, horas);
     sonar();

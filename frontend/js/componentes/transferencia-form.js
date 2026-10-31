@@ -611,6 +611,49 @@
       body: JSON.stringify({ ids: ventas.map((v) => v.id) }) }).catch(function () {});
   }
 
+  // Sonido de dinero (clin-clin de monedas + campanita de caja), sintetizado una vez como WAV
+  // para un <audio>: el navegador deja sonar un <audio> al llegar desde un clic en el mismo
+  // sitio. Si aun así lo bloquea, suena con el primer clic o tecla en la página.
+  let sonidoDinero = null;
+  function urlSonidoDinero() {
+    if (sonidoDinero) return sonidoDinero;
+    const sr = 22050, dur = 0.95, n = Math.floor(sr * dur), d = new Float32Array(n);
+    const tono = (f, t0, largo, vol, caida) => {
+      for (let i = Math.floor(t0 * sr), k = 0; k < largo * sr && i < n; i++, k++) {
+        const t = k / sr;
+        d[i] += vol * Math.exp(-t * caida) * (Math.sin(2 * Math.PI * f * t) + 0.35 * Math.sin(2 * Math.PI * f * 2.76 * t));
+      }
+    };
+    tono(2637, 0.00, 0.18, 0.30, 28);   // clin
+    tono(3136, 0.07, 0.18, 0.26, 28);   // clin
+    tono(2794, 0.15, 0.16, 0.18, 30);
+    tono(1568, 0.28, 0.65, 0.30, 6);    // campanita de caja
+    tono(2093, 0.28, 0.65, 0.22, 6);
+    const buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+    const txt = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+    txt(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); txt(8, 'WAVEfmt '); v.setUint32(16, 16, true);
+    v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true);
+    v.setUint16(32, 2, true); v.setUint16(34, 16, true); txt(36, 'data'); v.setUint32(40, n * 2, true);
+    for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, d[i])) * 32767, true);
+    sonidoDinero = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+    return sonidoDinero;
+  }
+  function sonarDinero() {
+    try {
+      const a = new Audio(urlSonidoDinero());
+      a.volume = 0.8;
+      a.play().catch(function () {
+        const luego = function () {
+          document.removeEventListener('pointerdown', luego, true);
+          document.removeEventListener('keydown', luego, true);
+          new Audio(urlSonidoDinero()).play().catch(function () {});
+        };
+        document.addEventListener('pointerdown', luego, true);
+        document.addEventListener('keydown', luego, true);
+      });
+    } catch (e) { /* sin audio */ }
+  }
+
   function contarHasta(el, desde, hasta, ms) {
     const t0 = performance.now();
     (function paso(t) {
@@ -637,6 +680,7 @@
       setTimeout(function () {                    // la moneda entra por la ranura
         if (ic) { ic.classList.remove('rebota'); void ic.offsetWidth; ic.classList.add('rebota'); }
         suma.classList.add('sube');
+        sonarDinero();
         if (alEntrar) alEntrar();
       }, sinMov ? 0 : 650);
       setTimeout(function () { moneda.remove(); suma.remove(); listo(); }, sinMov ? 1200 : 1700);
