@@ -1404,7 +1404,7 @@
       if (enPausa) {
         resumen.className = 'trf-micola-yo pausa';
         html = '<b>' + (pos >= 0 ? pos + 1 : '–') + '</b><span>Estás en pausa' +
-          '<small>Conservas tu lugar; no recibirás transferencias hasta que JONATHAN F quite la pausa.</small></span>';
+          '<small>Conservas tu lugar; no recibirás transferencias mientras estés en pausa.</small></span>';
       } else if (pos >= 0 && antes === 0) {
         resumen.className = 'trf-micola-yo sig';
         html = '<b>' + (pos + 1) + '</b><span>Eres el siguiente<small>La próxima transferencia de ' + esc(DESTINO_LABEL) + ' es para ti.</small></span>';

@@ -538,7 +538,7 @@ async def cola(seccion: str = "lineas", user: dict = Depends(current_user)):
 @router.post("/cola/primero")
 async def cola_primero(body: dict, user: dict = Depends(current_user)):
     if not _es_gestor_cola(user):
-        raise HTTPException(403, "Solo JONATHAN F puede dar prioridad en la cola")
+        raise HTTPException(403, "No tienes permiso para cambiar el orden de la cola")
     seccion = _validar_seccion(body.get("seccion") or "lineas")
     aid = int(body.get("id") or 0)
     if aid in _pausas:
@@ -555,7 +555,7 @@ async def cola_primero(body: dict, user: dict = Depends(current_user)):
 @router.post("/cola/pausa")
 async def cola_pausa(body: dict, user: dict = Depends(current_user)):
     if not _es_gestor_cola(user):
-        raise HTTPException(403, "Solo JONATHAN F puede poner o quitar la pausa")
+        raise HTTPException(403, "No tienes permiso para poner o quitar la pausa")
     aid = int(body.get("id") or 0) or _uid(user)
     pausar = bool(body.get("pausar"))
     async with _cola_lock, AsyncSessionLocal() as s:
