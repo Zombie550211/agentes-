@@ -390,10 +390,12 @@ def _conectado(user_id: int) -> bool:
     return _COLA_TODOS or bool(realtime._subscribers.get(realtime.canal_usuario(user_id)))
 
 
-async def _cola_lineas(s) -> list[dict]:
-    """Agentes de Líneas conectados, en orden de turno (el primero recibe la siguiente)."""
+async def _cola_lineas(s, solo_conectados: bool = True) -> list[dict]:
+    """Agentes de Líneas en orden de turno (el primero recibe la siguiente): los conectados,
+    o todos con solo_conectados=False (cuando no hay nadie conectado)."""
     teams = await _agentes_por_team(s, "lineas")
-    agentes = [dict(a, team=t) for t, lista in teams.items() for a in lista if _conectado(a["id"])]
+    agentes = [dict(a, team=t) for t, lista in teams.items() for a in lista
+               if not solo_conectados or _conectado(a["id"])]
     if not agentes:
         return []
     r = await s.execute(text(f"""
@@ -417,7 +419,12 @@ async def _cola_lineas(s) -> list[dict]:
 async def cola(user: dict = Depends(current_user)):
     async with AsyncSessionLocal() as s:
         agentes = await _cola_lineas(s)
-    return {"success": True, "agentes": [{
+        sig_sin = None
+        if not agentes:
+            todos = await _cola_lineas(s, solo_conectados=False)
+            if todos:
+                sig_sin = {"id": todos[0]["id"], "nombre": todos[0]["nombre"], "team": todos[0]["team"]}
+    return {"success": True, "siguiente_sin_conexion": sig_sin, "agentes": [{
         "id": a["id"], "nombre": a["nombre"], "team": a["team"], "conectado": True,
         "ultima": a["ultima"].replace(tzinfo=timezone.utc).isoformat() if a["ultima"] else None,
     } for a in agentes], "puede_ordenar": _es_admin_bo(user.get("role", "")), "primero": _cola_primero}
@@ -451,7 +458,11 @@ async def crear(body: TransferenciaIn, user: dict = Depends(current_user)):
             # Residencial → Líneas: el primero de la cola (agentes de Líneas conectados).
             turno = await _cola_lineas(s)
             if not turno:
-                raise HTTPException(409, "No hay agentes de Líneas conectados para recibir la transferencia")
+                # Nadie de Líneas conectado: igual se asigna, al siguiente por turno entre
+                # todos; le llega a la campana al entrar y corren sus 24 h.
+                turno = await _cola_lineas(s, solo_conectados=False)
+            if not turno:
+                raise HTTPException(409, "No hay agentes de Líneas para recibir la transferencia")
             agente, team = turno[0], turno[0]["team"]
             global _cola_primero
             if agente["id"] == _cola_primero:

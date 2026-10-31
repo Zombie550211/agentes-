@@ -1169,6 +1169,7 @@
   // se deslizan a su nuevo lugar (técnica FLIP) en vez de redibujarse de golpe.
   let colaTimer = null;
   let colaOrdenar = false;   // admin/BO: puede poner a un agente primero (una vez)
+  let colaSinConexion = null;   // sin nadie conectado: a quién irá por turno
   let colaPedido = 0;
   const sinAnimar = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1193,6 +1194,7 @@
       if (!r.ok) throw new Error(j.detail || 'Error');
       agentes = j.agentes || [];
       colaOrdenar = !!j.puede_ordenar;
+      colaSinConexion = j.siguiente_sin_conexion || null;
     } catch (e) {
       if (pedido === colaPedido && !lista.children.length) {
         lista.innerHTML = '<li class="trf-cola-vacia">No se pudo cargar la cola.</li>';
@@ -1210,8 +1212,15 @@
     agentes = agentes.filter((a) => a.conectado !== false);
     if (!agentes.length) {
       lista.innerHTML = '<li class="trf-cola-vacia">Ningún agente de Líneas está conectado.</li>';
-      if (asigna) asigna.innerHTML = '<i class="ph ph-warning" aria-hidden="true"></i> No hay agentes de Líneas conectados: no se puede transferir ahora.';
-      if (btn) btn.disabled = true;
+      // Igual se puede transferir: va al siguiente por turno y le llega al conectarse.
+      if (colaSinConexion) {
+        if (asigna) asigna.innerHTML = '<span>Nadie de Líneas conectado. Se asignará por turno a</span> <b>' + esc(colaSinConexion.nombre) +
+          '</b> <small>' + esc(String(colaSinConexion.team).replace(/^TEAM\s+/i, '')) + ' · le llegará al conectarse</small>';
+        if (btn) btn.disabled = false;
+      } else {
+        if (asigna) asigna.innerHTML = '<i class="ph ph-warning" aria-hidden="true"></i> No hay agentes de Líneas: no se puede transferir ahora.';
+        if (btn) btn.disabled = true;
+      }
       return;
     }
     if (btn) btn.disabled = false;
