@@ -151,7 +151,7 @@
   }
   function mostrarTourActualizacion() {
     // Cada usuario la ve una vez por actualización: cambiar VERSION_NOVEDADES al publicar otra.
-    var VERSION_NOVEDADES = '20261009';
+    var VERSION_NOVEDADES = '20261031-transferencias';
     try { if (localStorage.getItem('crm_novedades_vistas') === VERSION_NOVEDADES) return; } catch (_) { return; }
     if (document.getElementById('tour-after-login')) return;
 
@@ -212,6 +212,22 @@
         border: none; border-radius: 999px; background: rgba(15, 23, 42, 0.06); color: #334155;
         width: 28px; height: 28px; font-size: 18px; cursor: pointer;
       }
+      #tour-after-login .tour-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #tour-after-login .tour-grid-4 .tour-card { min-height: 0; border-bottom: 1px solid rgba(148,163,184,.22); }
+      #tour-after-login .tour-grid-4 .tour-card:nth-child(2n) { border-right: none; }
+      #tour-after-login .tour-card p b { color: #0f172a; }
+      #tour-after-login .tour-pie {
+        display: flex; justify-content: flex-end; align-items: center; gap: 10px; padding: 14px 18px;
+        background: rgba(255,255,255,.9); border-top: 1px solid rgba(148,163,184,.2);
+      }
+      #tour-after-login .tour-ok, #tour-after-login .tour-ir {
+        padding: 9px 16px; font: 600 13px/1 'Montserrat', 'Segoe UI', sans-serif; cursor: pointer; text-decoration: none;
+      }
+      #tour-after-login .tour-ok { border: 1px solid rgba(0,112,152,.3); background: #fff; color: #004e6b; }
+      #tour-after-login .tour-ir { border: 1px solid #007098; background: #007098; color: #fff; }
+      #tour-after-login .tour-ok:focus-visible, #tour-after-login .tour-ir:focus-visible, #tour-after-login .tour-close:focus-visible {
+        outline: 2px solid #007098; outline-offset: 2px;
+      }
       @media (max-width: 760px) {
         #tour-after-login .tour-grid { grid-template-columns: 1fr; }
         #tour-after-login .tour-card { border-right: none; border-bottom: 1px solid rgba(148,163,184,.22); }
@@ -224,30 +240,39 @@
     var panel = document.createElement('div');
     panel.id = 'tour-after-login';
     panel.innerHTML = `
-      <div class="tour-panel" role="dialog" aria-modal="true" aria-label="Guía rápida de la nueva actualización">
+      <div class="tour-panel" role="dialog" aria-modal="true" aria-labelledby="tour-titulo">
         <div class="tour-header">
-          <span class="title">Guía rápida</span>
+          <span class="title" id="tour-titulo">Así funciona Transferencias</span>
           <div style="display:flex;align-items:center;gap:10px;">
-            <span class="meta">Nueva actualización</span>
+            <span class="meta">Novedad</span>
             <button type="button" class="tour-close" aria-label="Cerrar guía">×</button>
           </div>
         </div>
-        <div class="tour-grid">
+        <div class="tour-grid tour-grid-4">
           <article class="tour-card">
             <div class="tour-step">01</div>
-            <h3>Qué cambia</h3>
-            <p>El menú pasa a la parte superior: ahí están todas las secciones, y a la derecha los ajustes, las notificaciones y tu usuario. La página de inicio muestra ventas, puntos y rendimiento del equipo de forma más clara.</p>
+            <h3>Se asigna sola</h3>
+            <p>Desde Residencial ya no eliges a quién transferir: la llamada va al primer agente de Líneas de la <b>cola</b>. En la cola solo entran los agentes conectados; quien recibe una baja al final y el siguiente pasa arriba.</p>
           </article>
           <article class="tour-card">
             <div class="tour-step">02</div>
-            <h3>Cómo funciona</h3>
-            <p>Los indicadores están agrupados por tendencia, actividades y semáforo para decidir rápidamente qué revisar.</p>
+            <h3>24 horas protegida</h3>
+            <p>Quien la recibe tiene <b>24 h</b> para gestionarla: en la columna «Protegido» corre la cuenta regresiva con un candado. Si llega a 0 sin resultado, el candado se abre y cualquier agente del departamento puede <b>presionar el contador</b> para quedársela.</p>
           </article>
           <article class="tour-card">
             <div class="tour-step">03</div>
-            <h3>Qué revisar</h3>
-            <p>Fíjate en los casos pendientes, el mejor rendimiento del mes y los servicios más vendidos para actuar antes.</p>
+            <h3>Tu monedero</h3>
+            <p>Cuando una llamada que transferiste se cierra como venta, entra una moneda a tu monedero. Cada línea vale <b>$1</b> si se cierra en los primeros 15 días, <b>$0.50</b> hasta el día 22 y <b>$0.25</b> después.</p>
           </article>
+          <article class="tour-card">
+            <div class="tour-step">04</div>
+            <h3>Avisos con sonido</h3>
+            <p>Cuando te asignen una transferencia verás un aviso en cualquier pantalla y en la campana, y <b>sonará una alerta</b>; la moneda del monedero también suena. Ten el volumen encendido: el sonido se activa con tu primer clic en el CRM.</p>
+          </article>
+        </div>
+        <div class="tour-pie">
+          <button type="button" class="tour-ok">Entendido</button>
+          <a class="tour-ir" href="/residencial/transferencia.html">Ir a Transferencias</a>
         </div>
       </div>
     `;
@@ -264,7 +289,17 @@
       if (event.target === panel) removeTour();
     });
     panel.querySelector('.tour-close').addEventListener('click', removeTour);
+    panel.querySelector('.tour-ok').addEventListener('click', removeTour);
+    panel.querySelector('.tour-ir').addEventListener('click', function () {
+      try { localStorage.setItem('crm_novedades_vistas', VERSION_NOVEDADES); } catch (_) {}
+    });
+    // «Ir a Transferencias» lleva a la de su sección; el foco va al botón principal.
+    try {
+      var uTour = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
+      if (/linea/i.test(String(uTour.team || '') + String(uTour.role || ''))) panel.querySelector('.tour-ir').href = '/lineas/transferencia.html';
+    } catch (_) {}
     document.body.appendChild(panel);
+    panel.querySelector('.tour-ok').focus();
 
     window.addEventListener('keydown', function onKey(e) {
       if (e.key === 'Escape') {
