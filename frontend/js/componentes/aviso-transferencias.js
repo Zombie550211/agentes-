@@ -96,7 +96,38 @@
     document.addEventListener(t, function () { contexto(); }, { capture: true, passive: true });
   });
   var pendiente = false;   // llegó un aviso con el audio bloqueado: suena al primer clic
+  // Los mismos tres tonos como WAV para un <audio>: el navegador lo deja sonar al llegar a la
+  // página desde un clic en el mismo sitio, sin esperar a que se toque la página.
+  var urlTonos = null;
+  function wavTonos() {
+    if (urlTonos) return urlTonos;
+    var sr = 22050, n = Math.floor(sr * 0.62), d = new Float32Array(n);
+    [784, 988, 1319].forEach(function (f, i) {
+      var i0 = Math.floor((0.02 + i * 0.16) * sr);
+      for (var k = 0; k < 0.24 * sr && i0 + k < n; k++) {
+        var t = k / sr, a = t < 0.02 ? 0.35 * t / 0.02 : 0.35 * Math.pow(0.0001 / 0.35, (t - 0.02) / 0.2);
+        d[i0 + k] += a * Math.sin(2 * Math.PI * f * t);
+      }
+    });
+    var buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+    function txt(o, t) { for (var i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); }
+    txt(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); txt(8, 'WAVEfmt '); v.setUint32(16, 16, true);
+    v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true);
+    v.setUint16(32, 2, true); v.setUint16(34, 16, true); txt(36, 'data'); v.setUint32(40, n * 2, true);
+    for (var i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, d[i])) * 32767, true);
+    urlTonos = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+    return urlTonos;
+  }
   function sonar() {
+    try {
+      var a = new Audio(wavTonos());
+      a.volume = 0.9;
+      a.play().catch(function () { sonarContexto(); });
+      return;
+    } catch (e) { /* sin <audio>: AudioContext */ }
+    sonarContexto();
+  }
+  function sonarContexto() {
     var ctx = contexto();
     if (!ctx || ctx.state !== 'running') {
       if (!pendiente) {
@@ -105,7 +136,7 @@
           document.removeEventListener('pointerdown', luego, true);
           document.removeEventListener('keydown', luego, true);
           pendiente = false;
-          setTimeout(sonar, 50);
+          setTimeout(sonarContexto, 50);
         };
         document.addEventListener('pointerdown', luego, true);
         document.addEventListener('keydown', luego, true);
@@ -183,6 +214,17 @@
       } catch (e) { /* sin notificación del sistema */ }
     }
   });
+
+  // Demostración (la usa transferencia-form.js con los administradores, una vez).
+  window.CRMAvisoTransferencias = {
+    demo: function () {
+      mostrar('nueva',
+        '<h3>Te asignaron una transferencia</h3>' +
+        '<p><b>Ejemplo:</b> así llega el aviso al agente, con esta alerta sonora, en cualquier pantalla del CRM.' +
+          '<br>Cliente: <b>CLIENTE DE EJEMPLO</b><br>Tienes 24 h para gestionarla.</p>');
+      sonar();
+    }
+  };
 
   window.CRMNotificaciones.on('transferencias_libres', function (ev) {
     var depto = ev.seccion === 'lineas' ? 'Líneas' : 'Residencial';

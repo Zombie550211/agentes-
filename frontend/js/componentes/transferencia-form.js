@@ -576,9 +576,23 @@
     '</g></svg>';
   let monedasRevisadas = false;
 
+  // Administradores: la primera vez que entran a esta página tras la actualización ven una
+  // demostración de la moneda (con su sonido) y del aviso de asignación (con su alerta).
+  const DEMO_ADMIN = 'crm_demo_transferencias_20261031';
+  async function demoAdmin() {
+    let u = {};
+    try { u = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}'); } catch (e) { /* sin usuario */ }
+    if (!/admin/i.test(String(u.role || ''))) return;
+    try { if (localStorage.getItem(DEMO_ADMIN)) return; localStorage.setItem(DEMO_ADMIN, '1'); } catch (e) { return; }
+    await animarMoneda({ cliente: 'Ejemplo: así entra una venta al monedero', monto: 1 });
+    await new Promise((r) => setTimeout(r, 500));
+    if (window.CRMAvisoTransferencias) window.CRMAvisoTransferencias.demo();
+  }
+
   async function revisarMonedas() {
     if (monedasRevisadas) return;
     monedasRevisadas = true;
+    await demoAdmin();
     let ventas;
     try {
       const r = await fetch('/api/transferencias/monedas-pendientes');
