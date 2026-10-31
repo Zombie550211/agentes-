@@ -11,10 +11,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/paginas/login.css">
-  <script src="vendor/reactbits/splash-cursor.js" defer></script>
   <!-- Sólo por la decoración de temporada: esta página no tiene sidebar y el
        módulo comprueba que exista #app-sidebar antes de pintar nada. -->
-  <script src="/js/layout/sidebar.js?v=20261026g" defer></script>
+  <script src="/js/layout/sidebar.js?v=20261031a" defer></script>
 </head>
 
 <body>
@@ -24,13 +23,13 @@
     <section class="stage">
       <!-- Video de temporada (Halloween). muted + playsinline: sin eso el
            navegador no lo reproduce solo, y en iPhone se abriría a pantalla completa.
-           Primero AV1/WebM (1,2 MB); el navegador que no lo decodifique — Safari
-           anterior a 17, equipos viejos — salta al MP4 H.264 (2,2 MB). El `codecs`
-           es lo que le deja descartarlo sin descargarlo. -->
+           Primero el MP4 H.264: casi cualquier tarjeta gráfica lo decodifica sin usar la
+           CPU. El AV1 (más liviano en MB) en los PCs de los agentes se decodificaba por
+           software y, con el navegador lleno de pestañas, trababa el equipo al iniciar sesión. -->
       <video class="stage-video" autoplay muted loop playsinline preload="auto"
         poster="images/video/login-halloween-poster.webp?v=2" aria-hidden="true" tabindex="-1">
-        <source src="images/video/login-halloween.webm" type='video/webm; codecs="av01.0.05M.08"'>
         <source src="images/video/login-halloween.mp4" type="video/mp4">
+        <source src="images/video/login-halloween.webm" type='video/webm; codecs="av01.0.05M.08"'>
       </video>
       <img class="stage-logo" src="images/logo-mark.webp" alt="Connecting">
     </section>
@@ -254,6 +253,6 @@
     </section>
   </div><!-- /page -->
 
-  <script src="js/paginas/login.js?v=20261030a"></script>
+  <script src="js/paginas/login.js?v=20261031c"></script>
 </body>
 </html>

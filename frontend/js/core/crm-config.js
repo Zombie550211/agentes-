@@ -14,11 +14,11 @@
 })();
 
 window.CRM_CONFIG = {
-  // Tiempo de inactividad en milisegundos (30 minutos)
-  INACTIVITY_TIMEOUT: 30 * 60 * 1000,
+  // Tiempo de inactividad en milisegundos (5 minutos sin acción en el CRM)
+  INACTIVITY_TIMEOUT: 5 * 60 * 1000,
   
-  // Tiempo de advertencia antes del logout (5 minutos antes)
-  WARNING_TIMEOUT: 25 * 60 * 1000,
+  // Aviso antes del logout (1 minuto antes)
+  WARNING_TIMEOUT: 4 * 60 * 1000,
   
   // Habilitar sistema de inactividad
   ENABLE_INACTIVITY: true,

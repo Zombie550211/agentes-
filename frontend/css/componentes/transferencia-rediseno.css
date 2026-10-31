@@ -327,3 +327,46 @@ button.trf-prot.trf-tomar:disabled{cursor:wait;opacity:.6}
 .trf-f-limpiar:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:2px}
 @media (max-width:1000px){ .trf-filtros{grid-template-columns:repeat(3,minmax(0,1fr))} }
 @media (max-width:560px){ .trf-filtros{grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding:0 12px 12px} }
+
+/* ═══ Líneas: «Tu lugar en la cola» a la izquierda del formulario (tres columnas) ═══ */
+.trf-fila:has(.trf-micola){grid-template-columns:minmax(240px,2fr) minmax(340px,4fr) minmax(240px,2fr)}
+@media (max-width:1280px){
+  .trf-fila:has(.trf-micola){grid-template-columns:minmax(240px,1fr) minmax(340px,2fr)}
+  .trf-fila:has(.trf-micola) .trf-cola{grid-column:1 / -1;min-height:0}
+  .trf-fila:has(.trf-micola) .trf-cola .trf-cola-lista{height:auto;max-height:360px}
+}
+@media (max-width:1000px){ .trf-fila:has(.trf-micola){grid-template-columns:minmax(0,1fr)} }
+.trf-fila .trf-micola{align-self:stretch;display:flex;flex-direction:column;min-height:360px}
+.trf-micola .trf-cola-lista{flex:1 1 0;min-height:0;max-height:none;height:0;overflow-y:auto}
+@media (max-width:1000px){ .trf-micola .trf-cola-lista{height:auto;max-height:320px} .trf-fila .trf-micola{min-height:0} }
+.trf-micola-yo{display:flex;align-items:center;gap:12px;margin:12px 12px 4px;padding:12px 14px;
+  border:1px solid rgb(0 112 152 / .16);background:rgb(0 112 152 / .04)}
+.trf-micola-yo:empty{display:none}
+.trf-micola-yo b{font-family:"Inter",system-ui,sans-serif;font-size:28px;font-weight:700;line-height:1;color:#007098;font-variant-numeric:tabular-nums}
+.trf-micola-yo span{display:flex;flex-direction:column;gap:2px;font-size:13px;font-weight:600;color:var(--texto-1)}
+.trf-micola-yo small{font-size:11px;font-weight:400;color:var(--texto-3)}
+.trf-micola-yo.sig{border-color:#007098;background:rgb(0 112 152 / .08)}
+.trf-micola-yo.fuera{border-style:dashed;background:transparent}
+.trf-cola-fila.yo{background:rgb(0 112 152 / .1);box-shadow:inset 3px 0 0 #007098}
+.trf-cola-fila.yo .trf-cola-nom b{color:#0f5e7a}
+.trf-cola-tag.tu{background:#0f5e7a}
+/* Pausa en la cola: conserva el lugar sin recibir transferencias. */
+.trf-micola-yo{flex-wrap:wrap}
+.trf-micola-yo span{flex:1 1 0;min-width:0}
+.trf-micola-yo .trf-pausa-btn{flex:1 0 100%;justify-content:center}
+.trf-pausa-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid rgb(0 112 152 / .3);background:#fff;
+  font:inherit;font-size:12px;font-weight:600;color:#0f5e7a;cursor:pointer;white-space:nowrap}
+.trf-pausa-btn:hover{background:rgb(0 112 152 / .06)}
+.trf-pausa-btn:focus-visible{outline:2px solid #007098;outline-offset:2px}
+.trf-pausa-btn:disabled{cursor:wait;color:var(--texto-3)}
+.trf-pausa-btn.on{background:#a16207;border-color:#a16207;color:#fff}
+.trf-pausa-btn.on:hover{background:#854d0e}
+.trf-micola-yo.pausa{border-color:rgb(234 179 8 / .5);background:rgb(234 179 8 / .1)}
+.trf-micola-yo.pausa b{color:#a16207}
+.trf-cola-tag.pausa{background:#fef3c7;color:#854d0e}
+.trf-cola-fila.pausado .trf-cola-nom b{color:var(--texto-3)}
+.trf-cola-fila.pausado .trf-cola-pos{color:#a16207}
+/* Admin/BO: acciones por fila (etiqueta + Pausar / Poner primero). Pausar siempre visible. */
+.trf-cola-acc{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.trf-cola-subir.trf-pausa-fila{opacity:1}
+.trf-cola-fila.pausado .trf-pausa-fila{border-color:rgb(161 98 7 / .4);color:#a16207}

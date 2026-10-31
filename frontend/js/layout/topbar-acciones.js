@@ -152,7 +152,12 @@
   function mostrarTourActualizacion() {
     // Cada usuario la ve una vez por actualización: cambiar VERSION_NOVEDADES al publicar otra.
     var VERSION_NOVEDADES = '20261031-transferencias';
-    try { if (localStorage.getItem('crm_novedades_vistas') === VERSION_NOVEDADES) return; } catch (_) { return; }
+    // Se marca al mostrarla (no al cerrarla): sale una sola vez aunque cambie de página o
+    // recargue sin tocar «Entendido». La guía del login usa otra clave (crm_guia_login_vista).
+    try {
+      if (localStorage.getItem('crm_novedades_vistas') === VERSION_NOVEDADES) return;
+      localStorage.setItem('crm_novedades_vistas', VERSION_NOVEDADES);
+    } catch (_) { return; }
     if (document.getElementById('tour-after-login')) return;
 
     var style = document.createElement('style');
@@ -352,7 +357,7 @@
     if (cont) iniciar(cont);
     // Centro de notificaciones (una conexión en vivo por navegador) y, sobre él, los avisos
     // de faltas de Monitoreo. async=false: se ejecutan en este orden.
-    ['/js/core/notificaciones.js?v=20261026a', '/js/componentes/aviso-faltas.js?v=20261026d', '/js/componentes/aviso-transferencias.js?v=20261031b'].forEach(function (src) {
+    ['/js/core/inactivity-manager.js?v=20261031a', '/js/core/notificaciones.js?v=20261026a', '/js/componentes/aviso-faltas.js?v=20261026d', '/js/componentes/aviso-transferencias.js?v=20261031b'].forEach(function (src) {
       var s = document.createElement('script');
       s.src = src;
       s.async = false;

@@ -31,7 +31,7 @@ Visibilidad del historial:
 """
 import asyncio
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import re
 
 from typing import Optional
@@ -42,6 +42,7 @@ from sqlalchemy import text
 
 from database_mysql import AsyncSessionLocal
 from deps import current_user, team_seccion
+from tiempo_sv import TZ_SV
 import realtime
 
 router = APIRouter(prefix="/api/transferencias", tags=["Transferencias de llamadas"])
@@ -167,6 +168,26 @@ async def destinos(origen: str, user: dict = Depends(current_user)):
     }
 
 
+def _rango_dias_sv(desde: str, hasta: str) -> dict:
+    """desde/hasta (YYYY-MM-DD) son días de El Salvador; created_at se guarda en UTC.
+
+    Antes se comparaban tal cual: lo transferido de 18:00 a 23:59 (hora SV) caía en el
+    día UTC siguiente y no salía en «Hoy» al crearlo. Devuelve los límites en UTC
+    (desde = 00:00 SV de ese día; hasta = 00:00 SV del día siguiente, exclusivo)."""
+    params: dict = {}
+    for nombre, valor in (("desde", desde), ("hasta", hasta)):
+        if not valor:
+            continue
+        try:
+            dia = datetime.strptime(valor, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(400, f"{nombre} debe ser YYYY-MM-DD")
+        if nombre == "hasta":
+            dia += timedelta(days=1)
+        params[nombre] = dia.replace(tzinfo=TZ_SV).astimezone(timezone.utc).replace(tzinfo=None)
+    return params
+
+
 # ── GET /api/transferencias/ranking?seccion=residencial&desde=…&hasta=… ──
 @router.get("/ranking")
 async def ranking(seccion: str, desde: str = "", hasta: str = "",
@@ -180,16 +201,11 @@ async def ranking(seccion: str, desde: str = "", hasta: str = "",
     seccion = _validar_seccion(seccion)
     where = []
     params: dict = {"sec": seccion}
-    for nombre, valor in (("desde", desde), ("hasta", hasta)):
-        if valor:
-            try:
-                params[nombre] = datetime.strptime(valor, "%Y-%m-%d")
-            except ValueError:
-                raise HTTPException(400, f"{nombre} debe ser YYYY-MM-DD")
+    params.update(_rango_dias_sv(desde, hasta))
     if "desde" in params:
         where.append("t.created_at >= :desde")
     if "hasta" in params:
-        where.append("t.created_at < DATE_ADD(:hasta, INTERVAL 1 DAY)")
+        where.append("t.created_at < :hasta")
     rango = "".join(" AND " + w for w in where)
     async with AsyncSessionLocal() as s:
         teams = await _agentes_por_team(s, seccion)
@@ -401,6 +417,41 @@ _cola_lock = asyncio.Lock()
 # aunque no le toque; al recibirla vuelve a su lugar. En memoria (un solo worker).
 _cola_primero: dict[str, int] = {}
 
+# «Pausa» (almuerzo, se levanta del puesto): el agente no recibe transferencias pero conserva
+# su lugar. Se guarda el turno que tenía al pausar; mientras dura la pausa la cola avanza sin
+# él (los demás reciben y bajan al final, él va subiendo) y sigue en la lista aunque se
+# desconecte o se le cierre la sesión. Al quitarla queda en ese mismo lugar hasta que reciba
+# su siguiente transferencia, aunque se haya reconectado en medio. Se guardan en la tabla
+# transferencias_cola_pausa (migración 0086) para que un reinicio o despliegue no las borre;
+# estos dicts son su copia en memoria (un solo worker), cargada en la primera consulta.
+_pausas: dict[int, dict] = {}        # user_id -> {"turno": datetime|None, "desde": datetime}
+_turno_fijo: dict[int, dict] = {}    # user_id -> {"turno": datetime|None, "desde": datetime}
+_pausas_cargadas = False
+
+
+async def _cargar_pausas(s) -> None:
+    global _pausas_cargadas
+    if _pausas_cargadas:
+        return
+    r = await s.execute(text("SELECT user_id, estado, turno, desde FROM transferencias_cola_pausa"))
+    for x in r.mappings().all():
+        (_pausas if x["estado"] == "pausa" else _turno_fijo)[int(x["user_id"])] = \
+            {"turno": x["turno"], "desde": x["desde"]}
+    _pausas_cargadas = True
+
+
+async def _guardar_pausa(s, uid: int, estado: str | None, dato: dict | None = None) -> None:
+    """Refleja en la BD el estado de pausa de un agente (None = sin pausa ni turno fijo)."""
+    if estado is None:
+        await s.execute(text("DELETE FROM transferencias_cola_pausa WHERE user_id = :u"), {"u": uid})
+    else:
+        await s.execute(text("""
+            INSERT INTO transferencias_cola_pausa (user_id, estado, turno, desde)
+            VALUES (:u, :e, :t, :d)
+            ON DUPLICATE KEY UPDATE estado = VALUES(estado), turno = VALUES(turno), desde = VALUES(desde)
+        """), {"u": uid, "e": estado, "t": dato["turno"], "d": dato["desde"]})
+    await s.commit()
+
 
 # En el CRM local (COLA_TODOS=1 en .env.local) los agentes reales están conectados a
 # producción, no al local: la cola los muestra a todos para poder probarla.
@@ -414,9 +465,10 @@ def _conectado(user_id: int) -> bool:
 async def _cola(s, seccion: str, solo_conectados: bool = True) -> list[dict]:
     """Agentes de la sección (destino) en orden de turno (el primero recibe la siguiente):
     los conectados, o todos con solo_conectados=False (cuando no hay nadie conectado)."""
+    await _cargar_pausas(s)
     teams = await _agentes_por_team(s, seccion)
     agentes = [dict(a, team=t) for t, lista in teams.items() for a in lista
-               if not solo_conectados or _conectado(a["id"])]
+               if not solo_conectados or _conectado(a["id"]) or a["id"] in _pausas]
     if not agentes:
         return []
     r = await s.execute(text(f"""
@@ -435,6 +487,16 @@ async def _cola(s, seccion: str, solo_conectados: bool = True) -> list[dict]:
     for a in agentes:
         desde = realtime.conectado_desde(a["id"]) if solo_conectados and not _COLA_TODOS else None
         a["turno"] = max([x for x in (a["ultima"], desde) if x is not None], default=None)
+        a["pausado"] = a["id"] in _pausas
+        if a["pausado"]:
+            a["turno"] = _pausas[a["id"]]["turno"]
+        elif a["id"] in _turno_fijo:
+            fijo = _turno_fijo[a["id"]]
+            if a["ultima"] and a["ultima"] > fijo["desde"]:
+                _turno_fijo.pop(a["id"], None)   # ya recibió después de la pausa: turno normal
+                await _guardar_pausa(s, a["id"], None)
+            else:
+                a["turno"] = fijo["turno"]
     primero = _cola_primero.get(seccion)
     agentes.sort(key=lambda a: (a["id"] != primero, a["turno"] is not None,
                                 a["turno"] or datetime.min, a["nombre"].lower()))
@@ -449,15 +511,16 @@ async def cola(seccion: str = "lineas", user: dict = Depends(current_user)):
     async with AsyncSessionLocal() as s:
         agentes = await _cola(s, seccion)
         sig_sin = None
-        if not agentes:
-            todos = await _cola(s, seccion, solo_conectados=False)
+        if not any(not a["pausado"] for a in agentes):
+            todos = [a for a in await _cola(s, seccion, solo_conectados=False) if not a["pausado"]]
             if todos:
                 sig_sin = {"id": todos[0]["id"], "nombre": todos[0]["nombre"], "team": todos[0]["team"]}
-    return {"success": True, "siguiente_sin_conexion": sig_sin, "agentes": [{
-        "id": a["id"], "nombre": a["nombre"], "team": a["team"], "conectado": True,
+    yo = _uid(user)
+    return {"success": True, "siguiente_sin_conexion": sig_sin, "mi_pausa": yo in _pausas, "agentes": [{
+        "id": a["id"], "nombre": a["nombre"], "team": a["team"], "conectado": True, "pausado": a["pausado"],
         "ultima": a["ultima"].replace(tzinfo=timezone.utc).isoformat() if a["ultima"] else None,
     } for a in agentes], "puede_ordenar": _es_admin_bo(user.get("role", "")),
-        "primero": _cola_primero.get(seccion)}
+        "primero": _cola_primero.get(seccion), "yo": _uid(user)}
 
 
 # ── POST /api/transferencias/cola/primero {id} ── admin/BO: ese agente va primero (una vez) ──
@@ -467,11 +530,48 @@ async def cola_primero(body: dict, user: dict = Depends(current_user)):
         raise HTTPException(403, "Solo administración puede cambiar el orden de la cola")
     seccion = _validar_seccion(body.get("seccion") or "lineas")
     aid = int(body.get("id") or 0)
+    if aid in _pausas:
+        raise HTTPException(409, "Ese agente está en pausa: no puede recibir transferencias")
     if aid:
         _cola_primero[seccion] = aid
     else:
         _cola_primero.pop(seccion, None)
     return {"success": True, "primero": _cola_primero.get(seccion)}
+
+
+# ── POST /api/transferencias/cola/pausa {pausar: bool, id?} ── el agente se pausa a sí
+#    mismo; admin/BO puede pausar o quitar la pausa de cualquiera (id) ──
+@router.post("/cola/pausa")
+async def cola_pausa(body: dict, user: dict = Depends(current_user)):
+    aid = int(body.get("id") or 0) or _uid(user)
+    if aid != _uid(user) and not _es_admin_bo(user.get("role", "")):
+        raise HTTPException(403, "Solo puedes pausar tu propio turno")
+    pausar = bool(body.get("pausar"))
+    async with _cola_lock, AsyncSessionLocal() as s:
+        await _cargar_pausas(s)
+        if pausar:
+            if aid in _pausas:
+                return {"success": True, "pausado": True}
+            # El turno de este momento (con la conexión actual) es el que conserva.
+            for seccion in ("lineas", "residencial"):
+                fila = next((a for a in await _cola(s, seccion) if a["id"] == aid), None) or \
+                    next((a for a in await _cola(s, seccion, solo_conectados=False) if a["id"] == aid), None)
+                if fila:
+                    break
+            if not fila:
+                raise HTTPException(400, "No estás en ninguna cola de transferencias")
+            _pausas[aid] = {"turno": fila["turno"], "desde": _utcnow()}
+            _turno_fijo.pop(aid, None)
+            await _guardar_pausa(s, aid, "pausa", _pausas[aid])
+            for sec in list(_cola_primero):
+                if _cola_primero[sec] == aid:
+                    _cola_primero.pop(sec, None)
+        else:
+            p = _pausas.pop(aid, None)
+            if p:
+                _turno_fijo[aid] = {"turno": p["turno"], "desde": _utcnow()}
+                await _guardar_pausa(s, aid, "fijo", _turno_fijo[aid])
+    return {"success": True, "pausado": aid in _pausas}
 
 
 # ── POST /api/transferencias ────────────────────────────────────────
@@ -491,11 +591,12 @@ async def crear(body: TransferenciaIn, user: dict = Depends(current_user)):
         # El primero de la cola de la sección contraria (sus agentes conectados). Las mismas
         # reglas en las dos direcciones.
         destino = _contraria(origen)
-        turno = await _cola(s, destino)
+        # Los que están en pausa conservan su lugar pero no reciben.
+        turno = [a for a in await _cola(s, destino) if not a["pausado"]]
         if not turno:
             # Nadie conectado: igual se asigna, al siguiente por turno entre todos; le llega
             # a la campana al entrar y corren sus 24 h.
-            turno = await _cola(s, destino, solo_conectados=False)
+            turno = [a for a in await _cola(s, destino, solo_conectados=False) if not a["pausado"]]
         if not turno:
             raise HTTPException(409, "No hay agentes para recibir la transferencia")
         agente, team = turno[0], turno[0]["team"]
@@ -573,16 +674,11 @@ async def listar(seccion: str, desde: str = "", hasta: str = "", buscar: str = "
             params["q_tel"] = f"%{digitos}%"
         where.append("(" + " OR ".join(cond) + ")")
     else:
-        for nombre, valor in (("desde", desde), ("hasta", hasta)):
-            if valor:
-                try:
-                    params[nombre] = datetime.strptime(valor, "%Y-%m-%d")
-                except ValueError:
-                    raise HTTPException(400, f"{nombre} debe ser YYYY-MM-DD")
+        params.update(_rango_dias_sv(desde, hasta))
         if "desde" in params:
             where.append("t.created_at >= :desde")
         if "hasta" in params:
-            where.append("t.created_at < DATE_ADD(:hasta, INTERVAL 1 DAY)")
+            where.append("t.created_at < :hasta")
 
     role = user.get("role", "")
     mi_team = ""

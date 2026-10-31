@@ -83,9 +83,16 @@
   if (urlMsg) showAlert('alertLogin', 'alertLoginIcon', 'alertLoginText', decodeURIComponent(urlMsg), 'info');
 
   function showLogoutTour() {
-    // Misma marca que js/layout/topbar-acciones.js: la guía se ve una sola vez por actualización.
-    var VERSION_NOVEDADES = '20261009';
-    try { if (localStorage.getItem('crm_novedades_vistas') === VERSION_NOVEDADES) return; } catch (_) { return; }
+    // Una sola vez por usuario y navegador. Clave PROPIA: antes compartía
+    // `crm_novedades_vistas` con la guía de topbar-acciones.js, cada una con su versión,
+    // y al cerrarse una pisaba a la otra: se turnaban y salían en cada inicio de sesión.
+    // Quien ya pasó por cualquier guía (tiene crm_novedades_vistas) ya vio esta.
+    var CLAVE_GUIA = 'crm_guia_login_vista';
+    try {
+      if (localStorage.getItem(CLAVE_GUIA) || localStorage.getItem('crm_novedades_vistas')) return;
+      // Se marca al mostrarla, no al cerrarla: si recarga o inicia sesión sin cerrarla, no vuelve.
+      localStorage.setItem(CLAVE_GUIA, '1');
+    } catch (_) { return; }
     localStorage.removeItem('crm_show_tour_after_logout');
     localStorage.removeItem('crm_show_update_for_all');
     sessionStorage.removeItem('show_welcome');
@@ -194,7 +201,6 @@
     document.body.appendChild(panel);
 
     function removeTour() {
-      try { localStorage.setItem('crm_novedades_vistas', VERSION_NOVEDADES); } catch (_) {}
       var existing = document.getElementById('tour-after-logout');
       if (existing) existing.remove();
       var styleTag = document.querySelector('style[data-tour-after-logout]');
@@ -652,6 +658,8 @@
 
       showAlert('alertLogin', 'alertLoginIcon', 'alertLoginText', '¡Acceso concedido! Redirigiendo…', 'success');
       sessionStorage.setItem('show_welcome', '1');
+      // Marca de actividad fresca: una vieja (js/core/inactivity-manager.js) cerraría la sesión recién abierta.
+      try { localStorage.setItem('crm_ultima_actividad', String(Date.now())); } catch (_) {}
       try { localStorage.setItem('crm_show_update_for_all', '1'); } catch (_) {}
       preheatPages();
       setTimeout(function () { window.location.replace(redirectUrl); }, 500);
@@ -695,30 +703,24 @@
     }
   });
 
-  /* ── Efecto de fondo (splash cursor) ── */
-  // Vive acá y no en un <script> inline de login.html porque la CSP que el
-  // backend ya envía en modo report-only usa `script-src 'self'` (sin
-  // 'unsafe-inline'): cuando esa política pase a aplicarse de verdad, un
-  // script inline dejaría de ejecutarse.
+  /* ── Video de fondo ── */
+  // El efecto «splash cursor» (simulación de fluidos WebGL a cada fotograma) se quitó:
+  // en los PCs de los agentes, con muchas pestañas abiertas, ocupaba un núcleo entero
+  // y trababa el equipo al iniciar sesión. El video se pausa cuando no se ve y no
+  // corre con «reducir movimiento».
   document.addEventListener('DOMContentLoaded', function () {
-    try {
-      if (typeof initSplashCursor === 'function') {
-        initSplashCursor({ RAINBOW_MODE: true, SPLAT_RADIUS: 0.15, DENSITY_DISSIPATION: 4 });
-      }
-    } catch (e) { console.warn('[login] Splash Cursor no disponible:', e); }
-
-    // El efecto se monta como un canvas fijo a pantalla completa con
-    // z-index:50, o sea POR ENCIMA de todo — así era como lavaba el
-    // formulario. Bajándolo a 1 queda sobre el video (que está al nivel del
-    // .stage) pero debajo del panel derecho, que es opaco y z-index:2.
-    //
-    // Se corrige sobre el nodo ya insertado y FUERA del try de arriba, no
-    // sobre lo que devuelve initSplashCursor: la librería inserta el canvas
-    // antes de inicializar WebGL, así que si esa inicialización falla (por
-    // ejemplo, sin aceleración por hardware) el canvas igual quedó en el DOM
-    // tapando todo, y nunca llegaríamos a leer el valor de retorno.
-    var fluid = document.getElementById('fluid');
-    if (fluid && fluid.parentElement) fluid.parentElement.style.zIndex = '1';
+    var video = document.querySelector('.stage-video');
+    if (!video) return;
+    var quieto = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // Pantalla estrecha: el escenario no se muestra, no hace falta reproducir nada.
+    var visible = function () { return video.offsetParent !== null; };
+    function ajustar() {
+      if (quieto || document.hidden || !visible()) video.pause();
+      else video.play().catch(function () {});
+    }
+    if (quieto) video.removeAttribute('autoplay');
+    document.addEventListener('visibilitychange', ajustar);
+    ajustar();
   });
 
 })();

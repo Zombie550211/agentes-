@@ -502,6 +502,15 @@ _MIGRATIONS: list[tuple[str, str]] = [
         ADD COLUMN valor_linea DECIMAL(4,2) NULL, ADD COLUMN moneda_vista_at DATETIME NULL"""),
     ("0085_transferencias_monedas_viejas", """UPDATE transferencias_llamadas
         SET moneda_vista_at = UTC_TIMESTAMP() WHERE resultado = 'completada'"""),
+    # Pausa en la cola de transferencias (routers/transferencias.py): el turno que el agente
+    # conserva. estado 'pausa' = no recibe; 'fijo' = ya quitó la pausa y mantiene ese turno
+    # hasta su próxima transferencia. En BD para que un reinicio/despliegue no las borre.
+    ("0086_create_transferencias_cola_pausa", """CREATE TABLE IF NOT EXISTS transferencias_cola_pausa (
+        user_id  INT          NOT NULL PRIMARY KEY,
+        estado   VARCHAR(10)  NOT NULL,
+        turno    DATETIME     NULL,
+        desde    DATETIME     NOT NULL
+    ) ENGINE=InnoDB"""),
     # Agentes que no comisionan un mes (casilla «Comisiona este mes» de Comisiones).
     ("0081_create_comision_excluidos", """CREATE TABLE IF NOT EXISTS comision_excluidos (
         ym           CHAR(7)      NOT NULL,

@@ -32,6 +32,7 @@
 
   const ORIGEN = location.pathname.indexOf('/lineas/') === 0 ? 'lineas' : 'residencial';
   const DESTINO_LABEL = ORIGEN === 'lineas' ? 'Residencial' : 'Líneas';
+  const ORIGEN_LABEL = ORIGEN === 'lineas' ? 'Líneas' : 'Residencial';
   // Ninguna dirección elige destino: lo asigna la cola de agentes conectados de la sección
   // que recibe (Líneas para Residencial, Residencial para Líneas). Mismas reglas en las dos.
   const COLA = true;
@@ -114,6 +115,21 @@
         '<div class="trf-kpis" id="trf-kpis" aria-live="polite"></div>' +
       '</section>' +
       '<div class="trf-fila">' +
+      // A la izquierda, la cola propia (la de la sección de la página, que recibe de la otra)
+      // para que cada agente vea en qué lugar va y pueda ponerse en pausa.
+      (COLA
+        ? '<section class="trf-card trf-micola" aria-labelledby="trf-micola-title">' +
+            '<div class="trf-head">' +
+              '<div class="trf-ic"><i class="ph ph-hash"></i></div>' +
+              '<div class="trf-head-txt">' +
+                '<h2 class="trf-title" id="trf-micola-title">Tu lugar en la cola</h2>' +
+                '<p class="trf-sub">Cola de ' + ORIGEN_LABEL + ': quién recibe la próxima transferencia de ' + esc(DESTINO_LABEL) + '.</p>' +
+              '</div>' +
+            '</div>' +
+            '<div class="trf-micola-yo" id="trf-micola-yo" aria-live="polite"></div>' +
+            '<ol class="trf-cola-lista" id="trf-micola-lista"></ol>' +
+          '</section>'
+        : '') +
       '<section class="trf-card" aria-labelledby="trf-title">' +
         '<div class="trf-head">' +
           '<div class="trf-ic"><i class="fas fa-phone-volume"></i></div>' +
@@ -614,6 +630,8 @@
     ICO_ABIERTO: svgIco('M56 104h144a8 8 0 0 1 8 8v96a8 8 0 0 1-8 8H56a8 8 0 0 1-8-8v-96a8 8 0 0 1 8-8Zm32 0V72a40 40 0 0 1 76-17'),
     ICO_CHECK: svgIco('M40 144l56 56L216 80'),
     ICO_TOMAR: svgIco('M128 40v136m-48-48 48 48 48-48M48 216h160'),
+    ICO_PAUSA: svgIco('M96 56v144M160 56v144'),
+    ICO_PLAY: svgIco('M88 48v160l120-80Z'),
   };
 
   // ── Monedero: moneda que entra cuando una venta transferida se completa ──
@@ -1270,22 +1288,22 @@
     const btn = q('.trf-btn');
     // Solo los conectados: un agente desconectado no puede recibir transferencias.
     agentes = agentes.filter((a) => a.conectado !== false);
-    if (!agentes.length) {
-      lista.innerHTML = '<li class="trf-cola-vacia">Ningún agente de ' + esc(DESTINO_LABEL) + ' está conectado.</li>';
+    // En pausa: siguen en la lista con su lugar, pero la transferencia va al primero sin pausa.
+    if (!agentes.some((a) => !a.pausado)) {
+      if (!agentes.length) lista.innerHTML = '<li class="trf-cola-vacia">Ningún agente de ' + esc(DESTINO_LABEL) + ' está conectado.</li>';
       // Igual se puede transferir: va al siguiente por turno y le llega al conectarse.
       if (colaSinConexion) {
-        if (asigna) asigna.innerHTML = '<span>Nadie de ' + esc(DESTINO_LABEL) + ' conectado. Se asignará por turno a</span> <b>' + esc(colaSinConexion.nombre) +
+        if (asigna) asigna.innerHTML = '<span>Nadie de ' + esc(DESTINO_LABEL) + ' disponible (conectado y sin pausa). Se asignará por turno a</span> <b>' + esc(colaSinConexion.nombre) +
           '</b> <small>' + esc(String(colaSinConexion.team).replace(/^TEAM\s+/i, '')) + ' · le llegará al conectarse</small>';
         if (btn) btn.disabled = false;
       } else {
         if (asigna) asigna.innerHTML = '<i class="ph ph-warning" aria-hidden="true"></i> No hay agentes de ' + esc(DESTINO_LABEL) + ': no se puede transferir ahora.';
         if (btn) btn.disabled = true;
       }
-      return;
-    }
-    if (btn) btn.disabled = false;
-    const sig = agentes[0];
-    if (asigna) {
+      if (!agentes.length) return;
+    } else if (btn) btn.disabled = false;
+    const sig = agentes.find((a) => !a.pausado);
+    if (asigna && sig) {
       asigna.innerHTML = '<span>Se asignará a</span> <b>' + esc(sig.nombre) + '</b> <small>' +
         esc(String(sig.team).replace(/^TEAM\s+/i, '')) + '</small>';
     }
@@ -1298,15 +1316,20 @@
     agentes.forEach(function (a, i) {
       const li = previos[a.id] || document.createElement('li');
       li.dataset.id = a.id;
-      li.className = 'trf-cola-fila' + (i === 0 ? ' sig' : '');
+      li.className = 'trf-cola-fila' + (a === sig ? ' sig' : '') + (a.pausado ? ' pausado' : '');
       li.innerHTML = '<span class="trf-cola-pos">' + (i + 1) + '</span>' +
         '<span class="trf-cola-nom"><b>' + esc(a.nombre) + '</b><small>' +
           esc(String(a.team).replace(/^TEAM\s+/i, '')) + ' · ' + esc(haceCuanto(a.ultima)) + '</small></span>' +
-        (i === 0 ? '<span class="trf-cola-tag">Siguiente</span>'
-          : colaOrdenar ? '<button type="button" class="trf-cola-subir" data-primero="' + a.id + '" title="Que ' + esc(a.nombre) +
-              ' reciba la próxima transferencia (una sola vez)">Poner primero</button>' : '');
+        '<span class="trf-cola-acc">' +
+          (a.pausado ? '<span class="trf-cola-tag pausa">En pausa</span>'
+            : a === sig ? '<span class="trf-cola-tag">Siguiente</span>'
+            : colaOrdenar ? '<button type="button" class="trf-cola-subir" data-primero="' + a.id + '" title="Que ' + esc(a.nombre) +
+                ' reciba la próxima transferencia (una sola vez)">Poner primero</button>' : '') +
+          (colaOrdenar ? btnPausaFila(a) : '') +
+        '</span>';
       lista.appendChild(li);
     });
+    enlazarPausaFila(lista);
     lista.querySelectorAll('[data-primero]').forEach(function (b) {
       b.addEventListener('click', async function () {
         b.disabled = true;
@@ -1328,12 +1351,124 @@
     });
   }
 
+  // ── Tu lugar en la cola (Líneas) ──────────────────────────────
+  // La cola de la propia sección: solo lectura, resalta al agente que mira la página.
+  let miColaPedido = 0;
+
+  async function cargarMiCola() {
+    const lista = q('#trf-micola-lista');
+    if (!lista) return;
+    const pedido = ++miColaPedido;
+    let j;
+    try {
+      const r = await fetch('/api/transferencias/cola?seccion=' + ORIGEN);
+      j = await r.json();
+      if (!r.ok) throw new Error(j.detail || 'Error');
+    } catch (e) {
+      if (pedido === miColaPedido && !lista.children.length) {
+        lista.innerHTML = '<li class="trf-cola-vacia">No se pudo cargar la cola.</li>';
+      }
+      return;
+    }
+    if (pedido !== miColaPedido) return;
+    pintarMiCola(lista, (j.agentes || []).filter((a) => a.conectado !== false), parseInt(j.yo, 10) || 0, !!j.mi_pausa, !!j.puede_ordenar);
+  }
+
+  /** Admin/BO: botón Pausar / Quitar pausa en la fila de cualquier agente. */
+  function btnPausaFila(a) {
+    return '<button type="button" class="trf-cola-subir trf-pausa-fila" data-pausa-id="' + a.id + '" data-pausar="' + (a.pausado ? '0' : '1') + '"' +
+      ' title="' + (a.pausado ? 'Quitar la pausa de ' : 'Poner en pausa a ') + esc(a.nombre) + ' (conserva su lugar)">' +
+      (a.pausado ? 'Quitar pausa' : 'Pausar') + '</button>';
+  }
+
+  function enlazarPausaFila(lista) {
+    lista.querySelectorAll('[data-pausa-id]').forEach(function (b) {
+      b.addEventListener('click', async function () {
+        b.disabled = true;
+        const r = await fetch('/api/transferencias/cola/pausa', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: parseInt(b.dataset.pausaId, 10), pausar: b.dataset.pausar === '1' }) });
+        if (!r.ok) { b.disabled = false; mensaje('err', 'No se pudo cambiar la pausa'); return; }
+        cargarMiCola();
+        cargarCola();
+      });
+    });
+  }
+
+  function pintarMiCola(lista, agentes, yo, enPausa, admin) {
+    const resumen = q('#trf-micola-yo');
+    const pos = agentes.findIndex((a) => a.id === yo);
+    // Los que están en pausa conservan su lugar pero no reciben: no cuentan como «faltan».
+    const antes = pos > 0 ? agentes.slice(0, pos).filter((a) => !a.pausado).length : 0;
+    if (resumen) {
+      let html;
+      if (enPausa) {
+        resumen.className = 'trf-micola-yo pausa';
+        html = '<b>' + (pos >= 0 ? pos + 1 : '–') + '</b><span>Estás en pausa' +
+          '<small>Conservas tu lugar; no recibirás transferencias hasta quitar la pausa.</small></span>';
+      } else if (pos >= 0 && antes === 0) {
+        resumen.className = 'trf-micola-yo sig';
+        html = '<b>' + (pos + 1) + '</b><span>Eres el siguiente<small>La próxima transferencia de ' + esc(DESTINO_LABEL) + ' es para ti.</small></span>';
+      } else if (pos > 0) {
+        resumen.className = 'trf-micola-yo';
+        html = '<b>' + (pos + 1) + '</b><span>Vas en el lugar ' + (pos + 1) + ' de ' + agentes.length +
+          '<small>' + (antes === 1 ? 'Falta 1 transferencia' : 'Faltan ' + antes + ' transferencias') + ' para tu turno.</small></span>';
+      } else {
+        resumen.className = 'trf-micola-yo fuera';
+        html = '<span>No estás en la cola<small>Solo entran los agentes de ' + ORIGEN_LABEL + ' conectados al CRM.</small></span>';
+      }
+      if (enPausa || pos >= 0) {
+        html += '<button type="button" class="trf-pausa-btn' + (enPausa ? ' on' : '') + '" data-pausar="' + (enPausa ? '0' : '1') + '"' +
+          ' title="' + (enPausa ? 'Volver a recibir transferencias en tu mismo lugar' : 'Almuerzo o te levantas del puesto: conservas tu lugar sin recibir transferencias') + '">' +
+          (enPausa ? ICONOS.ICO_PLAY : ICONOS.ICO_PAUSA) + (enPausa ? 'Quitar pausa' : 'Pausa') + '</button>';
+      }
+      resumen.innerHTML = html;
+      const btnPausa = resumen.querySelector('[data-pausar]');
+      if (btnPausa) btnPausa.addEventListener('click', async function () {
+        btnPausa.disabled = true;
+        try {
+          const r = await fetch('/api/transferencias/cola/pausa', { method: 'POST',
+            headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pausar: btnPausa.dataset.pausar === '1' }) });
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(typeof j.detail === 'string' ? j.detail : 'No se pudo cambiar la pausa');
+        } catch (e) {
+          mensaje('err', e.message);
+        }
+        cargarMiCola();
+        cargarCola();
+      });
+    }
+    if (!agentes.length) {
+      lista.innerHTML = '<li class="trf-cola-vacia">Ningún agente de ' + ORIGEN_LABEL + ' está conectado.</li>';
+      return;
+    }
+    const sigId = (agentes.find((a) => !a.pausado) || {}).id;
+    lista.innerHTML = agentes.map(function (a, i) {
+      const mio = a.id === yo;
+      return '<li class="trf-cola-fila' + (a.id === sigId ? ' sig' : '') + (mio ? ' yo' : '') + (a.pausado ? ' pausado' : '') + '"' + (mio ? ' aria-current="true"' : '') + '>' +
+        '<span class="trf-cola-pos">' + (i + 1) + '</span>' +
+        '<span class="trf-cola-nom"><b>' + esc(a.nombre) + '</b><small>' +
+          esc(String(a.team).replace(/^TEAM\s+/i, '')) + ' · ' + esc(haceCuanto(a.ultima)) + '</small></span>' +
+        '<span class="trf-cola-acc">' +
+          (mio ? '<span class="trf-cola-tag tu">Tú' + (a.pausado ? ' · en pausa' : '') + '</span>'
+            : a.pausado ? '<span class="trf-cola-tag pausa">En pausa</span>'
+            : a.id === sigId ? '<span class="trf-cola-tag">Siguiente</span>' : '') +
+          (admin && !mio ? btnPausaFila(a) : '') +
+        '</span>' +
+      '</li>';
+    }).join('');
+    enlazarPausaFila(lista);
+    // La fila propia, a la vista dentro de la lista (sin mover la página).
+    const fila = lista.querySelector('.yo');
+    if (fila) lista.scrollTop = Math.max(0, fila.offsetTop - lista.offsetTop - lista.clientHeight / 2 + fila.offsetHeight / 2);
+  }
+
   function vigilarCola() {
     if (!COLA) return;
-    cargarCola();
+    const cargar = function () { cargarCola(); cargarMiCola(); };
+    cargar();
     clearInterval(colaTimer);
-    colaTimer = setInterval(function () { if (!document.hidden) cargarCola(); }, COLA_MS);
-    document.addEventListener('visibilitychange', function () { if (!document.hidden) cargarCola(); });
+    colaTimer = setInterval(function () { if (!document.hidden) cargar(); }, COLA_MS);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) cargar(); });
   }
 
   // ── Pestañas ───────────────────────────────────────────────────
