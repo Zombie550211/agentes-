@@ -408,8 +408,14 @@ async def _cola_lineas(s, solo_conectados: bool = True) -> list[dict]:
     ultima = {int(x["id"]): x["ultima"] for x in r.mappings().all()}
     for a in agentes:
         a["ultima"] = ultima.get(a["id"])
-    agentes.sort(key=lambda a: (a["id"] != _cola_primero, a["ultima"] is not None,
-                                a["ultima"] or datetime.min, a["nombre"].lower()))
+    # Turno = lo más reciente entre «recibió su última transferencia» y «se conectó»: quien
+    # acaba de recibir o de conectarse va al final. Sin ninguna de las dos (desconectados en
+    # la asignación de respaldo), primero.
+    for a in agentes:
+        desde = realtime.conectado_desde(a["id"]) if solo_conectados and not _COLA_TODOS else None
+        a["turno"] = max([x for x in (a["ultima"], desde) if x is not None], default=None)
+    agentes.sort(key=lambda a: (a["id"] != _cola_primero, a["turno"] is not None,
+                                a["turno"] or datetime.min, a["nombre"].lower()))
     return agentes
 
 

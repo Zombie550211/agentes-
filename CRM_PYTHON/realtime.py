@@ -53,10 +53,38 @@ def canal_usuario(user_id) -> str:
 CANAL_ADMIN = "rol:admin"
 
 
+# Presencia: desde cuándo está conectado cada usuario (canal «usuario:{id}»). La usa la cola
+# de Líneas (routers/transferencias.py): quien se conecta entra al final. Una recarga o un
+# corte corto (< GRACIA_RECONEXION s) conserva el «desde» para no perder el lugar.
+GRACIA_RECONEXION = 120
+_presencia: dict[str, dict] = {}   # canal -> {"desde": datetime UTC, "salio": datetime | None}
+
+
+def _ahora():
+    import datetime as _dt
+    return _dt.datetime.now(_dt.timezone.utc).replace(tzinfo=None)
+
+
+def conectado_desde(user_id):
+    """Momento (UTC) desde el que el usuario está conectado, o None si no lo está."""
+    ch = canal_usuario(user_id)
+    if not _subscribers.get(ch):
+        return None
+    p = _presencia.get(ch)
+    return p["desde"] if p else None
+
+
 def subscribe_many(channels: list[str]) -> asyncio.Queue:
     """Una sola cola registrada en varios canales."""
     q: asyncio.Queue = asyncio.Queue(maxsize=_MAX_QUEUE)
     for ch in channels:
+        if ch.startswith("usuario:") and not _subscribers.get(ch):
+            p = _presencia.get(ch)
+            ahora = _ahora()
+            if not p or not p.get("salio") or (ahora - p["salio"]).total_seconds() > GRACIA_RECONEXION:
+                _presencia[ch] = {"desde": ahora, "salio": None}
+            else:
+                p["salio"] = None
         _subscribers.setdefault(ch, set()).add(q)
     return q
 
@@ -66,6 +94,8 @@ def unsubscribe_many(channels: list[str], q: asyncio.Queue) -> None:
         subs = _subscribers.get(ch)
         if subs is not None:
             subs.discard(q)
+            if not subs and ch in _presencia:
+                _presencia[ch]["salio"] = _ahora()
             if not subs and ch not in CHANNELS:
                 _subscribers.pop(ch, None)   # los personales no se quedan vacíos en memoria
 
