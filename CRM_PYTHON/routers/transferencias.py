@@ -92,6 +92,17 @@ def _es_admin_bo(role: str) -> bool:
     return r in ("admin", "administrador", "administrativo") or "backoffice" in r
 
 
+# Única persona que gestiona la cola de transferencias: poner/quitar pausa (a sí mismo o a
+# cualquiera) y dar prioridad («Poner primero»). Nadie más, ni agentes ni admin/BO.
+# Se compara el username normalizado (minúsculas, «.»/«_» → espacio).
+_GESTORES_COLA = {"jonathan figueroa", "jonathan f"}
+
+
+def _es_gestor_cola(user: dict) -> bool:
+    u = re.sub(r"[._]+", " ", str(user.get("username") or "")).strip().lower()
+    return re.sub(r"\s+", " ", u) in _GESTORES_COLA
+
+
 def _es_agente(role: str) -> bool:
     """Agente de venta: roles «Agente», «Lineas-Agentes» y «vendedor»."""
     r = str(role or "").lower()
@@ -519,15 +530,15 @@ async def cola(seccion: str = "lineas", user: dict = Depends(current_user)):
     return {"success": True, "siguiente_sin_conexion": sig_sin, "mi_pausa": yo in _pausas, "agentes": [{
         "id": a["id"], "nombre": a["nombre"], "team": a["team"], "conectado": True, "pausado": a["pausado"],
         "ultima": a["ultima"].replace(tzinfo=timezone.utc).isoformat() if a["ultima"] else None,
-    } for a in agentes], "puede_ordenar": _es_admin_bo(user.get("role", "")),
+    } for a in agentes], "puede_ordenar": _es_gestor_cola(user), "puede_pausar": _es_gestor_cola(user),
         "primero": _cola_primero.get(seccion), "yo": _uid(user)}
 
 
-# ── POST /api/transferencias/cola/primero {id} ── admin/BO: ese agente va primero (una vez) ──
+# ── POST /api/transferencias/cola/primero {id} ── solo JONATHAN F: ese agente va primero (una vez) ──
 @router.post("/cola/primero")
 async def cola_primero(body: dict, user: dict = Depends(current_user)):
-    if not _es_admin_bo(user.get("role", "")):
-        raise HTTPException(403, "Solo administración puede cambiar el orden de la cola")
+    if not _es_gestor_cola(user):
+        raise HTTPException(403, "Solo JONATHAN F puede dar prioridad en la cola")
     seccion = _validar_seccion(body.get("seccion") or "lineas")
     aid = int(body.get("id") or 0)
     if aid in _pausas:
@@ -539,13 +550,13 @@ async def cola_primero(body: dict, user: dict = Depends(current_user)):
     return {"success": True, "primero": _cola_primero.get(seccion)}
 
 
-# ── POST /api/transferencias/cola/pausa {pausar: bool, id?} ── el agente se pausa a sí
-#    mismo; admin/BO puede pausar o quitar la pausa de cualquiera (id) ──
+# ── POST /api/transferencias/cola/pausa {pausar: bool, id?} ── solo JONATHAN F pone o
+#    quita la pausa (de sí mismo o de cualquiera, id); los agentes no pueden ──
 @router.post("/cola/pausa")
 async def cola_pausa(body: dict, user: dict = Depends(current_user)):
+    if not _es_gestor_cola(user):
+        raise HTTPException(403, "Solo JONATHAN F puede poner o quitar la pausa")
     aid = int(body.get("id") or 0) or _uid(user)
-    if aid != _uid(user) and not _es_admin_bo(user.get("role", "")):
-        raise HTTPException(403, "Solo puedes pausar tu propio turno")
     pausar = bool(body.get("pausar"))
     async with _cola_lock, AsyncSessionLocal() as s:
         await _cargar_pausas(s)

@@ -1246,7 +1246,7 @@
   // final. Cada fila se identifica por el id del agente, así al cambiar el orden las filas
   // se deslizan a su nuevo lugar (técnica FLIP) en vez de redibujarse de golpe.
   let colaTimer = null;
-  let colaOrdenar = false;   // admin/BO: puede poner a un agente primero (una vez)
+  let colaOrdenar = false;   // solo JONATHAN F: prioridad (poner primero) y pausa
   let colaSinConexion = null;   // sin nadie conectado: a quién irá por turno
   let colaPedido = 0;
   const sinAnimar = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1374,7 +1374,7 @@
     pintarMiCola(lista, (j.agentes || []).filter((a) => a.conectado !== false), parseInt(j.yo, 10) || 0, !!j.mi_pausa, !!j.puede_ordenar);
   }
 
-  /** Admin/BO: botón Pausar / Quitar pausa en la fila de cualquier agente. */
+  /** Solo JONATHAN F: botón Pausar / Quitar pausa en la fila de cualquier agente. */
   function btnPausaFila(a) {
     return '<button type="button" class="trf-cola-subir trf-pausa-fila" data-pausa-id="' + a.id + '" data-pausar="' + (a.pausado ? '0' : '1') + '"' +
       ' title="' + (a.pausado ? 'Quitar la pausa de ' : 'Poner en pausa a ') + esc(a.nombre) + ' (conserva su lugar)">' +
@@ -1404,7 +1404,7 @@
       if (enPausa) {
         resumen.className = 'trf-micola-yo pausa';
         html = '<b>' + (pos >= 0 ? pos + 1 : '–') + '</b><span>Estás en pausa' +
-          '<small>Conservas tu lugar; no recibirás transferencias hasta quitar la pausa.</small></span>';
+          '<small>Conservas tu lugar; no recibirás transferencias hasta que JONATHAN F quite la pausa.</small></span>';
       } else if (pos >= 0 && antes === 0) {
         resumen.className = 'trf-micola-yo sig';
         html = '<b>' + (pos + 1) + '</b><span>Eres el siguiente<small>La próxima transferencia de ' + esc(DESTINO_LABEL) + ' es para ti.</small></span>';
@@ -1416,7 +1416,8 @@
         resumen.className = 'trf-micola-yo fuera';
         html = '<span>No estás en la cola<small>Solo entran los agentes de ' + ORIGEN_LABEL + ' conectados al CRM.</small></span>';
       }
-      if (enPausa || pos >= 0) {
+      // Solo JONATHAN F (admin = puede_ordenar) pone o quita la pausa; los agentes solo la ven.
+      if (admin && (enPausa || pos >= 0)) {
         html += '<button type="button" class="trf-pausa-btn' + (enPausa ? ' on' : '') + '" data-pausar="' + (enPausa ? '0' : '1') + '"' +
           ' title="' + (enPausa ? 'Volver a recibir transferencias en tu mismo lugar' : 'Almuerzo o te levantas del puesto: conservas tu lugar sin recibir transferencias') + '">' +
           (enPausa ? ICONOS.ICO_PLAY : ICONOS.ICO_PAUSA) + (enPausa ? 'Quitar pausa' : 'Pausa') + '</button>';
