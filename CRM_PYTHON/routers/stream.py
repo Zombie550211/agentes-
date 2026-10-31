@@ -93,7 +93,7 @@ async def stream_notificaciones(request: Request):
     if revocado:
         return JSONResponse({"detail": revocado}, status_code=401)
 
-    canales = [realtime.canal_usuario(user.get("id"))]
+    canales = [realtime.canal_usuario(user.get("id")), realtime.CANAL_TODOS]
     if str(user.get("role") or "").strip().lower() in _ADMIN:
         canales.append(realtime.CANAL_ADMIN)
     queue = realtime.subscribe_many(canales)

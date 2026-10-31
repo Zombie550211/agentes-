@@ -16,8 +16,12 @@ if not JWT_SECRET:
     raise RuntimeError("JWT_SECRET no configurado en variables de entorno. "
                        "Genera uno con: python -c \"import secrets; print(secrets.token_hex(32))\"")
 JWT_ALGO    = "HS256"
-JWT_EXPIRES = 30 * 60  # 30 min — se renueva con cada petición (expira solo por inactividad)
-JWT_EXPIRES_REMEMBER = 30 * 24 * 60 * 60  # 30 días — cuando el usuario tilda "Recordar sesión"
+JWT_EXPIRES_REMEMBER = 30 * 24 * 60 * 60  # 30 días — se renueva sola con el uso
+# Desde el 31-oct-2026 la sesión no se cierra por inactividad: dura hasta que la persona
+# pulsa «Cerrar sesión» (o un admin la revoca, ver session_guard). Todas las sesiones son
+# de 30 días renovables, con o sin «Recordar sesión»; los tokens cortos que ya existían
+# pasan a 30 días en su próxima renovación.
+JWT_EXPIRES = JWT_EXPIRES_REMEMBER
 IS_PROD     = os.getenv("NODE_ENV") == "production"
 # Debe coincidir con routers/auth.py. Por defecto "lax": el frontend usa URLs
 # relativas (API_BASE_URL=''), así que todas las peticiones son same-origin

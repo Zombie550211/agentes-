@@ -658,8 +658,6 @@
 
       showAlert('alertLogin', 'alertLoginIcon', 'alertLoginText', '¡Acceso concedido! Redirigiendo…', 'success');
       sessionStorage.setItem('show_welcome', '1');
-      // Marca de actividad fresca: una vieja (js/core/inactivity-manager.js) cerraría la sesión recién abierta.
-      try { localStorage.setItem('crm_ultima_actividad', String(Date.now())); } catch (_) {}
       try { localStorage.setItem('crm_show_update_for_all', '1'); } catch (_) {}
       preheatPages();
       setTimeout(function () { window.location.replace(redirectUrl); }, 500);

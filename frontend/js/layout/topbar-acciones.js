@@ -348,8 +348,14 @@
       cerrarTodos(cont);
       if (abierto) abierto.focus();
     });
-    // La campana se refresca sola cada 2 minutos.
-    setInterval(function () { cargarAvisos(cont); }, 120000);
+    // La campana se refresca sola cada 2 minutos, solo con la pestaña a la vista (los agentes
+    // tienen +15 pestañas abiertas); al volver a una pestaña oculta se pone al día.
+    var ultimaCarga = Date.now();
+    function refrescar() { ultimaCarga = Date.now(); cargarAvisos(cont); }
+    setInterval(function () { if (!document.hidden) refrescar(); }, 120000);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden && Date.now() - ultimaCarga > 120000) refrescar();
+    });
   }
 
   document.addEventListener('DOMContentLoaded', function () {
@@ -357,7 +363,7 @@
     if (cont) iniciar(cont);
     // Centro de notificaciones (una conexión en vivo por navegador) y, sobre él, los avisos
     // de faltas de Monitoreo. async=false: se ejecutan en este orden.
-    ['/js/core/inactivity-manager.js?v=20261031a', '/js/core/notificaciones.js?v=20261026a', '/js/componentes/aviso-faltas.js?v=20261026d', '/js/componentes/aviso-transferencias.js?v=20261031b'].forEach(function (src) {
+    ['/js/core/notificaciones.js?v=20261026a', '/js/componentes/aviso-faltas.js?v=20261026d', '/js/componentes/aviso-transferencias.js?v=20261031b'].forEach(function (src) {
       var s = document.createElement('script');
       s.src = src;
       s.async = false;

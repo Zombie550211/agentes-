@@ -374,6 +374,7 @@ async def tomar(tid: int, user: dict = Depends(current_user)):
             "yo": _uid(user), "nombre": (yo.get("username") or user.get("username") or "").strip(),
             "team": (yo.get("team") or "").strip(), "ahora": _utcnow(), "id": tid})
         await s.commit()
+    realtime.avisar_cola()
     return {"success": True, "message": f"La tomaste: tienes {PROTECCION_H} h para gestionarla"}
 
 
@@ -547,6 +548,7 @@ async def cola_primero(body: dict, user: dict = Depends(current_user)):
         _cola_primero[seccion] = aid
     else:
         _cola_primero.pop(seccion, None)
+    realtime.avisar_cola()
     return {"success": True, "primero": _cola_primero.get(seccion)}
 
 
@@ -582,6 +584,7 @@ async def cola_pausa(body: dict, user: dict = Depends(current_user)):
             if p:
                 _turno_fijo[aid] = {"turno": p["turno"], "desde": _utcnow()}
                 await _guardar_pausa(s, aid, "fijo", _turno_fijo[aid])
+    realtime.avisar_cola()
     return {"success": True, "pausado": aid in _pausas}
 
 
@@ -651,6 +654,7 @@ async def crear(body: TransferenciaIn, user: dict = Depends(current_user)):
         "de": (yo.get("username") or user.get("username") or "").strip()}
     await realtime.publish(realtime.canal_usuario(agente["id"]), evento)
     await realtime.publish(realtime.CANAL_ADMIN, evento)
+    realtime.avisar_cola()
     return {"success": True, "message": "Transferencia registrada",
             "id": nuevo_id, "agente": agente["nombre"], "team": team}
 

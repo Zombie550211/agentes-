@@ -51,6 +51,16 @@ def canal_usuario(user_id) -> str:
 
 
 CANAL_ADMIN = "rol:admin"
+# Todos los usuarios conectados. Solo lleva avisos sin datos ({"type": "cola"}): la página
+# que le interesa vuelve a pedir lo suyo a su API.
+CANAL_TODOS = "todos"
+
+
+def avisar_cola() -> None:
+    """La cola de transferencias cambió (alguien se conectó o se fue, pausa, transferencia
+    nueva...): las páginas de Transferencias la recargan al momento en vez de preguntar
+    cada pocos segundos."""
+    publish_nowait(CANAL_TODOS, {"type": "cola"})
 
 
 # Presencia: desde cuándo está conectado cada usuario (canal «usuario:{id}»). La usa la cola
@@ -77,8 +87,10 @@ def conectado_desde(user_id):
 def subscribe_many(channels: list[str]) -> asyncio.Queue:
     """Una sola cola registrada en varios canales."""
     q: asyncio.Queue = asyncio.Queue(maxsize=_MAX_QUEUE)
+    cambio_presencia = False
     for ch in channels:
         if ch.startswith("usuario:") and not _subscribers.get(ch):
+            cambio_presencia = True
             p = _presencia.get(ch)
             ahora = _ahora()
             if not p or not p.get("salio") or (ahora - p["salio"]).total_seconds() > GRACIA_RECONEXION:
@@ -86,6 +98,8 @@ def subscribe_many(channels: list[str]) -> asyncio.Queue:
             else:
                 p["salio"] = None
         _subscribers.setdefault(ch, set()).add(q)
+    if cambio_presencia:
+        avisar_cola()
     return q
 
 
@@ -96,6 +110,7 @@ def unsubscribe_many(channels: list[str], q: asyncio.Queue) -> None:
             subs.discard(q)
             if not subs and ch in _presencia:
                 _presencia[ch]["salio"] = _ahora()
+                avisar_cola()
             if not subs and ch not in CHANNELS:
                 _subscribers.pop(ch, None)   # los personales no se quedan vacíos en memoria
 
@@ -106,6 +121,11 @@ async def publish(channel: str, event: dict) -> None:
     Robusto: nunca lanza. Si una cola está llena, se descarta el evento más
     antiguo para hacer sitio (el cliente recargará con el siguiente de todos modos).
     """
+    publish_nowait(channel, event)
+
+
+def publish_nowait(channel: str, event: dict) -> None:
+    """Igual que publish(), sin await (no espera nada: solo deja el evento en las colas)."""
     try:
         subs = _subscribers.get(channel)
         if not subs:

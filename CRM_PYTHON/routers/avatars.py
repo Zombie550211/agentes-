@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
-from fastapi.responses import StreamingResponse, Response, FileResponse
+from fastapi.responses import Response, FileResponse
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
@@ -41,6 +41,48 @@ _SVG_FALLBACK = (
     '<rect x="15" y="80" width="90" height="22" rx="10" fill="#f8fafc"/>'
     "</svg>"
 )
+
+
+# Las fotos se muestran como círculos de 32-96 px, pero se subían tal cual (hasta ~1 MB):
+# el ranking bajaba 2 MB de avatares y la foto propia viajaba en cada página. Se sirve una
+# copia WebP de 256 px (nítida en pantallas 2x), generada la primera vez que se pide y
+# guardada en .min/; se regenera si el original cambia. Los GIF se dejan (pueden ser animados).
+_MIN_DIR = _AVATAR_DIR / ".min"
+_MIN_LADO = 256
+_MIN_BYTES = 60 * 1024   # por debajo de esto no vale la pena recomprimir
+
+
+def _reducir(origen: Path, destino: Path) -> None:
+    from PIL import Image, ImageOps
+    with Image.open(origen) as im:
+        im = ImageOps.exif_transpose(im)
+        im.thumbnail((_MIN_LADO, _MIN_LADO))
+        if im.mode not in ("RGB", "RGBA"):
+            im = im.convert("RGBA")
+        _MIN_DIR.mkdir(exist_ok=True)
+        tmp = destino.with_suffix(".tmp")
+        im.save(tmp, "WEBP", quality=82, method=4)
+        os.replace(tmp, destino)
+
+
+async def _version_liviana(path: Path) -> Path:
+    """Copia reducida del avatar si el original es pesado; si algo falla, el original."""
+    try:
+        st = path.stat()
+        if st.st_size < _MIN_BYTES or path.suffix.lower() == ".gif":
+            return path
+        destino = _MIN_DIR / f"{path.stem}.webp"
+        if not destino.exists() or destino.stat().st_mtime < st.st_mtime:
+            import asyncio
+            await asyncio.get_running_loop().run_in_executor(None, _reducir, path, destino)
+        return destino
+    except Exception:
+        return path
+
+
+def _mime_de(path: Path) -> str:
+    return {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
+            "webp": "image/webp", "gif": "image/gif"}.get(path.suffix.lower().lstrip("."), "image/png")
 
 
 def _infer_ext(mime: str, fallback: str = "png") -> str:
@@ -117,10 +159,8 @@ def _avatar_path(name: str) -> Path | None:
 async def serve_avatar_upload(filename: str, user: dict = Depends(current_user)):
     path = _avatar_path(filename)
     if path and path.is_file():
-        ext  = path.suffix.lower().lstrip(".")
-        mime = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
-                "webp": "image/webp", "gif": "image/gif"}.get(ext, "image/png")
-        return FileResponse(str(path), media_type=mime,
+        path = await _version_liviana(path)
+        return FileResponse(str(path), media_type=_mime_de(path),
                             headers={"Cache-Control": "private, max-age=86400"})
     # Avatar no existe en disco (deploy nuevo) — devuelve SVG placeholder
     return Response(
@@ -194,23 +234,9 @@ async def serve_avatar(file_ref: str, user: dict = Depends(current_user)):
             headers={"Cache-Control": "public, max-age=86400"},
         )
 
-    ext  = disk_path.suffix.lower().lstrip(".")
-    mime = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
-            "webp": "image/webp", "gif": "image/gif"}.get(ext, "image/png")
-
-    async def _stream():
-        async with aiofiles.open(disk_path, "rb") as f:
-            while True:
-                chunk = await f.read(65536)
-                if not chunk:
-                    break
-                yield chunk
-
-    return StreamingResponse(
-        _stream(),
-        media_type=mime,
-        headers={"Cache-Control": "private, max-age=86400", "Accept-Ranges": "bytes"},
-    )
+    disk_path = await _version_liviana(disk_path)
+    return FileResponse(str(disk_path), media_type=_mime_de(disk_path),
+                        headers={"Cache-Control": "private, max-age=86400"})
 
 
 # ── DELETE /api/users/me/avatar ───────────────────────────────
@@ -232,6 +258,7 @@ async def delete_avatar(user: dict = Depends(current_user)):
             fpath = _AVATAR_DIR / fname
             if fpath.exists():
                 fpath.unlink(missing_ok=True)
+            (_MIN_DIR / f"{fpath.stem}.webp").unlink(missing_ok=True)
 
         await s.execute(text("""
             UPDATE users SET avatar_url=NULL, updated_at=:now WHERE username=:u

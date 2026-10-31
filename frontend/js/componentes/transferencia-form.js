@@ -1463,12 +1463,35 @@
     if (fila) lista.scrollTop = Math.max(0, fila.offsetTop - lista.offsetTop - lista.clientHeight / 2 + fila.offsetHeight / 2);
   }
 
+  // Con la conexión en vivo (js/core/notificaciones.js) el servidor avisa {type:'cola'} cuando
+  // la cola cambia y solo entonces se recarga; antes cada agente la pedía cada 8 s. Sin
+  // conexión en vivo se vuelve a preguntar cada COLA_MS, y con ella igual cada COLA_VIVO_MS
+  // por si algún aviso no llega (la conexión puede cortarse sin que la pestaña se entere).
+  const COLA_VIVO_MS = 20000;
   function vigilarCola() {
     if (!COLA) return;
-    const cargar = function () { cargarCola(); cargarMiCola(); };
+    let ultima = 0, pendiente = null, enlazado = false;
+    const cargar = function () { ultima = Date.now(); cargarCola(); cargarMiCola(); };
+    const enVivo = function () { return !!(window.CRMNotificaciones && CRMNotificaciones.enVivo()); };
+    // notificaciones.js lo inyecta la barra superior: puede llegar después que esta página.
+    const enlazar = function () {
+      if (enlazado || !window.CRMNotificaciones) return;
+      enlazado = true;
+      CRMNotificaciones.on('cola', function () {
+        if (document.hidden || pendiente) return;
+        // Un poco de espera al azar: así no piden todos los agentes en el mismo instante.
+        pendiente = setTimeout(function () { pendiente = null; cargar(); }, 300 + Math.random() * 1200);
+      });
+      CRMNotificaciones.onEstado(function (vivo) { if (vivo && !document.hidden) cargar(); });
+    };
+    enlazar();
     cargar();
     clearInterval(colaTimer);
-    colaTimer = setInterval(function () { if (!document.hidden) cargar(); }, COLA_MS);
+    colaTimer = setInterval(function () {
+      enlazar();
+      if (document.hidden) return;
+      if (Date.now() - ultima >= (enVivo() ? COLA_VIVO_MS : COLA_MS)) cargar();
+    }, COLA_MS);
     document.addEventListener('visibilitychange', function () { if (!document.hidden) cargar(); });
   }
 
