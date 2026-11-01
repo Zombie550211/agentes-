@@ -105,6 +105,22 @@ async def list_teams(seccion: str = "", sales: str = "", user: dict = Depends(cu
     return {"success": True, "teams": teams}
 
 
+# ── GET /api/teams/conectados ── teams con al menos un usuario conectado ahora mismo
+#    (presencia del centro de notificaciones, realtime.py). Lo usa Estadísticas → «Hoy».
+@router.get("/api/teams/conectados")
+async def teams_conectados(user: dict = Depends(current_user)):
+    import realtime
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            SELECT id, TRIM(team) AS team FROM users
+            WHERE COALESCE(active, 1) = 1 AND team IS NOT NULL AND TRIM(team) != ''
+        """))
+        rows = r.mappings().all()
+    teams = sorted({row["team"] for row in rows
+                    if realtime._subscribers.get(realtime.canal_usuario(row["id"]))})
+    return {"success": True, "teams": teams}
+
+
 @router.get("/api/teams/agents")
 async def list_agents(supervisor: str = "", user: dict = Depends(current_user)):
     if not supervisor:

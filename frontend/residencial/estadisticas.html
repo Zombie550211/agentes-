@@ -334,6 +334,25 @@
     }catch(_){ _weekendTeams = null; }
   }
 
+  // Teams con alguien conectado ahora (/api/teams/conectados). Las tablas «Hoy» del día
+  // actual solo muestran estos (y los que ya vendieron hoy, para no perder ventas).
+  // null = no se pudo cargar → sin filtro.
+  var _conectados = null;
+  async function loadConectados(){
+    try{
+      var res=await fetch('/api/teams/conectados',{credentials:'include'});
+      if(!res||!res.ok)return;
+      var j=await res.json();
+      _conectados=(j.teams||[]).map(function(t){return normMatch(t);});
+    }catch(_){}
+  }
+  function esDiaActual(){ return diaSel()===fStr(new Date()); }
+  // ¿El team sale en la tabla «Hoy»? Día actual: conectado o con ventas hoy.
+  function visibleHoy(label,ventasHoy){
+    if(!esDiaActual()||!_conectados)return true;
+    return ventasHoy>0||_conectados.indexOf(normMatch(label))!==-1;
+  }
+
   // Equipos de Líneas (para mostrar filas a cero cuando no hay datos).
   // Dinámico desde el backend (/api/teams?seccion=lineas) — sin nombres hardcodeados.
   var _lineasTeams = [];
@@ -489,13 +508,19 @@
       tbody.innerHTML=rowsMes.join('');
     }
 
-    // Tabla diaria — en fin de semana solo los equipos que trabajan HOY (rotación
-    // gestionada por el backend). Entre semana (_weekendTeams=null): todos.
-    var dayTNames=tNames;
-    if(_weekendTeams){
+    // Tabla diaria — día actual: solo los teams con alguien conectado (o que ya vendieron).
+    // Otro día: en fin de semana los de la rotación (backend); entre semana todos.
+    // Orden: ventas del día, luego puntos del día, luego nombre.
+    var dayTNames=tNames.slice();
+    if(esDiaActual()&&_conectados){
+      dayTNames=dayTNames.filter(function(s){return visibleHoy(teams[s].label||s,teams[s].hoy);});
+    }else if(_weekendTeams){
       var _wt=_weekendTeams.map(function(x){return normMatch(x);});
       dayTNames=tNames.filter(function(s){return _wt.indexOf(normMatch(teams[s].label||s))!==-1;});
     }
+    dayTNames.sort(function(a,b){
+      return (teams[b].hoy-teams[a].hoy)||(teams[b].ptsH-teams[a].ptsH)||(teams[a].label||a).localeCompare(teams[b].label||b);
+    });
     var tH=dayTNames.reduce(function(a,s){return a+teams[s].hoy;},0);
     var tPH=dayTNames.reduce(function(a,s){return a+teams[s].ptsH;},0);
     var tIH=dayTNames.reduce(function(a,s){return a+teams[s].iconH;},0);
@@ -508,7 +533,7 @@
         '<td class="es-n"><span class="es-num'+(t.hoy?' es-num-on':'')+'">'+t.hoy+'</span></td>'+
         '<td class="es-n">'+t.ptsH.toFixed(2)+'</td>'+
       '</tr>';
-    }) : ['<tr><td colspan="5" class="es-vacio">'+(tNames.length?'Ningún equipo trabaja hoy':'Sin ventas hoy')+'</td></tr>'];
+    }) : ['<tr><td colspan="5" class="es-vacio">'+(esDiaActual()&&_conectados?'Ningún equipo conectado':tNames.length?'Ningún equipo trabaja hoy':'Sin ventas hoy')+'</td></tr>'];
     rowsDay.push('<tr class="es-total"><th scope="row" class="es-izq">Total hoy</th>'+
       '<td class="es-n">'+tBH+'</td><td class="es-n">'+tIH+'</td><td class="es-n">'+tH+'</td><td class="es-n">'+tPH.toFixed(2)+'</td></tr>');
     $('teams-daily-tbody').innerHTML=rowsDay.join('');
@@ -595,11 +620,19 @@
   }
 
   // Dos tablas, como Ventas por equipo: la del mes y la del día consultado.
-  function renderLineas(teams){
+  function renderLineas(todos){
     // Columnas: ventas y líneas (ambos mercados juntos).
     function tabla(id,p,total){
       var body=$(id);
       if(!body)return;
+      var teams=todos;
+      if(p==='hoy'){
+        // Día actual: solo teams conectados (o con ventas hoy); orden por ventas del día.
+        teams=todos.filter(function(t){return visibleHoy(t.team,t.hoyC);}).sort(function(a,b){
+          return (b.hoyC-a.hoyC)||(b.hoyL-a.hoyL)||String(a.team).localeCompare(String(b.team));
+        });
+        if(!teams.length&&todos.length){ body.innerHTML='<tr><td colspan="3" class="es-vacio">Ningún team conectado</td></tr>'; return; }
+      }
       if(!teams.length){ body.innerHTML='<tr><td colspan="3" class="es-vacio">Sin datos de Líneas</td></tr>'; return; }
       function suma(k){return teams.reduce(function(a,t){return a+t[k];},0);}
       function celdas(v){
@@ -632,6 +665,8 @@
       render(cached.leads,cached.teams||[]);
     }
     // Bootstrap y líneas en paralelo
+    await loadConectados();
+    if(_ult)render(_ult.leads,_ult.teams);
     var results=await Promise.all([fetchData(ms), loadLineas()]);
     var data=results[0];
     if(data&&data.leads){
@@ -701,6 +736,11 @@
     Promise.all([loadSupervisors(), loadWeekendRotation(), loadLineasTeams(), loadServicios()]).then(load);
     // Tiempo real: refresca al cambiar datos de residencial o de líneas (esta
     // página muestra ambos). load() solo re-renderiza si los datos cambiaron.
+    // Quién está conectado cambia sin que cambien los datos: se revisa cada minuto.
+    setInterval(function(){
+      if(document.hidden||!esDiaActual())return;
+      loadConectados().then(rerender);
+    },60000);
     if (window.CRMRealtime) {
       CRMRealtime.connect('residencial', load);
       CRMRealtime.connect('lineas', load);
