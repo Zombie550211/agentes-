@@ -103,6 +103,15 @@ def _es_gestor_cola(user: dict) -> bool:
     return re.sub(r"\s+", " ", u) in _GESTORES_COLA
 
 
+def _es_admin(role: str) -> bool:
+    return str(role or "").strip().lower() in ("admin", "administrador")
+
+
+def _puede_pausar(user: dict) -> bool:
+    """Pausa de la cola: JONATHAN F y los administradores."""
+    return _es_gestor_cola(user) or _es_admin(user.get("role", ""))
+
+
 def _es_agente(role: str) -> bool:
     """Agente de venta: roles «Agente», «Lineas-Agentes» y «vendedor»."""
     r = str(role or "").lower()
@@ -531,7 +540,7 @@ async def cola(seccion: str = "lineas", user: dict = Depends(current_user)):
     return {"success": True, "siguiente_sin_conexion": sig_sin, "mi_pausa": yo in _pausas, "agentes": [{
         "id": a["id"], "nombre": a["nombre"], "team": a["team"], "conectado": True, "pausado": a["pausado"],
         "ultima": a["ultima"].replace(tzinfo=timezone.utc).isoformat() if a["ultima"] else None,
-    } for a in agentes], "puede_ordenar": _es_gestor_cola(user), "puede_pausar": _es_gestor_cola(user),
+    } for a in agentes], "puede_ordenar": _es_gestor_cola(user), "puede_pausar": _puede_pausar(user),
         "primero": _cola_primero.get(seccion), "yo": _uid(user)}
 
 
@@ -552,11 +561,11 @@ async def cola_primero(body: dict, user: dict = Depends(current_user)):
     return {"success": True, "primero": _cola_primero.get(seccion)}
 
 
-# ── POST /api/transferencias/cola/pausa {pausar: bool, id?} ── solo JONATHAN F pone o
-#    quita la pausa (de sí mismo o de cualquiera, id); los agentes no pueden ──
+# ── POST /api/transferencias/cola/pausa {pausar: bool, id?} ── JONATHAN F y los administradores
+#    ponen o quitan la pausa (de sí mismos o de cualquiera, id); los agentes no pueden ──
 @router.post("/cola/pausa")
 async def cola_pausa(body: dict, user: dict = Depends(current_user)):
-    if not _es_gestor_cola(user):
+    if not _puede_pausar(user):
         raise HTTPException(403, "No tienes permiso para poner o quitar la pausa")
     aid = int(body.get("id") or 0) or _uid(user)
     pausar = bool(body.get("pausar"))

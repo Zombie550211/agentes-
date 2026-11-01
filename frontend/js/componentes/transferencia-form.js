@@ -1246,7 +1246,8 @@
   // final. Cada fila se identifica por el id del agente, así al cambiar el orden las filas
   // se deslizan a su nuevo lugar (técnica FLIP) en vez de redibujarse de golpe.
   let colaTimer = null;
-  let colaOrdenar = false;   // solo JONATHAN F: prioridad (poner primero) y pausa
+  let colaOrdenar = false;   // solo JONATHAN F: prioridad (poner primero)
+  let colaPausar = false;    // JONATHAN F y administradores: pausa
   let colaSinConexion = null;   // sin nadie conectado: a quién irá por turno
   let colaPedido = 0;
   const sinAnimar = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1272,6 +1273,7 @@
       if (!r.ok) throw new Error(j.detail || 'Error');
       agentes = j.agentes || [];
       colaOrdenar = !!j.puede_ordenar;
+      colaPausar = !!j.puede_pausar;
       colaSinConexion = j.siguiente_sin_conexion || null;
     } catch (e) {
       if (pedido === colaPedido && !lista.children.length) {
@@ -1325,7 +1327,7 @@
             : a === sig ? '<span class="trf-cola-tag">Siguiente</span>'
             : colaOrdenar ? '<button type="button" class="trf-cola-subir" data-primero="' + a.id + '" title="Que ' + esc(a.nombre) +
                 ' reciba la próxima transferencia (una sola vez)">Poner primero</button>' : '') +
-          (colaOrdenar ? btnPausaFila(a) : '') +
+          (colaPausar ? btnPausaFila(a) : '') +
         '</span>';
       lista.appendChild(li);
     });
@@ -1371,10 +1373,10 @@
       return;
     }
     if (pedido !== miColaPedido) return;
-    pintarMiCola(lista, (j.agentes || []).filter((a) => a.conectado !== false), parseInt(j.yo, 10) || 0, !!j.mi_pausa, !!j.puede_ordenar);
+    pintarMiCola(lista, (j.agentes || []).filter((a) => a.conectado !== false), parseInt(j.yo, 10) || 0, !!j.mi_pausa, !!j.puede_pausar);
   }
 
-  /** Solo JONATHAN F: botón Pausar / Quitar pausa en la fila de cualquier agente. */
+  /** JONATHAN F y administradores: botón Pausar / Quitar pausa en la fila de cualquier agente. */
   function btnPausaFila(a) {
     return '<button type="button" class="trf-cola-subir trf-pausa-fila" data-pausa-id="' + a.id + '" data-pausar="' + (a.pausado ? '0' : '1') + '"' +
       ' title="' + (a.pausado ? 'Quitar la pausa de ' : 'Poner en pausa a ') + esc(a.nombre) + ' (conserva su lugar)">' +
@@ -1416,7 +1418,7 @@
         resumen.className = 'trf-micola-yo fuera';
         html = '<span>No estás en la cola<small>Solo entran los agentes de ' + ORIGEN_LABEL + ' conectados al CRM.</small></span>';
       }
-      // Solo JONATHAN F (admin = puede_ordenar) pone o quita la pausa; los agentes solo la ven.
+      // JONATHAN F y los administradores (puede_pausar) ponen o quitan la pausa; los agentes solo la ven.
       if (admin && (enPausa || pos >= 0)) {
         html += '<button type="button" class="trf-pausa-btn' + (enPausa ? ' on' : '') + '" data-pausar="' + (enPausa ? '0' : '1') + '"' +
           ' title="' + (enPausa ? 'Volver a recibir transferencias en tu mismo lugar' : 'Almuerzo o te levantas del puesto: conservas tu lugar sin recibir transferencias') + '">' +
