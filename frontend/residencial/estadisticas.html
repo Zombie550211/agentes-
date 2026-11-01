@@ -338,12 +338,14 @@
   // actual solo muestran estos (y los que ya vendieron hoy, para no perder ventas).
   // null = no se pudo cargar → sin filtro.
   var _conectados = null;
+  var _conectadosLineas = [];   // nombres de los teams de Líneas conectados
   async function loadConectados(){
     try{
       var res=await fetch('/api/teams/conectados',{credentials:'include'});
       if(!res||!res.ok)return;
       var j=await res.json();
       _conectados=(j.teams||[]).map(function(t){return normMatch(t);});
+      _conectadosLineas=(j.detalle||[]).filter(function(d){return d.seccion==='lineas';}).map(function(d){return d.team;});
     }catch(_){}
   }
   function esDiaActual(){ return diaSel()===fStr(new Date()); }
@@ -627,7 +629,15 @@
       if(!body)return;
       var teams=todos;
       if(p==='hoy'){
-        // Día actual: solo teams conectados (o con ventas hoy); orden por ventas del día.
+        // Día actual: los teams de Líneas conectados salen aunque no estén en la lista de
+        // teams de venta (p.ej. sin supervisor asignado), con 0 hasta su primera venta.
+        if(esDiaActual()){
+          todos=todos.slice();
+          _conectadosLineas.forEach(function(t){
+            if(!todos.some(function(x){return normMatch(x.team)===normMatch(t);}))todos.push(equipoLineasVacio(String(t).toUpperCase()));
+          });
+        }
+        // Solo teams conectados (o con ventas hoy); orden por ventas del día.
         teams=todos.filter(function(t){return visibleHoy(t.team,t.hoyC);}).sort(function(a,b){
           return (b.hoyC-a.hoyC)||(b.hoyL-a.hoyL)||String(a.team).localeCompare(String(b.team));
         });

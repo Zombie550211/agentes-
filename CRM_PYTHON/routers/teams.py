@@ -118,7 +118,10 @@ async def teams_conectados(user: dict = Depends(current_user)):
         rows = r.mappings().all()
     teams = sorted({row["team"] for row in rows
                     if realtime._subscribers.get(realtime.canal_usuario(row["id"]))})
-    return {"success": True, "teams": teams}
+    # seccion de cada team: la tabla «Hoy» de Líneas agrega los suyos aunque no estén en
+    # /api/teams?sales=1 (un team de Líneas sin supervisor asignado).
+    return {"success": True, "teams": teams,
+            "detalle": [{"team": t, "seccion": team_seccion(t)} for t in teams]}
 
 
 @router.get("/api/teams/agents")
