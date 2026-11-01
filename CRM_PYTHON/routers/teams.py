@@ -105,19 +105,24 @@ async def list_teams(seccion: str = "", sales: str = "", user: dict = Depends(cu
     return {"success": True, "teams": teams}
 
 
-# ── GET /api/teams/conectados ── teams con al menos un usuario conectado ahora mismo
+# ── GET /api/teams/conectados ── teams con al menos un agente conectado ahora mismo
 #    (presencia del centro de notificaciones, realtime.py). Lo usa Estadísticas → «Hoy».
 @router.get("/api/teams/conectados")
 async def teams_conectados(user: dict = Depends(current_user)):
     import realtime
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
-            SELECT id, TRIM(team) AS team FROM users
+            SELECT id, role, TRIM(team) AS team FROM users
             WHERE COALESCE(active, 1) = 1 AND team IS NOT NULL AND TRIM(team) != ''
         """))
         rows = r.mappings().all()
-    teams = sorted({row["team"] for row in rows
-                    if realtime._subscribers.get(realtime.canal_usuario(row["id"]))})
+    # Solo cuentan los AGENTES: un supervisor conectado sin su gente no significa que el
+    # team esté laborando.
+    def _agente(role) -> bool:
+        x = str(role or "").lower()
+        return ("agente" in x or "vendedor" in x) and "supervisor" not in x
+    teams = sorted({row["team"] for row in rows if _agente(row["role"])
+                    and realtime._subscribers.get(realtime.canal_usuario(row["id"]))})
     # seccion de cada team: la tabla «Hoy» de Líneas agrega los suyos aunque no estén en
     # /api/teams?sales=1 (un team de Líneas sin supervisor asignado).
     return {"success": True, "teams": teams,
