@@ -360,7 +360,9 @@
   var _lineasTeams = [];
   async function loadLineasTeams(){
     try{
-      var res=await fetch('/api/teams?seccion=lineas&sales=1',{credentials:'include'});
+      // Sin sales=1: en Líneas solo VICTOR tiene a alguien con rol supervisor y los demás
+      // teams (JONATHAN, LUIS) desaparecían del Mes mientras no tuvieran ventas.
+      var res=await fetch('/api/teams?seccion=lineas',{credentials:'include'});
       if(!res||!res.ok)return;
       var j=await res.json();
       _lineasTeams=(j.teams||[]).map(function(t){return t.value||t;});
