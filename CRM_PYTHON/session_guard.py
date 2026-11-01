@@ -28,7 +28,11 @@ cierre de sesión masivo; los datos igual no se pueden leer sin BD.
 """
 import asyncio
 import json
+import os
 import time
+from datetime import datetime, timedelta, time as dtime
+
+from tiempo_sv import TZ_SV, ahora_sv
 
 from sqlalchemy import text
 
@@ -42,6 +46,87 @@ _force_logout: dict = {"ts": 0.0, "value": 0, "loaded": False}
 
 # user_id -> {"ts": momento de la lectura, "active": bool, "role": str}
 _user_state: dict[str, dict] = {}
+
+# ── Cierre por fin de turno ──────────────────────────────────────
+# A un agente se le cierra la sesión cuando termina su turno del horario (agent_schedules,
+# el que llega de Cuadratura). El corte es el fin del turno + SESION_GRACIA_TURNO_MIN
+# (4 min por defecto): con la revalidación de la conexión en vivo cada 20 s, a los 5 min
+# del fin del turno ya está fuera. Si vuelve a entrar después, el token nuevo vale.
+_TURNO_TTL = 60   # segundos
+_GRACIA_TURNO = timedelta(minutes=int(os.getenv("SESION_GRACIA_TURNO_MIN", "4") or 4))
+# user_id -> {"ts": monotonic, "dia": date SV, "cortes": [datetime SV]}
+_turnos: dict[str, dict] = {}
+
+
+def _es_agente(role: str) -> bool:
+    r = str(role or "").lower()
+    return ("agente" in r or "vendedor" in r) and "supervisor" not in r
+
+
+def _a_time(v):
+    """TIME de MySQL llega como timedelta (aiomysql) o time."""
+    if v is None:
+        return None
+    if isinstance(v, dtime):
+        return v
+    if isinstance(v, timedelta):
+        seg = int(v.total_seconds()) % 86400
+        return dtime(seg // 3600, (seg % 3600) // 60, seg % 60)
+    return None
+
+
+async def _cortes_turno(uid: str) -> list[datetime] | None:
+    """Momentos (hora SV) en que termina el turno de ayer y de hoy, más la gracia.
+    None si no se pudo leer (BD caída o id no numérico): no se bloquea."""
+    try:
+        id_int = int(uid)
+    except (ValueError, TypeError):
+        return None
+    hoy = ahora_sv().date()
+    entry = _turnos.get(uid)
+    now = time.monotonic()
+    if entry and entry["dia"] == hoy and (now - entry["ts"]) < _TURNO_TTL:
+        return entry["cortes"]
+    try:
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(text("""
+                SELECT work_date, start_time, end_time, rest_day FROM agent_schedules
+                WHERE user_id = :u AND work_date IN (:ayer, :hoy)
+            """), {"u": id_int, "ayer": hoy - timedelta(days=1), "hoy": hoy})
+            filas = r.mappings().all()
+    except Exception:
+        return entry["cortes"] if entry else None
+    cortes = []
+    for f in filas:
+        ini, fin = _a_time(f["start_time"]), _a_time(f["end_time"])
+        if f["rest_day"] or fin is None:
+            continue
+        termina = datetime.combine(f["work_date"], fin)
+        if ini is not None and fin <= ini:      # turno que cruza la medianoche
+            termina += timedelta(days=1)
+        cortes.append(termina + _GRACIA_TURNO)
+    _turnos[uid] = {"ts": now, "dia": hoy, "cortes": cortes}
+    return cortes
+
+
+async def _turno_terminado(payload: dict) -> bool:
+    """True si el token se emitió antes del fin de un turno que ya pasó."""
+    if not _es_agente(payload.get("role")):
+        return False
+    try:
+        iat = int(payload.get("iat") or 0)
+    except (ValueError, TypeError):
+        return False
+    if not iat:
+        return False
+    cortes = await _cortes_turno(str(payload.get("id") or "").strip())
+    if not cortes:
+        return False
+    ahora = ahora_sv()
+    for corte in cortes:
+        if corte <= ahora and iat < corte.replace(tzinfo=TZ_SV).timestamp():
+            return True
+    return False
 
 
 def invalidate_force_logout() -> None:
@@ -134,9 +219,10 @@ async def is_session_revoked(payload: dict) -> str | None:
     # Las dos comprobaciones son independientes y en el caso normal (sesión
     # vigente) hacen falta ambas, así que se lanzan a la vez: con la caché fría
     # eso cuesta una consulta de tiempo en vez de dos encadenadas.
-    cutoff, estado = await asyncio.gather(
+    cutoff, estado, fin_turno = await asyncio.gather(
         _force_logout_before(),
         _user_state_of(payload.get("id")),
+        _turno_terminado(payload),
     )
 
     if cutoff:
@@ -147,6 +233,9 @@ async def is_session_revoked(payload: dict) -> str | None:
         # `iat` va en segundos (deps.make_token) y el corte se guarda en ms.
         if iat and iat * 1000 < cutoff:
             return "Sesión cerrada por un administrador"
+
+    if fin_turno:
+        return "Tu turno terminó: la sesión se cerró"
 
     if estado is None:
         return None
