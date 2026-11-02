@@ -511,6 +511,13 @@ _MIGRATIONS: list[tuple[str, str]] = [
         turno    DATETIME     NULL,
         desde    DATETIME     NOT NULL
     ) ENGINE=InnoDB"""),
+    # Status del agente en la cola de transferencias: dispo | launch | no_dispo. Sin fila = dispo.
+    ("0087_create_transferencias_estado_agente", """CREATE TABLE IF NOT EXISTS transferencias_estado_agente (
+        user_id      INT          NOT NULL PRIMARY KEY,
+        estado       VARCHAR(10)  NOT NULL,
+        desde        DATETIME     NOT NULL,
+        cambiado_por VARCHAR(150) NULL
+    ) ENGINE=InnoDB"""),
     # Agentes que no comisionan un mes (casilla «Comisiona este mes» de Comisiones).
     ("0081_create_comision_excluidos", """CREATE TABLE IF NOT EXISTS comision_excluidos (
         ym           CHAR(7)      NOT NULL,

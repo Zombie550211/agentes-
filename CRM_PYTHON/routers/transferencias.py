@@ -449,6 +449,14 @@ _pausas: dict[int, dict] = {}        # user_id -> {"turno": datetime|None, "desd
 _turno_fijo: dict[int, dict] = {}    # user_id -> {"turno": datetime|None, "desde": datetime}
 _pausas_cargadas = False
 
+# Status que elige el agente (o JONATHAN F / un administrador por él): sólo «dispo» recibe
+# transferencias. «launch» (almuerzo) y «no_dispo» lo dejan suspendido —sigue en la cola
+# con su turno, pero se lo salta— hasta que vuelva a «dispo». Evita que un agente que sale
+# a almorzar sin cerrar sesión siga recibiendo. Tabla transferencias_estado_agente (0087);
+# sin fila = dispo.
+ESTADOS = ("dispo", "launch", "no_dispo")
+_estados: dict[int, str] = {}        # user_id -> estado (sólo los distintos de dispo)
+
 
 async def _cargar_pausas(s) -> None:
     global _pausas_cargadas
@@ -458,6 +466,10 @@ async def _cargar_pausas(s) -> None:
     for x in r.mappings().all():
         (_pausas if x["estado"] == "pausa" else _turno_fijo)[int(x["user_id"])] = \
             {"turno": x["turno"], "desde": x["desde"]}
+    r = await s.execute(text("SELECT user_id, estado FROM transferencias_estado_agente"))
+    for x in r.mappings().all():
+        if x["estado"] in ESTADOS and x["estado"] != "dispo":
+            _estados[int(x["user_id"])] = x["estado"]
     _pausas_cargadas = True
 
 
@@ -509,6 +521,8 @@ async def _cola(s, seccion: str, solo_conectados: bool = True) -> list[dict]:
         desde = realtime.conectado_desde(a["id"]) if solo_conectados and not _COLA_TODOS else None
         a["turno"] = max([x for x in (a["ultima"], desde) if x is not None], default=None)
         a["pausado"] = a["id"] in _pausas
+        a["estado"] = _estados.get(a["id"], "dispo")
+        a["recibe"] = not a["pausado"] and a["estado"] == "dispo"
         if a["pausado"]:
             a["turno"] = _pausas[a["id"]]["turno"]
         elif a["id"] in _turno_fijo:
@@ -532,13 +546,15 @@ async def cola(seccion: str = "lineas", user: dict = Depends(current_user)):
     async with AsyncSessionLocal() as s:
         agentes = await _cola(s, seccion)
         sig_sin = None
-        if not any(not a["pausado"] for a in agentes):
-            todos = [a for a in await _cola(s, seccion, solo_conectados=False) if not a["pausado"]]
+        if not any(a["recibe"] for a in agentes):
+            todos = [a for a in await _cola(s, seccion, solo_conectados=False) if a["recibe"]]
             if todos:
                 sig_sin = {"id": todos[0]["id"], "nombre": todos[0]["nombre"], "team": todos[0]["team"]}
     yo = _uid(user)
-    return {"success": True, "siguiente_sin_conexion": sig_sin, "mi_pausa": yo in _pausas, "agentes": [{
+    return {"success": True, "siguiente_sin_conexion": sig_sin, "mi_pausa": yo in _pausas,
+        "mi_estado": _estados.get(yo, "dispo"), "agentes": [{
         "id": a["id"], "nombre": a["nombre"], "team": a["team"], "conectado": True, "pausado": a["pausado"],
+        "estado": a["estado"], "recibe": a["recibe"],
         "ultima": a["ultima"].replace(tzinfo=timezone.utc).isoformat() if a["ultima"] else None,
     } for a in agentes], "puede_ordenar": _es_gestor_cola(user), "puede_pausar": _puede_pausar(user),
         "primero": _cola_primero.get(seccion), "yo": _uid(user)}
@@ -553,6 +569,8 @@ async def cola_primero(body: dict, user: dict = Depends(current_user)):
     aid = int(body.get("id") or 0)
     if aid in _pausas:
         raise HTTPException(409, "Ese agente está en pausa: no puede recibir transferencias")
+    if _estados.get(aid, "dispo") != "dispo":
+        raise HTTPException(409, "Ese agente no está DISPO: no puede recibir transferencias")
     if aid:
         _cola_primero[seccion] = aid
     else:
@@ -597,6 +615,37 @@ async def cola_pausa(body: dict, user: dict = Depends(current_user)):
     return {"success": True, "pausado": aid in _pausas}
 
 
+# ── POST /api/transferencias/cola/estado {estado: dispo|launch|no_dispo, id?} ── el agente
+#    cambia el suyo; JONATHAN F y los administradores, el de cualquiera (id) ──
+@router.post("/cola/estado")
+async def cola_estado(body: dict, user: dict = Depends(current_user)):
+    estado = str(body.get("estado") or "").strip().lower()
+    if estado not in ESTADOS:
+        raise HTTPException(400, "Status no válido (DISPO, LAUNCH o NO DISPO)")
+    yo = _uid(user)
+    aid = int(body.get("id") or 0) or yo
+    if aid != yo and not _puede_pausar(user):
+        raise HTTPException(403, "Solo puedes cambiar tu propio status")
+    async with _cola_lock, AsyncSessionLocal() as s:
+        await _cargar_pausas(s)
+        await s.execute(text("""
+            INSERT INTO transferencias_estado_agente (user_id, estado, desde, cambiado_por)
+            VALUES (:u, :e, :d, :by)
+            ON DUPLICATE KEY UPDATE estado = VALUES(estado), desde = VALUES(desde),
+                                    cambiado_por = VALUES(cambiado_por)
+        """), {"u": aid, "e": estado, "d": _utcnow(), "by": str(user.get("username") or "")[:150]})
+        await s.commit()
+        if estado == "dispo":
+            _estados.pop(aid, None)
+        else:
+            _estados[aid] = estado
+            for sec in list(_cola_primero):
+                if _cola_primero[sec] == aid:
+                    _cola_primero.pop(sec, None)
+    realtime.avisar_cola()
+    return {"success": True, "estado": estado}
+
+
 # ── POST /api/transferencias ────────────────────────────────────────
 @router.post("")
 async def crear(body: TransferenciaIn, user: dict = Depends(current_user)):
@@ -614,12 +663,12 @@ async def crear(body: TransferenciaIn, user: dict = Depends(current_user)):
         # El primero de la cola de la sección contraria (sus agentes conectados). Las mismas
         # reglas en las dos direcciones.
         destino = _contraria(origen)
-        # Los que están en pausa conservan su lugar pero no reciben.
-        turno = [a for a in await _cola(s, destino) if not a["pausado"]]
+        # Los que están en pausa o no están DISPO conservan su lugar pero no reciben.
+        turno = [a for a in await _cola(s, destino) if a["recibe"]]
         if not turno:
             # Nadie conectado: igual se asigna, al siguiente por turno entre todos; le llega
             # a la campana al entrar y corren sus 24 h.
-            turno = [a for a in await _cola(s, destino, solo_conectados=False) if not a["pausado"]]
+            turno = [a for a in await _cola(s, destino, solo_conectados=False) if a["recibe"]]
         if not turno:
             raise HTTPException(409, "No hay agentes para recibir la transferencia")
         agente, team = turno[0], turno[0]["team"]

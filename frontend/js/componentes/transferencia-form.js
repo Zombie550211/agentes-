@@ -1285,17 +1285,48 @@
     pintarCola(lista, agentes);
   }
 
+  // Status del agente: solo DISPO (y sin pausa) recibe transferencias.
+  const ESTADOS = [['dispo', 'DISPO'], ['launch', 'LAUNCH'], ['no_dispo', 'NO DISPO']];
+  function recibe(a) { return !a.pausado && (a.estado || 'dispo') === 'dispo'; }
+  function tagEstado(a) {
+    if (a.pausado) return '<span class="trf-cola-tag pausa">En pausa</span>';
+    if (a.estado === 'launch') return '<span class="trf-cola-tag est-launch">LAUNCH</span>';
+    if (a.estado === 'no_dispo') return '<span class="trf-cola-tag est-nodispo">NO DISPO</span>';
+    return '';
+  }
+  /** JONATHAN F y administradores: cambiar el status de cualquier agente desde su fila. */
+  function selEstadoFila(a) {
+    return '<select class="trf-estado-sel" data-estado-id="' + a.id + '" aria-label="Status de ' + esc(a.nombre) + '">' +
+      ESTADOS.map((e) => '<option value="' + e[0] + '"' + ((a.estado || 'dispo') === e[0] ? ' selected' : '') + '>' + e[1] + '</option>').join('') +
+      '</select>';
+  }
+  async function cambiarEstado(estado, id) {
+    try {
+      const r = await fetch('/api/transferencias/cola/estado', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(id ? { estado: estado, id: id } : { estado: estado }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(typeof j.detail === 'string' ? j.detail : 'No se pudo cambiar el status');
+    } catch (e) { mensaje('err', e.message); }
+    cargarMiCola();
+    cargarCola();
+  }
+  function enlazarEstadoFila(lista) {
+    lista.querySelectorAll('[data-estado-id]').forEach(function (sel) {
+      sel.addEventListener('change', function () { sel.disabled = true; cambiarEstado(sel.value, parseInt(sel.dataset.estadoId, 10)); });
+    });
+  }
+
   function pintarCola(lista, agentes) {
     const asigna = q('#trf-asigna');
     const btn = q('.trf-btn');
     // Solo los conectados: un agente desconectado no puede recibir transferencias.
     agentes = agentes.filter((a) => a.conectado !== false);
     // En pausa: siguen en la lista con su lugar, pero la transferencia va al primero sin pausa.
-    if (!agentes.some((a) => !a.pausado)) {
+    if (!agentes.some(recibe)) {
       if (!agentes.length) lista.innerHTML = '<li class="trf-cola-vacia">Ningún agente de ' + esc(DESTINO_LABEL) + ' está conectado.</li>';
       // Igual se puede transferir: va al siguiente por turno y le llega al conectarse.
       if (colaSinConexion) {
-        if (asigna) asigna.innerHTML = '<span>Nadie de ' + esc(DESTINO_LABEL) + ' disponible (conectado y sin pausa). Se asignará por turno a</span> <b>' + esc(colaSinConexion.nombre) +
+        if (asigna) asigna.innerHTML = '<span>Nadie de ' + esc(DESTINO_LABEL) + ' disponible (conectado, DISPO y sin pausa). Se asignará por turno a</span> <b>' + esc(colaSinConexion.nombre) +
           '</b> <small>' + esc(String(colaSinConexion.team).replace(/^TEAM\s+/i, '')) + ' · le llegará al conectarse</small>';
         if (btn) btn.disabled = false;
       } else {
@@ -1304,7 +1335,7 @@
       }
       if (!agentes.length) return;
     } else if (btn) btn.disabled = false;
-    const sig = agentes.find((a) => !a.pausado);
+    const sig = agentes.find(recibe);
     if (asigna && sig) {
       asigna.innerHTML = '<span>Se asignará a</span> <b>' + esc(sig.nombre) + '</b> <small>' +
         esc(String(sig.team).replace(/^TEAM\s+/i, '')) + '</small>';
@@ -1318,20 +1349,21 @@
     agentes.forEach(function (a, i) {
       const li = previos[a.id] || document.createElement('li');
       li.dataset.id = a.id;
-      li.className = 'trf-cola-fila' + (a === sig ? ' sig' : '') + (a.pausado ? ' pausado' : '');
+      li.className = 'trf-cola-fila' + (a === sig ? ' sig' : '') + (recibe(a) ? '' : ' pausado');
       li.innerHTML = '<span class="trf-cola-pos">' + (i + 1) + '</span>' +
         '<span class="trf-cola-nom"><b>' + esc(a.nombre) + '</b><small>' +
           esc(String(a.team).replace(/^TEAM\s+/i, '')) + ' · ' + esc(haceCuanto(a.ultima)) + '</small></span>' +
         '<span class="trf-cola-acc">' +
-          (a.pausado ? '<span class="trf-cola-tag pausa">En pausa</span>'
+          (!recibe(a) ? tagEstado(a)
             : a === sig ? '<span class="trf-cola-tag">Siguiente</span>'
             : colaOrdenar ? '<button type="button" class="trf-cola-subir" data-primero="' + a.id + '" title="Que ' + esc(a.nombre) +
                 ' reciba la próxima transferencia (una sola vez)">Poner primero</button>' : '') +
-          (colaPausar ? btnPausaFila(a) : '') +
+          (colaPausar ? selEstadoFila(a) + btnPausaFila(a) : '') +
         '</span>';
       lista.appendChild(li);
     });
     enlazarPausaFila(lista);
+    enlazarEstadoFila(lista);
     lista.querySelectorAll('[data-primero]').forEach(function (b) {
       b.addEventListener('click', async function () {
         b.disabled = true;
@@ -1373,7 +1405,7 @@
       return;
     }
     if (pedido !== miColaPedido) return;
-    pintarMiCola(lista, (j.agentes || []).filter((a) => a.conectado !== false), parseInt(j.yo, 10) || 0, !!j.mi_pausa, !!j.puede_pausar);
+    pintarMiCola(lista, (j.agentes || []).filter((a) => a.conectado !== false), parseInt(j.yo, 10) || 0, !!j.mi_pausa, !!j.puede_pausar, j.mi_estado || 'dispo');
   }
 
   /** JONATHAN F y administradores: botón Pausar / Quitar pausa en la fila de cualquier agente. */
@@ -1396,17 +1428,22 @@
     });
   }
 
-  function pintarMiCola(lista, agentes, yo, enPausa, admin) {
+  function pintarMiCola(lista, agentes, yo, enPausa, admin, miEstado) {
     const resumen = q('#trf-micola-yo');
     const pos = agentes.findIndex((a) => a.id === yo);
     // Los que están en pausa conservan su lugar pero no reciben: no cuentan como «faltan».
-    const antes = pos > 0 ? agentes.slice(0, pos).filter((a) => !a.pausado).length : 0;
+    const antes = pos > 0 ? agentes.slice(0, pos).filter(recibe).length : 0;
+    const suspendido = miEstado !== 'dispo';
     if (resumen) {
       let html;
       if (enPausa) {
         resumen.className = 'trf-micola-yo pausa';
         html = '<b>' + (pos >= 0 ? pos + 1 : '–') + '</b><span>Estás en pausa' +
           '<small>Conservas tu lugar; no recibirás transferencias mientras estés en pausa.</small></span>';
+      } else if (suspendido) {
+        resumen.className = 'trf-micola-yo pausa';
+        html = '<b>' + (pos >= 0 ? pos + 1 : '–') + '</b><span>Estás en ' + (miEstado === 'launch' ? 'LAUNCH' : 'NO DISPO') +
+          '<small>No recibirás transferencias hasta que cambies tu status a DISPO.</small></span>';
       } else if (pos >= 0 && antes === 0) {
         resumen.className = 'trf-micola-yo sig';
         html = '<b>' + (pos + 1) + '</b><span>Eres el siguiente<small>La próxima transferencia de ' + esc(DESTINO_LABEL) + ' es para ti.</small></span>';
@@ -1424,7 +1461,18 @@
           ' title="' + (enPausa ? 'Volver a recibir transferencias en tu mismo lugar' : 'Almuerzo o te levantas del puesto: conservas tu lugar sin recibir transferencias') + '">' +
           (enPausa ? ICONOS.ICO_PLAY : ICONOS.ICO_PAUSA) + (enPausa ? 'Quitar pausa' : 'Pausa') + '</button>';
       }
+      // Status: lo elige cada agente (DISPO recibe; LAUNCH y NO DISPO quedan suspendidos).
+      html += '<div class="trf-estado" role="group" aria-label="Tu status">' +
+        ESTADOS.map((e) => '<button type="button" class="trf-estado-btn e-' + e[0] + '" data-estado="' + e[0] + '" aria-pressed="' +
+          (miEstado === e[0]) + '">' + e[1] + '</button>').join('') + '</div>';
       resumen.innerHTML = html;
+      resumen.querySelectorAll('[data-estado]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          if (b.getAttribute('aria-pressed') === 'true') return;
+          resumen.querySelectorAll('[data-estado]').forEach((x) => { x.disabled = true; });
+          cambiarEstado(b.dataset.estado);
+        });
+      });
       const btnPausa = resumen.querySelector('[data-pausar]');
       if (btnPausa) btnPausa.addEventListener('click', async function () {
         btnPausa.disabled = true;
@@ -1444,22 +1492,23 @@
       lista.innerHTML = '<li class="trf-cola-vacia">Ningún agente de ' + ORIGEN_LABEL + ' está conectado.</li>';
       return;
     }
-    const sigId = (agentes.find((a) => !a.pausado) || {}).id;
+    const sigId = (agentes.find(recibe) || {}).id;
     lista.innerHTML = agentes.map(function (a, i) {
       const mio = a.id === yo;
-      return '<li class="trf-cola-fila' + (a.id === sigId ? ' sig' : '') + (mio ? ' yo' : '') + (a.pausado ? ' pausado' : '') + '"' + (mio ? ' aria-current="true"' : '') + '>' +
+      return '<li class="trf-cola-fila' + (a.id === sigId ? ' sig' : '') + (mio ? ' yo' : '') + (recibe(a) ? '' : ' pausado') + '"' + (mio ? ' aria-current="true"' : '') + '>' +
         '<span class="trf-cola-pos">' + (i + 1) + '</span>' +
         '<span class="trf-cola-nom"><b>' + esc(a.nombre) + '</b><small>' +
           esc(String(a.team).replace(/^TEAM\s+/i, '')) + ' · ' + esc(haceCuanto(a.ultima)) + '</small></span>' +
         '<span class="trf-cola-acc">' +
-          (mio ? '<span class="trf-cola-tag tu">Tú' + (a.pausado ? ' · en pausa' : '') + '</span>'
-            : a.pausado ? '<span class="trf-cola-tag pausa">En pausa</span>'
+          (mio ? '<span class="trf-cola-tag tu">Tú' + (a.pausado ? ' · en pausa' : a.estado === 'launch' ? ' · LAUNCH' : a.estado === 'no_dispo' ? ' · NO DISPO' : '') + '</span>'
+            : !recibe(a) ? tagEstado(a)
             : a.id === sigId ? '<span class="trf-cola-tag">Siguiente</span>' : '') +
-          (admin && !mio ? btnPausaFila(a) : '') +
+          (admin && !mio ? selEstadoFila(a) + btnPausaFila(a) : '') +
         '</span>' +
       '</li>';
     }).join('');
     enlazarPausaFila(lista);
+    enlazarEstadoFila(lista);
     // La fila propia, a la vista dentro de la lista (sin mover la página).
     const fila = lista.querySelector('.yo');
     if (fila) lista.scrollTop = Math.max(0, fila.offsetTop - lista.offsetTop - lista.clientHeight / 2 + fila.offsetHeight / 2);
