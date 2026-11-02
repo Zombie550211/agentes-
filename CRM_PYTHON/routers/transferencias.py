@@ -151,8 +151,10 @@ async def _agentes_por_team(s, seccion_destino: str) -> dict[str, list[dict]]:
         SELECT id, username, name, role, TRIM(team) AS team FROM users
         WHERE COALESCE(active, 1) = 1 AND team IS NOT NULL AND TRIM(team) != ''
           AND COALESCE(acceso_crm, 1) = 1   -- sin usuario no puede atender la transferencia
+          -- Apartados de transferencias hasta una fecha (tabla transferencias_excluidos, 0088)
+          AND id NOT IN (SELECT user_id FROM transferencias_excluidos WHERE hasta >= :hoy)
         ORDER BY TRIM(team), username
-    """))
+    """), {"hoy": _hoy_sv()})
     teams: dict[str, list[dict]] = {}
     for u in r.mappings().all():
         team = u["team"]
@@ -644,6 +646,79 @@ async def cola_estado(body: dict, user: dict = Depends(current_user)):
                     _cola_primero.pop(sec, None)
     realtime.avisar_cola()
     return {"success": True, "estado": estado}
+
+
+# ── Fuera de transferencias hasta una fecha (JONATHAN F y administradores) ──────
+#    GET    /api/transferencias/excluidos          → vigentes + agentes que se pueden sacar
+#    POST   /api/transferencias/excluidos {user_id, hasta: YYYY-MM-DD, motivo}
+#    DELETE /api/transferencias/excluidos/{user_id} → vuelve a la cola ya
+#    Mientras dure no salen en la cola, en la lista de destinos ni en el ranking
+#    (_agentes_por_team). La fecha es inclusive, en hora SV; al pasar vuelven solos.
+def _hoy_sv():
+    return datetime.now(TZ_SV).date()
+
+
+@router.get("/excluidos")
+async def excluidos(user: dict = Depends(current_user)):
+    if not _puede_pausar(user):
+        raise HTTPException(403, "No tienes permiso")
+    hoy = _hoy_sv()
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            SELECT x.user_id, x.hasta, x.motivo, u.username, TRIM(u.team) AS team
+            FROM transferencias_excluidos x JOIN users u ON u.id = x.user_id
+            WHERE x.hasta >= :hoy ORDER BY x.hasta, u.username
+        """), {"hoy": hoy})
+        vigentes = [{"id": int(x["user_id"]), "nombre": (x["username"] or "").strip(),
+                     "team": x["team"] or "", "hasta": x["hasta"].isoformat(),
+                     "motivo": x["motivo"] or ""} for x in r.mappings().all()]
+        agentes = []
+        for seccion in ("lineas", "residencial"):
+            for team, lista in (await _agentes_por_team(s, seccion)).items():
+                agentes += [{"id": a["id"], "nombre": a["nombre"], "team": team} for a in lista]
+    agentes.sort(key=lambda a: (a["team"], a["nombre"].lower()))
+    return {"success": True, "hoy": hoy.isoformat(), "excluidos": vigentes, "agentes": agentes}
+
+
+@router.post("/excluidos")
+async def excluir(body: dict, user: dict = Depends(current_user)):
+    if not _puede_pausar(user):
+        raise HTTPException(403, "No tienes permiso")
+    uid = int(body.get("user_id") or 0)
+    try:
+        hasta = datetime.strptime(str(body.get("hasta") or ""), "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(400, "Fecha «hasta» no válida")
+    hoy = _hoy_sv()
+    if not hoy <= hasta <= hoy + timedelta(days=366):
+        raise HTTPException(400, "La fecha «hasta» debe ser de hoy en adelante (máximo un año)")
+    motivo = str(body.get("motivo") or "").strip()[:200]
+    por = str(user.get("username") or "").strip()
+    async with _cola_lock, AsyncSessionLocal() as s:
+        r = await s.execute(text("SELECT id FROM users WHERE id = :id"), {"id": uid})
+        if not r.first():
+            raise HTTPException(404, "Ese agente no existe")
+        await s.execute(text("""
+            INSERT INTO transferencias_excluidos (user_id, hasta, motivo) VALUES (:u, :h, :m)
+            ON DUPLICATE KEY UPDATE hasta = VALUES(hasta), motivo = VALUES(motivo)
+        """), {"u": uid, "h": hasta, "m": (motivo + (" · " if motivo else "") + "por " + por)[:200]})
+        await s.commit()
+        for sec in list(_cola_primero):
+            if _cola_primero[sec] == uid:
+                _cola_primero.pop(sec, None)
+    realtime.avisar_cola()
+    return {"success": True}
+
+
+@router.delete("/excluidos/{uid}")
+async def quitar_exclusion(uid: int, user: dict = Depends(current_user)):
+    if not _puede_pausar(user):
+        raise HTTPException(403, "No tienes permiso")
+    async with _cola_lock, AsyncSessionLocal() as s:
+        await s.execute(text("DELETE FROM transferencias_excluidos WHERE user_id = :u"), {"u": uid})
+        await s.commit()
+    realtime.avisar_cola()
+    return {"success": True}
 
 
 # ── POST /api/transferencias ────────────────────────────────────────

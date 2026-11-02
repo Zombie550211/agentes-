@@ -518,6 +518,23 @@ _MIGRATIONS: list[tuple[str, str]] = [
         desde        DATETIME     NOT NULL,
         cambiado_por VARCHAR(150) NULL
     ) ENGINE=InnoDB"""),
+    # Agentes fuera de transferencias hasta una fecha (inclusive, hora SV): no salen en la
+    # cola, ni en la lista de destinos, ni en el ranking. Al pasar la fecha vuelven solos.
+    ("0088_create_transferencias_excluidos", """CREATE TABLE IF NOT EXISTS transferencias_excluidos (
+        user_id    INT          NOT NULL PRIMARY KEY,
+        hasta      DATE         NOT NULL,
+        motivo     VARCHAR(200) NULL,
+        created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB"""),
+    # TEAM LINEAS LUIS (lista de Daniel, 2-nov-2026): fuera hasta el sábado 7-nov.
+    # 197 Carolina Martinez · 74 OSCAR RIVERA · 69 FERNANDO BELTRAN · 70 KARLA RODRIGUEZ · 108 Manuel Flores
+    ("0089_excluir_team_luis_7nov", """INSERT INTO transferencias_excluidos (user_id, hasta, motivo) VALUES
+        (197, '2026-11-07', 'TEAM LINEAS LUIS, semana 2-7 nov'),
+        (74,  '2026-11-07', 'TEAM LINEAS LUIS, semana 2-7 nov'),
+        (69,  '2026-11-07', 'TEAM LINEAS LUIS, semana 2-7 nov'),
+        (70,  '2026-11-07', 'TEAM LINEAS LUIS, semana 2-7 nov'),
+        (108, '2026-11-07', 'TEAM LINEAS LUIS, semana 2-7 nov')
+        ON DUPLICATE KEY UPDATE hasta = VALUES(hasta), motivo = VALUES(motivo)"""),
     # Agentes que no comisionan un mes (casilla «Comisiona este mes» de Comisiones).
     ("0081_create_comision_excluidos", """CREATE TABLE IF NOT EXISTS comision_excluidos (
         ym           CHAR(7)      NOT NULL,

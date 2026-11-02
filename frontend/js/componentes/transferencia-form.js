@@ -211,7 +211,25 @@
         '<div class="trf-hist-body" id="trf-hist-body"></div>' +
       '</section>' +
       // Residencial: el ranking va al final, como gráfica de barras.
-      (COLA ? seccionRanking() : '');
+      (COLA ? seccionRanking() : '') +
+      // JONATHAN F y administradores: agentes fuera de transferencias hasta una fecha.
+      // Oculta hasta que /excluidos responde (a los demás les da 403 y no se ve).
+      '<section class="trf-card trf-excl" id="trf-excl" aria-labelledby="trf-excl-title" hidden>' +
+        '<div class="trf-head">' +
+          '<div class="trf-ic"><i class="ph ph-user-minus"></i></div>' +
+          '<div class="trf-head-txt">' +
+            '<h2 class="trf-title" id="trf-excl-title">Fuera de transferencias</h2>' +
+            '<p class="trf-sub">Hasta la fecha indicada (inclusive) no salen en la cola, en la lista ni en el ranking. Luego vuelven solos.</p>' +
+          '</div>' +
+        '</div>' +
+        '<form class="trf-excl-form" id="trf-excl-form">' +
+          '<label>Agente<select id="trf-excl-agente" required></select></label>' +
+          '<label>Hasta<input type="date" id="trf-excl-hasta" required></label>' +
+          '<label class="trf-excl-motivo">Motivo<input type="text" id="trf-excl-motivo" maxlength="120" placeholder="Opcional"></label>' +
+          '<button type="submit" class="trf-pausa-btn">Sacar de la cola</button>' +
+        '</form>' +
+        '<ul class="trf-excl-lista" id="trf-excl-lista" aria-live="polite"></ul>' +
+      '</section>';
 
     if (q('#trf-team')) q('#trf-team').addEventListener('change', onTeamChange);
     ['#trf-f-team', '#trf-f-sup', '#trf-f-agente'].forEach((id) => q(id).addEventListener('change', pintarHistorial));
@@ -1621,10 +1639,79 @@
     if (location.hash !== hash) history.replaceState(null, '', location.pathname + location.search + hash);
   }
 
+  // ── Fuera de transferencias (JONATHAN F y administradores) ──
+  function fechaCorta(iso) {
+    const p = String(iso || '').split('-');
+    return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso;
+  }
+  async function cargarExcluidos() {
+    const sec = q('#trf-excl');
+    if (!sec) return;
+    let j;
+    try {
+      const r = await fetch('/api/transferencias/excluidos');
+      if (!r.ok) return;            // 403: no es administrador, la sección sigue oculta
+      j = await r.json();
+    } catch (e) { return; }
+    sec.hidden = false;
+    const sel = q('#trf-excl-agente');
+    const elegido = sel.value;
+    const porTeam = {};
+    (j.agentes || []).forEach((a) => { (porTeam[a.team] = porTeam[a.team] || []).push(a); });
+    sel.innerHTML = '<option value="">Elige un agente…</option>' + Object.keys(porTeam).map((t) =>
+      '<optgroup label="' + esc(t.replace(/^TEAM\s+/i, '')) + '">' +
+        porTeam[t].map((a) => '<option value="' + a.id + '">' + esc(a.nombre) + '</option>').join('') +
+      '</optgroup>').join('');
+    if (elegido && sel.querySelector('option[value="' + elegido + '"]')) sel.value = elegido;
+    const hasta = q('#trf-excl-hasta');
+    hasta.min = j.hoy;
+    const lista = q('#trf-excl-lista');
+    const ex = j.excluidos || [];
+    lista.innerHTML = ex.length ? ex.map((x) =>
+      '<li class="trf-excl-fila">' +
+        '<span class="trf-cola-nom"><b>' + esc(x.nombre) + '</b><small>' + esc(String(x.team).replace(/^TEAM\s+/i, '')) +
+          (x.motivo ? ' · ' + esc(x.motivo) : '') + '</small></span>' +
+        '<span class="trf-cola-tag est-nodispo">Hasta ' + esc(fechaCorta(x.hasta)) + '</span>' +
+        '<button type="button" class="trf-cola-subir" data-excl-quitar="' + x.id + '" title="Que ' + esc(x.nombre) +
+          ' vuelva ya a la cola">Devolver</button>' +
+      '</li>').join('') : '<li class="trf-cola-vacia">Nadie está fuera de transferencias.</li>';
+    lista.querySelectorAll('[data-excl-quitar]').forEach(function (b) {
+      b.addEventListener('click', async function () {
+        b.disabled = true;
+        try {
+          const r = await fetch('/api/transferencias/excluidos/' + parseInt(b.dataset.exclQuitar, 10), { method: 'DELETE' });
+          if (!r.ok) throw new Error();
+        } catch (e) { mensaje('err', 'No se pudo devolver al agente a la cola'); }
+        cargarExcluidos(); cargarCola(); cargarMiCola();
+      });
+    });
+  }
+  function enlazarExcluidos() {
+    const f = q('#trf-excl-form');
+    if (!f) return;
+    f.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const btn = f.querySelector('button');
+      btn.disabled = true;
+      try {
+        const r = await fetch('/api/transferencias/excluidos', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: parseInt(q('#trf-excl-agente').value, 10), hasta: q('#trf-excl-hasta').value,
+            motivo: q('#trf-excl-motivo').value }) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(typeof j.detail === 'string' ? j.detail : 'No se pudo sacar al agente');
+        f.reset();
+      } catch (err) { mensaje('err', err.message); }
+      btn.disabled = false;
+      cargarExcluidos(); cargarCola(); cargarMiCola();
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     panel = document.getElementById('trf-panel');
     if (!panel) return;
     render();
+    enlazarExcluidos();
+    cargarExcluidos();
     // Página propia (sin pestañas): el formulario se ve directamente.
     if (!document.querySelector('[data-trf-tab]')) {
       panel.classList.remove('trf-oculto');
