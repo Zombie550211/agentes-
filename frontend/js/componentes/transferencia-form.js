@@ -114,6 +114,24 @@
         '</div>' +
         '<div class="trf-kpis" id="trf-kpis" aria-live="polite"></div>' +
       '</section>' +
+      // JONATHAN F y administradores: agentes fuera de transferencias hasta una fecha.
+      // Oculta hasta que /excluidos responde (a los demás les da 403 y no se ve).
+      '<section class="trf-card trf-excl" id="trf-excl" aria-labelledby="trf-excl-title" hidden>' +
+        '<div class="trf-head">' +
+          '<div class="trf-ic"><i class="ph ph-user-minus"></i></div>' +
+          '<div class="trf-head-txt">' +
+            '<h2 class="trf-title" id="trf-excl-title">Fuera de transferencias</h2>' +
+            '<p class="trf-sub">Hasta la fecha indicada (inclusive) no salen en la cola, en la lista ni en el ranking. Luego vuelven solos.</p>' +
+          '</div>' +
+        '</div>' +
+        '<form class="trf-excl-form" id="trf-excl-form">' +
+          '<label>Agente<select id="trf-excl-agente" required></select></label>' +
+          '<label>Hasta<input type="date" id="trf-excl-hasta" required></label>' +
+          '<label class="trf-excl-motivo">Motivo<input type="text" id="trf-excl-motivo" maxlength="120" placeholder="Opcional"></label>' +
+          '<button type="submit" class="trf-pausa-btn">Sacar de la cola</button>' +
+        '</form>' +
+        '<ul class="trf-excl-lista" id="trf-excl-lista" aria-live="polite"></ul>' +
+      '</section>' +
       '<div class="trf-fila">' +
       // A la izquierda, la cola propia (la de la sección de la página, que recibe de la otra)
       // para que cada agente vea en qué lugar va y pueda ponerse en pausa.
@@ -211,25 +229,7 @@
         '<div class="trf-hist-body" id="trf-hist-body"></div>' +
       '</section>' +
       // Residencial: el ranking va al final, como gráfica de barras.
-      (COLA ? seccionRanking() : '') +
-      // JONATHAN F y administradores: agentes fuera de transferencias hasta una fecha.
-      // Oculta hasta que /excluidos responde (a los demás les da 403 y no se ve).
-      '<section class="trf-card trf-excl" id="trf-excl" aria-labelledby="trf-excl-title" hidden>' +
-        '<div class="trf-head">' +
-          '<div class="trf-ic"><i class="ph ph-user-minus"></i></div>' +
-          '<div class="trf-head-txt">' +
-            '<h2 class="trf-title" id="trf-excl-title">Fuera de transferencias</h2>' +
-            '<p class="trf-sub">Hasta la fecha indicada (inclusive) no salen en la cola, en la lista ni en el ranking. Luego vuelven solos.</p>' +
-          '</div>' +
-        '</div>' +
-        '<form class="trf-excl-form" id="trf-excl-form">' +
-          '<label>Agente<select id="trf-excl-agente" required></select></label>' +
-          '<label>Hasta<input type="date" id="trf-excl-hasta" required></label>' +
-          '<label class="trf-excl-motivo">Motivo<input type="text" id="trf-excl-motivo" maxlength="120" placeholder="Opcional"></label>' +
-          '<button type="submit" class="trf-pausa-btn">Sacar de la cola</button>' +
-        '</form>' +
-        '<ul class="trf-excl-lista" id="trf-excl-lista" aria-live="polite"></ul>' +
-      '</section>';
+      (COLA ? seccionRanking() : '');
 
     if (q('#trf-team')) q('#trf-team').addEventListener('change', onTeamChange);
     ['#trf-f-team', '#trf-f-sup', '#trf-f-agente'].forEach((id) => q(id).addEventListener('change', pintarHistorial));
