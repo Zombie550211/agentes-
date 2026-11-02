@@ -14,6 +14,11 @@ solo worker, y si se reinicia a medio comprimir basta con volver a subirlo.
 
 El archivo final queda en uploads/promo/ (fuera de git, el despliegue no lo toca)
 y su nombre en app_config.promo_video. /uploads ya exige sesión.
+
+También se puede subir una imagen (JPG, PNG o WEBP) en lugar del video: ocupa el
+mismo hueco (sustituye al video vigente y viceversa). Se reabre con Pillow, se gira
+según su EXIF, se reduce a 1920 px como mucho y se guarda como WEBP sin metadatos.
+Es rápido, así que se hace en la misma petición (responde 200, no 202).
 """
 import asyncio
 import logging
@@ -24,6 +29,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
+from PIL import Image, ImageOps
 from sqlalchemy import text
 
 from database_mysql import AsyncSessionLocal
@@ -46,6 +52,14 @@ _FORMATOS = {
     ".webm": "matroska", ".mkv": "matroska",
     ".avi": "avi",
 }
+
+# Imágenes: extensión permitida y tope. Pillow abre lo que sea, pero sólo se aceptan
+# estos formatos; MAX_IMAGE_PIXELS corta las «bombas de descompresión».
+_IMAGENES = {".jpg", ".jpeg", ".png", ".webp"}
+_FORMATOS_PIL = {"JPEG", "PNG", "WEBP"}
+_MAX_MB_IMG = 20
+_MAX_LADO_IMG = 1920
+Image.MAX_IMAGE_PIXELS = 50_000_000
 
 _estado = {"procesando": False, "error": None}
 _tareas: set = set()   # referencia a la tarea en curso: asyncio sólo guarda una débil
@@ -127,6 +141,60 @@ async def _procesar(exe: str, entrada: Path, formato: str) -> None:
         _estado["procesando"] = False
 
 
+def _procesar_imagen(entrada: Path, salida: Path) -> None:
+    with Image.open(entrada) as im:
+        if im.format not in _FORMATOS_PIL:
+            raise ValueError(f"formato {im.format}")
+        im = ImageOps.exif_transpose(im)
+        im.thumbnail((_MAX_LADO_IMG, _MAX_LADO_IMG))
+        im = im.convert("RGBA" if im.mode in ("RGBA", "LA", "P") else "RGB")
+        im.save(salida, "WEBP", quality=85, method=4)
+
+
+async def _a_disco(file: UploadFile, destino: Path, max_mb: int, que: str) -> int:
+    # A disco por trozos: un video de cientos de MB no pasa entero por memoria.
+    total = 0
+    with open(destino, "wb") as f:
+        while chunk := await file.read(1024 * 1024):
+            total += len(chunk)
+            if total > max_mb * 1024 * 1024:
+                raise HTTPException(413, f"{que} pesa más de {max_mb} MB.")
+            f.write(chunk)
+    return total
+
+
+async def _subir_imagen(file: UploadFile, ext: str, user: dict):
+    if not (file.content_type or "").startswith("image/"):
+        raise HTTPException(415, "Sube una imagen (JPG, PNG o WEBP).")
+    _DIR.mkdir(parents=True, exist_ok=True)
+    marca = int(time.time() * 1000)
+    entrada = _DIR / f"subida_{marca}{ext}"
+    salida = _DIR / f"promo_{marca}.webp"
+    try:
+        total = await _a_disco(file, entrada, _MAX_MB_IMG, "La imagen")
+        try:
+            await asyncio.to_thread(_procesar_imagen, entrada, salida)
+        except Exception as e:
+            salida.unlink(missing_ok=True)
+            log.warning("[promo-video] imagen no válida: %s", e)
+            raise HTTPException(415, "No se pudo leer la imagen. Prueba con otro archivo (JPG, PNG o WEBP).")
+    finally:
+        entrada.unlink(missing_ok=True)
+    anterior = await _leer_actual()
+    await _guardar_actual(salida.name)
+    _borrar(anterior)
+    _estado["error"] = None
+    log.info("[promo-video] %s subió una imagen: %.1f MB → %.2f MB", user.get("username", ""),
+             total / 1e6, salida.stat().st_size / 1e6)
+    return {"success": True, "procesando": False}
+
+
+def _tipo(nombre: str | None) -> str | None:
+    if not nombre:
+        return None
+    return "imagen" if Path(nombre).suffix.lower() == ".webp" else "video"
+
+
 @router.get("")
 async def ver(user: dict = Depends(current_user)):
     nombre = await _leer_actual()
@@ -135,6 +203,7 @@ async def ver(user: dict = Depends(current_user)):
     return {
         "success": True,
         "url": f"/uploads/promo/{Path(nombre).name}" if nombre else None,
+        "tipo": _tipo(nombre),
         "procesando": _estado["procesando"],
         "error": _estado["error"],
         # Sólo decide si la página enseña los botones; los endpoints lo vuelven a comprobar.
@@ -145,9 +214,13 @@ async def ver(user: dict = Depends(current_user)):
 @router.post("")
 async def subir(file: UploadFile = File(...), user: dict = Depends(require_roles(*ADMIN_ROLES))):
     ext = Path(str(file.filename or "").replace("\\", "/")).suffix.lower()
+    if ext in _IMAGENES:
+        if _estado["procesando"]:
+            raise HTTPException(409, "Se está procesando un video. Espera a que termine.")
+        return await _subir_imagen(file, ext, user)
     formato = _FORMATOS.get(ext)
     if not formato or not (file.content_type or "").startswith("video/"):
-        raise HTTPException(415, "Sube un video (MP4, MOV, WEBM, MKV o AVI).")
+        raise HTTPException(415, "Sube un video (MP4, MOV, WEBM, MKV o AVI) o una imagen (JPG, PNG o WEBP).")
     if _estado["procesando"]:
         raise HTTPException(409, "Ya se está procesando otro video. Espera a que termine.")
     exe = _ffmpeg()
@@ -158,14 +231,7 @@ async def subir(file: UploadFile = File(...), user: dict = Depends(require_roles
     _DIR.mkdir(parents=True, exist_ok=True)
     entrada = _DIR / f"subida_{int(time.time() * 1000)}{ext}"
     try:
-        # A disco por trozos: un video de cientos de MB no pasa entero por memoria.
-        total = 0
-        with open(entrada, "wb") as f:
-            while chunk := await file.read(1024 * 1024):
-                total += len(chunk)
-                if total > _MAX_MB * 1024 * 1024:
-                    raise HTTPException(413, f"El video pesa más de {_MAX_MB} MB.")
-                f.write(chunk)
+        total = await _a_disco(file, entrada, _MAX_MB, "El video")
     except BaseException:
         entrada.unlink(missing_ok=True)
         _estado["procesando"] = False

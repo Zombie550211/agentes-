@@ -200,7 +200,11 @@
 
   function renderMedia() {
     const media = el('div', 'pa-lead-media');
-    if (video.url) {
+    if (video.url && video.tipo === 'imagen') {
+      const img = el('img');
+      img.src = video.url; img.alt = ''; img.decoding = 'async';
+      media.appendChild(img);
+    } else if (video.url) {
       const v = el('video');
       v.src = video.url; v.muted = true; v.loop = true; v.autoplay = true; v.playsInline = true;
       v.setAttribute('playsinline', ''); v.setAttribute('aria-hidden', 'true'); v.tabIndex = -1;
@@ -213,18 +217,18 @@
     }
     if (video.puede_editar) {
       const ctl = el('div', 'pa-video-ctl');
-      const msg = videoMsg || (video.procesando ? 'Comprimiendo el video…' : video.error || (video.url ? '' : 'Sin video: sube uno para la página de inicio'));
+      const msg = videoMsg || (video.procesando ? 'Comprimiendo el video…' : video.error || (video.url ? '' : 'Sin video ni imagen: sube uno para la página de inicio'));
       if (msg) ctl.appendChild(el('span', 'pa-video-msg', msg));
       const subir = el('label', 'pa-btn pa-btn-video' + (video.procesando ? ' pa-ocupado' : ''));
       subir.appendChild(icono('ph ph-upload-simple'));
-      subir.appendChild(el('span', null, video.url ? 'Cambiar video' : 'Subir video'));
+      subir.appendChild(el('span', null, video.url ? 'Cambiar video o imagen' : 'Subir video o imagen'));
       const input = el('input');
       input.type = 'file'; input.hidden = true;
-      input.accept = 'video/mp4,video/quicktime,video/webm,video/x-matroska,video/x-msvideo,.mp4,.m4v,.mov,.webm,.mkv,.avi,.3gp';
+      input.accept = 'video/mp4,video/quicktime,video/webm,video/x-matroska,video/x-msvideo,.mp4,.m4v,.mov,.webm,.mkv,.avi,.3gp,image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp';
       input.addEventListener('change', function () { subirVideo(input.files[0]); input.value = ''; });
       subir.appendChild(input);
       ctl.appendChild(subir);
-      if (video.url && !video.procesando) ctl.appendChild(boton('pa-btn-video pa-btn-icono-video', 'ph ph-trash', null, 'Quitar video', quitarVideo));
+      if (video.url && !video.procesando) ctl.appendChild(boton('pa-btn-video pa-btn-icono-video', 'ph ph-trash', null, video.tipo === 'imagen' ? 'Quitar imagen' : 'Quitar video', quitarVideo));
       media.appendChild(ctl);
     }
     return media;
@@ -234,7 +238,7 @@
   // controles del administrador.
   function renderVideoCard() {
     const art = el('article', 'pa-lead pa-lead-video');
-    art.setAttribute('aria-label', 'Video promocional');
+    art.setAttribute('aria-label', video.tipo === 'imagen' ? 'Imagen promocional' : 'Video promocional');
     art.appendChild(renderMedia());
     return art;
   }
@@ -244,7 +248,7 @@
       const r = await fetch('/api/promo-video', { credentials: 'include' });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const j = await r.json();
-      const cambio = j.url !== video.url || j.procesando !== video.procesando || j.error !== video.error || j.puede_editar !== video.puede_editar;
+      const cambio = j.url !== video.url || j.tipo !== video.tipo || j.procesando !== video.procesando || j.error !== video.error || j.puede_editar !== video.puede_editar;
       video = j; videoMsg = '';
       if (cambio && promos.length) render();
     } catch (e) { console.warn('[PROMOCIONES] video:', e); }
@@ -254,6 +258,9 @@
 
   function subirVideo(archivo) {
     if (!archivo) return;
+    const esImg = /^image\//.test(archivo.type) || /\.(jpe?g|png|webp)$/i.test(archivo.name);
+    const que = esImg ? 'la imagen' : 'el video';
+    if (esImg && archivo.size > 20 * 1024 * 1024) { videoMsg = 'La imagen pesa más de 20 MB.'; render(); return; }
     if (archivo.size > 300 * 1024 * 1024) { videoMsg = 'El video pesa más de 300 MB.'; render(); return; }
     const fd = new FormData();
     fd.append('file', archivo);
@@ -262,27 +269,28 @@
     xhr.withCredentials = true;
     xhr.upload.onprogress = function (e) {
       if (!e.lengthComputable) return;
-      videoMsg = 'Subiendo el video… ' + Math.round(e.loaded / e.total * 100) + ' %';
+      videoMsg = 'Subiendo ' + que + '… ' + Math.round(e.loaded / e.total * 100) + ' %';
       const m = document.querySelector('.pa-video-msg');
       if (m) m.textContent = videoMsg; else render();
     };
     xhr.onload = function () {
       if (xhr.status === 202 || xhr.status === 200) { videoMsg = ''; cargarVideo(); return; }
       let d = ''; try { d = JSON.parse(xhr.responseText).detail || ''; } catch (_) { }
-      videoMsg = d || ('No se pudo subir el video (HTTP ' + xhr.status + ').'); render();
+      videoMsg = d || ('No se pudo subir ' + que + ' (HTTP ' + xhr.status + ').'); render();
     };
     xhr.onerror = function () { videoMsg = 'Se cortó la subida. Inténtalo de nuevo.'; render(); };
-    videoMsg = 'Subiendo el video… 0 %'; render();
+    videoMsg = 'Subiendo ' + que + '… 0 %'; render();
     xhr.send(fd);
   }
 
   async function quitarVideo() {
-    if (!window.confirm('¿Quitar el video promocional? Dejará de verse también en la página de inicio.')) return;
+    const que = video.tipo === 'imagen' ? 'la imagen promocional' : 'el video promocional';
+    if (!window.confirm('¿Quitar ' + que + '? Dejará de verse también en la página de inicio.')) return;
     try {
       const r = await fetch('/api/promo-video', { method: 'DELETE', credentials: 'include' });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       await cargarVideo(); render();
-    } catch (e) { videoMsg = 'No se pudo quitar el video.'; render(); }
+    } catch (e) { videoMsg = 'No se pudo quitar ' + que + '.'; render(); }
   }
 
   function render() {

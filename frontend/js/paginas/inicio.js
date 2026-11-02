@@ -157,7 +157,8 @@
     $('in-promo-vacio').hidden = false;
   }
   function pintarPromo(j) {
-    var video = $('in-promo-video');
+    var video = $('in-promo-video'), img = $('in-promo-img');
+    var esImg = j.tipo === 'imagen';
     // El video se gestiona desde Promociones activas (residencial/promociones-validas.html):
     // aquí sólo se ve, sin botones encima.
     $('in-promo-barra').hidden = true;
@@ -166,12 +167,20 @@
     $('in-promo-quitar').hidden = !j.puede_editar || !j.url || j.procesando;
     if (j.url !== promoUrl) {
       promoUrl = j.url;
-      if (j.url) { video.src = j.url; video.hidden = false; video.play().catch(function () {}); }
-      else { video.removeAttribute('src'); video.load(); video.hidden = true; }
+      if (j.url && esImg) {
+        video.removeAttribute('src'); video.load(); video.hidden = true;
+        img.src = j.url; img.hidden = false;
+      } else if (j.url) {
+        img.removeAttribute('src'); img.hidden = true;
+        video.src = j.url; video.hidden = false; video.play().catch(function () {});
+      } else {
+        video.removeAttribute('src'); video.load(); video.hidden = true;
+        img.removeAttribute('src'); img.hidden = true;
+      }
     }
     if (j.procesando) promoMensaje('Comprimiendo el video… puede tardar un par de minutos.');
     else if (j.error) promoMensaje(j.error);
-    else if (!j.url) promoMensaje(j.puede_editar ? 'Aún no hay video promocional. Súbelo desde Promociones activas.' : 'Pronto habrá un video promocional aquí.');
+    else if (!j.url) promoMensaje(j.puede_editar ? 'Aún no hay video ni imagen promocional. Súbelo desde Promociones activas.' : 'Pronto habrá un video promocional aquí.');
     else $('in-promo-vacio').hidden = true;
     clearTimeout(promoEspera);
     if (j.procesando) promoEspera = setTimeout(cargarPromo, 4000);
