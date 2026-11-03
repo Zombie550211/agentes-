@@ -1264,7 +1264,7 @@
   // final. Cada fila se identifica por el id del agente, así al cambiar el orden las filas
   // se deslizan a su nuevo lugar (técnica FLIP) en vez de redibujarse de golpe.
   let colaTimer = null;
-  let colaOrdenar = false;   // solo JONATHAN F: prioridad (poner primero)
+  let colaOrdenar = false;   // JONATHAN F y administradores: prioridad (poner primero)
   let colaPausar = false;    // JONATHAN F y administradores: pausa
   let colaSinConexion = null;   // sin nadie conectado: a quién irá por turno
   let colaPedido = 0;

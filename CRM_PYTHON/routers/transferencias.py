@@ -93,7 +93,8 @@ def _es_admin_bo(role: str) -> bool:
 
 
 # Única persona que gestiona la cola de transferencias: poner/quitar pausa (a sí mismo o a
-# cualquiera) y dar prioridad («Poner primero»). Nadie más, ni agentes ni admin/BO.
+# cualquiera) y dar prioridad («Poner primero»). Los administradores también pueden
+# pausar y poner primero (_puede_pausar / _puede_ordenar); agentes y BO no.
 # Se compara el username normalizado (minúsculas, «.»/«_» → espacio).
 _GESTORES_COLA = {"jonathan figueroa", "jonathan f"}
 
@@ -109,6 +110,11 @@ def _es_admin(role: str) -> bool:
 
 def _puede_pausar(user: dict) -> bool:
     """Pausa de la cola: JONATHAN F y los administradores."""
+    return _es_gestor_cola(user) or _es_admin(user.get("role", ""))
+
+
+def _puede_ordenar(user: dict) -> bool:
+    """«Poner primero» en la cola: JONATHAN F y los administradores."""
     return _es_gestor_cola(user) or _es_admin(user.get("role", ""))
 
 
@@ -558,14 +564,14 @@ async def cola(seccion: str = "lineas", user: dict = Depends(current_user)):
         "id": a["id"], "nombre": a["nombre"], "team": a["team"], "conectado": True, "pausado": a["pausado"],
         "estado": a["estado"], "recibe": a["recibe"],
         "ultima": a["ultima"].replace(tzinfo=timezone.utc).isoformat() if a["ultima"] else None,
-    } for a in agentes], "puede_ordenar": _es_gestor_cola(user), "puede_pausar": _puede_pausar(user),
+    } for a in agentes], "puede_ordenar": _puede_ordenar(user), "puede_pausar": _puede_pausar(user),
         "primero": _cola_primero.get(seccion), "yo": _uid(user)}
 
 
-# ── POST /api/transferencias/cola/primero {id} ── solo JONATHAN F: ese agente va primero (una vez) ──
+# ── POST /api/transferencias/cola/primero {id} ── JONATHAN F y administradores: ese agente va primero (una vez) ──
 @router.post("/cola/primero")
 async def cola_primero(body: dict, user: dict = Depends(current_user)):
-    if not _es_gestor_cola(user):
+    if not _puede_ordenar(user):
         raise HTTPException(403, "No tienes permiso para cambiar el orden de la cola")
     seccion = _validar_seccion(body.get("seccion") or "lineas")
     aid = int(body.get("id") or 0)
