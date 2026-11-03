@@ -623,7 +623,7 @@ async def cola_pausa(body: dict, user: dict = Depends(current_user)):
 async def cola_estado(body: dict, user: dict = Depends(current_user)):
     estado = str(body.get("estado") or "").strip().lower()
     if estado not in ESTADOS:
-        raise HTTPException(400, "Status no válido (DISPO, LAUNCH o NO DISPO)")
+        raise HTTPException(400, "Status no válido (DISPO, LUNCH o NO DISPO)")
     yo = _uid(user)
     aid = int(body.get("id") or 0) or yo
     if aid != yo and not _puede_pausar(user):

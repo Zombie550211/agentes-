@@ -1304,11 +1304,11 @@
   }
 
   // Status del agente: solo DISPO (y sin pausa) recibe transferencias.
-  const ESTADOS = [['dispo', 'DISPO'], ['launch', 'LAUNCH'], ['no_dispo', 'NO DISPO']];
+  const ESTADOS = [['dispo', 'DISPO'], ['launch', 'LUNCH'], ['no_dispo', 'NO DISPO']];
   function recibe(a) { return !a.pausado && (a.estado || 'dispo') === 'dispo'; }
   function tagEstado(a) {
     if (a.pausado) return '<span class="trf-cola-tag pausa">En pausa</span>';
-    if (a.estado === 'launch') return '<span class="trf-cola-tag est-launch">LAUNCH</span>';
+    if (a.estado === 'launch') return '<span class="trf-cola-tag est-launch">LUNCH</span>';
     if (a.estado === 'no_dispo') return '<span class="trf-cola-tag est-nodispo">NO DISPO</span>';
     return '';
   }
@@ -1460,7 +1460,7 @@
           '<small>Conservas tu lugar; no recibirás transferencias mientras estés en pausa.</small></span>';
       } else if (suspendido) {
         resumen.className = 'trf-micola-yo pausa';
-        html = '<b>' + (pos >= 0 ? pos + 1 : '–') + '</b><span>Estás en ' + (miEstado === 'launch' ? 'LAUNCH' : 'NO DISPO') +
+        html = '<b>' + (pos >= 0 ? pos + 1 : '–') + '</b><span>Estás en ' + (miEstado === 'launch' ? 'LUNCH' : 'NO DISPO') +
           '<small>No recibirás transferencias hasta que cambies tu status a DISPO.</small></span>';
       } else if (pos >= 0 && antes === 0) {
         resumen.className = 'trf-micola-yo sig';
@@ -1479,7 +1479,7 @@
           ' title="' + (enPausa ? 'Volver a recibir transferencias en tu mismo lugar' : 'Almuerzo o te levantas del puesto: conservas tu lugar sin recibir transferencias') + '">' +
           (enPausa ? ICONOS.ICO_PLAY : ICONOS.ICO_PAUSA) + (enPausa ? 'Quitar pausa' : 'Pausa') + '</button>';
       }
-      // Status: lo elige cada agente (DISPO recibe; LAUNCH y NO DISPO quedan suspendidos).
+      // Status: lo elige cada agente (DISPO recibe; LUNCH y NO DISPO quedan suspendidos).
       html += '<div class="trf-estado" role="group" aria-label="Tu status">' +
         ESTADOS.map((e) => '<button type="button" class="trf-estado-btn e-' + e[0] + '" data-estado="' + e[0] + '" aria-pressed="' +
           (miEstado === e[0]) + '">' + e[1] + '</button>').join('') + '</div>';
@@ -1518,7 +1518,7 @@
         '<span class="trf-cola-nom"><b>' + esc(a.nombre) + '</b><small>' +
           esc(String(a.team).replace(/^TEAM\s+/i, '')) + ' · ' + esc(haceCuanto(a.ultima)) + '</small></span>' +
         '<span class="trf-cola-acc">' +
-          (mio ? '<span class="trf-cola-tag tu">Tú' + (a.pausado ? ' · en pausa' : a.estado === 'launch' ? ' · LAUNCH' : a.estado === 'no_dispo' ? ' · NO DISPO' : '') + '</span>'
+          (mio ? '<span class="trf-cola-tag tu">Tú' + (a.pausado ? ' · en pausa' : a.estado === 'launch' ? ' · LUNCH' : a.estado === 'no_dispo' ? ' · NO DISPO' : '') + '</span>'
             : !recibe(a) ? tagEstado(a)
             : a.id === sigId ? '<span class="trf-cola-tag">Siguiente</span>' : '') +
           (admin && !mio ? selEstadoFila(a) + btnPausaFila(a) : '') +
