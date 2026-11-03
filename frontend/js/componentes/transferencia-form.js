@@ -242,7 +242,7 @@
       ['#trf-f-team', '#trf-f-sup', '#trf-f-agente', '#trf-f-desde', '#trf-f-hasta'].forEach((id) => { q(id).value = ''; });
       cargarHistorial();
     });
-    q('form').addEventListener('submit', onSubmit);
+    q('form.trf-form').addEventListener('submit', onSubmit);
     q('#trf-buscar').addEventListener('input', function () {
       clearTimeout(busqTimer);
       busqTimer = setTimeout(buscarVentas, 300);
@@ -1245,7 +1245,7 @@
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(typeof j.detail === 'string' ? j.detail : 'No se pudo guardar');
-      q('form').reset();
+      q('form.trf-form').reset();
       onTeamChange();
       mensaje('ok', COLA && j.agente
         ? 'Transferencia registrada y asignada a ' + j.agente + ' (' + String(j.team || '').replace(/^TEAM\s+/i, '') + ').'
