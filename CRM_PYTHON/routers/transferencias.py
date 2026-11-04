@@ -108,14 +108,27 @@ def _es_admin(role: str) -> bool:
     return str(role or "").strip().lower() in ("admin", "administrador")
 
 
+def _es_supervisor_lineas(role: str) -> bool:
+    """Rol «Supervisor Team Lineas» (LUIS G, VICTOR HURTADO…)."""
+    r = re.sub(r"\s+", " ", str(role or "").strip().lower())
+    return r in ("supervisor team lineas", "supervisor team líneas")
+
+
+def _gestiona_cola(user: dict) -> bool:
+    """Prioridad, pausa, status de otros y «Fuera de transferencias»: JONATHAN F, los
+    administradores y los supervisores de Líneas."""
+    role = user.get("role", "")
+    return _es_gestor_cola(user) or _es_admin(role) or _es_supervisor_lineas(role)
+
+
 def _puede_pausar(user: dict) -> bool:
-    """Pausa de la cola: JONATHAN F y los administradores."""
-    return _es_gestor_cola(user) or _es_admin(user.get("role", ""))
+    """Pausa de la cola: JONATHAN F, administradores y supervisores de Líneas."""
+    return _gestiona_cola(user)
 
 
 def _puede_ordenar(user: dict) -> bool:
-    """«Poner primero» en la cola: JONATHAN F y los administradores."""
-    return _es_gestor_cola(user) or _es_admin(user.get("role", ""))
+    """«Poner primero» en la cola: JONATHAN F, administradores y supervisores de Líneas."""
+    return _gestiona_cola(user)
 
 
 def _es_agente(role: str) -> bool:
