@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
+import rbac
 from typing import Optional
 import datetime as _dt, unicodedata, re, json, calendar
 from tiempo_sv import ahora_sv
@@ -135,9 +136,9 @@ async def init_dashboard(user: dict = Depends(current_user)):
 
     is_admin     = any(r in role for r in ("admin","administrator","administrador","administradora"))
     is_bo        = any(r in role for r in ("backoffice","bo"))
-    is_sup       = "supervisor" in role
+    is_sup       = rbac.tiene(user, "paneles.su_equipo")
     is_agent     = "agente" in role or "agent" in role
-    is_adm_or_bo = is_admin or is_bo
+    is_adm_or_bo = rbac.tiene(user, "paneles.ver_todo")
 
     start_date, end_date = _month_range(_sv.year, _sv.month)
     sup_agents = get_supervisor_agents(username) if is_sup else []
@@ -748,13 +749,13 @@ async def recent_activity(user: dict = Depends(current_user)):
 
     is_admin  = any(r in role for r in ("admin","administrator","administrador","administradora"))
     is_bo     = any(r in role for r in ("backoffice","bo"))
-    is_sup    = "supervisor" in role
+    is_sup    = rbac.tiene(user, "paneles.su_equipo")
     is_agent  = "agente" in role or "agent" in role
 
     sup_agents     = get_supervisor_agents(username) if is_sup else []
     users_for_data = None
     if is_sup:                                    users_for_data = sup_agents
-    elif is_agent and not is_admin and not is_bo: users_for_data = [username]
+    elif is_agent and not rbac.tiene(user, "paneles.ver_todo"): users_for_data = [username]
 
     last_date = (_utcnow() - _dt.timedelta(days=30)).strftime("%Y-%m-%d")
     date_cond = "(dia_venta >= :ld OR created_at >= :ld)"
@@ -821,8 +822,8 @@ async def agent_history(
     username = user.get("username", "")
     role     = (user.get("role") or "").lower()
 
-    is_admin = any(r in role for r in ("admin","administrator","administrador","administradora","backoffice","bo"))
-    is_sup   = "supervisor" in role
+    is_admin = rbac.tiene(user, "paneles.ver_todo")
+    is_sup   = rbac.tiene(user, "paneles.su_equipo")
     is_agent = "agente" in role or "agent" in role
 
     hard_limit = min(int(limit) if limit else 300, 500)

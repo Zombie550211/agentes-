@@ -11,6 +11,9 @@
  *  - sección: la del usuario (líneas si su equipo o su rol dicen "línea"; si no,
  *    residencial). Ve las opciones de su sección y las comunes; administración, back
  *    office y los roles de mercado (Rol_icon, Rol_bamo) ven las dos.
+ *  - acciones: si la sesión trae `acciones` (Roles y permisos, rbac.py), cada opción con
+ *    `accion` solo se ve con esa acción marcada, y «menu.ambas_secciones» muestra las dos
+ *    secciones. Lo de abajo es la regla anterior por rol, que queda de respaldo.
  *  - rol: algunas opciones solo para administración ('admin': Facturación y Permisos, cuyas
  *    APIs exigen ADMIN_ROLES), para administración y back office ('gestion': Tiempo
  *    laboral) o para ellos y los supervisores ('equipo': Llamadas y Ventas por Team).
@@ -31,7 +34,7 @@
       { label: 'Lista de Clientes', href: '/residencial/costumer.html', seccion: 'res' },
       { label: 'Tipificación', href: '/residencial/normativas-tipificacion.html', seccion: 'res' },
       { label: 'Promociones activas', href: '/residencial/promociones-validas.html', seccion: 'res' },
-      { label: 'Llamadas y Ventas por Team', href: '/residencial/llamadas-ventas.html', seccion: 'res', roles: 'equipo' },
+      { label: 'Llamadas y Ventas por Team', href: '/residencial/llamadas-ventas.html', seccion: 'res', roles: 'equipo', accion: 'llamadas_ventas.ver' },
     ] },
     { label: 'Estadísticas y productividad', items: [
       { label: 'Productividad B.O', href: '/residencial/productividad-bo.html', seccion: 'res' },
@@ -49,13 +52,13 @@
       { label: 'Empleado del Mes', href: '/residencial/empleado-mes.html', seccion: 'res' },
     ] },
     { label: 'Facturación y comisiones', items: [
-      { label: 'Facturación', href: '/residencial/facturacion.html', seccion: 'res', roles: 'admin' },
-      { label: 'Recibos Google Ads', href: '/residencial/recibos-google.html', seccion: 'res', roles: 'admin' },
+      { label: 'Facturación', href: '/residencial/facturacion.html', seccion: 'res', roles: 'admin', accion: 'facturacion.residencial' },
+      { label: 'Recibos Google Ads', href: '/residencial/recibos-google.html', seccion: 'res', roles: 'admin', accion: 'recibos.google' },
       { label: 'Comisión', href: '/residencial/comisiones.html', seccion: 'res' },
     ] },
     { label: 'Administración y personal', items: [
-      { label: 'Permisos', href: '/crear-cuenta.html', seccion: 'res', roles: 'admin' },
-      { label: 'Tiempo laboral', href: '/residencial/tiempo-laboral.html', seccion: 'res', roles: 'gestion' },
+      { label: 'Permisos', href: '/crear-cuenta.html', seccion: 'res', roles: 'admin', accion: 'usuarios.gestionar' },
+      { label: 'Tiempo laboral', href: '/residencial/tiempo-laboral.html', seccion: 'res', roles: 'gestion', accion: 'usuarios.ver_lista' },
       { label: 'Horarios', href: '/horarios.html', seccion: 'comun' },
       // Chat desactivado por ahora (ver js/layout/sidebar.js).
     ] },
@@ -86,6 +89,13 @@
   function seccionDe(u) { return (norm(u.team).indexOf('linea') >= 0 || norm(u.role).indexOf('linea') >= 0) ? 'lin' : 'res'; }
   function visible(it, u) {
     if (!u) return it.seccion === 'comun';            // aún sin sesión: solo lo común
+    // Con las acciones de Roles y permisos (las manda /api/auth/verify-server), el menú
+    // muestra lo que el rol tiene marcado en Permisos → «Qué puede hacer cada rol».
+    if (Array.isArray(u.acciones)) {
+      if (it.accion && u.acciones.indexOf(it.accion) < 0) return false;
+      return u.acciones.indexOf('menu.ambas_secciones') >= 0 || it.seccion === 'comun' || it.seccion === seccionDe(u);
+    }
+    // Sin acciones (sesión antigua o servidor anterior): regla por rol de siempre.
     var gestion = esAdmin(u.role) || esBackoffice(u.role);
     if (it.roles === 'admin' && !esAdmin(u.role)) return false;
     if (it.roles === 'gestion' && !gestion) return false;

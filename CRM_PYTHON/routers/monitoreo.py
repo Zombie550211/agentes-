@@ -44,6 +44,7 @@ import realtime
 from database_mysql import AsyncSessionLocal
 from deps import current_user, team_seccion, ADMIN_ROLES
 from tiempo_sv import ahora_sv
+import rbac
 
 router = APIRouter(prefix="/api/monitoreo", tags=["Monitoreo"])
 
@@ -51,12 +52,13 @@ AVISO_DESDE = 3
 
 
 def _es_admin_bo(user: dict) -> bool:
-    r = str(user.get("role") or "").lower()
-    return "admin" in r or "backoffice" in r or "back office" in r
+    """Permiso desde Roles y permisos (rbac.py): monitoreo.gestionar_todos."""
+    return rbac.tiene(user, "monitoreo.gestionar_todos")
 
 
 def _es_administrador(user: dict) -> bool:
-    return str(user.get("role") or "").strip().lower() in {r.lower() for r in ADMIN_ROLES}
+    """Permiso desde Roles y permisos (rbac.py): monitoreo.alertas."""
+    return rbac.tiene(user, "monitoreo.alertas")
 
 
 def _es_supervisor(role: str) -> bool:
@@ -111,7 +113,7 @@ async def teams_residencial(user: dict = Depends(current_user)):
                  "nota": f["nota"] or "", "por": f["marcado_por"] or ""})
 
     # Quién puede marcar: admin/BO en todos; el supervisor en su team (mi_team lo filtra abajo).
-    puede = _es_admin_bo(user) or _es_supervisor(user.get("role"))
+    puede = _es_admin_bo(user) or rbac.tiene(user, "monitoreo.su_equipo")
 
     teams: dict[str, dict] = {}
     for f in filas:
@@ -159,7 +161,7 @@ _MAX_POR_DIA = 20
 async def _agente_marcable(s, user: dict, user_id: int) -> dict:
     """El agente al que `user` puede ponerle o quitarle faltas, o HTTPException."""
     admin_bo = _es_admin_bo(user)
-    if not admin_bo and not _es_supervisor(user.get("role")):
+    if not admin_bo and not rbac.tiene(user, "monitoreo.su_equipo"):
         raise HTTPException(403, "Sin permiso")
     r = await s.execute(text("""
         SELECT id, username, role, TRIM(team) AS team FROM users

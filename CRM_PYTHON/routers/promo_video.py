@@ -34,6 +34,7 @@ from sqlalchemy import text
 
 from database_mysql import AsyncSessionLocal
 from deps import current_user, require_roles, ADMIN_ROLES, _normalize_role
+import rbac
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/promo-video", tags=["Promociones"])
@@ -212,7 +213,7 @@ async def ver(user: dict = Depends(current_user)):
 
 
 @router.post("")
-async def subir(file: UploadFile = File(...), user: dict = Depends(require_roles(*ADMIN_ROLES))):
+async def subir(file: UploadFile = File(...), user: dict = Depends(rbac.requiere("contenido.publicar"))):
     ext = Path(str(file.filename or "").replace("\\", "/")).suffix.lower()
     if ext in _IMAGENES:
         if _estado["procesando"]:
@@ -245,7 +246,7 @@ async def subir(file: UploadFile = File(...), user: dict = Depends(require_roles
 
 
 @router.delete("")
-async def quitar(user: dict = Depends(require_roles(*ADMIN_ROLES))):
+async def quitar(user: dict = Depends(rbac.requiere("contenido.publicar"))):
     if _estado["procesando"]:
         raise HTTPException(409, "Hay un video procesándose. Espera a que termine.")
     anterior = await _leer_actual()

@@ -13,6 +13,7 @@ from typing import Optional
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
+import rbac
 from registro_usuarios import registrar
 
 router = APIRouter(tags=["Permisos"])
@@ -37,8 +38,7 @@ async def _nombre_destino(s, scope_type: str, scope_value: str) -> str:
 
 
 def _require_admin(user: dict) -> None:
-    if _norm_role(user.get("role", "")) not in ADMIN_ROLES:
-        raise HTTPException(403, "No autorizado")
+    rbac.exigir(user, "mercado.restringir", "No autorizado")
 
 
 class PermDefBody(BaseModel):

@@ -45,7 +45,7 @@ from tiempo_sv import TZ_SV, ahora_sv
 
 router = APIRouter(prefix="/api/recibos-google", tags=["Recibos Google Ads"])
 # Administración del CRM o un usuario del portal de facturación (routers/portal.py).
-solo_admin = admin_o_portal(*ADMIN_ROLES)
+solo_admin = admin_o_portal(accion="recibos.google")
 
 PDF_DIR = Path(os.environ.get("RECIBOS_GOOGLE_DIR")
                or Path(__file__).resolve().parent.parent.parent / "datos_privados" / "recibos_google")

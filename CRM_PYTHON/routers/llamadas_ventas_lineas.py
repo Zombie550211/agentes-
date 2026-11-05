@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import require_roles
+import rbac
 from datetime import datetime, timezone
 from typing import Optional, Any
 import json
@@ -32,7 +33,7 @@ class LlamadasBody(BaseModel):
 
 
 @router.get("/mes/{anio}/{mes}")
-async def llamadas_mes(anio: int, mes: int, user: dict = Depends(require_roles(*_ADMIN_BO_ROLES))):
+async def llamadas_mes(anio: int, mes: int, user: dict = Depends(rbac.requiere("llamadas_ventas.registro"))):
     if mes < 1 or mes > 12:
         raise HTTPException(400, "Parámetros inválidos")
     prefix = f"{anio}-{str(mes).zfill(2)}-"
@@ -46,7 +47,7 @@ async def llamadas_mes(anio: int, mes: int, user: dict = Depends(require_roles(*
 
 
 @router.get("/{fecha}")
-async def llamadas_por_fecha(fecha: str, user: dict = Depends(require_roles(*_ADMIN_BO_ROLES))):
+async def llamadas_por_fecha(fecha: str, user: dict = Depends(rbac.requiere("llamadas_ventas.registro"))):
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("SELECT * FROM llamadas_ventas_lineas WHERE fecha = :f LIMIT 1"), {"f": fecha})
         row = r.mappings().first()
@@ -54,7 +55,7 @@ async def llamadas_por_fecha(fecha: str, user: dict = Depends(require_roles(*_AD
 
 
 @router.post("/")
-async def llamadas_save(body: LlamadasBody, user: dict = Depends(require_roles(*_ADMIN_BO_ROLES))):
+async def llamadas_save(body: LlamadasBody, user: dict = Depends(rbac.requiere("llamadas_ventas.registro"))):
     if not body.fecha:
         raise HTTPException(400, "Fecha requerida")
     now = _utcnow()

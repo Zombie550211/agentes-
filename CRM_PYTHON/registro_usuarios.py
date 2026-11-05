@@ -11,7 +11,7 @@ from sqlalchemy import text
 
 from database_mysql import AsyncSessionLocal
 
-TIPOS = ("alta", "rol", "equipo", "permisos", "cuenta", "mercado")
+TIPOS = ("alta", "rol", "equipo", "permisos", "cuenta", "mercado")  # «rol» también = crear o cambiar un rol
 
 
 async def registrar(actor: dict, tipo: str, a_quien: str, cambio: str, session=None) -> None:

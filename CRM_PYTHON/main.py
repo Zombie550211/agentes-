@@ -59,6 +59,7 @@ from routers import (
     cuadratura_entrada as cuadratura_entrada_router,
     transferencias as transferencias_router,
     cxc_xfinity as cxc_xfinity_router,
+    rbac_admin as rbac_admin_router,
     promociones as promociones_router,
     promo_video as promo_video_router,
     monitoreo as monitoreo_router,
@@ -577,6 +578,27 @@ _MIGRATIONS: list[tuple[str, str]] = [
     ("0094_users_login_bloqueado_hasta", "ALTER TABLE users ADD COLUMN login_bloqueado_hasta DATETIME NULL"),
     # PIN de seguridad cifrado (cifrado_datos.py): «enc1:» + token Fernet ≈ 110 caracteres.
     ("0095_lineas_pin_255", "ALTER TABLE lineas_clientes MODIFY pin_seguridad VARCHAR(255) NULL"),
+    # Roles y permisos (rbac.py): qué roles existen y qué acciones tiene cada uno.
+    ("0096_create_roles", """CREATE TABLE IF NOT EXISTS roles (
+        clave       VARCHAR(60)  NOT NULL PRIMARY KEY,
+        nombre      VARCHAR(80)  NOT NULL,
+        descripcion VARCHAR(300) NOT NULL DEFAULT '',
+        orden       INT          NOT NULL DEFAULT 100,
+        sistema     TINYINT(1)   NOT NULL DEFAULT 0,
+        activo      TINYINT(1)   NOT NULL DEFAULT 1,
+        created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB"""),
+    ("0097_create_rbac_acciones", """CREATE TABLE IF NOT EXISTS rbac_acciones (
+        clave       VARCHAR(60)  NOT NULL PRIMARY KEY,
+        modulo      VARCHAR(60)  NOT NULL,
+        etiqueta    VARCHAR(120) NOT NULL,
+        descripcion VARCHAR(300) NOT NULL DEFAULT ''
+    ) ENGINE=InnoDB"""),
+    ("0098_create_rol_permisos", """CREATE TABLE IF NOT EXISTS rol_permisos (
+        rol    VARCHAR(60) NOT NULL,
+        accion VARCHAR(60) NOT NULL,
+        PRIMARY KEY (rol, accion)
+    ) ENGINE=InnoDB"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración
@@ -745,6 +767,13 @@ async def _inicializar_esquema_y_datos():
     except Exception as e:
         print(f"[permission-defs] ensure: {e}")
     try:
+        import rbac
+        from database_mysql import AsyncSessionLocal
+        async with AsyncSessionLocal() as s:
+            await rbac.asegurar(s)
+    except Exception as e:
+        print(f"[rbac] asegurar: {e}")
+    try:
         # Cifra los PIN de Líneas que sigan en claro (solo si CRM_DATA_KEY está puesta).
         from cifrado_datos import cifrar_pendientes
         from database_mysql import AsyncSessionLocal
@@ -781,6 +810,12 @@ async def lifespan(app: FastAPI):
               "esquema (NODE_ENV != production y RUN_DB_INIT no activo). La app "
               "arranca y sirve, pero NO altera el esquema ni siembra datos. Para "
               "forzarlo (p.ej. contra una BD local), exporta RUN_DB_INIT=1.")
+    # Roles y permisos en memoria (rbac.py). En todas las instancias, no solo la dueña.
+    try:
+        import rbac
+        await rbac.recargar()
+    except Exception as e:
+        print(f"[rbac] no se pudo cargar (se usan los permisos por defecto del código): {e}")
     yield
     for tarea in (tarea_semaforo, tarea_horarios, tarea_recibos, tarea_liberadas):
         if tarea:
@@ -1009,6 +1044,7 @@ app.include_router(horarios_router.router)
 app.include_router(cuadratura_entrada_router.router)
 app.include_router(transferencias_router.router)
 app.include_router(cxc_xfinity_router.router)
+app.include_router(rbac_admin_router.router)
 app.include_router(promociones_router.router)
 app.include_router(promo_video_router.router)
 app.include_router(monitoreo_router.router)

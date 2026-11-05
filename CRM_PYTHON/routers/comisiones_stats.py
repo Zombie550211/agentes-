@@ -17,6 +17,7 @@ from sqlalchemy import text
 
 from database_mysql import AsyncSessionLocal
 from deps import current_user
+import rbac
 
 router = APIRouter(prefix="/api/comisiones", tags=["Comisiones stats"])
 
@@ -34,9 +35,8 @@ _COMPLETED = "status_grupo = 'completed'"
 
 
 def _is_admin_or_bo(user: dict) -> bool:
-    r = unicodedata.normalize("NFD", str(user.get("role") or "")).encode("ascii", "ignore").decode().lower()
-    return ("admin" in r or "backoffice" in r or "rol_icon" in r or "rol_bamo" in r
-            or r == "icon" or r == "bamo")
+    """Permiso desde Roles y permisos (rbac.py): comisiones.gestionar."""
+    return rbac.tiene(user, "comisiones.gestionar")
 
 
 @router.get("/tendencia")

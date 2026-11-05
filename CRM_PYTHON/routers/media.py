@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 import httpx, os, re, datetime as _dt
 import cloudinary
 import cloudinary.uploader
+import rbac
 
 router = APIRouter(prefix="/api/media", tags=["Media"])
 
@@ -58,7 +59,8 @@ _ADMIN_ROLES = {"admin", "administrador", "administrator", "backoffice", "bo"}
 
 
 def _is_admin(user: dict) -> bool:
-    return any(r in str(user.get("role", "")).lower() for r in _ADMIN_ROLES)
+    """Permiso desde Roles y permisos (rbac.py): multimedia.eliminar."""
+    return rbac.tiene(user, "multimedia.eliminar")
 
 
 def _ext(filename: str) -> str:

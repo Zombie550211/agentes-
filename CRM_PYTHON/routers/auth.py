@@ -17,6 +17,7 @@ from deps import (
     clear_token_cookie as _clear_token_cookie,
 )
 import session_guard
+import rbac
 import unicodedata, re, os, json, math, time, secrets, smtplib
 import datetime as _dt
 from email.mime.text import MIMEText
@@ -386,6 +387,9 @@ async def verify_server(request: Request, response: Response):
         # ya existía en la tabla; simplemente no se devolvía.
         if doc.get("email"):      user_data["email"]      = doc["email"]
 
+    # Acciones que tiene (Roles y permisos): el menú y las pantallas muestran solo lo
+    # que puede hacer. Es solo para la interfaz; cada API vuelve a comprobarlo.
+    user_data["acciones"] = sorted(rbac.acciones_de(user_data))
     return {"success": True, "authenticated": True, "user": user_data}
 
 
@@ -402,7 +406,7 @@ async def get_maintenance():
 
 
 @router.post("/maintenance")
-async def set_maintenance(body: MaintenanceBody, user: dict = Depends(require_roles(*ADMIN_ROLES))):
+async def set_maintenance(body: MaintenanceBody, user: dict = Depends(rbac.requiere("sistema.administrar"))):
     if body.active:
         state = {"active": True, "message": body.message, "activeSince": math.floor(time.time())}
     else:
@@ -492,7 +496,7 @@ def _canon_sup_key(v: str) -> str:
 
 
 @router.post("/register")
-async def register(body: RegisterBody, user: dict = Depends(require_roles(*ADMIN_ROLES))):
+async def register(body: RegisterBody, user: dict = Depends(rbac.requiere("usuarios.gestionar"))):
     username = body.username.strip()
     if not username or not body.password or not body.role:
         raise HTTPException(400, "Faltan campos obligatorios (usuario, contraseña, rol)")

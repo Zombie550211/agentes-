@@ -44,6 +44,7 @@ from typing import Optional
 from sqlalchemy import text
 
 from estado_comision import grupo as grupo_comision, _sql_grupo
+import rbac
 
 HORAS_VERDE = 72
 HORAS_AMARILLO = 120
@@ -156,14 +157,13 @@ def _rol(user: dict) -> str:
 
 
 def es_supervisor(user: dict) -> bool:
-    return "supervisor" in _rol(user)
+    """Permiso desde Roles y permisos (rbac.py): ventas.supervisar."""
+    return rbac.tiene(user, "ventas.supervisar")
 
 
 def es_agente(user: dict) -> bool:
-    r = _rol(user)
-    if "supervisor" in r or "admin" in r or "backoffice" in r:
-        return False
-    return "agent" in r or "vendedor" in r
+    """Ve solo lo suyo: ni gestiona todas las ventas ni supervisa (rbac.py)."""
+    return not rbac.tiene(user, "ventas.gestion") and not rbac.tiene(user, "ventas.supervisar")
 
 
 def ambito(user: dict) -> str:

@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 import random, re, aiofiles, datetime as _dt, json
+import rbac
 
 def _utcnow() -> datetime:
     """UTC naive (reemplazo de _utcnow() deprecado en Python 3.12+)."""
@@ -16,8 +17,8 @@ router = APIRouter(prefix="/api/pre-leads", tags=["Pre-Leads"])
 
 
 def _is_procesamiento(role: str) -> bool:
-    r = str(role or "").lower().strip()
-    return r in ("admin", "administrador", "administrator") or r.startswith("procesamiento")
+    """Permiso desde Roles y permisos (rbac.py): pre_leads.procesar."""
+    return rbac.tiene(role, "pre_leads.procesar")
 
 
 async def _generar_lead_id(s) -> str:

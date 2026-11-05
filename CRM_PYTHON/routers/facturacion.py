@@ -79,7 +79,7 @@ class FacturacionBody(BaseModel):
 
 
 @router.get("/anual/{anio}")
-async def get_anual(anio: int, user: dict = Depends(admin_o_portal(*ADMIN_ROLES))):
+async def get_anual(anio: int, user: dict = Depends(admin_o_portal(accion="facturacion.residencial"))):
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("SELECT mes, campos FROM facturacion WHERE anio = :y"), {"y": anio})
         docs = r.mappings().all()
@@ -94,7 +94,7 @@ async def get_anual(anio: int, user: dict = Depends(admin_o_portal(*ADMIN_ROLES)
 
 
 @router.get("/{anio}/{mes}")
-async def get_mensual(anio: int, mes: int, user: dict = Depends(admin_o_portal(*ADMIN_ROLES))):
+async def get_mensual(anio: int, mes: int, user: dict = Depends(admin_o_portal(accion="facturacion.residencial"))):
     if not (1 <= mes <= 12):
         raise HTTPException(400, "Parámetros inválidos")
     async with AsyncSessionLocal() as s:
@@ -108,7 +108,7 @@ async def get_mensual(anio: int, mes: int, user: dict = Depends(admin_o_portal(*
 
 @router.post("")
 @router.post("/")
-async def save_facturacion(body: FacturacionBody, user: dict = Depends(admin_o_portal(*ADMIN_ROLES))):
+async def save_facturacion(body: FacturacionBody, user: dict = Depends(admin_o_portal(accion="facturacion.residencial"))):
     parsed = _parse_fecha(body.fecha)
     if not parsed:
         raise HTTPException(400, "Fecha inválida")

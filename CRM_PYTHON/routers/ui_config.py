@@ -12,6 +12,7 @@ from sqlalchemy import text
 from database_mysql import AsyncSessionLocal
 from deps import current_user
 import json, re
+import rbac
 
 router = APIRouter(prefix="/api/ui-config", tags=["UI Config"])
 
@@ -45,8 +46,8 @@ _TOKEN_VAL_RE  = re.compile(r"^[#a-zA-Z0-9(),.%\s-]{1,64}$")
 
 
 def _is_admin(user: dict) -> bool:
-    r = str(user.get("role", "")).strip().lower()
-    return any(a in r for a in ("admin", "backoffice", "bo"))
+    """Permiso desde Roles y permisos (rbac.py): sistema.apariencia."""
+    return rbac.tiene(user, "sistema.apariencia")
 
 
 @router.get("")

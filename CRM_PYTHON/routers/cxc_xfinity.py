@@ -14,6 +14,7 @@ from sqlalchemy import text
 import realtime
 from database_mysql import AsyncSessionLocal
 from deps import current_user, ADMIN_ROLES, team_seccion, _normalize_role
+import rbac
 
 router = APIRouter(prefix="/api/cxc-xfinity", tags=["CXC Xfinity"])
 
@@ -25,7 +26,7 @@ _EQUIPOS_EDITORES = {"control de calidad"}
 
 
 def _puede_editar(user: dict) -> bool:
-    if _normalize_role(user.get("role")) in _ADMIN_NORM:
+    if rbac.tiene(user, "estadisticas.cxc_editar"):
         return True
     return _normalize_role(user.get("team")) in _EQUIPOS_EDITORES
 

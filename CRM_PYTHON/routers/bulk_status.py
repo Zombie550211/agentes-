@@ -8,6 +8,7 @@ from typing import List
 import re
 import asyncio
 import realtime
+import rbac
 
 
 def _utcnow() -> datetime:
@@ -24,11 +25,8 @@ _ALLOWED_ROLES = {
 
 
 def _can_use(user: dict) -> bool:
-    r = str(user.get("role") or "").lower().strip()
-    # Backoffice no cambia el status de la venta, solo el de comisión (05-10-2026).
-    if "backoffice" in r or "back office" in r or "back_office" in r:
-        return False
-    return any(r == v or v in r for v in _ALLOWED_ROLES)
+    """Permiso desde Roles y permisos (rbac.py): ventas.estado_masivo."""
+    return rbac.tiene(user, "ventas.estado_masivo")
 
 
 def _normalize_phone(phone: str) -> str:

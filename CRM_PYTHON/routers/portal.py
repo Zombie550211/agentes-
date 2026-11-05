@@ -33,6 +33,7 @@ from sqlalchemy.exc import IntegrityError
 
 import audit
 from database_mysql import AsyncSessionLocal
+import rbac
 from deps import ADMIN_ROLES, IS_PROD, COOKIE_SAMESITE, JWT_ALGO, JWT_SECRET, current_user, require_roles, _normalize_role
 from limiter import limiter
 from tiempo_sv import ahora_sv
@@ -122,9 +123,11 @@ def _como_usuario(u: dict) -> dict:
             "role": "portal", "portal": True, "solo_lectura": bool(u["solo_lectura"])}
 
 
-def admin_o_portal(*roles):
-    """Dependencia: un usuario del CRM con alguno de esos roles, o un usuario del portal.
-    Solo la usan las APIs que el portal necesita (facturación y recibos de Google Ads)."""
+def admin_o_portal(*roles, accion: str | None = None):
+    """Dependencia: un usuario del CRM con permiso, o un usuario del portal.
+    Solo la usan las APIs que el portal necesita (facturación y recibos de Google Ads).
+    Con `accion`, el permiso del CRM sale de Roles y permisos (rbac.py); sin ella, de
+    la lista de roles."""
     permitidos = {_normalize_role(r) for r in roles}
 
     async def checker(request: Request, response: Response):
@@ -133,7 +136,7 @@ def admin_o_portal(*roles):
                 user = await current_user(request, response)
             except HTTPException:
                 user = None
-            if user and _normalize_role(user.get("role")) in permitidos:
+            if user and (rbac.tiene(user, accion) if accion else _normalize_role(user.get("role")) in permitidos):
                 return user
         u = await _usuario_portal(request, response)
         if u:

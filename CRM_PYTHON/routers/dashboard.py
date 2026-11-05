@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user, team_seccion
+import rbac
 import datetime as _dt, calendar, traceback, json as _json
 from tiempo_sv import ahora_sv
 
@@ -35,7 +36,7 @@ async def dashboard_home(user: dict = Depends(current_user)):
     _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     role     = (user.get("role") or "").lower()
     username = (user.get("name") or user.get("username") or "").strip().lower()
-    is_adm_bo = any(r in role for r in ("admin","administrator","administrador","backoffice","bo","administrativo"))
+    is_adm_bo = rbac.tiene(user, "paneles.ver_todo")
 
     start, _end = _month_range(_sv.year, _sv.month)
     # Usar el primer día del mes siguiente para capturar todas las horas del último día

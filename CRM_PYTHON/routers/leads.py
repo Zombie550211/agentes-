@@ -13,6 +13,7 @@ from validators import ImagenUrl
 import realtime
 from tiempo_sv import ahora_sv
 from estado_comision import INICIAL as INICIAL_COMISION, LISTA as LISTA_COMISION, grupo as grupo_comision, normalizar as normalizar_comision
+import rbac
 _GRUPOS_COMISION = ("completed", "cancelled", "pending", "hold", "oficina", "reserva", "repro")
 
 
@@ -52,12 +53,8 @@ def _normalize(s: str) -> str:
 
 
 def _is_admin_or_bo(user: dict) -> bool:
-    r = _normalize(user.get("role", ""))
-    return (
-        "admin" in r or "backoffice" in r
-        or "rol_icon" in r or "rol_bamo" in r
-        or r == "icon" or r == "bamo"
-    )
+    """Permiso desde Roles y permisos (rbac.py): ventas.gestion."""
+    return rbac.tiene(user, "ventas.gestion")
 
 
 def _is_backoffice(user: dict) -> bool:
@@ -71,7 +68,8 @@ _BO_NO_STATUS = "Backoffice no puede cambiar el status del cliente (solo el stat
 
 
 def _is_supervisor(user: dict) -> bool:
-    return "supervisor" in _normalize(user.get("role", ""))
+    """Permiso desde Roles y permisos (rbac.py): ventas.supervisar."""
+    return rbac.tiene(user, "ventas.supervisar")
 
 
 def _is_agent(user: dict) -> bool:
@@ -1556,7 +1554,7 @@ async def update_lead_status(
     status de comisión (estado_comision.py)."""
     if not (_is_admin_or_bo(user) or _is_supervisor(user)):
         raise HTTPException(403, "No autorizado")
-    if _is_backoffice(user):
+    if not rbac.tiene(user, "ventas.cambiar_status"):
         raise HTTPException(403, _BO_NO_STATUS)
     if not body.status:
         raise HTTPException(400, "status requerido")
@@ -1718,7 +1716,7 @@ async def update_lead(
         if not data:
             raise HTTPException(403, "No puedes cambiar esos datos de la venta")
     # Backoffice: el status que mande se descarta (el resto de campos sí se guarda).
-    if _is_backoffice(user) and "status" in data:
+    if not rbac.tiene(user, "ventas.cambiar_status") and "status" in data:
         data.pop("status")
         if not data:
             raise HTTPException(403, _BO_NO_STATUS)

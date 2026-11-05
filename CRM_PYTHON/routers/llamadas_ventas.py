@@ -4,6 +4,7 @@ from typing import Optional, Any
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
+import rbac
 import datetime as _dt, re, calendar
 from tiempo_sv import ahora_sv
 
@@ -42,13 +43,15 @@ def _normalize_team_key(value: Any) -> str:
 
 
 def _can_access_excel(user: dict) -> bool:
-    return _is_admin(user.get("role", "")) or _is_supervisor(user) or _is_backoffice(user)
+    """Permiso desde Roles y permisos (rbac.py): llamadas_ventas.ver."""
+    return rbac.tiene(user, "llamadas_ventas.ver")
 
 
 def _can_edit_team(user: dict, team: Optional[str]) -> bool:
-    if _is_admin(user.get("role", "")) or _is_backoffice(user):
+    # Todos los equipos con «editar_todos»; si solo puede ver, únicamente el suyo.
+    if rbac.tiene(user, "llamadas_ventas.editar_todos"):
         return True
-    if not _is_supervisor(user):
+    if not rbac.tiene(user, "llamadas_ventas.ver"):
         return False
     team_key = _normalize_team_key(team)
     if not team_key:
@@ -82,7 +85,7 @@ async def get_llamadas_ventas(
     year:  Optional[int] = Query(None),
     user:  dict = Depends(current_user),
 ):
-    if not _is_admin(user.get("role", "")):
+    if not rbac.tiene(user, "llamadas_ventas.registro"):
         raise HTTPException(403, "No autorizado")
 
     now          = _utcnow()
@@ -127,7 +130,7 @@ class LlamadasVentasBody(BaseModel):
 
 @router.post("/api/llamadas-ventas")
 async def post_llamadas_ventas(body: LlamadasVentasBody, user: dict = Depends(current_user)):
-    if not _is_admin(user.get("role", "")):
+    if not rbac.tiene(user, "llamadas_ventas.registro"):
         raise HTTPException(403, "No autorizado")
 
     if body.type in ("LLAMADAS", "VENTAS"):
@@ -271,7 +274,7 @@ async def excel_get_sheet(sheet_id: str, user: dict = Depends(current_user)):
         """), {"sid": sid})
         users = [dict(row) for row in r3.mappings().all()]
 
-    if _is_supervisor(user) and not _is_admin(user.get("role", "")) and not _is_backoffice(user):
+    if not rbac.tiene(user, "llamadas_ventas.editar_todos"):
         allowed_team = _normalize_team_key(user.get("team") or user.get("equipo") or "")
         if allowed_team:
             data = [row for row in data if _normalize_team_key(row.get("team") or "") == allowed_team]

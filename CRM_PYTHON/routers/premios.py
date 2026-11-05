@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user, require_roles, ADMIN_ROLES
+import rbac
 from typing import Optional
 from datetime import datetime, date, timezone
 
@@ -50,7 +51,7 @@ async def get_activos(user: dict = Depends(current_user)):
 
 
 @router.post("/activos")
-async def create_activo(body: PremioActivo, user: dict = Depends(require_roles(*ADMIN_ROLES))):
+async def create_activo(body: PremioActivo, user: dict = Depends(rbac.requiere("contenido.publicar"))):
     if body.tipo not in TIPOS_VALIDOS:
         raise HTTPException(400, "Tipo inválido")
     now = _utcnow()
@@ -71,7 +72,7 @@ async def create_activo(body: PremioActivo, user: dict = Depends(require_roles(*
 
 
 @router.delete("/activos/{premio_id}")
-async def delete_activo(premio_id: str, user: dict = Depends(require_roles(*ADMIN_ROLES))):
+async def delete_activo(premio_id: str, user: dict = Depends(rbac.requiere("contenido.publicar"))):
     try:
         pid = int(premio_id)
     except ValueError:
@@ -94,7 +95,7 @@ async def get_ganadores(user: dict = Depends(current_user)):
 
 
 @router.post("/ganadores")
-async def create_ganador(body: Ganador, user: dict = Depends(require_roles(*ADMIN_ROLES))):
+async def create_ganador(body: Ganador, user: dict = Depends(rbac.requiere("contenido.publicar"))):
     if not body.nombre or not body.iniciales:
         raise HTTPException(400, "Nombre e iniciales requeridos")
     now = _utcnow()
@@ -118,7 +119,7 @@ async def create_ganador(body: Ganador, user: dict = Depends(require_roles(*ADMI
 
 
 @router.delete("/ganadores/{ganador_id}")
-async def delete_ganador(ganador_id: str, user: dict = Depends(require_roles(*ADMIN_ROLES))):
+async def delete_ganador(ganador_id: str, user: dict = Depends(rbac.requiere("contenido.publicar"))):
     try:
         gid = int(ganador_id)
     except ValueError:

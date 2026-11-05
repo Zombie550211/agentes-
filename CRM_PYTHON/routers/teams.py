@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user, require_roles, ADMIN_ROLES, team_seccion
+import rbac
 from pydantic import BaseModel
 from typing import Optional
 import re, unicodedata
@@ -41,8 +42,7 @@ class RenameIn(BaseModel):
 # ── POST /api/teams/rename  (solo admin/backoffice) ─────────────────
 @router.post("/api/teams/rename")
 async def add_rename(body: RenameIn, user: dict = Depends(current_user)):
-    role = _norm(user.get("role", ""))
-    if not any(r in role for r in ("admin", "backoffice")):
+    if not rbac.tiene(user, "equipos.renombrar"):
         raise HTTPException(403, "Solo administradores pueden registrar renombres de equipo")
     try:
         dt = datetime.strptime(body.changed_at, "%Y-%m-%d")
@@ -61,8 +61,7 @@ async def add_rename(body: RenameIn, user: dict = Depends(current_user)):
 # ── DELETE /api/teams/rename/{id}  (solo admin) ──────────────────────
 @router.delete("/api/teams/rename/{rename_id}")
 async def delete_rename(rename_id: int, user: dict = Depends(current_user)):
-    role = _norm(user.get("role", ""))
-    if not any(r in role for r in ("admin",)):
+    if not rbac.tiene(user, "usuarios.gestionar"):
         raise HTTPException(403, "Solo administradores")
     async with AsyncSessionLocal() as s:
         await s.execute(text("DELETE FROM team_renames WHERE id = :id"), {"id": rename_id})

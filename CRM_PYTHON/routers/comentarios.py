@@ -4,6 +4,7 @@ from typing import Optional
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
+import rbac
 import datetime as _dt
 
 def _utcnow() -> _dt.datetime:
@@ -14,8 +15,8 @@ router = APIRouter(tags=["Comentarios"])
 
 
 def _is_admin_or_bo(user: dict) -> bool:
-    r = str(user.get("role", "")).lower()
-    return "admin" in r or "backoffice" in r or "back_office" in r
+    """Permiso desde Roles y permisos (rbac.py): ventas.moderar_comentarios."""
+    return rbac.tiene(user, "ventas.moderar_comentarios")
 
 
 def _fmt_comment(row) -> dict:

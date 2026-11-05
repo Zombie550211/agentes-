@@ -9,6 +9,7 @@ import datetime as _dt
 import traceback
 import io
 import re
+import rbac
 
 
 def _utcnow() -> _dt.datetime:
@@ -20,7 +21,8 @@ _ADMIN_ROLES = {"admin", "administrador", "administrator", "backoffice", "bo"}
 
 
 def _is_admin(user: dict) -> bool:
-    return any(r in str(user.get("role", "")).lower() for r in _ADMIN_ROLES)
+    """Permiso desde Roles y permisos (rbac.py): archivos.gestionar."""
+    return rbac.tiene(user, "archivos.gestionar")
 
 
 def _vision_global(user: dict) -> bool:

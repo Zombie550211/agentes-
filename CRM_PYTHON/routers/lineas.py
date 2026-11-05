@@ -12,6 +12,7 @@ from cifrado_datos import cifrar
 import re, random, unicodedata, time, json, os, secrets, asyncio
 import realtime
 from tiempo_sv import ahora_sv
+import rbac
 
 
 def _utcnow() -> datetime:
@@ -189,17 +190,8 @@ async def lineas_teams(user: dict = Depends(current_user)):
 # listado (GET /api/lineas-team) como las comprobaciones de modificación.
 
 def _is_admin_bo_lineas(user: dict) -> bool:
-    """admin / backoffice / roles equivalentes (icon/bamo): acceso total.
-
-    El conjunto de tokens debe coincidir EXACTAMENTE con el de GET /api/lineas-team
-    para que el alcance de edición sea igual al de visibilidad ('admin' ya cubre
-    administrador/administrator por substring).
-    """
-    r = str(user.get("role", "")).lower()
-    return any(v in r for v in (
-        "admin", "backoffice", "back_office",
-        "rol_icon", "rol_bamo", "icon", "bamo",
-    ))
+    """Permiso desde Roles y permisos (rbac.py): lineas.gestion."""
+    return rbac.tiene(user, "lineas.gestion")
 
 
 def _user_scope_clause(user: dict) -> tuple[str, dict]:
@@ -210,7 +202,7 @@ def _user_scope_clause(user: dict) -> tuple[str, dict]:
     """
     role     = str(user.get("role", "")).lower()
     username = str(user.get("username", ""))
-    is_supervisor = "supervisor" in role
+    is_supervisor = rbac.tiene(user, "lineas.supervisar")
 
     if _is_admin_bo_lineas(user):
         return "", {}
@@ -468,8 +460,8 @@ async def webhook_get(
 ):
     role     = str(user.get("role", "")).lower()
     username = str(user.get("username", ""))
-    is_admin_bo  = any(r in role for r in ["admin", "backoffice", "back_office"])
-    is_supervisor = "supervisor" in role
+    is_admin_bo  = rbac.tiene(user, "lineas.gestion")
+    is_supervisor = rbac.tiene(user, "lineas.supervisar")
 
     where:  list = ["(collection_name = 'ENTRANTES_CHATBOT')"]
     params: dict = {}
@@ -509,8 +501,7 @@ async def webhook_get(
 async def get_lineas(user: dict = Depends(current_user)):
     username = user.get("username", "")
     role     = str(user.get("role", "")).lower()
-    privileged_roles = ["admin", "administrador", "backoffice", "back office", "back_office", "bo", "b.o", "supervisor"]
-    is_priv  = any(r == role or role.startswith(r) for r in privileged_roles)
+    is_priv  = rbac.tiene(user, "lineas.gestion") or rbac.tiene(user, "lineas.supervisar")
 
     where:  list = []
     params: dict = {}
@@ -616,7 +607,7 @@ async def post_lineas(body: LineasBody, user: dict = Depends(current_user)):
 
     username     = user.get("username", "")
     target_agent = username
-    if "supervisor" in role and body.agenteAsignado:
+    if rbac.tiene(user, "lineas.supervisar") and body.agenteAsignado:
         target_agent = body.agenteAsignado
     target_col_name = _normalize_col_name(target_agent)
 
@@ -987,8 +978,8 @@ async def lineas_team_list(
 ):
     role     = str(user.get("role", "")).lower()
     username = str(user.get("username", ""))
-    is_admin_bo   = any(r in role for r in ["admin", "backoffice", "back_office", "rol_icon", "rol_bamo", "icon", "bamo"])
-    is_supervisor = "supervisor" in role
+    is_admin_bo   = rbac.tiene(user, "lineas.gestion")
+    is_supervisor = rbac.tiene(user, "lineas.supervisar")
 
     cache_key = (f"__admin__{month}" if is_admin_bo else f"{username}__{month}") if month else ("__admin__" if is_admin_bo else username)
     cached = _cache_get(cache_key)

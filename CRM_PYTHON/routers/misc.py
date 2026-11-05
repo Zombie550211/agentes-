@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
+import rbac
 from deps import current_user
 import session_guard
 from typing import Optional
@@ -227,8 +228,8 @@ async def get_customers(
     user:        dict           = Depends(current_user),
 ):
     role    = _role_lower(user)
-    is_adm  = _is_adm_or_bo(role)
-    is_sup  = _is_supervisor(role)
+    is_adm  = rbac.tiene(user, "paneles.ver_todo")
+    is_sup  = rbac.tiene(user, "paneles.su_equipo")
     max_lim = 10_000 if is_adm else 500
     limit   = min(limit, max_lim)
     skip    = (page - 1) * limit
@@ -331,7 +332,7 @@ async def customers_agents_summary(user: dict = Depends(current_user)):
 # ── GET /api/supervisors-list ─────────────────────────────────────
 @router.get("/api/supervisors-list")
 async def supervisors_list(user: dict = Depends(current_user)):
-    if not _is_admin(_role_lower(user)):
+    if not rbac.tiene(user, "usuarios.gestionar"):
         raise HTTPException(403, "No autorizado")
     async with AsyncSessionLocal() as s:
         r = await s.execute(text(
@@ -344,7 +345,7 @@ async def supervisors_list(user: dict = Depends(current_user)):
 # ── GET /api/supervisors/:team ────────────────────────────────────
 @router.get("/api/supervisors/{team}")
 async def supervisors_by_team(team: str, user: dict = Depends(current_user)):
-    if not _is_admin(_role_lower(user)):
+    if not rbac.tiene(user, "usuarios.gestionar"):
         raise HTTPException(403, "No autorizado")
     return {"success": True, "supervisors": []}
 
@@ -352,7 +353,7 @@ async def supervisors_by_team(team: str, user: dict = Depends(current_user)):
 # ── POST /api/admin/force-logout-all ─────────────────────────────
 @router.post("/api/admin/force-logout-all")
 async def force_logout_all(user: dict = Depends(current_user)):
-    if not _is_admin(_role_lower(user)):
+    if not rbac.tiene(user, "sistema.administrar"):
         raise HTTPException(403, "No autorizado")
     ts = int(_utcnow().timestamp() * 1000)
     async with AsyncSessionLocal() as s:
@@ -373,7 +374,7 @@ async def force_logout_all(user: dict = Depends(current_user)):
 # ── POST /api/admin/cache/clear ──────────────────────────────────
 @router.post("/api/admin/cache/clear")
 async def clear_all_caches(user: dict = Depends(current_user)):
-    if not _is_admin(_role_lower(user)):
+    if not rbac.tiene(user, "sistema.administrar"):
         raise HTTPException(403, "No autorizado")
     import sys
     cleared = []
@@ -392,7 +393,7 @@ async def clear_all_caches(user: dict = Depends(current_user)):
 # ── POST /api/admin/rename-att-air ────────────────────────────────
 @router.post("/api/admin/rename-att-air")
 async def rename_att_air(user: dict = Depends(current_user)):
-    if not _is_admin(_role_lower(user)):
+    if not rbac.tiene(user, "sistema.administrar"):
         raise HTTPException(403, "No autorizado")
     async with AsyncSessionLocal() as s:
         r = await s.execute(text(
@@ -430,8 +431,8 @@ async def instalaciones_hoy(
 
     # ── Alcance en residencial (tabla leads) ──
     res_where, res_params = "1=1", {}
-    if not _is_adm_or_bo(role):
-        if _is_supervisor(role):
+    if not rbac.tiene(user, "paneles.ver_todo"):
+        if rbac.tiene(user, "paneles.su_equipo"):
             res_where = """(
                 UPPER(TRIM(COALESCE(supervisor,''))) IN (:sn, :su, :sd)
                 OR (:tm <> '' AND UPPER(TRIM(COALESCE(team,''))) = :tm)
@@ -543,8 +544,8 @@ async def notificaciones_status(
     # No mostrar al usuario sus propios cambios
     where.append("LOWER(COALESCE(actor,'')) NOT IN (:me1, :me2)")
 
-    if not _is_adm_or_bo(role):
-        if _is_supervisor(role):
+    if not rbac.tiene(user, "paneles.ver_todo"):
+        if rbac.tiene(user, "paneles.su_equipo"):
             from routers.lineas import _team_token
             token = _team_token(str(user.get("team") or ""))
             params.update({"sn": name.upper(), "su": username.upper(), "sd": display,

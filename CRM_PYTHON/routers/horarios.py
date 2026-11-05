@@ -40,6 +40,7 @@ import audit
 import cuadratura_sync as cs
 from database_mysql import AsyncSessionLocal
 from deps import ADMIN_ROLES, current_user, team_seccion
+import rbac
 
 router = APIRouter(prefix="/api/horarios", tags=["Horarios"])
 
@@ -58,12 +59,19 @@ def _rol(user: dict) -> str:
 
 
 def _es_admin_bo(user: dict) -> bool:
-    r = _rol(user)
-    return "admin" in r or "backoffice" in r or "back office" in r
+    """Permiso desde Roles y permisos (rbac.py): horarios.gestionar_todos."""
+    return rbac.tiene(user, "horarios.gestionar_todos")
+
+
+def _es_supervisor_fila(u: dict) -> bool:
+    """¿Esa PERSONA (fila de users) es supervisor? Clasifica, no da permisos."""
+    r = _rol(u)
+    return "supervisor" in r and not ("admin" in r or "backoffice" in r or "back office" in r)
 
 
 def _es_supervisor(user: dict) -> bool:
-    return "supervisor" in _rol(user) and not _es_admin_bo(user)
+    """Permiso desde Roles y permisos (rbac.py): horarios.su_equipo."""
+    return rbac.tiene(user, "horarios.su_equipo") and not _es_admin_bo(user)
 
 
 # Orden de las secciones en la tabla.
@@ -127,7 +135,7 @@ async def _supervisores_por_equipo(s) -> dict[str, str]:
     """))
     sups: dict[str, list[str]] = {}
     for u in r.mappings().all():
-        if _es_supervisor(dict(u)):
+        if _es_supervisor_fila(dict(u)):
             sups.setdefault(_norm(u["team"]), []).append(u["name"] or u["username"])
     return {k: " / ".join(v) for k, v in sups.items()}
 
@@ -340,8 +348,8 @@ async def _semana_cuadratura(lunes: date, fresca: bool = False) -> dict:
 
 
 def _es_administrador(user: dict) -> bool:
-    """Rol de administración estricto (sin back office): el único que cambia un día ya asignado."""
-    return _rol(user).strip() in {r.lower() for r in ADMIN_ROLES}
+    """El único que cambia un día ya asignado (rbac.py: horarios.dias_pasados)."""
+    return rbac.tiene(user, "horarios.dias_pasados")
 
 
 async def _vista_cuadratura(datos: dict, user: dict) -> tuple[list[dict], Optional[str], Optional[dict]]:

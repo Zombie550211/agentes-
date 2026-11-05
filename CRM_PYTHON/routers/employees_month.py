@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user, require_roles, ADMIN_ROLES
+import rbac
 from datetime import datetime, timezone
 from typing import Optional
 import re
@@ -57,12 +58,12 @@ async def get_employees(user: dict = Depends(current_user)):
 
 
 @router.post("/migrate-cloudinary")
-async def migrate_cloudinary(user: dict = Depends(require_roles(*ADMIN_ROLES))):
+async def migrate_cloudinary(user: dict = Depends(rbac.requiere("contenido.publicar"))):
     return {"success": False, "message": "Migración Cloudinary no implementada en Python aún"}
 
 
 @router.post("")
-async def upsert_employee(body: EmployeeBody, user: dict = Depends(require_roles(*ADMIN_ROLES))):
+async def upsert_employee(body: EmployeeBody, user: dict = Depends(rbac.requiere("contenido.publicar"))):
     if body.employee not in VALID_EMPLOYEES:
         raise HTTPException(400, 'Parámetro "employee" inválido (first|second)')
     now = _utcnow()
@@ -92,7 +93,7 @@ async def upsert_employee(body: EmployeeBody, user: dict = Depends(require_roles
 
 
 @router.delete("/{employee}")
-async def delete_employee(employee: str, user: dict = Depends(require_roles(*ADMIN_ROLES))):
+async def delete_employee(employee: str, user: dict = Depends(rbac.requiere("contenido.publicar"))):
     if employee not in VALID_EMPLOYEES:
         raise HTTPException(400, 'Parámetro "employee" inválido (first|second)')
     async with AsyncSessionLocal() as s:

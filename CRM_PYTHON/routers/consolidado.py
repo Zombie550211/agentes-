@@ -34,6 +34,7 @@ from database_mysql import AsyncSessionLocal
 from deps import current_user, team_seccion
 from permissions import resolve_market_restriction
 from tiempo_sv import ahora_sv
+import rbac
 
 router = APIRouter(prefix="/api/consolidado", tags=["Consolidado"])
 
@@ -43,8 +44,8 @@ COLUMNAS = ("active", "pending", "cancel", "hold")
 
 
 def _es_admin_bo(user: dict) -> bool:
-    r = str(user.get("role") or "").lower()
-    return "admin" in r or "backoffice" in r or "back office" in r
+    """Permiso desde Roles y permisos (rbac.py): consolidado.ver_todo."""
+    return rbac.tiene(user, "consolidado.ver_todo")
 
 
 def _columna(status: str) -> str | None:

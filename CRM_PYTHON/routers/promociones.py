@@ -12,6 +12,7 @@ from sqlalchemy import text
 
 from database_mysql import AsyncSessionLocal
 from deps import current_user, require_roles, ADMIN_ROLES
+import rbac
 
 router = APIRouter(prefix="/api/promociones", tags=["Promociones"])
 
@@ -71,7 +72,7 @@ async def listar(user: dict = Depends(current_user)):
 
 
 @router.post("")
-async def crear(body: Promocion, user: dict = Depends(require_roles(*ADMIN_ROLES))):
+async def crear(body: Promocion, user: dict = Depends(rbac.requiere("contenido.publicar"))):
     titulo, items = _limpiar(body)
     async with AsyncSessionLocal() as s:
         res = await s.execute(text("""
@@ -89,7 +90,7 @@ async def crear(body: Promocion, user: dict = Depends(require_roles(*ADMIN_ROLES
 
 
 @router.put("/{promo_id}")
-async def editar(promo_id: int, body: Promocion, user: dict = Depends(require_roles(*ADMIN_ROLES))):
+async def editar(promo_id: int, body: Promocion, user: dict = Depends(rbac.requiere("contenido.publicar"))):
     titulo, items = _limpiar(body)
     async with AsyncSessionLocal() as s:
         res = await s.execute(text("""
@@ -109,7 +110,7 @@ async def editar(promo_id: int, body: Promocion, user: dict = Depends(require_ro
 
 
 @router.post("/{promo_id}/destacar")
-async def destacar(promo_id: int, user: dict = Depends(require_roles(*ADMIN_ROLES))):
+async def destacar(promo_id: int, user: dict = Depends(rbac.requiere("contenido.publicar"))):
     async with AsyncSessionLocal() as s:
         res = await s.execute(text("""
             UPDATE promociones SET destacada = 1, actualizado_por = :by WHERE id = :id
@@ -124,7 +125,7 @@ async def destacar(promo_id: int, user: dict = Depends(require_roles(*ADMIN_ROLE
 
 
 @router.delete("/{promo_id}")
-async def quitar(promo_id: int, user: dict = Depends(require_roles(*ADMIN_ROLES))):
+async def quitar(promo_id: int, user: dict = Depends(rbac.requiere("contenido.publicar"))):
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("DELETE FROM promociones WHERE id = :id"), {"id": promo_id})
         await s.commit()

@@ -8,6 +8,7 @@ from registro_usuarios import registrar
 from datetime import datetime, timezone
 from typing import Optional, List
 import unicodedata, json, re
+import rbac
 
 
 def _utcnow() -> datetime:
@@ -63,10 +64,13 @@ ROLES_CANONICOS = {
 
 
 def rol_canonico(role: str) -> str:
+    """Clave del rol tal como está en la tabla `roles` (Permisos → roles). Acepta las
+    variantes de escritura de siempre; un rol inexistente o desactivado se rechaza."""
     k = re.sub(r"\s+", " ", unicodedata.normalize("NFD", str(role or "")).encode("ascii", "ignore").decode().strip().lower())
-    if k not in ROLES_CANONICOS:
+    clave = rbac.rol_canonico(ROLES_CANONICOS.get(k, role))
+    if not clave:
         raise HTTPException(400, f"Rol no válido: «{role}». Elige uno de la lista.")
-    return ROLES_CANONICOS[k]
+    return clave
 
 
 
@@ -87,18 +91,17 @@ def validar_equipo(team: str) -> None:
 
 async def _otros_admins_activos(s, excepto_id: int) -> int:
     """Administradores activos (por rol o con admin:full) distintos de `excepto_id`."""
+    # «Administrador» = quien puede gestionar usuarios (por su rol o por admin:full).
     r = await s.execute(text("""
-        SELECT COUNT(*) FROM users
+        SELECT role, permissions FROM users
         WHERE id != :id AND COALESCE(active, 1) = 1 AND COALESCE(acceso_crm, 1) = 1
-          AND (LOWER(TRIM(role)) IN ('administrador','admin','administrativo','administrador general')
-               OR permissions LIKE '%admin:full%')
     """), {"id": excepto_id})
-    return int(r.scalar() or 0)
+    return sum(1 for role, perms in r.all() if _es_admin_fila(role, perms))
 
 
 def _es_admin_fila(role, permissions) -> bool:
     from deps import rol_efectivo
-    return _norm_role(rol_efectivo(role, permissions)).strip() in ADMIN_ROLES
+    return rbac.tiene(rol_efectivo(role, permissions), "usuarios.gestionar")
 
 
 def _norm_role(r: str) -> str:
@@ -106,12 +109,13 @@ def _norm_role(r: str) -> str:
 
 
 def _is_admin(user: dict) -> bool:
-    return _norm_role(user.get("role","")) in ADMIN_ROLES
+    """Permiso desde Roles y permisos (rbac.py): usuarios.gestionar."""
+    return rbac.tiene(user, "usuarios.gestionar")
 
 
 def _is_admin_or_bo(user: dict) -> bool:
-    r = _norm_role(user.get("role",""))
-    return "admin" in r or "backoffice" in r
+    """Permiso desde Roles y permisos (rbac.py): usuarios.ver_lista."""
+    return rbac.tiene(user, "usuarios.ver_lista")
 
 
 def _row_to_user(row) -> dict:
@@ -312,7 +316,7 @@ async def registro(tipo: str = "", limit: int = 300, user: dict = Depends(curren
 
 @router.put("/{user_id}/role")
 async def update_role(user_id: str, body: UpdateRoleBody, user: dict = Depends(current_user)):
-    if _norm_role(user.get("role","")) not in ADMIN_ROLES:
+    if not _is_admin(user):
         raise HTTPException(403, "No autorizado para actualizar usuarios")
     if not body.role.strip():
         raise HTTPException(400, "El rol no puede estar vacío")
@@ -380,7 +384,7 @@ class UpdateFechaIngresoBody(BaseModel):
 
 @router.put("/{user_id}/fecha-ingreso")
 async def update_fecha_ingreso(user_id: str, body: UpdateFechaIngresoBody, user: dict = Depends(current_user)):
-    if _norm_role(user.get("role","")) not in ADMIN_ROLES:
+    if not _is_admin(user):
         raise HTTPException(403, "No autorizado para actualizar usuarios")
 
     try:
@@ -411,7 +415,7 @@ async def update_fecha_ingreso(user_id: str, body: UpdateFechaIngresoBody, user:
 
 @router.put("/{user_id}/credentials")
 async def update_credentials(user_id: str, body: UpdateCredentialsBody, response: Response, user: dict = Depends(current_user)):
-    if _norm_role(user.get("role","")) not in ADMIN_ROLES:
+    if not _is_admin(user):
         raise HTTPException(403, "No autorizado para actualizar credenciales")
     if not body.username and not body.password and not body.name and body.nombre_completo is None:
         raise HTTPException(400, "Se requiere username, password, name o nombre_completo")
@@ -504,7 +508,7 @@ async def activar_acceso(user_id: str, body: ActivarAccesoBody, user: dict = Dep
     """Da acceso al CRM a un empleado dado de alta desde Horarios (acceso_crm = 0): le
     pone usuario y contraseña al MISMO registro, así conserva sus horarios y su enlace
     con Cuadratura (crm_agent_id = users.id) en vez de duplicarse."""
-    if _norm_role(user.get("role","")) not in ADMIN_ROLES:
+    if not _is_admin(user):
         raise HTTPException(403, "Solo administración puede dar acceso al CRM")
     try:
         uid = int(user_id)
@@ -543,7 +547,7 @@ async def activar_acceso(user_id: str, body: ActivarAccesoBody, user: dict = Dep
 
 @router.put("/{user_id}/permissions")
 async def update_permissions(user_id: str, body: UpdatePermissionsBody, user: dict = Depends(current_user)):
-    if _norm_role(user.get("role","")) not in ADMIN_ROLES:
+    if not _is_admin(user):
         raise HTTPException(403, "No autorizado")
 
     try:
@@ -583,7 +587,7 @@ async def update_permissions(user_id: str, body: UpdatePermissionsBody, user: di
 
 @router.put("/{user_id}/suspend")
 async def suspend_user(user_id: str, body: SuspendBody, user: dict = Depends(current_user)):
-    if _norm_role(user.get("role","")) not in ADMIN_ROLES:
+    if not _is_admin(user):
         raise HTTPException(403, "No autorizado")
 
     my_id = str(user.get("id") or user.get("_id") or "")
@@ -620,7 +624,7 @@ async def suspend_user(user_id: str, body: SuspendBody, user: dict = Depends(cur
 
 @router.delete("/{user_id}")
 async def delete_user(user_id: str, user: dict = Depends(current_user)):
-    if _norm_role(user.get("role","")) not in ADMIN_ROLES:
+    if not _is_admin(user):
         raise HTTPException(403, "No autorizado para eliminar usuarios")
 
     my_id = str(user.get("id") or user.get("_id") or "")

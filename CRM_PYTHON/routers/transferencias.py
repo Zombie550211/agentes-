@@ -42,6 +42,7 @@ from sqlalchemy import text
 
 from database_mysql import AsyncSessionLocal
 from deps import current_user, team_seccion
+import rbac
 from tiempo_sv import TZ_SV
 import realtime
 
@@ -117,8 +118,8 @@ def _es_supervisor_lineas(role: str) -> bool:
 def _gestiona_cola(user: dict) -> bool:
     """Prioridad, pausa, status de otros y «Fuera de transferencias»: JONATHAN F, los
     administradores y los supervisores de Líneas."""
-    role = user.get("role", "")
-    return _es_gestor_cola(user) or _es_admin(role) or _es_supervisor_lineas(role)
+    # JONATHAN F por usuario; el resto por Roles y permisos (rbac.py).
+    return _es_gestor_cola(user) or rbac.tiene(user, "transferencias.gestionar_cola")
 
 
 def _puede_pausar(user: dict) -> bool:
@@ -158,7 +159,7 @@ async def _puede_cerrar(s, user: dict, row) -> bool:
     """Quien recibió la transferencia, o el supervisor del team que la recibió."""
     if row["agente_destino_id"] == _uid(user):
         return True
-    if not _es_supervisor(user.get("role", "")):
+    if not rbac.tiene(user, "transferencias.su_equipo"):
         return False
     mi_team = await _mi_team(s, user)
     return bool(mi_team) and mi_team.lower() == str(row["team_destino"] or "").strip().lower()
@@ -851,7 +852,7 @@ async def listar(seccion: str, desde: str = "", hasta: str = "", buscar: str = "
 
     role = user.get("role", "")
     mi_team = ""
-    if not _es_admin_bo(role):
+    if not rbac.tiene(user, "transferencias.ver_todas"):
         async with AsyncSessionLocal() as s:
             mi_team = await _mi_team(s, user)
         mi_seccion = team_seccion(mi_team, role) if mi_team else ""
@@ -859,7 +860,7 @@ async def listar(seccion: str, desde: str = "", hasta: str = "", buscar: str = "
         # mientras está protegido para otro), además de lo que hizo o recibió él / su team.
         depto = "t.seccion_origen <> :mi_sec" if mi_seccion else "0"
         params["mi_sec"] = mi_seccion
-        if _es_supervisor(role) and mi_team:
+        if rbac.tiene(user, "transferencias.su_equipo") and mi_team:
             where.append(f"(t.created_by_team = :team OR t.team_destino = :team OR {depto})")
             params["team"] = mi_team
         else:
@@ -889,10 +890,10 @@ async def listar(seccion: str, desde: str = "", hasta: str = "", buscar: str = "
         f["created_by_supervisor"] = sup_de.get(str(f["created_by_team"] or "").strip().lower(), "")
         f["destino_supervisor"] = sup_de.get(str(f["team_destino"] or "").strip().lower(), "")
 
-    gestion = _es_admin_bo(role)
+    gestion = rbac.tiene(user, "transferencias.ver_todas")
     yo_id = _uid(user)
     mi_seccion = team_seccion(mi_team, role) if mi_team else ""
-    mi_team_sup = mi_team.lower() if _es_supervisor(role) else ""
+    mi_team_sup = mi_team.lower() if rbac.tiene(user, "transferencias.su_equipo") else ""
     for f in filas:
         f["direccion_tipo"] = "enviada" if f["seccion_origen"] == seccion else "recibida"
         f["libre"] = not f["resultado"] and _vencida(f["protegido_hasta"])
@@ -954,7 +955,7 @@ async def registrar_lineas(tid: int, body: LineasIn, user: dict = Depends(curren
     la recibió o su supervisor pueden ponerla una vez (si aún falta); admin / back office, siempre."""
     if not 1 <= body.lineas <= _MAX_LINEAS:
         raise HTTPException(400, f"La cantidad de líneas va de 1 a {_MAX_LINEAS}")
-    gestion = _es_admin_bo(user.get("role", ""))
+    gestion = rbac.tiene(user, "transferencias.ver_todas")
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
             SELECT seccion_origen, agente_destino_id, team_destino, resultado, lineas
@@ -989,7 +990,7 @@ async def registrar_resultado(tid: int, body: ResultadoIn, user: dict = Depends(
     resultado = str(body.resultado or "").strip().lower()
     if resultado not in RESULTADOS:
         raise HTTPException(400, "Resultado inválido")
-    gestion = _es_admin_bo(user.get("role", ""))
+    gestion = rbac.tiene(user, "transferencias.ver_todas")
     username = str(user.get("username") or "")
 
     async with AsyncSessionLocal() as s:

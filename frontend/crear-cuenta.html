@@ -350,6 +350,16 @@
     .pm-matriz td{text-align:center;padding:8px 6px;border-bottom:1px solid var(--border)}
     .pm-matriz tbody th{border-bottom:1px solid var(--border)}
     .pm-matriz .pm-grupo th{text-align:left;padding:14px 14px 6px;font-size:.66rem;font-weight:700;letter-spacing:.06em;color:var(--blue);background:transparent;border-bottom:1px solid var(--border2)}
+    .pm-permisos thead th{vertical-align:bottom}
+    .pm-rol-col small{display:block;margin-top:2px;font-size:.6rem;font-weight:500;letter-spacing:0;text-transform:none;color:var(--ink3)}
+    .pm-rol-off{opacity:.55}
+    .pm-rol-btn{border:0;background:none;padding:0;cursor:pointer;font:inherit;color:var(--blue);text-decoration:underline;text-underline-offset:2px;letter-spacing:inherit;text-transform:inherit}
+    .pm-rol-btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+    .pm-acc{display:block}
+    .pm-acc-d{display:block;margin-top:2px;font-size:.68rem;font-weight:400;color:var(--ink3);max-width:46ch}
+    .pm-chk{width:18px;height:18px;accent-color:var(--blue);cursor:pointer}
+    .pm-chk:disabled{cursor:not-allowed}
+    .pm-chk:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
     .pm-si{color:var(--blue);font-size:.8rem}
     .pm-no{color:var(--ink4)}
     .pm-matriz tbody tr:not(.pm-grupo):hover>*{background:var(--blue-dim)}
@@ -1270,14 +1280,27 @@
       <div class="ac-bloque">
         <div class="ac-bloque-head">
           <div>
-            <h2 class="ac-h2">Qué puede hacer cada rol</h2>
-            <p class="ac-sub">El rol decide a qué pantallas entra cada persona. Para cambiar lo que alguien puede hacer, cámbiale el rol desde su ficha.</p>
+            <h2 class="ac-h2">Permisos por rol</h2>
+            <p class="ac-sub" id="pm-perm-sub">Marca lo que puede hacer cada rol. Cada casilla se guarda al momento, se aplica sin que nadie vuelva a entrar y queda en el Registro de cambios.</p>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" id="pm-nuevo-rol" onclick="openRolModal()"><i class="fas fa-plus" aria-hidden="true"></i> Nuevo rol</button>
+        </div>
+        <div class="table-wrap pm-matriz-wrap">
+          <table class="ptable pm-matriz pm-permisos" id="pm-permisos"><tbody><tr><td class="ac-vacio">Cargando…</td></tr></tbody></table>
+        </div>
+        <p class="form-hint" style="margin-top:10px">Pulsa el nombre de un rol para cambiarle el nombre, la descripción o desactivarlo. Al Administrador no se le pueden quitar «Gestionar usuarios» ni «Gestionar roles y permisos».</p>
+      </div>
+      <div class="ac-bloque">
+        <div class="ac-bloque-head">
+          <div>
+            <h2 class="ac-h2">Pantallas que ve cada rol</h2>
+            <p class="ac-sub">El menú del CRM según los permisos de cada rol.</p>
           </div>
         </div>
         <div class="table-wrap pm-matriz-wrap">
           <table class="ptable pm-matriz" id="pm-matriz"></table>
         </div>
-        <p class="form-hint" style="margin-top:10px">Sale del mismo menú del CRM. Un agente o supervisor de un equipo de Líneas ve las pantallas de Líneas en vez de las de Residencial.</p>
+        <p class="form-hint" style="margin-top:10px">Sale del mismo menú del CRM y de las casillas de arriba: al marcar o quitar un permiso, esta tabla cambia. Sin «Ver Residencial y Líneas en el menú», cada persona ve la sección de su equipo (aquí se muestra Residencial, salvo los roles de Líneas).</p>
       </div>
       <div class="ac-bloque">
         <div class="ac-bloque-head">
@@ -1305,7 +1328,7 @@
         <div class="pm-chips" role="group" aria-label="Filtrar por tipo de cambio" id="rg-filtros">
           <button type="button" class="pm-chip" data-tipo="" aria-pressed="true">Todos</button>
           <button type="button" class="pm-chip" data-tipo="alta" aria-pressed="false">Altas</button>
-          <button type="button" class="pm-chip" data-tipo="rol" aria-pressed="false">Rol</button>
+          <button type="button" class="pm-chip" data-tipo="rol" aria-pressed="false">Roles</button>
           <button type="button" class="pm-chip" data-tipo="equipo" aria-pressed="false">Equipo</button>
           <button type="button" class="pm-chip" data-tipo="permisos" aria-pressed="false">Permisos</button>
           <button type="button" class="pm-chip" data-tipo="cuenta" aria-pressed="false">Cuenta</button>
@@ -1327,7 +1350,7 @@
 
 </div>
 </div>
-<script src="/js/layout/topnav.js?v=20261105b" defer></script>
+<script src="/js/layout/topnav.js?v=20261105c" defer></script>
 <script src="/js/layout/topbar-acciones.js?v=20261031c" defer></script>
 
 <!-- ═══ MODAL: CREAR USUARIO ═══ -->
@@ -1515,6 +1538,29 @@
         <button class="btn btn-ghost" onclick="closeModal('modal-role')">Cancelar</button>
         <button class="btn btn-primary" onclick="saveRole()"><i class="fas fa-save"></i> Guardar</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: ROL (nuevo o editar) ═══ -->
+<div class="modal-overlay" id="modal-rol">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="rol-titulo">Nuevo rol</div>
+      <button class="modal-close" onclick="closeModal('modal-rol')" aria-label="Cerrar"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label" for="rol-nombre">Nombre</label><input class="form-input" id="rol-nombre" maxlength="60" placeholder="Ej. Auditor"/></div>
+      <div class="form-group"><label class="form-label" for="rol-desc">Qué hace, en una frase</label><input class="form-input" id="rol-desc" maxlength="300" placeholder="Ej. Revisa ventas y estadísticas; no edita nada."/></div>
+      <div class="form-group" id="rol-copiar-g"><label class="form-label" for="rol-copiar">Empezar con los permisos de</label><select class="form-select" id="rol-copiar"></select></div>
+      <p class="form-hint" id="rol-info"></p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost btn-sm peligro" id="rol-borrar" onclick="rolBorrar()" hidden><i class="fas fa-trash"></i> Borrar</button>
+      <button class="btn btn-ghost btn-sm" id="rol-activo" onclick="rolActivar()" hidden></button>
+      <div style="flex:1"></div>
+      <button class="btn btn-ghost" onclick="closeModal('modal-rol')">Cancelar</button>
+      <button class="btn btn-primary" onclick="rolGuardar()"><i class="fas fa-save"></i> Guardar</button>
     </div>
   </div>
 </div>
@@ -1899,7 +1945,7 @@ function switchSection(s){
   else if(s==='catalogos'){ resetCatForm(); loadCatalogos(); }
   else if(s==='finesemana'){ loadRotation(); }
   else if(s==='permisos'){ resetPermDefForm(); loadPermissionDefs(); renderPermSuggestions(); loadAccesos(); }
-  else if(s==='matriz'){ pmMatriz(); renderAcRoles(); }
+  else if(s==='matriz'){ pmPermisos(); pmMatriz(); renderAcRoles(); }
   else if(s==='registro'){ rgCargar(); }
 }
 
@@ -2903,7 +2949,7 @@ function renderTable(users){
     var team=String(u.team||'').trim();
     if(ft==='__sin__'&&team) return false;
     if(ft&&ft!=='__sin__'&&team!==ft) return false;
-    if(fr&&_psRolKey(u.role)!==fr) return false;
+    if(_pmRolSel&&!_pmCoincide(u.role)) return false;
     if(fe==='activo'&&(!_psActivo(u)||_psSin(u))) return false;
     if(fe==='suspendido'&&_psActivo(u)) return false;
     if(fe==='sin'&&!_psSin(u)) return false;
@@ -3441,17 +3487,54 @@ const PM_ROLES=[
   ['lineas','Líneas Agente','Lineas-Agentes'],
 ];
 var _pmActual='rol:';
+// Roles y permisos desde el servidor (GET /api/rbac). Mientras no llega, PM_ROLES.
+var _rbac=null, _pmRolSel='';
+const _PM_ALIAS={'admin':'administrador','back office':'backoffice','bo':'backoffice','rolicon':'rol icon','supervisora':'supervisor','agent':'agente'};
+function _pmNorm(x){ return String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[-_]+/g,' ').replace(/\s+/g,' ').trim(); }
+function _pmRolDe(role){ var n=_pmNorm(role); return _PM_ALIAS[n]||n; }
+function pmRoles(todos){
+  var lista=_rbac?_rbac.roles:PM_ROLES.map(function(r){ return {clave:r[2],nombre:r[1],descripcion:'',activo:1,sistema:1}; });
+  return todos?lista:lista.filter(function(r){ return Number(r.activo)!==0; });
+}
+function _pmRolPorClave(c){ return pmRoles(true).find(function(r){ return r.clave===c; }); }
+function _pmCoincide(role){
+  if(_pmRolSel==='__otro'){ var k=_pmRolDe(role); return !pmRoles(true).some(function(r){ return _pmNorm(r.clave)===k; }); }
+  return _pmRolDe(role)===_pmNorm(_pmRolSel);
+}
+function _pmDescRol(r){ return (r&&r.sistema&&_psPuede(r.clave))||(r&&r.descripcion)||''; }
 function pmPintarRoles(){
   var ul=document.getElementById('pm-roles'); if(!ul) return;
   var activos=_users.filter(function(u){ return _psActivo(u)&&!_psSin(u); });
-  var n={}; activos.forEach(function(u){ var k=_psRolKey(u.role); n[k]=(n[k]||0)+1; });
-  var filas=[['','Todas las personas',activos.length]].concat(PM_ROLES.map(function(r){ return [r[0],r[1],n[r[0]]||0]; }));
-  if(n.otro) filas.push(['otro','Otros roles',n.otro]);
+  var n={}, otros=0, claves={};
+  pmRoles(true).forEach(function(r){ claves[_pmNorm(r.clave)]=r.clave; });
+  activos.forEach(function(u){ var c=claves[_pmRolDe(u.role)]; if(c) n[c]=(n[c]||0)+1; else otros++; });
+  var filas=[['','Todas las personas',activos.length]].concat(pmRoles().map(function(r){ return [r.clave,r.nombre,n[r.clave]||0]; }));
+  if(otros) filas.push(['__otro','Otros roles',otros]);
   ul.innerHTML=filas.map(function(f){
     var k='rol:'+f[0];
-    return '<li><button type="button" class="pm-item" data-pm="'+k+'" onclick="pmIr(\''+k+'\')"'+(k===_pmActual?' aria-current="true"':'')+'>'+
+    return '<li><button type="button" class="pm-item" data-pm="'+_escP(k)+'" onclick="pmIr(this.dataset.pm)"'+(k===_pmActual?' aria-current="true"':'')+'>'+
       '<span>'+_escP(f[1])+'</span><span class="pm-n">'+f[2]+'</span></button></li>';
   }).join('');
+}
+async function pmCargarRbac(){
+  var res=await AUTH.sf('/api/rbac');
+  if(!res||!res.ok) return;
+  _rbac=await res.json();
+  pmPintarRoles(); pmLlenarSelectRoles();
+  if(document.getElementById('section-matriz').style.display==='block'){ pmPermisos(); pmMatriz(); }
+}
+function pmLlenarSelectRoles(){
+  ['c-role','r-role'].forEach(function(id){
+    var sel=document.getElementById(id); if(!sel) return;
+    var actual=sel.value;
+    var opts=pmRoles().map(function(r){ return '<option value="'+_escP(r.clave)+'">'+_escP(r.nombre)+'</option>'; }).join('');
+    var primera=sel.querySelector('option[value=""]');
+    sel.innerHTML=(primera?primera.outerHTML:'')+opts;
+    if(actual&&!sel.querySelector('option[value="'+CSS.escape(actual)+'"]')){
+      sel.insertAdjacentHTML('beforeend','<option value="'+_escP(actual)+'">'+_escP(actual)+'</option>');
+    }
+    sel.value=actual;
+  });
 }
 function _pmMarcar(){
   document.querySelectorAll('.pm-side .pm-item').forEach(function(b){
@@ -3461,11 +3544,11 @@ function _pmMarcar(){
 function pmIr(k){
   _pmActual=k;
   if(k.indexOf('rol:')===0){
-    var key=k.slice(4), r=PM_ROLES.find(function(x){ return x[0]===key; });
+    var key=k.slice(4), r=_pmRolPorClave(key);
     irUsuarios('list');
-    document.getElementById('filter-role').value=key;
-    document.getElementById('pm-rol-nombre').textContent=r?r[1]:(key==='otro'?'Otros roles':'Todas las personas');
-    document.getElementById('pm-rol-puede').textContent=r?_psPuede(r[2]):'Todas las cuentas del CRM. Elige una para ver su ficha.';
+    _pmRolSel=key;
+    document.getElementById('pm-rol-nombre').textContent=r?r.nombre:(key==='__otro'?'Otros roles':'Todas las personas');
+    document.getElementById('pm-rol-puede').textContent=r?_pmDescRol(r):(key==='__otro'?'Personas con un rol que no está en la lista de roles: cámbiales el rol.':'Todas las cuentas del CRM. Elige una para ver su ficha.');
     filterTable();
   }
   else if(k==='equipos') irUsuarios('teams');
@@ -3481,7 +3564,13 @@ function pmMatriz(){
   var t=document.getElementById('pm-matriz');
   var M=window.CRMMenu;
   if(!M){ t.innerHTML='<tbody><tr><td class="ac-vacio">No se pudo leer el menú del CRM. Recarga la página.</td></tr></tbody>'; return; }
-  var cols=PM_ROLES.map(function(r){ return { k:r[0], nombre:r[1], u:{ role:r[2], team:(r[0]==='supervisor'||r[0]==='agente')?'TEAM RESIDENCIAL':'' } }; });
+  // Columnas = roles activos; cada uno con SUS acciones (Permisos por rol), así esta tabla
+  // es lo que verá en el menú. Sin acciones cargadas aún, el menú usa la regla por rol.
+  var cols=pmRoles().map(function(r){
+    var u={ role:r.clave, team:'' };
+    if(_rbac) u.acciones=(_rbac.permisos[r.clave]||[]).slice();
+    return { k:r.clave, nombre:r.nombre, u:u };
+  });
   var si='<td class="pm-si"><i class="fas fa-check" aria-hidden="true"></i><span class="sr-only">Sí</span></td>';
   var no='<td class="pm-no"><span aria-hidden="true">·</span><span class="sr-only">No</span></td>';
   var html='<thead><tr><th scope="col">Pantalla</th>'+cols.map(function(c){ return '<th scope="col">'+_escP(c.nombre)+'</th>'; }).join('')+'</tr></thead><tbody>';
@@ -3491,17 +3580,88 @@ function pmMatriz(){
       html+='<tr><th scope="row">'+_escP(it.label)+'</th>'+cols.map(function(c){ return M.visible(it,c.u)?si:no; }).join('')+'</tr>';
     });
   });
-  // Acciones dentro de pantallas que no dependen del menú.
-  var extra=[
-    ['Gestionar la cola de Transferencias (prioridad, pausa, sacar de la cola)',['admin','supervisor_lineas']],
-    ['Editar la tabla CXC Xfinity de Estadísticas (y el equipo Control de Calidad)',['admin']],
-    ['Editar clientes en Lista de Clientes',['admin','backoffice','rol_icon']],
-  ];
-  html+='<tr class="pm-grupo"><th scope="rowgroup" colspan="'+(cols.length+1)+'">Acciones dentro de las pantallas</th></tr>';
-  extra.forEach(function(e){
-    html+='<tr><th scope="row">'+_escP(e[0])+'</th>'+cols.map(function(c){ return e[1].indexOf(c.k)>=0?si:no; }).join('')+'</tr>';
+  t.innerHTML=html+'</tbody>';
+}
+
+// Permisos por rol (editable): filas = acciones del catálogo (rbac.py), columnas = roles.
+function pmPermisos(){
+  var t=document.getElementById('pm-permisos');
+  if(!_rbac){ t.innerHTML='<tbody><tr><td class="ac-vacio">Cargando…</td></tr></tbody>'; return; }
+  var roles=pmRoles(true), ed=!!_rbac.puede_editar, prot=_rbac.protegidas_admin||[];
+  document.getElementById('pm-nuevo-rol').hidden=!ed;
+  document.getElementById('pm-perm-sub').textContent=ed
+    ?'Marca lo que puede hacer cada rol. Cada casilla se guarda al momento, se aplica sin que nadie vuelva a entrar y queda en el Registro de cambios.'
+    :'Lo que puede hacer cada rol. Solo quien tiene «Gestionar roles y permisos» puede cambiarlo.';
+  var html='<thead><tr><th scope="col">Acción</th>'+roles.map(function(r){
+    var off=Number(r.activo)===0;
+    return '<th scope="col" class="pm-rol-col'+(off?' pm-rol-off':'')+'">'+(ed
+      ?'<button type="button" class="pm-rol-btn" onclick="openRolModal(this.dataset.rol)" data-rol="'+_escP(r.clave)+'" title="Editar el rol">'+_escP(r.nombre)+'</button>'
+      :_escP(r.nombre))+'<small>'+(off?'desactivado':(r.usuarios||0)+' pers.')+'</small></th>';
+  }).join('')+'</tr></thead><tbody>';
+  var grupo='';
+  _rbac.acciones.forEach(function(a){
+    if(a.modulo!==grupo){ grupo=a.modulo; html+='<tr class="pm-grupo"><th scope="rowgroup" colspan="'+(roles.length+1)+'">'+_escP(grupo)+'</th></tr>'; }
+    html+='<tr><th scope="row"><span class="pm-acc">'+_escP(a.etiqueta)+'</span>'+(a.descripcion?'<small class="pm-acc-d">'+_escP(a.descripcion)+'</small>':'')+'</th>'+
+      roles.map(function(r){
+        var on=(_rbac.permisos[r.clave]||[]).indexOf(a.clave)>=0;
+        var fijo=r.clave===_rbac.rol_admin&&prot.indexOf(a.clave)>=0;
+        return '<td><input type="checkbox" class="pm-chk" data-rol="'+_escP(r.clave)+'" data-acc="'+_escP(a.clave)+'"'+(on?' checked':'')+
+          ((!ed||fijo)?' disabled':'')+' aria-label="'+_escP(r.nombre+': '+a.etiqueta)+'"'+(fijo?' title="Siempre activo para el Administrador"':'')+'></td>';
+      }).join('')+'</tr>';
   });
   t.innerHTML=html+'</tbody>';
+}
+document.addEventListener('change',async function(e){
+  var c=e.target; if(!c.classList||!c.classList.contains('pm-chk')) return;
+  var rol=c.dataset.rol, acc=c.dataset.acc, actual=(_rbac.permisos[rol]||[]).slice();
+  var nuevas=c.checked?actual.concat([acc]):actual.filter(function(x){ return x!==acc; });
+  c.disabled=true;
+  var res=await AUTH.sf('/api/rbac/roles/'+encodeURIComponent(rol)+'/permisos',{method:'PUT',body:JSON.stringify({acciones:nuevas})});
+  c.disabled=false;
+  var d=res?await res.json().catch(function(){ return {}; }):{};
+  if(res&&res.ok){ _rbac.permisos[rol]=nuevas; pmMatriz(); toast((c.checked?'Permiso dado a ':'Permiso quitado a ')+((_pmRolPorClave(rol)||{}).nombre||rol),'ok'); }
+  else { c.checked=!c.checked; toast(d.detail||'No se guardó. Revisa la conexión y vuelve a intentarlo.','err'); }
+});
+
+// Modal de rol: crear (sin clave) o editar (con clave)
+var _rolEdit=null;
+function openRolModal(clave){
+  var r=clave?_pmRolPorClave(clave):null; _rolEdit=r;
+  document.getElementById('rol-titulo').textContent=r?('Rol: '+r.nombre):'Nuevo rol';
+  document.getElementById('rol-nombre').value=r?r.nombre:'';
+  document.getElementById('rol-desc').value=r?(r.descripcion||''):'';
+  document.getElementById('rol-copiar-g').hidden=!!r;
+  document.getElementById('rol-copiar').innerHTML='<option value="">Ninguno (sin permisos)</option>'+pmRoles().map(function(x){ return '<option value="'+_escP(x.clave)+'">'+_escP(x.nombre)+'</option>'; }).join('');
+  var act=document.getElementById('rol-activo'), bor=document.getElementById('rol-borrar');
+  act.hidden=!r||(r&&r.clave===_rbac.rol_admin);
+  if(r) act.innerHTML=Number(r.activo)===0?'<i class="fas fa-check"></i> Activar':'<i class="fas fa-ban"></i> Desactivar';
+  bor.hidden=!r||!!Number(r.sistema);
+  document.getElementById('rol-info').textContent=r
+    ?((r.usuarios||0)+' persona(s) activas lo tienen.'+(Number(r.sistema)?' Es un rol de los de siempre: se puede desactivar pero no borrar.':''))
+    :'El rol nuevo aparece en el menú de la izquierda y al crear o editar personas. Después marca sus permisos en la tabla.';
+  openModal('modal-rol');
+  setTimeout(function(){ document.getElementById('rol-nombre').focus(); },50);
+}
+async function _rolEnviar(url,metodo,cuerpo,okMsg){
+  var res=await AUTH.sf(url,{method:metodo,body:cuerpo?JSON.stringify(cuerpo):undefined});
+  var d=res?await res.json().catch(function(){ return {}; }):{};
+  if(res&&res.ok){ toast(okMsg,'ok'); closeModal('modal-rol'); await pmCargarRbac(); pmPermisos(); return true; }
+  toast(d.detail||'No se guardó. Revisa la conexión y vuelve a intentarlo.','err'); return false;
+}
+function rolGuardar(){
+  var nombre=document.getElementById('rol-nombre').value.trim(), desc=document.getElementById('rol-desc').value.trim();
+  if(nombre.length<3){ toast('El nombre del rol debe tener al menos 3 caracteres','err'); return; }
+  if(_rolEdit) _rolEnviar('/api/rbac/roles/'+encodeURIComponent(_rolEdit.clave),'PUT',{nombre:nombre,descripcion:desc},'Rol guardado');
+  else _rolEnviar('/api/rbac/roles','POST',{nombre:nombre,descripcion:desc,copiar_de:document.getElementById('rol-copiar').value||null},'Rol creado: '+nombre);
+}
+function rolActivar(){
+  if(!_rolEdit) return;
+  var activar=Number(_rolEdit.activo)===0;
+  _rolEnviar('/api/rbac/roles/'+encodeURIComponent(_rolEdit.clave),'PUT',{activo:activar},activar?'Rol activado':'Rol desactivado');
+}
+function rolBorrar(){
+  if(!_rolEdit) return;
+  _rolEnviar('/api/rbac/roles/'+encodeURIComponent(_rolEdit.clave),'DELETE',null,'Rol borrado');
 }
 
 // Registro de cambios (GET /api/users/registro)
@@ -3535,20 +3695,26 @@ document.addEventListener('click',function(e){
 });
 
 /* ── Init ── */
-(function init(){
+(async function init(){
   if(!AUTH.check())return;
   const user=AUTH.getUser();
   // Set top avatar
   var av=document.getElementById('top-user-av');
   if(av){ var n=user.name||user.username||'??'; av.textContent=n.trim().split(/\s+/).slice(0,2).map(function(w){ return w[0]||''; }).join('').toUpperCase()||'??'; }
-  if(!isAdminRole(user.role)){
-    document.querySelector('.main').innerHTML=`<div class="empty" style="height:70vh"><div class="empty-icon" style="font-size:3rem">🔒</div><span style="font-size:1rem;font-weight:700">Acceso restringido</span><span>Solo los administradores pueden ver esta página</span></div>`;
+  // Entra quien tiene «Gestionar usuarios» o «Gestionar roles y permisos» (Roles y
+  // permisos). Sin acciones en la sesión, la regla anterior por rol.
+  var ses=null; try{ ses=await window.__sesion; }catch(_){}
+  var acc=ses&&ses.user&&ses.user.acciones;
+  var permitido=Array.isArray(acc)?(acc.indexOf('usuarios.gestionar')>=0||acc.indexOf('roles.gestionar')>=0):isAdminRole(user.role);
+  if(!permitido){
+    document.querySelector('.main').innerHTML=`<div class="empty" style="height:70vh"><div class="empty-icon" style="font-size:3rem">🔒</div><span style="font-size:1rem;font-weight:700">Acceso restringido</span><span>Tu rol no tiene permiso para gestionar usuarios ni roles</span></div>`;
     return;
   }
   // Forzar búsqueda vacía al cargar (evita autofill/bfcache del browser)
   var si=document.getElementById('search-teams-input');
   if(si){ si.value=''; si.setAttribute('readonly',''); setTimeout(function(){ si.removeAttribute('readonly'); },200); }
   pmIr('rol:');
+  pmCargarRbac();
   loadUsers();
   loadTeams();
 })();

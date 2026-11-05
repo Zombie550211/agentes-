@@ -15,6 +15,7 @@ import json, unicodedata
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
+import rbac
 
 router = APIRouter(tags=["Schedule"])
 
@@ -23,8 +24,8 @@ _ADMIN_BO = {"admin", "administrador", "administrativo", "backoffice", "back off
 
 
 def _is_admin_or_bo(user: dict) -> bool:
-    r = unicodedata.normalize("NFD", str(user.get("role", "") or "")).encode("ascii", "ignore").decode().lower()
-    return any(a in r for a in _ADMIN_BO)
+    """Permiso desde Roles y permisos (rbac.py): finesemana.editar."""
+    return rbac.tiene(user, "finesemana.editar")
 
 
 # Config por defecto (editable): ciclo de 2 fines de semana que alterna dos grupos.
