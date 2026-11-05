@@ -8,6 +8,12 @@
  *
  * Mensajes de la pestaña:  {tipo:'hola', usuario:'<id>'} · {tipo:'adios'}
  * Mensajes a la pestaña:   {tipo:'estado', enVivo:bool} · {tipo:'evento', evento:{...}}
+ *                          · {tipo:'sesion-cerrada'}
+ *
+ * Si la conexión se rechaza y la sesión ya no vale (se cerró al terminar el turno, se
+ * cambió la contraseña…), deja de reintentar y avisa a las pestañas para que vayan al
+ * login. Antes las pestañas abiertas toda la noche reintentaban cada minuto: ~10.000
+ * peticiones rechazadas al día.
  */
 'use strict';
 
@@ -21,6 +27,7 @@ var usuarioConexion = null;   // id que dio el servidor al conectar
 var usuarioEsperado = null;   // id de la sesión de la última pestaña que saludó
 var espera = 2000;
 var tReintento = null;
+var sinSesion = false;        // la sesión se cerró: no se reintenta hasta un nuevo «hola»
 
 function enviar(msg) {
   puertos.forEach(function (p) { try { p.postMessage(msg); } catch (_) { /* pestaña cerrada */ } });
@@ -61,10 +68,25 @@ function conectar() {
     // Un corte de red lo reintenta EventSource solo; un 401/500 lo deja cerrado.
     if (es && es.readyState === EventSource.CLOSED) {
       es = null;
-      tReintento = setTimeout(conectar, espera);
-      espera = Math.min(espera * 2, MAX_ESPERA_MS);
+      comprobarSesion().then(function (viva) {
+        if (!viva) {
+          sinSesion = true;
+          enviar({ tipo: 'sesion-cerrada' });
+          return;
+        }
+        tReintento = setTimeout(conectar, espera);
+        espera = Math.min(espera * 2, MAX_ESPERA_MS);
+      });
     }
   };
+}
+
+// ¿La sesión sigue valiendo? Ante un fallo de red se asume que sí (y se reintenta).
+function comprobarSesion() {
+  return fetch('/api/auth/verify-server', { credentials: 'include', cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.json() : { authenticated: true }; })
+    .then(function (d) { return d.authenticated !== false; })
+    .catch(function () { return true; });
 }
 
 self.onconnect = function (e) {
@@ -76,6 +98,8 @@ self.onconnect = function (e) {
       // Una pestaña que vuelve del historial (bfcache) ya se había despedido.
       if (puertos.indexOf(puerto) < 0) puertos.push(puerto);
       usuarioEsperado = d.usuario ? String(d.usuario) : null;
+      // Una pestaña con sesión nueva (inició sesión otra vez) reactiva la conexión.
+      if (sinSesion) { sinSesion = false; espera = 2000; }
       if (!es) conectar();
       else if (usuarioConexion && usuarioEsperado && usuarioConexion !== usuarioEsperado) conectar();
       puerto.postMessage({ tipo: 'estado', enVivo: enVivo });

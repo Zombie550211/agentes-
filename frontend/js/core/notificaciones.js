@@ -36,7 +36,7 @@
   if (typeof SharedWorker === 'undefined') return;
 
   try {
-    var w = new SharedWorker('/js/core/notificaciones.worker.js?v=20261026a', { name: 'crm-notificaciones' });
+    var w = new SharedWorker('/js/core/notificaciones.worker.js?v=20261105a', { name: 'crm-notificaciones' });
     puerto = w.port;
   } catch (e) {
     console.warn('[notificaciones] sin SharedWorker:', e);
@@ -49,6 +49,9 @@
       if (d.enVivo !== vivo) { vivo = d.enVivo; emitir(oyentesEstado, vivo); }
     } else if (d.tipo === 'evento' && d.evento) {
       emitir(oyentes[d.evento.type], d.evento);
+    } else if (d.tipo === 'sesion-cerrada') {
+      // La sesión ya no vale: al login (antes la pestaña seguía abierta reintentando).
+      if (!/\/login\.html$/.test(location.pathname)) location.replace('/login.html');
     }
   };
   puerto.start();

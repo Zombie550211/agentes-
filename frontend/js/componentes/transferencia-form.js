@@ -1536,7 +1536,9 @@
   // la cola cambia y solo entonces se recarga; antes cada agente la pedía cada 8 s. Sin
   // conexión en vivo se vuelve a preguntar cada COLA_MS, y con ella igual cada COLA_VIVO_MS
   // por si algún aviso no llega (la conexión puede cortarse sin que la pestaña se entere).
-  const COLA_VIVO_MS = 20000;
+  // Con las notificaciones en vivo la cola se refresca con cada aviso «cola»; esto es
+  // solo un respaldo. (Antes 20 s: un tercio de todo el tráfico del servidor.)
+  const COLA_VIVO_MS = 60000;
   function vigilarCola() {
     if (!COLA) return;
     let ultima = 0, pendiente = null, enlazado = false;
