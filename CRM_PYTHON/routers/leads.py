@@ -621,17 +621,22 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
     if _is_agent(user):
         # Al crear solo elige entre los status del formulario (PENDING o REPRO); el
         # puntaje lo calcula el servidor con el catálogo de servicios.
+        # El supervisor SÍ lo elige el formulario (viene con el del agente y se puede
+        # cambiar); el 5-nov se descartaba y las ventas quedaban sin equipo.
         st = str(body.status or "").strip().upper()
-        body = body.model_copy(update={"agente": user.get("username", ""), "supervisor": "",
+        body = body.model_copy(update={"agente": user.get("username", ""),
                                        "status": st if st in ("PENDING", "REPRO") else "PENDING",
                                        "puntaje": ""})
-    # Auto-asignar supervisor/team desde el perfil del agente si no viene en el body
+    # Auto-asignar supervisor desde el perfil del agente si no viene en el body y, si el
+    # perfil tampoco lo tiene, el supervisor de su equipo.
     if not body.supervisor:
         if _is_supervisor(user):
             # El propio supervisor crea el lead → él ES el supervisor del lead
             sup_val = (user.get("username") or "").strip()
         else:
             sup_val = (user.get("supervisor") or "").strip() or (user.get("supervisorKey") or "").strip()
+        if not sup_val:
+            sup_val = await _supervisor_del_equipo(user)
         body = body.model_copy(update={"supervisor": sup_val})
     servicios_json = json.dumps(
         body.servicios if isinstance(body.servicios, list) else ([body.servicios] if body.servicios else [])
@@ -1427,6 +1432,20 @@ async def registrar_llamada(
 
 
 # ── SINGLE LEAD CRUD ───────────────────────────────────────────────
+async def _supervisor_del_equipo(user: dict) -> str:
+    """Supervisor activo del equipo del usuario (users.team); '' si no hay o hay varios."""
+    try:
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(text("""
+                SELECT s.username FROM users s JOIN users u ON TRIM(s.team) = TRIM(u.team)
+                WHERE u.id = :id AND LOWER(s.role) LIKE '%supervisor%' AND COALESCE(s.active, 1) = 1
+            """), {"id": int(user.get("id") or 0)})
+            sups = [x[0] for x in r.all() if x[0]]
+    except Exception:
+        return ""
+    return sups[0] if len(sups) == 1 else ""
+
+
 async def lead_visible(lead_id: str, user: dict) -> dict:
     """El lead si el usuario puede verlo; si no, 404 (no confirma que el id existe).
 
