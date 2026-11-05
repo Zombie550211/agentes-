@@ -629,6 +629,15 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
             raise HTTPException(423, "Tienes llamadas pendientes: sube la captura o el audio de la llamada antes de registrar ventas nuevas")
     now = _utcnow()
     _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
+    # Un agente solo registra ventas a su nombre y con su supervisor: lo que mande el
+    # navegador en agente/supervisor se ignora (antes podía atribuirle la venta a otro).
+    if _is_agent(user):
+        # Al crear solo elige entre los status del formulario (PENDING o REPRO); el
+        # puntaje lo calcula el servidor con el catálogo de servicios.
+        st = str(body.status or "").strip().upper()
+        body = body.model_copy(update={"agente": user.get("username", ""), "supervisor": "",
+                                       "status": st if st in ("PENDING", "REPRO") else "PENDING",
+                                       "puntaje": ""})
     # Auto-asignar supervisor/team desde el perfil del agente si no viene en el body
     if not body.supervisor:
         if _is_supervisor(user):
@@ -1333,6 +1342,7 @@ async def llamadas_pendientes(
 @router.get("/api/leads/{lead_id}/llamadas")
 async def get_llamadas_lead(lead_id: str, user: dict = Depends(current_user)):
     """Historial de llamadas registradas de un lead (imágenes + notas)."""
+    await lead_visible(lead_id, user)   # antes: cualquiera leía las de cualquier lead
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""
             SELECT id, lead_id, numero_llamada, tipo, imagen_url, nota, created_by, created_at
@@ -1437,6 +1447,33 @@ async def registrar_llamada(
 
 
 # ── SINGLE LEAD CRUD ───────────────────────────────────────────────
+async def lead_visible(lead_id: str, user: dict) -> dict:
+    """El lead si el usuario puede verlo; si no, 404 (no confirma que el id existe).
+
+    Misma frontera que el listado y que GET /api/leads/{id}: restricción por mercado
+    y, para agentes, solo sus propios leads. La usan también comentarios y llamadas.
+    """
+    mysql_id, mongo_id = _find_id(str(lead_id))
+    async with AsyncSessionLocal() as s:
+        if mysql_id:
+            r = await s.execute(text("SELECT * FROM leads WHERE id = :id LIMIT 1"), {"id": mysql_id})
+        else:
+            r = await s.execute(text("SELECT * FROM leads WHERE mongo_id = :mid LIMIT 1"), {"mid": mongo_id})
+        row = r.mappings().first()
+    if not row:
+        raise HTTPException(404, "Lead no encontrado")
+    mercado_restrict = await _mercado_restrict(user)
+    if mercado_restrict and str(row.get("mercado") or "").strip().upper() != mercado_restrict:
+        raise HTTPException(404, "Lead no encontrado")
+    if _is_agent(user):
+        username = user.get("username", "")
+        propios = {str(row.get("agente_nombre") or ""), str(row.get("agente") or ""),
+                   str(row.get("created_by") or "")}
+        if not username or username not in propios:
+            raise HTTPException(404, "Lead no encontrado")
+    return dict(row)
+
+
 @router.get("/api/leads/{lead_id}")
 async def get_lead(lead_id: str, user: dict = Depends(current_user)):
     mysql_id, mongo_id = _find_id(lead_id)
@@ -1672,6 +1709,13 @@ async def update_lead(
     data = body.model_dump(exclude_none=True)
     # No sobreescribir con strings vacíos — solo procesar campos con valor real
     data = {k: v for k, v in data.items() if v != "" and v is not None}
+    # Agente: puede corregir los datos del cliente de SUS leads, pero no el status, el
+    # puntaje ni a quién/qué equipo se atribuye la venta (eso decide comisiones y ranking).
+    if _is_agent(user):
+        for k in ("status", "puntaje", "agente", "agenteNombre", "supervisor", "riesgo", "was_reserva"):
+            data.pop(k, None)
+        if not data:
+            raise HTTPException(403, "No puedes cambiar esos datos de la venta")
     # Backoffice: el status que mande se descarta (el resto de campos sí se guarda).
     if _is_backoffice(user) and "status" in data:
         data.pop("status")
@@ -1940,6 +1984,10 @@ async def get_lineas_team_collections(user: dict = Depends(current_user)):
 # ── POST /api/crm_agente ────────────────────────────────────────────
 @router.post("/api/crm_agente")
 async def crm_agente(raw_request: Request, user: dict = Depends(current_user)):
+    # Crea una venta a nombre de CUALQUIER agente: solo administración y back office.
+    # (Ninguna pantalla lo usa hoy; antes cualquier usuario podía atribuir ventas a otros.)
+    if not _is_admin_or_bo(user):
+        raise HTTPException(403, "No autorizado")
     try:
         request_data = await raw_request.json()
     except Exception:

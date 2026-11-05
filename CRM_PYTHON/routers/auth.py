@@ -67,12 +67,51 @@ def _login_limpia(username: str) -> None:
     _login_fallos.pop(_login_key(username), None)
 
 
+# Hash bcrypt de relleno: se compara contra él cuando el usuario no existe, para que la
+# respuesta tarde lo mismo y no delate qué usuarios existen.
+_HASH_FALSO = _bcrypt.hashpw(b"no-existe-este-usuario", _bcrypt.gensalt(rounds=12)).decode()
+
+
+async def _login_fallo_cuenta(user_id) -> None:
+    """Suma un fallo a la cuenta; al llegar al máximo la bloquea _LOGIN_BLOQUEO_SEGS."""
+    try:
+        async with AsyncSessionLocal() as s:
+            await s.execute(text("""
+                UPDATE users SET
+                  login_bloqueado_hasta = IF(login_fallos + 1 >= :mx, :hasta, login_bloqueado_hasta),
+                  login_fallos = IF(login_fallos + 1 >= :mx, 0, login_fallos + 1)
+                WHERE id = :id
+            """), {"mx": _LOGIN_MAX_FALLOS, "id": user_id,
+                   "hasta": _utcnow() + _dt.timedelta(seconds=_LOGIN_BLOQUEO_SEGS)})
+            await s.commit()
+    except Exception as e:
+        print(f"[login] no se pudo anotar el fallo de {user_id}: {e}")
+        _login_registra_fallo(f"id:{user_id}")
+
+
+async def _login_limpia_cuenta(user_id) -> None:
+    try:
+        async with AsyncSessionLocal() as s:
+            await s.execute(text("UPDATE users SET login_fallos = 0, login_bloqueado_hasta = NULL WHERE id = :id"),
+                            {"id": user_id})
+            await s.commit()
+    except Exception as e:
+        print(f"[login] no se pudo limpiar el contador de {user_id}: {e}")
+
+
+async def marcar_cambio_password(s, user_id) -> None:
+    """Las sesiones abiertas antes de este momento dejan de valer (session_guard).
+    Va dentro de la misma transacción que cambia la contraseña."""
+    await s.execute(text("UPDATE users SET sesion_desde = :now, login_fallos = 0, login_bloqueado_hasta = NULL WHERE id = :id"),
+                    {"now": _utcnow().replace(microsecond=0), "id": user_id})
+
+
 def _utcnow() -> _dt.datetime:
     """UTC naive (reemplazo no-deprecado de datetime.utcnow())."""
     return _dt.datetime.now(_dt.timezone.utc).replace(tzinfo=None)
 
 def _hash_pwd(plain: str) -> str:
-    return _bcrypt.hashpw(plain[:72].encode(), _bcrypt.gensalt(rounds=10)).decode()
+    return _bcrypt.hashpw(plain[:72].encode(), _bcrypt.gensalt(rounds=12)).decode()
 
 def _verify_pwd(plain: str, hashed: str) -> bool:
     try:
@@ -207,15 +246,37 @@ async def login(request: Request, body: LoginBody, response: Response):
 
     variants = _username_variants(body.username)
     user = await _find_user_by_variants(variants)
+
+    # Bloqueo por la CUENTA REAL (no por lo que se escribió): el login acepta variantes
+    # del mismo usuario («Daniel Martinez», «daniel.martinez»…) y antes cada una tenía
+    # sus propios intentos. Se guarda en la BD para que un reinicio no lo borre.
+    if user:
+        hasta = user.get("login_bloqueado_hasta")
+        if hasta and hasta > _utcnow():
+            log_login_fail(body.username, ip)
+            restante = int((hasta - _utcnow()).total_seconds())
+            raise HTTPException(
+                status_code=429,
+                detail=f"Demasiados intentos fallidos. Intenta de nuevo en {restante // 60 + 1} min.",
+            )
+        # Suspendida: se avisa SIN comprobar la contraseña (antes el aviso solo salía
+        # con la contraseña correcta, y así la confirmaba).
+        if int(user.get("active", 1)) == 0:
+            log_login_fail(body.username, ip)
+            raise HTTPException(403, "Cuenta suspendida. Contacta al administrador.")
+
     if not user or not _verify_pwd(body.password, user.get("password", "")):
-        _login_registra_fallo(body.username)
+        if user:
+            await _login_fallo_cuenta(user["id"])
+        else:
+            _verify_pwd(body.password, _HASH_FALSO)   # mismo tiempo de respuesta exista o no
+            _login_registra_fallo(body.username)
         log_login_fail(body.username, ip)
         raise HTTPException(401, "Credenciales inválidas")
-    if int(user.get("active", 1)) == 0:
-        log_login_fail(body.username, ip)
-        raise HTTPException(403, "Cuenta suspendida. Contacta al administrador.")
 
     _login_limpia(body.username)   # login correcto: se reinicia el contador
+    if user.get("login_fallos") or user.get("login_bloqueado_hasta"):
+        await _login_limpia_cuenta(user["id"])
     log_login_ok(user.get("username", ""), ip)
     token = _make_token(user, remember=body.remember)
     _set_token_cookie(response, token, max_age=(JWT_EXPIRES_REMEMBER if body.remember else JWT_EXPIRES))
@@ -435,6 +496,12 @@ async def register(body: RegisterBody, user: dict = Depends(require_roles(*ADMIN
     username = body.username.strip()
     if not username or not body.password or not body.role:
         raise HTTPException(400, "Faltan campos obligatorios (usuario, contraseña, rol)")
+    from politica_password import exigir
+    from routers.users import validar_username, rol_canonico, validar_equipo
+    validar_username(username)
+    validar_equipo(body.team)
+    body.role = rol_canonico(body.role)
+    exigir(body.password, username)
 
     async with AsyncSessionLocal() as s:
         exists = await s.execute(text("SELECT id FROM users WHERE username = :u LIMIT 1"), {"u": username})
@@ -577,8 +644,8 @@ async def forgot_password(request: Request, body: ForgotPasswordBody):
     except Exception:
         pass
 
-    masked = _mask_email(row["email"])
-    return {"success": True, "message": "Si el usuario existe, recibirás un código en tu correo.", "maskedEmail": masked}
+    # Misma respuesta exista o no el usuario (antes el correo enmascarado lo delataba).
+    return {"success": True, "message": "Si el usuario existe, recibirás un código en tu correo."}
 
 
 @router.post("/verify-reset-code")
@@ -652,17 +719,14 @@ async def reset_password(request: Request, body: ResetPasswordBody):
 
     if not username or not new_password:
         raise HTTPException(400, "Campos requeridos: username, newPassword")
-    if len(new_password) < 8:
-        raise HTTPException(400, "La contraseña debe tener al menos 8 caracteres.")
+
+    from politica_password import exigir
+    exigir(new_password, username)
 
     if body.resetToken:
         reset_token = body.resetToken
         if len(reset_token) != 64:
             raise HTTPException(400, "Token de recuperación inválido.")
-        if not re.search(r"[A-Z]", new_password) or not re.search(r"[0-9]", new_password):
-            raise HTTPException(400, "La contraseña debe tener al menos 8 caracteres, una mayúscula y un número.")
-        if len(new_password) > 128:
-            raise HTTPException(400, "La contraseña es demasiado larga.")
 
         async with AsyncSessionLocal() as s:
             r = await s.execute(text("""
@@ -697,7 +761,9 @@ async def reset_password(request: Request, body: ResetPasswordBody):
                     reset_token_used = TRUE
                 WHERE username = :u
             """), {"h": hashed, "u": username})
+            await marcar_cambio_password(s, row["id"])
             await s.commit()
+        session_guard.invalidate_user(row["id"])
         ip = request.client.host if request.client else "unknown"
         log_password_reset_ok(username, ip)
         return {"success": True, "message": "Contraseña actualizada exitosamente."}
@@ -709,6 +775,10 @@ async def reset_password(request: Request, body: ResetPasswordBody):
     decoded = _decode_token(token)
     if not decoded or decoded.get("role") not in ("admin", "Administrador", "administrador"):
         raise HTTPException(403, "Sin permiso")
+    # Mismas comprobaciones que current_user: una sesión cerrada, suspendida o con el
+    # rol cambiado no puede resetear contraseñas aunque el token siga firmado.
+    if await session_guard.is_session_revoked(decoded):
+        raise HTTPException(401, "Sesión no válida. Vuelve a iniciar sesión.")
 
     variants = list(dict.fromkeys([
         username,
@@ -725,5 +795,9 @@ async def reset_password(request: Request, body: ResetPasswordBody):
     hashed = _hash_pwd(new_password)
     async with AsyncSessionLocal() as s:
         await s.execute(text("UPDATE users SET password_hash = :h WHERE id = :id"), {"h": hashed, "id": user_doc["id"]})
+        await marcar_cambio_password(s, user_doc["id"])
+        from registro_usuarios import registrar
+        await registrar(decoded, "cuenta", user_doc.get("username"), "Cambió la contraseña", session=s)
         await s.commit()
+    session_guard.invalidate_user(user_doc["id"])
     return {"success": True, "message": "Contraseña restablecida"}

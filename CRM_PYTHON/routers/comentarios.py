@@ -39,10 +39,21 @@ async def _get_lead_id_for_mongo(mongo_id: str) -> int | None:
         return row[0] if row else None
 
 
+async def _lead_id_visible(lead_id: str, user: dict) -> int | None:
+    """Id del lead si el usuario puede verlo (misma regla que GET /api/leads/{id});
+    None si no existe o no es suyo. Antes cualquiera leía y comentaba cualquier lead."""
+    from routers.leads import lead_visible
+    try:
+        row = await lead_visible(lead_id, user)
+    except HTTPException:
+        return None
+    return row["id"]
+
+
 # ── GET /api/comments?leadId= ────────────────────────────────────
 @router.get("/api/comments")
 async def get_comments(leadId: str = Query(...), user: dict = Depends(current_user)):
-    lead_id = await _get_lead_id_for_mongo(leadId)
+    lead_id = await _lead_id_visible(leadId, user)
     if not lead_id:
         return {"success": True, "comments": []}
     async with AsyncSessionLocal() as s:
@@ -57,7 +68,7 @@ async def get_comments(leadId: str = Query(...), user: dict = Depends(current_us
 # ── GET /api/leads/:id/comentarios ───────────────────────────────
 @router.get("/api/leads/{lead_id}/comentarios")
 async def list_comentarios(lead_id: str, user: dict = Depends(current_user)):
-    db_lead_id = await _get_lead_id_for_mongo(lead_id)
+    db_lead_id = await _lead_id_visible(lead_id, user)
     if not db_lead_id:
         return []
     async with AsyncSessionLocal() as s:
@@ -78,12 +89,13 @@ class ComentarioBody(BaseModel):
 # ── POST /api/leads/:id/comentarios ──────────────────────────────
 @router.post("/api/leads/{lead_id}/comentarios", status_code=201)
 async def create_comentario(lead_id: str, body: ComentarioBody, user: dict = Depends(current_user)):
-    db_lead_id = await _get_lead_id_for_mongo(lead_id)
+    db_lead_id = await _lead_id_visible(lead_id, user)
     if not db_lead_id:
         raise HTTPException(404, "Lead no encontrado")
 
     texto = (body.texto or body.comentario or "")[:1000]
-    autor = body.autor or user.get("username") or "Sistema"
+    # El autor es siempre quien está conectado: el que mande el navegador se ignora.
+    autor = user.get("username") or "Sistema"
     now = _utcnow()
 
     async with AsyncSessionLocal() as s:
@@ -133,7 +145,7 @@ async def update_comentario(lead_id: str, comentario_id: str, body: ComentarioUp
     except ValueError:
         raise HTTPException(400, "comentarioId inválido")
 
-    db_lead_id = await _get_lead_id_for_mongo(lead_id)
+    db_lead_id = await _lead_id_visible(lead_id, user)
     if not db_lead_id:
         raise HTTPException(404, "Lead no encontrado")
 
@@ -168,7 +180,7 @@ async def delete_comentario(lead_id: str, comentario_id: str, user: dict = Depen
     except ValueError:
         raise HTTPException(400, "comentarioId inválido")
 
-    db_lead_id = await _get_lead_id_for_mongo(lead_id)
+    db_lead_id = await _lead_id_visible(lead_id, user)
     if not db_lead_id:
         raise HTTPException(404, "Lead no encontrado")
 

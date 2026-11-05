@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
@@ -7,7 +7,7 @@ import session_guard
 from registro_usuarios import registrar
 from datetime import datetime, timezone
 from typing import Optional, List
-import unicodedata, json
+import unicodedata, json, re
 
 
 def _utcnow() -> datetime:
@@ -45,6 +45,60 @@ ALLOWED_ROLES = [
 _ALLOWED_ROLES_LOWER = {r.lower() for r in ALLOWED_ROLES}
 
 ADMIN_ROLES = {"admin","administrador","administrativo","administrador general"}
+
+
+# Roles que el CRM entiende, en su forma canónica (la que ya usa la BD). Cualquier
+# variante de mayúsculas o espacios se guarda con este nombre; un rol desconocido se
+# rechaza (antes se guardaba tal cual y la persona se quedaba sin acceso a nada).
+ROLES_CANONICOS = {
+    "administrador": "Administrador", "admin": "Administrador",
+    "backoffice": "Backoffice", "back office": "Backoffice", "back_office": "Backoffice", "bo": "Backoffice",
+    "rol_icon": "Rol_icon", "rol-icon": "Rol_icon", "rolicon": "Rol_icon",
+    "supervisor": "Supervisor", "supervisora": "Supervisor",
+    "supervisor team lineas": "Supervisor Team Lineas",
+    "agente": "Agente", "agent": "Agente",
+    "vendedor": "vendedor",
+    "lineas-agentes": "Lineas-Agentes", "lineas agentes": "Lineas-Agentes",
+}
+
+
+def rol_canonico(role: str) -> str:
+    k = re.sub(r"\s+", " ", unicodedata.normalize("NFD", str(role or "")).encode("ascii", "ignore").decode().strip().lower())
+    if k not in ROLES_CANONICOS:
+        raise HTTPException(400, f"Rol no válido: «{role}». Elige uno de la lista.")
+    return ROLES_CANONICOS[k]
+
+
+
+def validar_username(username: str) -> None:
+    """Letras, números, espacio, punto, guion, guion bajo, @ y ~ (3-100). Sin < > " '
+    ni otros símbolos: el usuario se muestra en todo el CRM."""
+    u = str(username or "")
+    if not (3 <= len(u) <= 100) or re.search(r"[<>\"'`&\\/;{}()=]", u):
+        raise HTTPException(400, "El usuario debe tener entre 3 y 100 caracteres: letras, números, espacio, punto o guion.")
+
+
+def validar_equipo(team: str) -> None:
+    """El nombre del equipo se pinta en muchas pantallas (y en atributos onclick):
+    sin comillas ni < > para que no pueda inyectar código."""
+    if len(str(team or "")) > 120 or re.search(r"[<>\"'`\\;{}]", str(team or "")):
+        raise HTTPException(400, "El nombre del equipo no puede llevar comillas ni los símbolos < > ; { } \\.")
+
+
+async def _otros_admins_activos(s, excepto_id: int) -> int:
+    """Administradores activos (por rol o con admin:full) distintos de `excepto_id`."""
+    r = await s.execute(text("""
+        SELECT COUNT(*) FROM users
+        WHERE id != :id AND COALESCE(active, 1) = 1 AND COALESCE(acceso_crm, 1) = 1
+          AND (LOWER(TRIM(role)) IN ('administrador','admin','administrativo','administrador general')
+               OR permissions LIKE '%admin:full%')
+    """), {"id": excepto_id})
+    return int(r.scalar() or 0)
+
+
+def _es_admin_fila(role, permissions) -> bool:
+    from deps import rol_efectivo
+    return _norm_role(rol_efectivo(role, permissions)).strip() in ADMIN_ROLES
 
 
 def _norm_role(r: str) -> str:
@@ -124,8 +178,10 @@ class MergeUsersBody(BaseModel):
 
 @router.post("/merge")
 async def merge_users(body: MergeUsersBody, user: dict = Depends(current_user)):
-    if not _is_admin_or_bo(user):
-        raise HTTPException(403, "No autorizado para unificar usuarios")
+    # Solo administración: unificar desactiva la segunda cuenta (podía ser la de un
+    # administrador) y le pasa todos sus leads.
+    if not _is_admin(user):
+        raise HTTPException(403, "Solo administración puede unificar usuarios")
     if body.primary_id == body.secondary_id:
         raise HTTPException(400, "No puedes unificar un usuario consigo mismo")
 
@@ -260,6 +316,7 @@ async def update_role(user_id: str, body: UpdateRoleBody, user: dict = Depends(c
         raise HTTPException(403, "No autorizado para actualizar usuarios")
     if not body.role.strip():
         raise HTTPException(400, "El rol no puede estar vacío")
+    body.role = rol_canonico(body.role)
 
     try:
         uid = int(user_id)
@@ -273,6 +330,8 @@ async def update_role(user_id: str, body: UpdateRoleBody, user: dict = Depends(c
             raise HTTPException(404, "Usuario no encontrado")
 
         final_team = body.team if body.team is not None else (row["team"] or "")
+        if body.team is not None:
+            validar_equipo(body.team)
         final_supervisor = body.supervisor if body.supervisor is not None else (row.get("supervisor") or "")
         new_perms = list(ROLE_PERMS.get(body.role) or ROLE_PERMS.get(body.role.lower()) or [])
         # admin:full es un permiso dado a mano: mover a alguien de equipo (que también pasa
@@ -284,6 +343,11 @@ async def update_role(user_id: str, body: UpdateRoleBody, user: dict = Depends(c
         if isinstance(old_perms, list) and "admin:full" in old_perms and "admin:full" not in new_perms:
             new_perms.append("admin:full")
         old_role, old_team = str(row.get("role") or ""), str(row.get("team") or "")
+        if _es_admin_fila(old_role, row.get("permissions")) and not _es_admin_fila(body.role, json.dumps(new_perms)):
+            if str(user.get("id")) == str(uid):
+                raise HTTPException(400, "No puedes quitarte tu propio rol de administrador. Pídeselo a otro administrador.")
+            if await _otros_admins_activos(s, uid) == 0:
+                raise HTTPException(400, "Es el último administrador activo: el CRM se quedaría sin nadie que pueda gestionarlo.")
 
         await s.execute(text("""
             UPDATE users SET role = :role, team = :team, supervisor = :supervisor,
@@ -346,7 +410,7 @@ async def update_fecha_ingreso(user_id: str, body: UpdateFechaIngresoBody, user:
 
 
 @router.put("/{user_id}/credentials")
-async def update_credentials(user_id: str, body: UpdateCredentialsBody, user: dict = Depends(current_user)):
+async def update_credentials(user_id: str, body: UpdateCredentialsBody, response: Response, user: dict = Depends(current_user)):
     if _norm_role(user.get("role","")) not in ADMIN_ROLES:
         raise HTTPException(403, "No autorizado para actualizar credenciales")
     if not body.username and not body.password and not body.name and body.nombre_completo is None:
@@ -384,6 +448,7 @@ async def update_credentials(user_id: str, body: UpdateCredentialsBody, user: di
             params["nombre_completo"] = nombre_completo
 
         if body.username:
+            validar_username(body.username)
             dup = await s.execute(text("SELECT id FROM users WHERE username = :u AND id != :id LIMIT 1"), {"u": body.username, "id": uid})
             if dup.first():
                 raise HTTPException(409, "El nombre de usuario ya está en uso")
@@ -391,9 +456,9 @@ async def update_credentials(user_id: str, body: UpdateCredentialsBody, user: di
             params["username"] = body.username
 
         if body.password:
-            if len(body.password) < 6:
-                raise HTTPException(400, "La contraseña debe tener al menos 6 caracteres")
-            hashed = _bcrypt.hashpw(body.password[:72].encode(), _bcrypt.gensalt(rounds=10)).decode()
+            from politica_password import exigir
+            exigir(body.password, body.username or prev["username"])
+            hashed = _bcrypt.hashpw(body.password[:72].encode(), _bcrypt.gensalt(rounds=12)).decode()
             set_parts.append("password_hash = :password_hash")
             params["password_hash"] = hashed
 
@@ -407,10 +472,25 @@ async def update_credentials(user_id: str, body: UpdateCredentialsBody, user: di
             cambios.append("nombre")
         if cambios:
             await registrar(user, "cuenta", body.username or prev["username"], "Cambió " + ", ".join(cambios), session=s)
+        # Contraseña o usuario nuevos: las sesiones abiertas de esa cuenta dejan de valer.
+        cierra = bool(body.password) or bool(body.username and body.username != prev["username"])
+        if cierra:
+            from routers.auth import marcar_cambio_password
+            await marcar_cambio_password(s, uid)
         await s.commit()
         r2 = await s.execute(text("SELECT id, username, name, email, role, team, supervisor, avatar_url, permissions FROM users WHERE id = :id"), {"id": uid})
         updated = _row_to_user(r2.mappings().first())
 
+    if cierra:
+        session_guard.invalidate_user(uid)
+        # Si se lo cambió a sí mismo, se le da una sesión nueva para que no lo saque.
+        if str(user.get("id")) == str(uid):
+            r3 = None
+            async with AsyncSessionLocal() as s:
+                r3 = (await s.execute(text("SELECT * FROM users WHERE id = :id"), {"id": uid})).mappings().first()
+            if r3:
+                from deps import make_token, set_token_cookie, JWT_EXPIRES
+                set_token_cookie(response, make_token(dict(r3), remember=bool(user.get("remember"))), max_age=JWT_EXPIRES)
     return {"success": True, "user": _serialize(updated), "message": "Credenciales actualizadas"}
 
 
@@ -431,10 +511,9 @@ async def activar_acceso(user_id: str, body: ActivarAccesoBody, user: dict = Dep
     except ValueError:
         raise HTTPException(404, "Usuario no encontrado")
     username = (body.username or "").strip()
-    if len(username) < 3 or len(username) > 100:
-        raise HTTPException(400, "El usuario debe tener entre 3 y 100 caracteres")
-    if len(body.password or "") < 6:
-        raise HTTPException(400, "La contraseña debe tener al menos 6 caracteres")
+    validar_username(username)
+    from politica_password import exigir
+    exigir(body.password or "", username)
 
     import bcrypt as _bcrypt
     async with AsyncSessionLocal() as s:
@@ -448,7 +527,7 @@ async def activar_acceso(user_id: str, body: ActivarAccesoBody, user: dict = Dep
                               {"u": username, "id": uid})
         if dup.first():
             raise HTTPException(409, "El nombre de usuario ya está en uso")
-        hashed = _bcrypt.hashpw(body.password[:72].encode(), _bcrypt.gensalt(rounds=10)).decode()
+        hashed = _bcrypt.hashpw(body.password[:72].encode(), _bcrypt.gensalt(rounds=12)).decode()
         await s.execute(text("""
             UPDATE users SET username = :u, password_hash = :p, acceso_crm = 1, updated_at = :now
             WHERE id = :id AND acceso_crm = 0
@@ -473,9 +552,14 @@ async def update_permissions(user_id: str, body: UpdatePermissionsBody, user: di
         raise HTTPException(404, "Usuario no encontrado")
 
     async with AsyncSessionLocal() as s:
-        prev = (await s.execute(text("SELECT username, permissions FROM users WHERE id = :id"), {"id": uid})).mappings().first()
+        prev = (await s.execute(text("SELECT username, role, permissions FROM users WHERE id = :id"), {"id": uid})).mappings().first()
         if not prev:
             raise HTTPException(404, "Usuario no encontrado")
+        if _es_admin_fila(prev["role"], prev["permissions"]) and not _es_admin_fila(prev["role"], json.dumps(body.permissions)):
+            if str(user.get("id")) == str(uid):
+                raise HTTPException(400, "No puedes quitarte tu propio permiso de administrador. Pídeselo a otro administrador.")
+            if await _otros_admins_activos(s, uid) == 0:
+                raise HTTPException(400, "Es el último administrador activo: no se le puede quitar el permiso.")
         try:
             antes = set(json.loads(prev["permissions"] or "[]"))
         except (ValueError, TypeError):
@@ -512,10 +596,12 @@ async def suspend_user(user_id: str, body: SuspendBody, user: dict = Depends(cur
         raise HTTPException(404, "Usuario no encontrado")
 
     async with AsyncSessionLocal() as s:
-        r = await s.execute(text("SELECT id, username FROM users WHERE id = :id LIMIT 1"), {"id": uid})
+        r = await s.execute(text("SELECT id, username, role, permissions FROM users WHERE id = :id LIMIT 1"), {"id": uid})
         prev = r.mappings().first()
         if not prev:
             raise HTTPException(404, "Usuario no encontrado")
+        if not body.active and _es_admin_fila(prev["role"], prev["permissions"]) and await _otros_admins_activos(s, uid) == 0:
+            raise HTTPException(400, "Es el último administrador activo: no se puede suspender.")
         await s.execute(
             text("UPDATE users SET active = :active, updated_at = :now WHERE id = :id"),
             {"active": 1 if body.active else 0, "now": _utcnow(), "id": uid},
@@ -547,10 +633,12 @@ async def delete_user(user_id: str, user: dict = Depends(current_user)):
         raise HTTPException(404, "Usuario no encontrado")
 
     async with AsyncSessionLocal() as s:
-        r = await s.execute(text("SELECT id, username, role FROM users WHERE id = :id LIMIT 1"), {"id": uid})
+        r = await s.execute(text("SELECT id, username, role, permissions FROM users WHERE id = :id LIMIT 1"), {"id": uid})
         prev = r.mappings().first()
         if not prev:
             raise HTTPException(404, "Usuario no encontrado")
+        if _es_admin_fila(prev["role"], prev["permissions"]) and await _otros_admins_activos(s, uid) == 0:
+            raise HTTPException(400, "Es el último administrador activo: no se puede eliminar.")
         await s.execute(text("DELETE FROM users WHERE id = :id"), {"id": uid})
         await registrar(user, "cuenta", prev["username"], f"Eliminó la cuenta (rol {prev['role'] or '—'})", session=s)
         await s.commit()

@@ -232,7 +232,10 @@ async def toggle_followup(msg_id: str, user: dict = Depends(current_user)):
     except ValueError:
         raise HTTPException(400, "ID inválido")
     async with AsyncSessionLocal() as s:
-        r = await s.execute(text("SELECT is_followup FROM messages WHERE id = :id LIMIT 1"), {"id": mid})
+        # Solo mensajes propios (enviados o recibidos): antes se marcaba cualquiera por id.
+        r = await s.execute(text("SELECT is_followup FROM messages WHERE id = :id "
+                                 "AND (to_user = :u OR from_user = :u) LIMIT 1"),
+                            {"id": mid, "u": user["username"]})
         row = r.first()
         if not row:
             raise HTTPException(404, "Mensaje no encontrado")

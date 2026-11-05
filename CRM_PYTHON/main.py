@@ -568,6 +568,13 @@ _MIGRATIONS: list[tuple[str, str]] = [
         INDEX idx_ur_created (created_at),
         INDEX idx_ur_tipo (tipo)
     ) ENGINE=InnoDB"""),
+    # Seguridad de sesión y login (ver session_guard.py y routers/auth.py):
+    # sesion_desde = los tokens emitidos antes de esta hora (UTC) ya no valen (se pone
+    # al cambiar la contraseña o el usuario); login_fallos / login_bloqueado_hasta =
+    # bloqueo por intentos fallidos por cuenta, guardado para que sobreviva reinicios.
+    ("0092_users_sesion_desde", "ALTER TABLE users ADD COLUMN sesion_desde DATETIME NULL"),
+    ("0093_users_login_fallos", "ALTER TABLE users ADD COLUMN login_fallos INT NOT NULL DEFAULT 0"),
+    ("0094_users_login_bloqueado_hasta", "ALTER TABLE users ADD COLUMN login_bloqueado_hasta DATETIME NULL"),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración

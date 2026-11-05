@@ -523,9 +523,9 @@
     }
     var newPw  = document.getElementById('fpNewPw').value;
     var confPw = document.getElementById('fpConfPw').value;
-    if (newPw.length < 8) {
+    if (newPw.length < 10) {
       showAlert('alertForgot', 'alertForgotIcon', 'alertForgotText',
-        'La contraseña debe tener al menos 8 caracteres.', 'warning');
+        'La contraseña debe tener al menos 10 caracteres, con letras y números.', 'warning');
       return;
     }
     if (newPw !== confPw) {

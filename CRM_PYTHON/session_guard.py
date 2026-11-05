@@ -27,6 +27,7 @@ cerrarle la sesión a toda la empresa. Un corte de BD no debe convertirse en un
 cierre de sesión masivo; los datos igual no se pueden leer sin BD.
 """
 import asyncio
+import calendar
 import json
 import os
 import time
@@ -192,20 +193,25 @@ async def _user_state_of(user_id: str) -> dict | None:
     try:
         async with AsyncSessionLocal() as s:
             r = await s.execute(
-                text("SELECT active, role, permissions FROM users WHERE id = :id LIMIT 1"), {"id": int(uid)}
+                text("SELECT active, role, permissions, team, sesion_desde FROM users WHERE id = :id LIMIT 1"),
+                {"id": int(uid)},
             )
             row = r.first()
     except Exception:
         return entry   # BD caída: se reusa lo último conocido, o None
 
     if row is None:
-        state = {"ts": now, "active": False, "role": ""}   # usuario borrado
+        state = {"ts": now, "active": False, "role": "", "team": None, "desde": 0}   # usuario borrado
     else:
         active = True if row[0] is None else bool(row[0])
         # Rol efectivo (el del token): con el permiso admin:full es "Administrador".
         # Dar o quitar ese permiso cambia el rol efectivo y obliga a reloguear.
         from deps import rol_efectivo
-        state = {"ts": now, "active": active, "role": rol_efectivo(row[1], row[2])}
+        desde = row[4]
+        state = {"ts": now, "active": active, "role": rol_efectivo(row[1], row[2]),
+                 "team": str(row[3] or "").strip(),
+                 # sesion_desde se guarda en UTC naive (deps/_utcnow).
+                 "desde": calendar.timegm(desde.timetuple()) if desde else 0}
 
     _user_state[uid] = state
     return state
@@ -250,5 +256,20 @@ async def is_session_revoked(payload: dict) -> str | None:
     rol_bd    = estado["role"].strip()
     if rol_bd and rol_token != rol_bd:
         return "Tu rol cambió: vuelve a iniciar sesión"
+
+    # Cambio de contraseña o de usuario: los tokens emitidos antes ya no valen (si
+    # alguien robó la sesión, el cambio de contraseña lo saca).
+    try:
+        iat = int(payload.get("iat") or 0)
+    except (ValueError, TypeError):
+        iat = 0
+    if estado.get("desde") and iat < estado["desde"]:
+        return "Tu contraseña cambió: vuelve a iniciar sesión"
+
+    # El equipo también viaja en el token y decide qué datos ve (p. ej. un supervisor
+    # ve los de su equipo): si lo movieron, que entre de nuevo con el equipo actual.
+    if estado.get("team") is not None and "team" in payload:
+        if str(payload.get("team") or "").strip() != estado["team"]:
+            return "Tu equipo cambió: vuelve a iniciar sesión"
 
     return None

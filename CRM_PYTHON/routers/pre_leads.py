@@ -221,11 +221,21 @@ async def upload_pre_lead_image(
     except ValueError:
         raise HTTPException(400, "ID inválido")
 
+    ext = Path(image.filename or "img.jpg").suffix.lower() or ".jpg"
+    if ext not in (".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic"):
+        raise HTTPException(400, "Solo se aceptan imágenes (jpg, png, webp, gif, heic)")
+    # Solo el agente del pre-lead o procesamiento añaden imágenes (antes, cualquiera a cualquiera).
+    async with AsyncSessionLocal() as s:
+        own = (await s.execute(text("SELECT agente_username FROM pre_leads WHERE id = :id"), {"id": mid})).first()
+    if not own:
+        raise HTTPException(404, "Lead no encontrado")
+    if not _is_procesamiento(user.get("role", "")) and (own[0] or "") != user.get("username"):
+        raise HTTPException(404, "Lead no encontrado")
+
     data = await image.read()
     if len(data) > _MAX_IMG_BYTES:
         raise HTTPException(413, "Imagen demasiado grande (máx 20 MB)")
 
-    ext      = Path(image.filename or "img.jpg").suffix.lower() or ".jpg"
     ts       = int(_utcnow().timestamp() * 1000)
     filename = f"{lead_id}_{ts}{ext}"
     dest     = _IMAGES_DIR / filename

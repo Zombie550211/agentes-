@@ -231,6 +231,16 @@ def _user_scope_clause(user: dict) -> tuple[str, dict]:
             {"ag1": username, "ag2": display})
 
 
+async def _ensure_can_view(s, client_id, user: dict) -> None:
+    """Mismo alcance que _ensure_can_modify, para leer notas y llamadas de un cliente
+    (antes cualquiera las leía o añadía por id). 404 si el id no es numérico."""
+    try:
+        mid = int(str(client_id))
+    except (ValueError, TypeError):
+        raise HTTPException(404, "Cliente no encontrado")
+    await _ensure_can_modify(s, mid, user)
+
+
 async def _ensure_can_modify(s, mid: int, user: dict) -> None:
     """Lanza 403 si el usuario no tiene alcance sobre el registro `mid`.
 
@@ -842,6 +852,7 @@ async def lineas_notes_add(body: NoteBody, user: dict = Depends(current_user)):
     autor = user.get("username", "Sistema")
 
     async with AsyncSessionLocal() as s:
+        await _ensure_can_view(s, body.clientId, user)
         r = await s.execute(text("""
             INSERT INTO lineas_notes (lead_id, texto, type, autor, created_at, updated_at)
             VALUES (:lid, :txt, :type, :autor, :now, :now)
@@ -924,6 +935,7 @@ async def lineas_notes_delete(body: NoteDeleteBody, user: dict = Depends(current
 @router.get("/api/lineas-team/notes/{lead_id}")
 async def lineas_notes_get(lead_id: str, user: dict = Depends(current_user)):
     async with AsyncSessionLocal() as s:
+        await _ensure_can_view(s, lead_id, user)
         r = await s.execute(text("""
             SELECT * FROM lineas_notes WHERE lead_id = :lid ORDER BY created_at DESC
         """), {"lid": lead_id})
@@ -1110,6 +1122,7 @@ async def lineas_team_line_status(body: LineStatusBody, user: dict = Depends(cur
 async def lineas_get_llamadas(client_id: str, user: dict = Depends(current_user)):
     """Historial de llamadas registradas de un cliente de líneas."""
     async with AsyncSessionLocal() as s:
+        await _ensure_can_view(s, client_id, user)
         r = await s.execute(text("""
             SELECT id, lead_id, numero_llamada, tipo, imagen_url, nota, created_by, created_at
             FROM lead_llamadas
