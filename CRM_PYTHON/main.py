@@ -575,6 +575,8 @@ _MIGRATIONS: list[tuple[str, str]] = [
     ("0092_users_sesion_desde", "ALTER TABLE users ADD COLUMN sesion_desde DATETIME NULL"),
     ("0093_users_login_fallos", "ALTER TABLE users ADD COLUMN login_fallos INT NOT NULL DEFAULT 0"),
     ("0094_users_login_bloqueado_hasta", "ALTER TABLE users ADD COLUMN login_bloqueado_hasta DATETIME NULL"),
+    # PIN de seguridad cifrado (cifrado_datos.py): «enc1:» + token Fernet ≈ 110 caracteres.
+    ("0095_lineas_pin_255", "ALTER TABLE lineas_clientes MODIFY pin_seguridad VARCHAR(255) NULL"),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración
@@ -742,6 +744,16 @@ async def _inicializar_esquema_y_datos():
             await ensure_permission_defs(s)
     except Exception as e:
         print(f"[permission-defs] ensure: {e}")
+    try:
+        # Cifra los PIN de Líneas que sigan en claro (solo si CRM_DATA_KEY está puesta).
+        from cifrado_datos import cifrar_pendientes
+        from database_mysql import AsyncSessionLocal
+        async with AsyncSessionLocal() as s:
+            n = await cifrar_pendientes(s)
+        if n:
+            print(f"[cifrado] {n} PIN de Líneas cifrados")
+    except Exception as e:
+        print(f"[cifrado] cifrar_pendientes: {e}")
 
 
 @asynccontextmanager

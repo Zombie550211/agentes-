@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user, require_roles, team_seccion
+from cifrado_datos import descifrar_fila
 from datetime import datetime, timezone
 from typing import Optional, List, Any
 import re, unicodedata, time, json, calendar, traceback, asyncio, os
@@ -1094,7 +1095,7 @@ async def comisiones_agentes_lineas(
                 GROUP BY COALESCE(agente_nombre, agente)
                 ORDER BY puntos DESC, ventas DESC
             """), {"s": start, "e": end})
-            rows = [dict(row) for row in r.mappings().all()]
+            rows = [descifrar_fila(dict(row)) for row in r.mappings().all()]
         except Exception:
             rows = []
 
@@ -1200,7 +1201,7 @@ async def leads_lineas(
         """), params)
         leads = []
         for row in r.mappings().all():
-            d = dict(row)
+            d = descifrar_fila(dict(row))
             d["_id"] = str(d.get("id", ""))
             for col in ("servicios", "telefonos", "lineas_status", "lines_data"):
                 v = d.get(col)
@@ -1895,7 +1896,7 @@ async def get_lineas_team(
         """), params)
         leads = []
         for row in r.mappings().all():
-            d = dict(row)
+            d = descifrar_fila(dict(row))
             d["_id"] = str(d.get("id", ""))
             for col in ("servicios", "telefonos", "lineas_status", "lines_data"):
                 v = d.get(col)

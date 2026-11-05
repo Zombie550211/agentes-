@@ -8,6 +8,7 @@ from limiter import limiter
 from validators import ImagenUrl
 from datetime import datetime, timezone
 from typing import Optional, List, Any
+from cifrado_datos import cifrar
 import re, random, unicodedata, time, json, os, secrets, asyncio
 import realtime
 from tiempo_sv import ahora_sv
@@ -316,7 +317,8 @@ def _llamada_sets_lineas(old_status: str, new_status: str) -> str:
 
 
 def _fmt_lc(row) -> dict:
-    d = dict(row)
+    from cifrado_datos import descifrar_fila
+    d = descifrar_fila(dict(row))
     d["_id"] = str(d.get("id", ""))
     for col in ("servicios", "telefonos"):
         v = d.get(col)
@@ -670,7 +672,7 @@ async def post_lineas(body: LineasBody, user: dict = Depends(current_user)):
             "tp":   re.sub(r"\D+", "", body.telefono_principal),
             "nuc":  str(body.numero_cuenta).strip(),
             "ap":   autopay_val == "si",
-            "pin":  str(body.pin_seguridad).strip(),
+            "pin":  cifrar(str(body.pin_seguridad).strip()),
             "dir":  str(body.direccion).strip(),
             "svc":  json.dumps(servicios),
             "dv":   _normalize_date(body.dia_venta),
@@ -746,7 +748,7 @@ async def lineas_team_update(body: LineasTeamUpdateBody, user: dict = Depends(cu
     if body.numero_cuenta:
         sets.append("numero_cuenta = :nuc"); params["nuc"] = str(body.numero_cuenta).strip()
     if body.pin_seguridad is not None:
-        sets.append("pin_seguridad = :pin"); params["pin"] = str(body.pin_seguridad).strip()
+        sets.append("pin_seguridad = :pin"); params["pin"] = cifrar(str(body.pin_seguridad).strip())
     if body.direccion is not None:
         sets.append("direccion = :dir"); params["dir"] = str(body.direccion).strip()
     if body.cantidad_lineas:
