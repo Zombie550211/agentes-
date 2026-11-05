@@ -20,10 +20,23 @@
   'use strict';
 
   var raiz = document.documentElement;
+
+  // Modo ligero (5-nov-2026): en PCs modestas (≤4 núcleos o ≤4 GB) se quita el vidrio
+  // esmerilado y el movimiento, que es lo que más cuesta pintar (ver Permisos →
+  // «Rendimiento de usuarios»). Se marca aquí, antes de pintar, para que no parpadee.
+  // localStorage crm_modo_ligero = '1' lo fuerza y '0' lo desactiva en una PC concreta.
+  var LIGERO = false;
+  try {
+    var forzado = localStorage.getItem('crm_modo_ligero');
+    var nucleos = navigator.hardwareConcurrency || 8, memoria = navigator.deviceMemory || 8;
+    LIGERO = forzado === '1' || (forzado !== '0' && (nucleos <= 4 || memoria <= 4));
+  } catch (_) { /* sin localStorage: según el equipo */ }
+  if (LIGERO) raiz.classList.add('modo-ligero');
+
   if (!raiz.animate) return;                     // navegador sin Web Animations: sin transición
   raiz.classList.add('tr-js');
 
-  var REDUCIDO = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var REDUCIDO = LIGERO || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
   var CURVA = 'cubic-bezier(.22, 1, .36, 1)';    // salida suave, sin rebote
   // Ritmo pausado a propósito, para que el movimiento se aprecie sin hacerse lento.
   var ENTRADA_MS = 950, PASO_MS = 70, MAX_RETRASO_MS = 600;

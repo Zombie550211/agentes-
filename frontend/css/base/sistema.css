@@ -185,6 +185,15 @@ body{background:
 @media (prefers-reduced-transparency:reduce){
   .in-glass{--glass-fondo:rgb(255 255 255 / .94);-webkit-backdrop-filter:none;backdrop-filter:none}
 }
+/* Modo ligero (lo marca js/layout/transicion.js en PCs modestas): sin desenfoque de fondo
+   (lo más caro de pintar), paneles casi opacos, fondo que no se repinta al desplazar y
+   transiciones instantáneas. Se ve igual salvo que el panel no transparenta. */
+.modo-ligero{--glass-blur:none;--glass-fondo:rgb(255 255 255 / .95)}
+.modo-ligero *,.modo-ligero *::before,.modo-ligero *::after{
+  -webkit-backdrop-filter:none !important;backdrop-filter:none !important}
+.modo-ligero body{background-attachment:scroll}
+.modo-ligero *,.modo-ligero *::before,.modo-ligero *::after{
+  animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
 
 /* ═══ Iconos de la cabecera con menú (js/layout/topbar-acciones.js) ═══════════════ */
 .tb-grupo{position:relative}
