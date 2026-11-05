@@ -58,6 +58,7 @@ from routers import (
     horarios as horarios_router,
     cuadratura_entrada as cuadratura_entrada_router,
     transferencias as transferencias_router,
+    cxc_xfinity as cxc_xfinity_router,
     promociones as promociones_router,
     promo_video as promo_video_router,
     monitoreo as monitoreo_router,
@@ -543,6 +544,19 @@ _MIGRATIONS: list[tuple[str, str]] = [
         created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (ym, agente_key)
     ) ENGINE=InnoDB"""),
+    # Cantidad de CXC Xfinity (Estadísticas, ver routers/cxc_xfinity.py): por mes, por
+    # team (clave = team) o por agente (clave = users.id).
+    ("0090_create_cxc_xfinity", """CREATE TABLE IF NOT EXISTS cxc_xfinity (
+        ym              CHAR(7)      NOT NULL,
+        tipo            VARCHAR(10)  NOT NULL,
+        clave           VARCHAR(150) NOT NULL,
+        nombre          VARCHAR(150) NOT NULL,
+        team            VARCHAR(150) NULL,
+        cantidad        INT          NOT NULL DEFAULT 0,
+        actualizado_por VARCHAR(150) NULL,
+        updated_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (ym, tipo, clave)
+    ) ENGINE=InnoDB"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración
@@ -964,6 +978,7 @@ app.include_router(casos_router.router)
 app.include_router(horarios_router.router)
 app.include_router(cuadratura_entrada_router.router)
 app.include_router(transferencias_router.router)
+app.include_router(cxc_xfinity_router.router)
 app.include_router(promociones_router.router)
 app.include_router(promo_video_router.router)
 app.include_router(monitoreo_router.router)

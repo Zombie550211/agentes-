@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
   <link rel="stylesheet" href="/css/base/sistema.css?v=20261008b">
   <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
-  <link rel="stylesheet" href="/css/residencial/estadisticas.css?v=20261012d">
+  <link rel="stylesheet" href="/css/residencial/estadisticas.css?v=20261105a">
   <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
   <script src="/js/layout/transicion.js?v=20261008b"></script>
   <script src="/vendor/chartjs/chart.umd.min.js"></script>
@@ -125,6 +125,33 @@
         </div>
         <div class="es-leg" id="service-legend"></div>
       </div>
+    </section>
+
+    <!-- ══ Cantidad de CXC Xfinity (editable, por team y por agente) ══ -->
+    <section class="es-card es-cxc in-glass" aria-labelledby="es-cx-t">
+      <div class="es-card-head">
+        <div>
+          <h2 id="es-cx-t">Cantidad de CXC Xfinity</h2>
+          <p id="es-cx-sub">Del mes</p>
+        </div>
+        <div class="es-tabs" role="tablist" aria-label="Ver CXC Xfinity">
+          <button type="button" role="tab" class="es-tab" id="es-cx-tab-team" aria-selected="true" aria-controls="es-cx-pan-team">Por team</button>
+          <button type="button" role="tab" class="es-tab" id="es-cx-tab-ag" aria-selected="false" aria-controls="es-cx-pan-ag" tabindex="-1">Por agente</button>
+        </div>
+      </div>
+      <div class="es-scroll" id="es-cx-pan-team" role="tabpanel" aria-labelledby="es-cx-tab-team">
+        <table class="es-tbl es-cx-tbl">
+          <thead><tr><th scope="col" class="es-izq">Team</th><th scope="col">CXC</th></tr></thead>
+          <tbody id="cxc-team-body"><tr><td colspan="2" class="es-vacio">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="es-scroll" id="es-cx-pan-ag" role="tabpanel" aria-labelledby="es-cx-tab-ag" hidden>
+        <table class="es-tbl es-cx-tbl">
+          <thead><tr><th scope="col" class="es-izq">Agente</th><th scope="col">CXC</th></tr></thead>
+          <tbody id="cxc-ag-body"><tr><td colspan="2" class="es-vacio">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+      <p class="es-cx-estado" id="es-cx-estado" role="status" aria-live="polite"></p>
     </section>
 
     <!-- ══ Team Líneas ══ -->
@@ -661,6 +688,137 @@
     tabla('lineas-hoy-body','hoy','Total hoy');
   }
 
+  // ── Cantidad de CXC Xfinity — /api/cxc-xfinity (se llena a mano, por mes) ──
+  // Dos vistas independientes: por team y por agente. Solo administración edita;
+  // cada número se guarda al salir de la casilla (o con Enter).
+  var _cx=null, _cxPend=false;
+  function sinTeam(t){ return String(t||'').replace(/^TEAM\s+/i,'')||t; }
+  async function loadCxc(){
+    var ms=mStr(cY,cM);
+    try{
+      var res=await fetch('/api/cxc-xfinity?month='+ms,{credentials:'include'});
+      if(!res.ok)throw new Error(res.status);
+      var j=await res.json();
+      if(ms!==mStr(cY,cM))return;          // cambiaron de mes mientras cargaba
+      _cx=j;
+    }catch(_){
+      _cx=null;
+      ['cxc-team-body','cxc-ag-body'].forEach(function(id){
+        $(id).innerHTML='<tr><td colspan="2" class="es-vacio">No se pudo cargar la tabla</td></tr>';
+      });
+      return;
+    }
+    renderCxc();
+  }
+  function cxValor(tipo,clave){
+    var v=(_cx.valores||[]).find(function(x){return x.tipo===tipo&&String(x.clave)===String(clave);});
+    return v?(+v.cantidad||0):0;
+  }
+  function cxCelda(tipo,clave,nombre,team,valor){
+    if(!_cx.puede_editar) return '<td class="es-n es-n-dest">'+(valor||'')+'</td>';
+    return '<td class="es-n"><input type="number" min="0" max="100000" step="1" inputmode="numeric" class="es-cx-in"'+
+      ' data-tipo="'+tipo+'" data-clave="'+esc(clave)+'" data-nombre="'+esc(nombre)+'" data-team="'+esc(team||'')+'"'+
+      ' value="'+(valor||'')+'" aria-label="CXC de '+esc(nombre)+'"></td>';
+  }
+  function cxTotal(n,etiqueta){
+    return '<tr class="es-total es-cx-total"><th scope="row" class="es-izq">'+etiqueta+'</th><td class="es-n" data-cx-total>'+n+'</td></tr>';
+  }
+  function renderCxc(){
+    if(!_cx)return;
+    // No repintar mientras alguien escribe en una casilla (llegaría un evento en vivo).
+    var act=document.activeElement;
+    if(act&&act.classList&&act.classList.contains('es-cx-in')){ _cxPend=true; return; }
+    _cxPend=false;
+    var d=aFecha(diaSel());
+    setT('es-cx-sub', MN[d.getMonth()]+' '+d.getFullYear()+(_cx.puede_editar?' · escribe el número y se guarda solo':''));
+
+    // Por team: teams de venta + los que tienen dato guardado aunque ya no existan.
+    var teams=(_cx.teams||[]).slice();
+    (_cx.valores||[]).forEach(function(v){ if(v.tipo==='team'&&teams.indexOf(v.clave)===-1)teams.push(v.clave); });
+    var totT=0;
+    var filasT=teams.map(function(t){
+      var v=cxValor('team',t); totT+=v;
+      return '<tr>'+celdaEquipo(t,sinTeam(t))+cxCelda('team',t,t,t,v)+'</tr>';
+    });
+    $('cxc-team-body').innerHTML=teams.length ? filasT.join('')+cxTotal(totT,'Total')
+      : '<tr><td colspan="2" class="es-vacio">No hay teams de venta</td></tr>';
+
+    // Por agente: agrupados por team, con subtotal en la fila del team.
+    var ags=(_cx.agentes||[]).slice(), ids={};
+    ags.forEach(function(a){ids[a.id]=1;});
+    (_cx.valores||[]).forEach(function(v){
+      if(v.tipo==='agente'&&!ids[v.clave])ags.push({id:v.clave,nombre:v.nombre,team:v.team||'Sin team'});
+    });
+    var grupos={}, orden=[];
+    ags.forEach(function(a){ var t=a.team||'Sin team'; if(!grupos[t]){grupos[t]=[];orden.push(t);} grupos[t].push(a); });
+    orden.sort(function(a,b){return a.localeCompare(b);});
+    var totA=0, filasA=[];
+    orden.forEach(function(t){
+      var sub=grupos[t].reduce(function(a,x){return a+cxValor('agente',x.id);},0);
+      totA+=sub;
+      filasA.push('<tr class="es-cx-grupo"><th scope="rowgroup" class="es-izq">'+esc(sinTeam(t))+'</th><td class="es-n" data-cx-sub="'+esc(t)+'">'+(sub||'')+'</td></tr>');
+      grupos[t].forEach(function(a){
+        filasA.push('<tr><th scope="row" class="es-izq es-cx-ag">'+esc(a.nombre)+'</th>'+cxCelda('agente',a.id,a.nombre,t,cxValor('agente',a.id))+'</tr>');
+      });
+    });
+    $('cxc-ag-body').innerHTML=ags.length ? filasA.join('')+cxTotal(totA,'Total')
+      : '<tr><td colspan="2" class="es-vacio">No hay agentes de Residencial</td></tr>';
+  }
+  // Totales en vivo mientras se escribe (sin esperar a guardar).
+  function cxRecalcular(body){
+    var tot=0, subs={};
+    body.querySelectorAll('.es-cx-in').forEach(function(i){
+      var v=Math.max(0,parseInt(i.value,10)||0); tot+=v;
+      if(i.dataset.tipo==='agente'){ subs[i.dataset.team]=(subs[i.dataset.team]||0)+v; }
+    });
+    var t=body.querySelector('[data-cx-total]'); if(t)t.textContent=tot;
+    body.querySelectorAll('[data-cx-sub]').forEach(function(c){ c.textContent=subs[c.getAttribute('data-cx-sub')]||''; });
+  }
+  var _cxTimer=null;
+  function cxEstado(txt,error){
+    var e=$('es-cx-estado'); e.textContent=txt; e.classList.toggle('es-cx-error',!!error);
+    clearTimeout(_cxTimer); if(!error&&txt)_cxTimer=setTimeout(function(){e.textContent='';},2500);
+  }
+  async function cxGuardar(inp){
+    var n=inp.value===''?0:parseInt(inp.value,10);
+    if(isNaN(n)||n<0||n>100000){ cxEstado('Escribe un número entero entre 0 y 100000.',true); inp.focus(); return; }
+    var body={month:mStr(cY,cM),tipo:inp.dataset.tipo,clave:inp.dataset.clave,nombre:inp.dataset.nombre,team:inp.dataset.team,cantidad:n||null};
+    var previo=cxValor(body.tipo,body.clave);
+    if(previo===n)return;
+    cxEstado('Guardando…');
+    try{
+      var res=await fetch('/api/cxc-xfinity',{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if(!res.ok)throw new Error(res.status===403?'No tienes permiso para editar esta tabla.':'No se guardó. Revisa la conexión y vuelve a intentarlo.');
+      var vs=_cx.valores=(_cx.valores||[]).filter(function(x){return !(x.tipo===body.tipo&&String(x.clave)===String(body.clave));});
+      if(n)vs.push({tipo:body.tipo,clave:body.clave,nombre:body.nombre,team:body.team,cantidad:n});
+      cxEstado('Guardado: '+sinTeam(body.nombre)+' = '+(n||'vacío'));
+    }catch(e){
+      cxEstado(e.message||'No se guardó.',true);
+    }
+  }
+  function initCxc(){
+    initTabs([$('es-cx-tab-team'),$('es-cx-tab-ag')]);
+    ['cxc-team-body','cxc-ag-body'].forEach(function(id){
+      var body=$(id);
+      body.addEventListener('input',function(e){ if(e.target.classList.contains('es-cx-in'))cxRecalcular(body); });
+      body.addEventListener('change',function(e){ if(e.target.classList.contains('es-cx-in'))cxGuardar(e.target); });
+      body.addEventListener('keydown',function(e){
+        if(e.key==='Enter'&&e.target.classList.contains('es-cx-in')){
+          e.preventDefault();
+          // Enter: guarda y pasa a la casilla de abajo
+          var ins=[].slice.call(body.querySelectorAll('.es-cx-in')), i=ins.indexOf(e.target);
+          if(ins[i+1])ins[i+1].focus(); else e.target.blur();
+        }
+      });
+      body.addEventListener('focusout',function(){
+        setTimeout(function(){
+          var a=document.activeElement;
+          if(_cxPend&&!(a&&a.classList&&a.classList.contains('es-cx-in')))renderCxc();
+        },0);
+      });
+    });
+  }
+
   // Repinta con los últimos datos del mes (cambio de día dentro del mismo mes).
   var _ult=null;
   function rerender(){
@@ -670,6 +828,7 @@
 
   async function load(){
     var ms=mStr(cY,cM);
+    loadCxc();
     var cached=cLoad(ms);
     if(cached&&cached.leads&&cached.leads.length>0){
       if(cached.renames)_renames=cached.renames;
@@ -733,6 +892,7 @@
     initTabs([$('es-ln-tab-mes'),$('es-ln-tab-hoy')]);
     function repintar(){ if(_ult)render(_ult.leads,_ult.teams); }
     initTabs([$('es-sv-tab-mes'),$('es-sv-tab-hoy')],repintar);
+    initCxc();
     // Modal con todos los servicios (el botón lo pinta render() dentro de la leyenda)
     var dlg=$('es-sv-dlg');
     $('service-legend').addEventListener('click',function(e){
