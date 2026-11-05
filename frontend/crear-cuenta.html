@@ -372,6 +372,31 @@
     .pm-chip:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
     .pm-tipo{display:inline-block;padding:2px 8px;font-size:.66rem;font-weight:700;color:var(--ink2);background:var(--bg);border:1px solid var(--border)}
     .rg-cuando{white-space:nowrap;color:var(--ink3);font-variant-numeric:tabular-nums}
+    /* Rendimiento de usuarios */
+    .rd-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:4px 0 28px}
+    .rd-tile{display:flex;flex-direction:column;gap:6px;padding:16px;background:var(--surface);border:1px solid var(--border)}
+    .rd-v{font-family:var(--fm);font-size:1.5rem;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.1}
+    .rd-l{font-size:.72rem;color:var(--ink3);line-height:1.4}
+    .rd-h3{font-size:.95rem;font-weight:700;color:var(--ink);margin:0 0 10px !important}
+    .rd-barras{position:relative;display:flex;align-items:flex-end;gap:2px;height:180px;padding:8px 8px 22px;background:var(--surface);border:1px solid var(--border);
+      background-image:linear-gradient(to top,var(--border) 1px,transparent 1px);background-size:100% 25%;background-position:0 -22px}
+    .rd-col{position:relative;flex:1;height:100%;display:flex;align-items:flex-end;justify-content:center;cursor:default;outline:none}
+    .rd-col:hover .rd-bar,.rd-col:focus-visible .rd-bar{background:var(--ink2)}
+    .rd-col:focus-visible{box-shadow:inset 0 0 0 2px var(--blue)}
+    .rd-bar{display:block;width:70%;max-width:28px;background:var(--blue);border-radius:4px 4px 0 0}
+    .rd-x{position:absolute;bottom:-18px;font-family:var(--fm);font-size:.62rem;color:var(--ink3)}
+    .ac-bloque{position:relative}
+    .rd-tip{position:absolute;top:30px;width:140px;padding:6px 8px;background:var(--ink);color:#fff;font-size:.7rem;text-align:center;pointer-events:none;z-index:5}
+    .rd-n{text-align:right;font-family:var(--fm);font-variant-numeric:tabular-nums;white-space:nowrap}
+    .rd-pc{font-size:.72rem;color:var(--ink2);white-space:nowrap}
+    .rd-personas .rd-eq>*{background:var(--bg);border-top:2px solid var(--border2);padding-top:12px;padding-bottom:8px}
+    .rd-personas .rd-eq th{text-align:left;font-size:.8rem;font-weight:700;color:var(--ink)}
+    .rd-personas .rd-eq small{font-weight:500;color:var(--ink3);margin-left:6px}
+    .rd-personas tbody tr:not(.rd-eq) td:first-child{padding-left:28px}
+    .rd-sin td{color:var(--ink3)}
+    .rd-nivel{display:inline-flex;align-items:center;gap:5px;font-size:.7rem;font-weight:600;white-space:nowrap}
+    .rd-lenta{color:var(--red)} .rd-media{color:#b45309} .rd-buena{color:var(--green)}
+    @media (max-width:820px){ .rd-tiles{grid-template-columns:repeat(2,minmax(0,1fr))} }
     #section-registro .ac-bloque-head{margin-bottom:14px}
     @media (max-width:1100px){
       .pm-b{grid-template-columns:200px minmax(0,1fr)}
@@ -954,6 +979,7 @@
         <li><button type="button" class="pm-item" data-pm="equipos" onclick="pmIr('equipos')"><i class="fas fa-users" aria-hidden="true"></i><span>Equipos</span></button></li>
         <li><button type="button" class="pm-item" data-pm="ajustes" onclick="pmIr('ajustes')"><i class="fas fa-sliders-h" aria-hidden="true"></i><span>Ajustes de ventas</span></button></li>
         <li><button type="button" class="pm-item" data-pm="registro" onclick="pmIr('registro')"><i class="fas fa-history" aria-hidden="true"></i><span>Registro de cambios</span></button></li>
+        <li id="pm-li-rendimiento" hidden><button type="button" class="pm-item" data-pm="rendimiento" onclick="pmIr('rendimiento')"><i class="fas fa-tachometer-alt" aria-hidden="true"></i><span>Rendimiento de usuarios</span></button></li>
       </ul>
       <button type="button" class="btn btn-primary pm-nuevo" onclick="openModal('modal-create')"><i class="fas fa-user-plus" aria-hidden="true"></i> Nuevo usuario</button>
     </nav>
@@ -1343,6 +1369,22 @@
       </div>
     </div>
 
+    <!-- ═══ SECCIÓN: RENDIMIENTO DE USUARIOS ═══ -->
+    <div id="section-rendimiento" style="display:none;padding:18px 28px 60px">
+      <div class="ac-bloque-head">
+        <div>
+          <h2 class="ac-h2">Rendimiento de usuarios</h2>
+          <p class="ac-sub">Cuánto tarda cada pantalla en cargar en la PC de cada persona. Lo mide su propio navegador cada vez que abre una pantalla del CRM.</p>
+        </div>
+        <div class="pm-chips" role="group" aria-label="Periodo" id="rd-dias">
+          <button type="button" class="pm-chip" data-dias="1" aria-pressed="false">Hoy</button>
+          <button type="button" class="pm-chip" data-dias="7" aria-pressed="true">7 días</button>
+          <button type="button" class="pm-chip" data-dias="30" aria-pressed="false">30 días</button>
+        </div>
+      </div>
+      <div id="rd-cuerpo"><p class="ac-vacio">Cargando…</p></div>
+    </div>
+
     </div><!-- /.pm-cuerpo -->
     </div><!-- /.pm-b -->
 
@@ -1350,7 +1392,7 @@
 
 </div>
 </div>
-<script src="/js/layout/topnav.js?v=20261105c" defer></script>
+<script src="/js/layout/topnav.js?v=20261105d" defer></script>
 <script src="/js/layout/topbar-acciones.js?v=20261105a" defer></script>
 
 <!-- ═══ MODAL: CREAR USUARIO ═══ -->
@@ -1930,7 +1972,7 @@ function switchView(v){
 const _AJUSTES=['servicios','catalogos','finesemana'];
 var _ultimoAjuste='servicios';
 function switchSection(s){
-  ['usuarios','servicios','catalogos','finesemana','permisos','matriz','registro'].forEach(function(name){
+  ['usuarios','servicios','catalogos','finesemana','permisos','matriz','registro','rendimiento'].forEach(function(name){
     var sec=document.getElementById('section-'+name);
     var tab=document.getElementById('tab-'+name);
     if(sec) sec.style.display = (name===s)?'block':'none';
@@ -1947,6 +1989,7 @@ function switchSection(s){
   else if(s==='permisos'){ resetPermDefForm(); loadPermissionDefs(); renderPermSuggestions(); loadAccesos(); }
   else if(s==='matriz'){ pmPermisos(); pmMatriz(); renderAcRoles(); }
   else if(s==='registro'){ rgCargar(); }
+  else if(s==='rendimiento'){ rdCargar(); }
 }
 
 function irUsuarios(v){ switchSection('usuarios'); switchView(v); }
@@ -3664,6 +3707,87 @@ function rolBorrar(){
   _rolEnviar('/api/rbac/roles/'+encodeURIComponent(_rolEdit.clave),'DELETE',null,'Rol borrado');
 }
 
+// Rendimiento de usuarios (GET /api/rendimiento/resumen)
+var _rdDias=7;
+function _rdSeg(ms){ if(ms==null) return '—'; return ms<1000?ms+' ms':(ms/1000).toFixed(ms<10000?1:0).replace('.',',')+' s'; }
+function _rdNivel(ms){ return ms==null?'':(ms>5000?'lenta':(ms>2500?'media':'buena')); }
+function _rdChip(ms){
+  var n=_rdNivel(ms), txt={lenta:'Lenta',media:'Regular',buena:'Rápida'}[n]||'';
+  return n?'<span class="rd-nivel rd-'+n+'"><i class="fas '+(n==='lenta'?'fa-exclamation-triangle':(n==='media'?'fa-minus-circle':'fa-check-circle'))+'" aria-hidden="true"></i> '+txt+'</span>':'';
+}
+function _rdPagina(p){ return String(p||'').replace(/^\//,'').replace(/\.html$/,'').replace(/^residencial\//,'').replace(/^lineas\//,'Líneas · ').replace(/-/g,' ')||'inicio'; }
+function _rdPc(f){
+  var t=[]; if(f.cores) t.push(f.cores+' núcleos'); if(f.memoria_gb) t.push((+f.memoria_gb)+' GB+'); if(f.conexion) t.push(String(f.conexion).toUpperCase());
+  return t.join(' · ')||'—';
+}
+async function rdCargar(){
+  var cont=document.getElementById('rd-cuerpo');
+  var res=await AUTH.sf('/api/rendimiento/resumen?dias='+_rdDias);
+  if(!res||!res.ok){ cont.innerHTML='<p class="ac-vacio">No se pudieron cargar las mediciones. Recarga la página.</p>'; return; }
+  var d=await res.json(), g=d.general;
+  if(!g.cargas){ cont.innerHTML='<p class="ac-vacio">Todavía no hay mediciones en este periodo. Aparecen solas a medida que la gente abre pantallas del CRM.</p>'; return; }
+  var html='<div class="rd-tiles">'+
+    '<div class="rd-tile"><span class="rd-v">'+_rdSeg(g.mediana_ms)+'</span><span class="rd-l">Carga típica de una pantalla</span></div>'+
+    '<div class="rd-tile"><span class="rd-v">'+_rdSeg(g.p90_ms)+'</span><span class="rd-l">El 10% más lento tarda más de esto</span></div>'+
+    '<div class="rd-tile"><span class="rd-v">'+_rdSeg(g.servidor_ms)+'</span><span class="rd-l">De eso, esperando al servidor</span></div>'+
+    '<div class="rd-tile"><span class="rd-v">'+g.lentas_pct+'%</span><span class="rd-l">Cargas de más de 5 s · '+g.cargas.toLocaleString('es')+' medidas</span></div>'+
+  '</div>';
+  // Por hora: una serie (el 10% más lento), barras del azul del CRM, valor al pasar el mouse.
+  var mx=Math.max.apply(null,d.por_hora.map(function(h){ return h.p90_ms||0; }))||1;
+  html+='<div class="ac-bloque"><h3 class="rd-h3">El 10% más lento, por hora del día</h3>'+
+    '<div class="rd-barras" role="img" aria-label="Tiempo de carga del 10% más lento por hora; los valores están en la tabla de abajo">'+
+    d.por_hora.map(function(h){
+      var alto=Math.max(2,Math.round((h.p90_ms||0)*100/mx));
+      return '<div class="rd-col" tabindex="0" data-tip="'+_escP(h.hora+':00 · '+_rdSeg(h.p90_ms)+' · '+h.cargas+' cargas')+'"><span class="rd-bar" style="height:'+alto+'%"></span><span class="rd-x">'+h.hora+'</span></div>';
+    }).join('')+'</div><div class="rd-tip" id="rd-tip" hidden></div></div>';
+  // Por pantalla
+  html+='<div class="ac-bloque"><h3 class="rd-h3">Por pantalla</h3><div class="table-wrap"><table class="ptable"><thead><tr><th>Pantalla</th><th style="text-align:right">Cargas</th><th style="text-align:right">Típica</th><th style="text-align:right">10% más lento</th><th style="text-align:right">Servidor</th><th style="text-align:right">PC congelada</th><th></th></tr></thead><tbody>'+
+    d.por_pagina.map(function(p){
+      return '<tr><td><b>'+_escP(_rdPagina(p.pagina))+'</b></td><td class="rd-n">'+p.cargas+'</td><td class="rd-n">'+_rdSeg(p.mediana_ms)+'</td><td class="rd-n"><b>'+_rdSeg(p.p90_ms)+'</b></td><td class="rd-n">'+_rdSeg(p.servidor_ms)+'</td><td class="rd-n">'+_rdSeg(p.congelado_ms)+'</td><td>'+_rdChip(p.p90_ms)+'</td></tr>';
+    }).join('')+'</tbody></table></div></div>';
+  // Por equipo y persona: TODAS las personas activas del CRM agrupadas por su equipo,
+  // tengan o no mediciones (así se ve a todo el mundo, no solo a los lentos).
+  var stats={}; d.por_persona.forEach(function(p){ stats[String(p.username||'').toLowerCase()]=p; });
+  var tstats={}; (d.por_team||[]).forEach(function(t){ tstats[t.team]=t; });
+  var gente=_users.filter(function(u){ return _psActivo(u)&&!_psSin(u); }).map(function(u){ return {username:u.username, team:String(u.team||'').trim()||'Sin equipo'}; });
+  d.por_persona.forEach(function(p){ if(!gente.some(function(g){ return String(g.username).toLowerCase()===String(p.username).toLowerCase(); })) gente.push({username:p.username, team:p.team||'Sin equipo'}); });
+  var equipos={}; gente.forEach(function(g){ (equipos[g.team]=equipos[g.team]||[]).push(g); });
+  var nombresEq=Object.keys(equipos).sort(function(a,b){ return a==='Sin equipo'?1:b==='Sin equipo'?-1:a.localeCompare(b,'es'); });
+  var conDatos=gente.filter(function(g){ return stats[String(g.username).toLowerCase()]; }).length;
+  html+='<div class="ac-bloque"><h3 class="rd-h3">Por equipo y persona</h3><p class="ac-sub" style="margin-bottom:10px">Todas las personas activas ('+gente.length+'; '+conDatos+' con mediciones en este periodo). «PC congelada» alto con servidor rápido = la PC está saturada (muchas ventanas o poca memoria), no el CRM.</p>'+
+    '<div class="table-wrap"><table class="ptable rd-personas"><thead><tr><th>Persona</th><th>PC</th><th style="text-align:right">Cargas</th><th style="text-align:right">Típica</th><th style="text-align:right">10% más lento</th><th style="text-align:right">PC congelada</th><th></th></tr></thead><tbody>'+
+    nombresEq.map(function(eq){
+      var t=tstats[eq==='Sin equipo'?'Sin equipo':eq]||null;
+      var filas=equipos[eq].sort(function(a,b){ return String(a.username).localeCompare(String(b.username),'es'); }).map(function(g){
+        var p=stats[String(g.username).toLowerCase()];
+        if(!p) return '<tr class="rd-sin"><td>'+_escP(g.username)+'</td><td class="rd-pc">—</td><td class="rd-n">0</td><td colspan="4" class="rd-pc">Sin mediciones en este periodo</td></tr>';
+        return '<tr><td>'+_escP(p.username)+'</td><td class="rd-pc">'+_escP(_rdPc(p))+'</td><td class="rd-n">'+p.cargas+'</td><td class="rd-n">'+_rdSeg(p.mediana_ms)+'</td><td class="rd-n"><b>'+_rdSeg(p.p90_ms)+'</b></td><td class="rd-n">'+_rdSeg(p.congelado_ms)+'</td><td>'+_rdChip(p.p90_ms)+'</td></tr>';
+      }).join('');
+      return '<tr class="rd-eq"><th scope="rowgroup" colspan="2">'+_escP(eq)+' <small>'+equipos[eq].length+' pers.</small></th>'+
+        (t?'<td class="rd-n">'+t.cargas+'</td><td class="rd-n">'+_rdSeg(t.mediana_ms)+'</td><td class="rd-n"><b>'+_rdSeg(t.p90_ms)+'</b></td><td class="rd-n">'+_rdSeg(t.congelado_ms)+'</td><td>'+_rdChip(t.p90_ms)+'</td>':'<td class="rd-n">0</td><td colspan="4"></td>')+'</tr>'+filas;
+    }).join('')+'</tbody></table></div></div>';
+  // Las cargas más lentas
+  html+='<div class="ac-bloque"><h3 class="rd-h3">Las 15 cargas más lentas</h3><div class="table-wrap"><table class="ptable"><thead><tr><th>Cuándo</th><th>Persona</th><th>Pantalla</th><th style="text-align:right">Total</th><th style="text-align:right">Servidor</th><th style="text-align:right">PC congelada</th><th>Petición más lenta</th></tr></thead><tbody>'+
+    d.peores.map(function(f){
+      var l=(f.lentas||[])[0];
+      return '<tr><td class="rg-cuando">'+_escP(f.created_at)+'</td><td>'+_escP(f.username)+'</td><td>'+_escP(_rdPagina(f.pagina))+'</td><td class="rd-n"><b>'+_rdSeg(f.total_ms)+'</b></td><td class="rd-n">'+_rdSeg(f.servidor_ms)+'</td><td class="rd-n">'+_rdSeg(f.congelado_ms)+'</td><td class="rd-pc">'+(l?_escP(l.url)+' · '+_rdSeg(l.ms):'—')+'</td></tr>';
+    }).join('')+'</tbody></table></div></div>';
+  cont.innerHTML=html;
+}
+document.addEventListener('click',function(e){
+  var b=e.target.closest('#rd-dias .pm-chip'); if(!b) return;
+  _rdDias=+b.dataset.dias;
+  document.querySelectorAll('#rd-dias .pm-chip').forEach(function(x){ x.setAttribute('aria-pressed',String(x===b)); });
+  rdCargar();
+});
+['mouseover','focusin'].forEach(function(ev){ document.addEventListener(ev,function(e){
+  var c=e.target.closest&&e.target.closest('.rd-col'), tip=document.getElementById('rd-tip'); if(!tip) return;
+  if(!c){ tip.hidden=true; return; }
+  tip.textContent=c.dataset.tip; tip.hidden=false;
+  var r=c.getBoundingClientRect(), pr=tip.parentElement.getBoundingClientRect();
+  tip.style.left=Math.max(0,Math.min(r.left-pr.left+r.width/2-70,pr.width-140))+'px';
+}); });
+
 // Registro de cambios (GET /api/users/registro)
 var _rgTipo='';
 const RG_TIPOS={alta:'Alta',rol:'Rol',equipo:'Equipo',permisos:'Permisos',cuenta:'Cuenta',mercado:'Mercado'};
@@ -3706,6 +3830,7 @@ document.addEventListener('click',function(e){
   var ses=null; try{ ses=await window.__sesion; }catch(_){}
   var acc=ses&&ses.user&&ses.user.acciones;
   var permitido=Array.isArray(acc)?(acc.indexOf('usuarios.gestionar')>=0||acc.indexOf('roles.gestionar')>=0):isAdminRole(user.role);
+  if(Array.isArray(acc)&&acc.indexOf('sistema.rendimiento')>=0) document.getElementById('pm-li-rendimiento').hidden=false;
   if(!permitido){
     document.querySelector('.main').innerHTML=`<div class="empty" style="height:70vh"><div class="empty-icon" style="font-size:3rem">🔒</div><span style="font-size:1rem;font-weight:700">Acceso restringido</span><span>Tu rol no tiene permiso para gestionar usuarios ni roles</span></div>`;
     return;

@@ -159,6 +159,14 @@
   // así no hay dos listas que se desincronicen.
   window.CRMMenu = { grupos: GRUPOS, visible: visible };
 
+  // Rendimiento de usuarios: mide la carga de esta pantalla en esta PC (js/core/rendimiento.js).
+  (function () {
+    var sc = document.createElement('script');
+    sc.src = '/js/core/rendimiento.js?v=20261105a';
+    sc.async = true;
+    (document.head || document.documentElement).appendChild(sc);
+  })();
+
   document.addEventListener('DOMContentLoaded', function () {
     var nav = document.getElementById('topnav');
     if (nav) iniciar(nav);

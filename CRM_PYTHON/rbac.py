@@ -116,6 +116,8 @@ ACCIONES = [
     ("multimedia.eliminar", "Contenido", "Eliminar multimedia", "", [ADMIN, BO]),
     # ── Sistema ──
     ("sistema.apariencia", "Sistema", "Cambiar la apariencia del CRM", "", [ADMIN, BO]),
+    ("sistema.rendimiento", "Sistema", "Ver el rendimiento de usuarios",
+     "Cuánto tarda cada pantalla en cargar en la PC de cada persona.", [ADMIN]),
     ("sistema.administrar", "Sistema", "Mantenimiento del sistema",
      "Modo mantenimiento, cerrar todas las sesiones, limpiar cachés.", [ADMIN]),
 ]

@@ -60,6 +60,7 @@ from routers import (
     transferencias as transferencias_router,
     cxc_xfinity as cxc_xfinity_router,
     rbac_admin as rbac_admin_router,
+    rendimiento as rendimiento_router,
     promociones as promociones_router,
     promo_video as promo_video_router,
     monitoreo as monitoreo_router,
@@ -599,6 +600,28 @@ _MIGRATIONS: list[tuple[str, str]] = [
         accion VARCHAR(60) NOT NULL,
         PRIMARY KEY (rol, accion)
     ) ENGINE=InnoDB"""),
+    # Rendimiento de usuarios (routers/rendimiento.py): una fila por carga de pantalla.
+    ("0099_create_rendimiento_cargas", """CREATE TABLE IF NOT EXISTS rendimiento_cargas (
+        id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+        created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        user_id       INT          NULL,
+        username      VARCHAR(150) NOT NULL DEFAULT '',
+        team          VARCHAR(150) NOT NULL DEFAULT '',
+        rol           VARCHAR(60)  NOT NULL DEFAULT '',
+        pagina        VARCHAR(160) NOT NULL,
+        total_ms      INT          NOT NULL,
+        servidor_ms   INT          NULL,
+        descarga_ms   INT          NULL,
+        dom_ms        INT          NULL,
+        congelado_ms  INT          NULL,
+        n_congelados  INT          NOT NULL DEFAULT 0,
+        cores         SMALLINT     NULL,
+        memoria_gb    DECIMAL(6,2) NULL,
+        conexion      VARCHAR(20)  NULL,
+        lentas        JSON         NULL,
+        INDEX idx_rc_created (created_at),
+        INDEX idx_rc_user (username)
+    ) ENGINE=InnoDB"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración
@@ -1045,6 +1068,7 @@ app.include_router(cuadratura_entrada_router.router)
 app.include_router(transferencias_router.router)
 app.include_router(cxc_xfinity_router.router)
 app.include_router(rbac_admin_router.router)
+app.include_router(rendimiento_router.router)
 app.include_router(promociones_router.router)
 app.include_router(promo_video_router.router)
 app.include_router(monitoreo_router.router)
