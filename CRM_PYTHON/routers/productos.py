@@ -6,12 +6,9 @@ from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
 from scoring import score_for
-import unicodedata
 import rbac
 
 router = APIRouter(tags=["Productos"])
-
-_ADMIN_BO = {"admin", "administrador", "administrativo", "backoffice", "back office", "bo"}
 
 
 def _is_admin_or_bo(user: dict) -> bool:

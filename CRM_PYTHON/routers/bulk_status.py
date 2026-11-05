@@ -6,7 +6,6 @@ from deps import current_user
 from datetime import datetime, timezone
 from typing import List
 import re
-import asyncio
 import realtime
 import rbac
 
@@ -16,12 +15,6 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 router = APIRouter(prefix="/api/leads", tags=["Bulk Status"])
-
-_ALLOWED_ROLES = {
-    "admin", "administrador", "administrator", "administrativo",
-    "backoffice", "back office", "back_office", "bo", "b.o",
-    "rol_icon", "rol-icon", "rol_bamo",
-}
 
 
 def _can_use(user: dict) -> bool:

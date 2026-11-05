@@ -6,7 +6,6 @@ frontend/crear-cuenta.html. Ver permissions_data.py (catálogo/seed) y permissio
 (resolución en tiempo real usada por leads/ranking/equipo).
 """
 import json
-import unicodedata
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
@@ -17,12 +16,6 @@ import rbac
 from registro_usuarios import registrar
 
 router = APIRouter(tags=["Permisos"])
-
-ADMIN_ROLES = {"admin", "administrador", "administrativo", "administrador general"}
-
-
-def _norm_role(r: str) -> str:
-    return unicodedata.normalize("NFD", str(r or "")).encode("ascii", "ignore").decode().lower().strip()
 
 
 async def _nombre_destino(s, scope_type: str, scope_value: str) -> str:

@@ -4,12 +4,9 @@ from typing import Optional
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
-import unicodedata
 import rbac
 
 router = APIRouter(tags=["Catalogos"])
-
-_ADMIN_BO = {"admin", "administrador", "administrativo", "backoffice", "back office", "bo"}
 
 
 def _is_admin_or_bo(user: dict) -> bool:

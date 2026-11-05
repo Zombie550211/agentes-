@@ -43,14 +43,13 @@ from typing import Optional
 
 from sqlalchemy import text
 
-from estado_comision import grupo as grupo_comision, _sql_grupo
+from estado_comision import grupo as grupo_comision
 import rbac
 
 HORAS_VERDE = 72
 HORAS_AMARILLO = 120
 HORAS_ROJO = 144
 
-COLORES = ("verde", "amarillo", "rojo", "negro")
 
 # Riesgo CX → desfase (horas equivalentes con que arranca) y color de salida.
 RIESGOS = ("bajo", "medio", "alto")
@@ -62,13 +61,6 @@ def riesgo_por_status(status) -> Optional[str]:
     valor de la lista (ACTIVE, CXNC…) o su grupo (completed, pending…)."""
     g = grupo_comision(status)
     return {"completed": "bajo", "pending": "medio", "cancelled": "alto"}.get(g)
-
-
-# Lo mismo en SQL, sobre una expresión con un valor de status de comisión (p. ej. ':status').
-def sql_riesgo_por_status(expr: str) -> str:
-    g = _sql_grupo(expr)
-    return (f"(CASE {g} WHEN 'completed' THEN 'bajo' WHEN 'pending' THEN 'medio' "
-            f"WHEN 'cancelled' THEN 'alto' ELSE NULL END)")
 
 
 # Inicio del reloj de un caso (SQL).
@@ -144,16 +136,6 @@ def clasificar(caso_estado: str, riesgo_cx, riesgo_cx_at, ahora: Optional[dateti
         "horas_restantes_color": round(limite - h, 1) if limite else None,
         "vence_at": (ini + timedelta(hours=HORAS_ROJO - desfase)).isoformat() if ini else None,
     }
-
-
-# ── Quién ve qué ────────────────────────────────────────────────────
-# agente      → solo sus clientes
-# supervisor  → los clientes de los agentes de su team (y los que lo tengan a él
-#               como supervisor en el lead)
-# resto       → todos (administración, backoffice, ICON…), separados por team
-def _rol(user: dict) -> str:
-    import unicodedata
-    return unicodedata.normalize("NFD", str(user.get("role") or "")).encode("ascii", "ignore").decode().lower()
 
 
 def es_supervisor(user: dict) -> bool:

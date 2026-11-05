@@ -78,7 +78,6 @@ async def _get_ranking_core(
     """Lógica de GET /api/ranking como función plana (sin defaults de FastAPI Query()),
     para poder llamarla en proceso desde otros lugares (ej. tools de la IA) reutilizando
     el mismo filtrado por permisos (resolve_market_restriction)."""
-    now = _utcnow()
     _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
 
     # Permiso 'market:restrict_view' (por equipo o usuario): si aplica, ignora el
@@ -115,7 +114,7 @@ async def _get_ranking_core(
 
     # ── SQL query ──────────────────────────────────────────────────
     # Calcular fecha exclusiva del mes siguiente para capturar todas las horas del último día
-    from datetime import date as _date, timezone
+    from datetime import date as _date
     _s_date = _date.fromisoformat(start_date)
     _nm = _s_date.month + 1 if _s_date.month < 12 else 1
     _ny = _s_date.year if _s_date.month < 12 else _s_date.year + 1
@@ -406,9 +405,7 @@ async def ranking_init(
     user: dict = Depends(current_user),
 ):
     """Endpoint combinado: ranking + media en una sola llamada."""
-    from datetime import date as _date, timezone
     # Fechas por defecto: mes actual
-    now = datetime.now()
     _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     fi = fechaInicio or f"{_sv.year}-{_sv.month:02d}-01"
     last_day = (datetime(_sv.year, _sv.month % 12 + 1, 1) - __import__('datetime').timedelta(days=1)).day if _sv.month < 12 else 31

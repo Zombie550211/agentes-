@@ -23,7 +23,7 @@ import realtime
 from database_mysql import AsyncSessionLocal
 from deps import current_user
 from routers.leads import (
-    _find_id, _is_admin_or_bo, _is_agent, _is_supervisor, _mercado_restrict,
+    _find_id, _is_admin_or_bo, _is_supervisor, _mercado_restrict,
     _log_activity, _utcnow,
 )
 

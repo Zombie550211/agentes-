@@ -17,8 +17,6 @@ def _utcnow() -> _dt.datetime:
     return _dt.datetime.now(_dt.timezone.utc).replace(tzinfo=None)
 router = APIRouter(tags=["Files"])
 
-_ADMIN_ROLES = {"admin", "administrador", "administrator", "backoffice", "bo"}
-
 
 def _is_admin(user: dict) -> bool:
     """Permiso desde Roles y permisos (rbac.py): archivos.gestionar."""

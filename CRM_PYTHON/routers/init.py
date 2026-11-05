@@ -270,7 +270,6 @@ async def init_dashboard(user: dict = Depends(current_user)):
 
 @router.get("/api/init-rankings")
 async def init_rankings(user: dict = Depends(current_user)):
-    now = _utcnow()
     _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     start_date, end_date = _month_range(_sv.year, _sv.month)
 
@@ -504,7 +503,6 @@ async def init_estadisticas(user: dict = Depends(current_user)):
 
 @router.get("/api/init-all-pages")
 async def init_all_pages(user: dict = Depends(current_user)):
-    now = _utcnow()
     _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     ms, me = _month_range(_sv.year, _sv.month)
     date_cond = """(
@@ -596,7 +594,6 @@ async def init_all_pages(user: dict = Depends(current_user)):
 
 @router.get("/api/init-lead")
 async def init_lead(user: dict = Depends(current_user)):
-    now = _utcnow()
     _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     ms, me = _month_range(_sv.year, _sv.month)
     date_cond = "(dia_venta BETWEEN :s AND :e OR (created_at BETWEEN :s AND :e AND dia_venta IS NULL))"
@@ -643,7 +640,6 @@ async def init_lead(user: dict = Depends(current_user)):
 
 @router.get("/api/init-facturacion")
 async def init_facturacion(user: dict = Depends(current_user)):
-    now = _utcnow()
     _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     ms, me = _month_range(_sv.year, _sv.month)
     date_cond = "(dia_venta BETWEEN :s AND :e OR (created_at BETWEEN :s AND :e AND dia_venta IS NULL))"
@@ -747,8 +743,6 @@ async def recent_activity(user: dict = Depends(current_user)):
     username = user.get("username", "")
     role     = (user.get("role") or "").lower()
 
-    is_admin  = any(r in role for r in ("admin","administrator","administrador","administradora"))
-    is_bo     = any(r in role for r in ("backoffice","bo"))
     is_sup    = rbac.tiene(user, "paneles.su_equipo")
     is_agent  = "agente" in role or "agent" in role
 

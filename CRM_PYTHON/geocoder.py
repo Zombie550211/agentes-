@@ -2,7 +2,7 @@
 Geocodificación asíncrona de direcciones de EE.UU.
 Usa el US Census Bureau Geocoding API: gratuito, sin API key, solo EE.UU.
 """
-import httpx, asyncio, logging
+import httpx, logging
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 

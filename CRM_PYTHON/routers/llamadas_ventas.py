@@ -14,23 +14,7 @@ def _utcnow() -> _dt.datetime:
 
 router = APIRouter(tags=["Llamadas Ventas"])
 
-_ADMIN_ROLES = {"admin", "administrador", "administrator", "backoffice", "bo"}
 _DATE_RE     = re.compile(r"^(0[1-9]|1[0-2])/(0[1-9]|[12]\d|3[01])/\d{4}$")
-
-
-def _is_admin(role: str) -> bool:
-    r = role.strip().lower()
-    return any(a in r for a in _ADMIN_ROLES)
-
-
-def _is_supervisor(user: dict) -> bool:
-    role = str(user.get("role", "") or "").strip().lower()
-    return "supervisor" in role
-
-
-def _is_backoffice(user: dict) -> bool:
-    role = str(user.get("role", "") or "").strip().lower()
-    return "backoffice" in role or role in {"bo"}
 
 
 def _normalize_team_key(value: Any) -> str:
@@ -88,7 +72,6 @@ async def get_llamadas_ventas(
     if not rbac.tiene(user, "llamadas_ventas.registro"):
         raise HTTPException(403, "No autorizado")
 
-    now          = _utcnow()
     _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     target_month = month if month else _sv.month
     target_year  = year  if year  else _sv.year

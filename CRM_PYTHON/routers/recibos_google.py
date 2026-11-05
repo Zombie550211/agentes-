@@ -35,9 +35,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-import audit
 from database_mysql import AsyncSessionLocal
-from deps import ADMIN_ROLES
 from routers.portal import admin_o_portal
 from recibos_escaner import escanear
 from routers.cuadratura_entrada import _verificar_clave

@@ -31,15 +31,6 @@ def _fmt_comment(row) -> dict:
     }
 
 
-async def _get_lead_id_for_mongo(mongo_id: str) -> int | None:
-    async with AsyncSessionLocal() as s:
-        r = await s.execute(text("SELECT id FROM leads WHERE mongo_id = :m OR id = :n LIMIT 1"), {
-            "m": mongo_id, "n": int(mongo_id) if mongo_id.isdigit() else -1
-        })
-        row = r.first()
-        return row[0] if row else None
-
-
 async def _lead_id_visible(lead_id: str, user: dict) -> int | None:
     """Id del lead si el usuario puede verlo (misma regla que GET /api/leads/{id});
     None si no existe o no es suyo. Antes cualquiera leía y comentaba cualquier lead."""

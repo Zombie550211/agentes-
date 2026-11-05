@@ -47,15 +47,9 @@ cloudinary.config(
     api_secret = os.getenv("CLOUDINARY_API_SECRET", ""),
     secure     = True,
 )
-_USE_CLOUDINARY = bool(
-    os.getenv("CLOUDINARY_CLOUD_NAME") and
-    os.getenv("CLOUDINARY_API_KEY") and
-    os.getenv("CLOUDINARY_API_SECRET")
-)
 
 _MAX_MB    = 100
 _MAX_BYTES = _MAX_MB * 1024 * 1024
-_ADMIN_ROLES = {"admin", "administrador", "administrator", "backoffice", "bo"}
 
 
 def _is_admin(user: dict) -> bool:

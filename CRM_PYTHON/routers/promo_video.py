@@ -33,7 +33,7 @@ from PIL import Image, ImageOps
 from sqlalchemy import text
 
 from database_mysql import AsyncSessionLocal
-from deps import current_user, require_roles, ADMIN_ROLES, _normalize_role
+from deps import current_user, ADMIN_ROLES, _normalize_role
 import rbac
 
 log = logging.getLogger(__name__)

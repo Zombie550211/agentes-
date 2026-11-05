@@ -1,3 +1,4 @@
+from collections import defaultdict
 from fastapi import APIRouter, Depends, Query
 from fastapi import Body
 from database_mysql import AsyncSessionLocal
@@ -7,6 +8,12 @@ from permissions import resolve_market_restriction
 from datetime import datetime, timezone
 from typing import Optional, List
 from tiempo_sv import ahora_sv
+
+
+def _utcnow() -> datetime:
+    """UTC naive (reemplazo de datetime.utcnow() deprecado en Python 3.12+)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
 
 router = APIRouter(prefix="/api/equipos", tags=["Equipos"])
 
@@ -172,7 +179,6 @@ async def equipo_telefonos(
     user: dict = Depends(current_user),
 ):
     """Devuelve todos los teléfonos del mes y detecta duplicados."""
-    now = _utcnow()
     _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     fi = fechaInicio or f"{_sv.year}-{str(_sv.month).zfill(2)}-01"
     ff = fechaFin    or _sv.strftime("%Y-%m-%d")
@@ -197,11 +203,6 @@ async def equipo_telefonos(
         return {"success": False, "message": str(e)}
 
     # Agrupar por teléfono para detectar duplicados
-    from collections import defaultdict
-
-def _utcnow() -> datetime:
-    """UTC naive (reemplazo de _utcnow() deprecado en Python 3.12+)."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
     tel_map: dict = defaultdict(list)
     for row in rows:
         tel = str(row["tel"] or "").strip().replace(" ", "").replace("-", "")
@@ -236,7 +237,6 @@ async def equipo_comparar_telefonos(
     user: dict = Depends(current_user),
 ):
     """Compara una lista de teléfonos del Excel contra la BD."""
-    now = _utcnow()
     _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     fi = fechaInicio or f"{_sv.year}-{str(_sv.month).zfill(2)}-01"
     ff = fechaFin    or _sv.strftime("%Y-%m-%d")

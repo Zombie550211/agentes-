@@ -13,12 +13,11 @@ from sqlalchemy import text
 
 import realtime
 from database_mysql import AsyncSessionLocal
-from deps import current_user, ADMIN_ROLES, team_seccion, _normalize_role
+from deps import current_user, team_seccion, _normalize_role
 import rbac
 
 router = APIRouter(prefix="/api/cxc-xfinity", tags=["CXC Xfinity"])
 
-_ADMIN_NORM = {_normalize_role(r) for r in ADMIN_ROLES}
 _YM_RE = r"^\d{4}-(0[1-9]|1[0-2])$"
 
 

@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import date, timedelta
-import json, unicodedata
+import json
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
@@ -20,7 +20,6 @@ import rbac
 router = APIRouter(tags=["Schedule"])
 
 _KEY = "weekend_rotation"
-_ADMIN_BO = {"admin", "administrador", "administrativo", "backoffice", "back office", "bo"}
 
 
 def _is_admin_or_bo(user: dict) -> bool:

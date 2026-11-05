@@ -26,21 +26,17 @@ def _month_range(year: int, month: int):
     _, last = calendar.monthrange(year, month)
     return f"{year}-{month:02d}-01", f"{year}-{month:02d}-{last:02d}"
 
-# Statuses excluidos del ranking/semáforo (igual que ranking.py y equipo.py)
-_STATUS_EXCLUDE_RE = "cancel|reserva|hold|rescheduled|reagendado|repro"
-
 
 @router.get("/home")
 async def dashboard_home(user: dict = Depends(current_user)):
     now      = _utcnow()
     _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
-    role     = (user.get("role") or "").lower()
+    (user.get("role") or "").lower()
     username = (user.get("name") or user.get("username") or "").strip().lower()
     is_adm_bo = rbac.tiene(user, "paneles.ver_todo")
 
     start, _end = _month_range(_sv.year, _sv.month)
     # Usar el primer día del mes siguiente para capturar todas las horas del último día
-    import calendar as _cal
     _nm = _sv.month + 1 if _sv.month < 12 else 1
     _ny = _sv.year if _sv.month < 12 else _sv.year + 1
     end = start  # alias para queries que usan :e como fecha fin

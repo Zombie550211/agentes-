@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
-from deps import require_roles
 import rbac
 from datetime import datetime, timezone
 from typing import Optional, Any
@@ -13,8 +12,6 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 router = APIRouter(prefix="/api/llamadas-ventas-lineas", tags=["Llamadas Ventas Lineas"])
-
-_ADMIN_BO_ROLES = ("admin", "Administrador", "administrador", "backoffice", "Backoffice")
 
 
 def _doc(row) -> dict:

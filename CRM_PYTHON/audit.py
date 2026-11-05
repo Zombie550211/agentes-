@@ -2,7 +2,7 @@
 Audit log — registra acciones críticas en logs/audit.log con rotación diaria.
 Formato: JSON por línea para facilitar búsquedas con grep o herramientas de log.
 """
-import logging, json, os
+import logging, json
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 from datetime import datetime

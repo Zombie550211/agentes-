@@ -11,9 +11,6 @@ from tiempo_sv import ahora_sv
 
 router = APIRouter(tags=["Misc"])
 
-_ADMIN_ROLES = {"admin", "administrador", "administrator", "administrativo"}
-_BO_ROLES    = {"backoffice", "bo"}
-
 
 def _utcnow() -> _dt.datetime:
     """UTC naive (reemplazo de datetime.utcnow() deprecado en Python 3.12+)."""
@@ -22,18 +19,6 @@ def _utcnow() -> _dt.datetime:
 
 def _role_lower(user: dict) -> str:
     return (user.get("role") or "").strip().lower()
-
-
-def _is_admin(role: str) -> bool:
-    return any(a in role for a in _ADMIN_ROLES)
-
-
-def _is_adm_or_bo(role: str) -> bool:
-    return any(a in role for a in (_ADMIN_ROLES | _BO_ROLES))
-
-
-def _is_supervisor(role: str) -> bool:
-    return "supervisor" in role
 
 
 def _normalize_status(raw: str) -> str:
@@ -227,7 +212,6 @@ async def get_customers(
     status:      Optional[str]  = Query(None),
     user:        dict           = Depends(current_user),
 ):
-    role    = _role_lower(user)
     is_adm  = rbac.tiene(user, "paneles.ver_todo")
     is_sup  = rbac.tiene(user, "paneles.su_equipo")
     max_lim = 10_000 if is_adm else 500
@@ -423,7 +407,6 @@ async def instalaciones_hoy(
     if fecha and not re.match(r"^\d{4}-\d{2}-\d{2}$", str(fecha)):
         raise HTTPException(400, "Parámetro fecha inválido (YYYY-MM-DD)")
 
-    role     = _role_lower(user)
     username = str(user.get("username") or "").strip()
     name     = str(user.get("name") or username).strip()
     display  = username.replace(".", " ").replace("_", " ").upper().strip()
@@ -534,7 +517,6 @@ async def notificaciones_status(
     if since < lim_min:
         since = lim_min
 
-    role     = _role_lower(user)
     username = str(user.get("username") or "").strip()
     name     = str(user.get("name") or username).strip()
     display  = username.replace(".", " ").replace("_", " ").upper().strip()

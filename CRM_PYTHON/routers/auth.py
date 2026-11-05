@@ -9,8 +9,7 @@ from limiter import limiter
 from audit import log_login_ok, log_login_fail, log_logout, log_password_reset_request, log_password_reset_ok
 # Auth/JWT: fuente única en deps.py — no redefinir aquí (ver mejora #5).
 from deps import (
-    JWT_EXPIRES, JWT_EXPIRES_REMEMBER, COOKIE_SAMESITE, ADMIN_ROLES,
-    current_user, require_roles, _get_token, rol_efectivo,
+    JWT_EXPIRES, JWT_EXPIRES_REMEMBER, COOKIE_SAMESITE, current_user, _get_token, rol_efectivo,
     make_token as _make_token,
     decode_token as _decode_token,
     set_token_cookie as _set_token_cookie,
@@ -298,7 +297,6 @@ async def login(request: Request, body: LoginBody, response: Response):
     }
 
 
-
 @router.post("/logout")
 async def logout(request: Request, response: Response):
     token = _get_token(request)
@@ -568,15 +566,6 @@ def _gen_code() -> str:
 
 def _gen_reset_token() -> str:
     return secrets.token_hex(32)
-
-
-def _mask_email(email: str) -> str:
-    parts = email.split("@")
-    if len(parts) != 2:
-        return "***"
-    user, domain = parts
-    visible = user[:2] if len(user) > 2 else user[:1]
-    return f"{visible}***@{domain}"
 
 
 @router.post("/forgot-password")

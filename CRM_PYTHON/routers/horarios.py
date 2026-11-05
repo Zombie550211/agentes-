@@ -27,7 +27,7 @@ import os
 import re
 import time as time_mod
 import unicodedata
-from datetime import date, time, timedelta
+from datetime import date, timedelta
 from typing import Optional
 
 import httpx
@@ -248,8 +248,6 @@ async def ver_semana(inicio: Optional[str] = Query(None), equipo: str = Query(""
         teams_venta = _teams_venta([dict(u) for u in r.mappings().all()])
 
     # Grupos por equipo (el vínculo agente ↔ supervisor es users.team): Residencial y luego Líneas.
-    yo = next((a for a in agentes if str(a["id"]) == str(user.get("id"))), None)
-    mi_clave = _norm((yo or {}).get("team") or user.get("team"))
     grupos: dict[str, dict] = {}
     for a in agentes:
         clave = _grupo(a)

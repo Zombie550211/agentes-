@@ -45,14 +45,6 @@ def hoy_sv() -> date:
     return datetime.now(TZ).date()
 
 
-def es_agente(role: str) -> bool:
-    import unicodedata
-    r = unicodedata.normalize("NFD", str(role or "")).encode("ascii", "ignore").decode().lower()
-    if any(x in r for x in ("admin", "backoffice", "supervisor")):
-        return False
-    return any(x in r for x in ("agente", "vendedor", "agent", "seller"))
-
-
 # Equipos que Permisos (crear-cuenta.html, _HIDDEN_TEAMS) trata como "sin equipo".
 _EQUIPOS_OCULTOS = {"backoffice"}
 # Equipos de Permisos que no llevan horario: no salen en Horarios ni viajan a Cuadratura
@@ -96,24 +88,6 @@ def _es_supervisor_rol(role: str) -> bool:
     import unicodedata
     r = unicodedata.normalize("NFD", str(role or "")).encode("ascii", "ignore").decode().lower()
     return "supervisor" in r and not any(x in r for x in ("admin", "backoffice", "back office"))
-
-
-def _es_backoffice(role: str) -> bool:
-    import unicodedata
-    r = unicodedata.normalize("NFD", str(role or "")).encode("ascii", "ignore").decode().lower()
-    return "backoffice" in r or "back office" in r
-
-
-def agentes_de_equipos(usuarios) -> list:
-    """Todo el personal de los equipos de venta (Residencial y Líneas), es decir, equipos
-    que tienen un supervisor: agentes, el propio supervisor y quien tenga otro rol pero
-    pertenezca al equipo (p.ej. un agente con rol Administrador). Quedan fuera Backoffice,
-    Administración y los que no tienen equipo."""
-    usuarios = list(usuarios)
-    con_sup = {clave_equipo(u["team"]) for u in usuarios
-               if _es_supervisor_rol(u["role"]) and clave_equipo(u["team"])}
-    return [u for u in usuarios
-            if clave_equipo(u["team"]) in con_sup and not _es_backoffice(u["role"])]
 
 
 _PARTICULAS = {"de", "del", "la", "las", "los", "y"}

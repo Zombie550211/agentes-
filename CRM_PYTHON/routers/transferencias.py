@@ -88,11 +88,6 @@ def _contraria(seccion: str) -> str:
     return "lineas" if seccion == "residencial" else "residencial"
 
 
-def _es_admin_bo(role: str) -> bool:
-    r = str(role or "").lower()
-    return r in ("admin", "administrador", "administrativo") or "backoffice" in r
-
-
 # Única persona que gestiona la cola de transferencias: poner/quitar pausa (a sí mismo o a
 # cualquiera) y dar prioridad («Poner primero»). Los administradores también pueden
 # pausar y poner primero (_puede_pausar / _puede_ordenar); agentes y BO no.
@@ -103,16 +98,6 @@ _GESTORES_COLA = {"jonathan figueroa", "jonathan f"}
 def _es_gestor_cola(user: dict) -> bool:
     u = re.sub(r"[._]+", " ", str(user.get("username") or "")).strip().lower()
     return re.sub(r"\s+", " ", u) in _GESTORES_COLA
-
-
-def _es_admin(role: str) -> bool:
-    return str(role or "").strip().lower() in ("admin", "administrador")
-
-
-def _es_supervisor_lineas(role: str) -> bool:
-    """Rol «Supervisor Team Lineas» (LUIS G, VICTOR HURTADO…)."""
-    r = re.sub(r"\s+", " ", str(role or "").strip().lower())
-    return r in ("supervisor team lineas", "supervisor team líneas")
 
 
 def _gestiona_cola(user: dict) -> bool:

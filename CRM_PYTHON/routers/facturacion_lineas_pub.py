@@ -17,7 +17,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
-from deps import require_roles
 from routers.portal import admin_o_portal  # también la usan los usuarios del portal
 from datetime import datetime, timezone
 from typing import Optional, List, Any
@@ -30,7 +29,6 @@ def _utcnow() -> datetime:
 
 router = APIRouter(prefix="/api/facturacion-lineas-pub", tags=["Facturacion Lineas Pub"])
 
-_ADMIN_BO_ROLES = ("admin", "Administrador", "administrador", "backoffice", "Backoffice")
 
 CREATE_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS facturacion_lineas_pub (

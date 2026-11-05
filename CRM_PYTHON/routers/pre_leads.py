@@ -6,7 +6,7 @@ from deps import current_user
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
-import random, re, aiofiles, datetime as _dt, json
+import random, re, aiofiles, json
 import rbac
 
 def _utcnow() -> datetime:

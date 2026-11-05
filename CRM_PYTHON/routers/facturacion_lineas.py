@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
-from deps import current_user, require_roles
 import rbac
 from datetime import datetime, timezone
 from typing import Optional, List, Any
@@ -13,8 +12,6 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 router = APIRouter(prefix="/api/facturacion-lineas", tags=["Facturacion Lineas"])
-
-_ADMIN_BO_ROLES = ("admin", "Administrador", "administrador", "backoffice", "Backoffice")
 
 
 def _to_fecha_key(fecha: str) -> str:
@@ -59,14 +56,6 @@ def _to_number(val) -> float:
         return float(cleaned)
     except ValueError:
         return 0.0
-
-
-def _campos_from_row(row) -> list:
-    c = row.get("campos")
-    if isinstance(c, str):
-        try: c = json.loads(c)
-        except (ValueError, TypeError): c = []
-    return _ensure_len9(c or [])
 
 
 # Mapeo del formato LEGADO (array de 9 posiciones): [0..2]=jonathan, [3..5]=luis,

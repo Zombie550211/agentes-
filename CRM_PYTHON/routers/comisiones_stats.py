@@ -8,9 +8,7 @@ Criterio idéntico al frontend (cuentaParaComision): cuenta la venta en el mes
 en que se INSTALA (colchón) o en el de venta si no hay instalación en otro
 mes; solo status de comisión del grupo completed (lleva ACTIVE).
 """
-import datetime as _dt
 import re
-import unicodedata
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text

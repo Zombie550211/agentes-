@@ -2,17 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
-from deps import current_user, require_roles, team_seccion
+from deps import current_user, team_seccion
 from cifrado_datos import descifrar_fila
 from datetime import datetime, timezone
-from typing import Optional, List, Any
-import re, unicodedata, time, json, calendar, traceback, asyncio, os
+from typing import Optional, Any
+import re, json, calendar, asyncio, os
 from geocoder import geocode_and_save
 from scoring import score_for
 from validators import ImagenUrl
 import realtime
 from tiempo_sv import ahora_sv
-from estado_comision import INICIAL as INICIAL_COMISION, LISTA as LISTA_COMISION, grupo as grupo_comision, normalizar as normalizar_comision
+from estado_comision import INICIAL as INICIAL_COMISION, grupo as grupo_comision, normalizar as normalizar_comision
 import rbac
 _GRUPOS_COMISION = ("completed", "cancelled", "pending", "hold", "oficina", "reserva", "repro")
 
@@ -48,18 +48,9 @@ async def _log_activity(activity_type: str, client_name: str, description: str, 
         pass
 
 
-def _normalize(s: str) -> str:
-    return unicodedata.normalize("NFD", str(s or "")).encode("ascii", "ignore").decode().lower().strip()
-
-
 def _is_admin_or_bo(user: dict) -> bool:
     """Permiso desde Roles y permisos (rbac.py): ventas.gestion."""
     return rbac.tiene(user, "ventas.gestion")
-
-
-def _is_backoffice(user: dict) -> bool:
-    r = _normalize(user.get("role", ""))
-    return "backoffice" in r or "back office" in r
 
 
 # Backoffice trabaja el status de COMISIÓN, no el status de la venta (05-10-2026): el
@@ -235,7 +226,6 @@ async def _leads_bootstrap_core(
         disable_auto = str(noAutoMonth or "").lower() in ("1", "true")
         is_global    = str(allData or "").lower() in ("true", "1")
         if not is_global and not disable_auto:
-            now = _utcnow()
             _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
             if month and re.match(r"^\d{4}-\d{2}$", month):
                 yr, mo = map(int, month.split("-"))
@@ -252,7 +242,7 @@ async def _leads_bootstrap_core(
             # la opción "Todos" sigue trayéndolo todo vía allData=true.
             params["dts"] = f"{yr}-{mo:02d}-01"
 
-            dts = params["dts"]
+            params["dts"]
             _, last_day = calendar.monthrange(yr, mo)
             dte = f"{yr}-{mo:02d}-{last_day:02d}"
             _nm2 = mo + 1 if mo < 12 else 1
@@ -433,7 +423,6 @@ async def leads_agents_summary(
     month:       Optional[str] = Query(None),
     user: dict = Depends(current_user),
 ):
-    now = _utcnow()
     _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     if month and re.match(r"^\d{4}-\d{2}$", month):
         yr, mo = map(int, month.split("-"))
@@ -470,7 +459,6 @@ async def leads_kpis(
     month:       Optional[str] = Query(None),
     user: dict = Depends(current_user),
 ):
-    now = _utcnow()
     _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     if month and re.match(r"^\d{4}-\d{2}$", month):
         yr, mo = map(int, month.split("-"))
@@ -807,7 +795,6 @@ async def list_leads(
     disable_auto = str(noAutoMonth or "").lower() in ("1", "true")
     is_global = any(str(v or "").lower() in ("true", "1") for v in [allData, noFilter, skipDate])
     if not is_global and not disable_auto and not fechaInicio and not fechaFin and not has_search:
-        now = _utcnow()
         _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
         if month and re.match(r"^\d{4}-\d{2}$", month):
             yr, mo = map(int, month.split("-"))
@@ -856,7 +843,6 @@ async def leads_dashboard(
     month:       Optional[str] = Query(None),
     user: dict = Depends(current_user),
 ):
-    now = _utcnow()
     _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     if month and re.match(r"^\d{4}-\d{2}$", month):
         yr, mo = map(int, month.split("-"))
@@ -904,7 +890,6 @@ async def semaforo(
     statuses:    Optional[str] = Query(None),
     user: dict = Depends(current_user),
 ):
-    now = _utcnow()
     _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     start = fechaInicio or datetime(_sv.year, _sv.month, 1).strftime("%Y-%m-%d")
     end   = fechaFin   or _sv.strftime("%Y-%m-%d")
@@ -992,7 +977,6 @@ async def comisiones_agents(
     debug:       Optional[str] = Query(None),
     user: dict = Depends(current_user),
 ):
-    now = _utcnow()
     _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     if month and re.match(r"^\d{4}-\d{2}$", month):
         yr, mo = map(int, month.split("-"))
@@ -1065,7 +1049,6 @@ async def comisiones_agentes_lineas(
     year:  Optional[str] = Query(None),
     user: dict = Depends(current_user),
 ):
-    now = _utcnow()
     _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     if month and re.match(r"^\d{4}-\d{2}$", month):
         yr, mo = map(int, month.split("-"))
@@ -1153,7 +1136,6 @@ async def leads_lineas(
     # Mes por defecto: mes actual si no se especifica
     target_month = month
     if not target_month:
-        now = _utcnow()
         _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
         if year and re.match(r"^\d{4}$", year):
             target_month = f"{year}-{_sv.month:02d}"
@@ -1233,7 +1215,6 @@ _LLAMADAS_DUE_TPL = """(
 # En leads manda el status de comisión (su grupo); lineas_clientes sigue con su status.
 _LLAMADAS_DUE_SQL = _LLAMADAS_DUE_TPL.format(st="status_grupo")
 _LLAMADAS_DUE_SQL_LINEAS = _LLAMADAS_DUE_TPL.format(st="status")
-
 
 
 def _owner_where() -> str:

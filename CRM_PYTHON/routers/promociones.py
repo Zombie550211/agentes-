@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from database_mysql import AsyncSessionLocal
-from deps import current_user, require_roles, ADMIN_ROLES
+from deps import current_user, ADMIN_ROLES
 import rbac
 
 router = APIRouter(prefix="/api/promociones", tags=["Promociones"])

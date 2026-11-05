@@ -33,20 +33,6 @@ ROLE_PERMS = {
     "rol_icon":               ["read:all","write:all","export:data"],
 }
 
-ALLOWED_ROLES = [
-    "admin","Administrador","administrador","Administrativo",
-    "Supervisor","supervisor","supervisora","Supervisor Team Lineas","supervisor team lineas",
-    "vendedor","usuario","Agente","agente","agent",
-    "Backoffice","backoffice","back office","Back Office","back_office","bo","BO","b.o","b:o",
-    "Lineas-Agentes","lineas-agentes","Lineas Agentes","lineas agentes",
-    "Rol_icon","rol_icon","ROL_ICON","Rol-icon","rol-icon","ROL-ICON","rolicon","RolIcon",
-]
-
-# Set normalizado para chequeo rápido case-insensitive
-_ALLOWED_ROLES_LOWER = {r.lower() for r in ALLOWED_ROLES}
-
-ADMIN_ROLES = {"admin","administrador","administrativo","administrador general"}
-
 
 # Roles que el CRM entiende, en su forma canónica (la que ya usa la BD). Cualquier
 # variante de mayúsculas o espacios se guarda con este nombre; un rol desconocido se
@@ -71,7 +57,6 @@ def rol_canonico(role: str) -> str:
     if not clave:
         raise HTTPException(400, f"Rol no válido: «{role}». Elige uno de la lista.")
     return clave
-
 
 
 def validar_username(username: str) -> None:
@@ -102,10 +87,6 @@ async def _otros_admins_activos(s, excepto_id: int) -> int:
 def _es_admin_fila(role, permissions) -> bool:
     from deps import rol_efectivo
     return rbac.tiene(rol_efectivo(role, permissions), "usuarios.gestionar")
-
-
-def _norm_role(r: str) -> str:
-    return unicodedata.normalize("NFD", str(r or "")).encode("ascii","ignore").decode().lower()
 
 
 def _is_admin(user: dict) -> bool:

@@ -42,7 +42,7 @@ from sqlalchemy import text
 import audit
 import realtime
 from database_mysql import AsyncSessionLocal
-from deps import current_user, team_seccion, ADMIN_ROLES
+from deps import current_user, team_seccion
 from tiempo_sv import ahora_sv
 import rbac
 

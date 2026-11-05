@@ -1,21 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
-from deps import current_user, require_roles, ADMIN_ROLES, team_seccion
+from deps import current_user, team_seccion
 import rbac
 from pydantic import BaseModel
 from typing import Optional
-import re, unicodedata
+import re
 from datetime import datetime
 
 router = APIRouter(tags=["Teams"])
-
-
-def _norm(s: str) -> str:
-    try:
-        return unicodedata.normalize("NFD", str(s or "")).encode("ascii","ignore").decode().lower().strip()
-    except Exception:
-        return str(s or "").lower().strip()
 
 
 # ── GET /api/teams/renames ──────────────────────────────────────────

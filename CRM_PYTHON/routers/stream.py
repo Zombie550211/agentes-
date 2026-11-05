@@ -14,7 +14,6 @@ from fastapi.responses import StreamingResponse, JSONResponse
 
 import realtime
 import session_guard
-from deps import ADMIN_ROLES
 import rbac
 
 router = APIRouter(tags=["Realtime"])
@@ -73,16 +72,6 @@ async def stream(request: Request, channel: str = "residencial"):
             "X-Accel-Buffering": "no",  # evita buffering en nginx/proxies
         },
     )
-
-
-# ── Centro de notificaciones ─────────────────────────────────────
-# Una sola conexión por NAVEGADOR, no por pestaña: la abre el SharedWorker
-# js/core/notificaciones.worker.js y la reparte a todas las pestañas del CRM. Escucha el
-# canal personal del usuario y, si es administración, el de su rol. Los eventos son
-# avisos cortos ({"type": "faltas"}); la página vuelve a pedir el dato a su API, así que
-# aquí no viaja nada que el usuario no pueda leer de todos modos.
-# Va bajo /api/stream/ para que el proxy le aplique lo mismo que a /api/stream.
-_ADMIN = {r.lower() for r in ADMIN_ROLES}
 
 
 @router.get("/api/stream/notificaciones")

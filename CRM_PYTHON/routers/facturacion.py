@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
-from deps import current_user, require_roles, ADMIN_ROLES
 from routers.portal import admin_o_portal  # también la usan los usuarios del portal
 from datetime import datetime, timezone
 from typing import Any

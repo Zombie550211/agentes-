@@ -200,7 +200,6 @@ def _user_scope_clause(user: dict) -> tuple[str, dict]:
     Cadena vacía ('') = acceso total (admin/backoffice). Mantener alineado con
     el filtrado de GET /api/lineas-team.
     """
-    role     = str(user.get("role", "")).lower()
     username = str(user.get("username", ""))
     is_supervisor = rbac.tiene(user, "lineas.supervisar")
 
@@ -458,7 +457,6 @@ async def webhook_get(
     skip:  int = 0,
     user: dict = Depends(current_user),
 ):
-    role     = str(user.get("role", "")).lower()
     username = str(user.get("username", ""))
     is_admin_bo  = rbac.tiene(user, "lineas.gestion")
     is_supervisor = rbac.tiene(user, "lineas.supervisar")
@@ -500,7 +498,6 @@ async def webhook_get(
 @router.get("/api/lineas")
 async def get_lineas(user: dict = Depends(current_user)):
     username = user.get("username", "")
-    role     = str(user.get("role", "")).lower()
     is_priv  = rbac.tiene(user, "lineas.gestion") or rbac.tiene(user, "lineas.supervisar")
 
     where:  list = []
@@ -567,7 +564,6 @@ async def post_lineas(body: LineasBody, user: dict = Depends(current_user)):
     autopay_val  = str(body.autopay or "").lower()
     status_norm  = _normalize_status(body.status)
     mercado      = str(body.mercado or "").lower()
-    role         = str(user.get("role", "")).lower()
 
     if autopay_val not in ("si", "no"):
         errors.append("autopay debe ser si | no")
@@ -976,7 +972,6 @@ async def lineas_team_list(
     month: Optional[str] = None,   # YYYY-MM — si se pasa, filtra por ese mes
     user: dict = Depends(current_user),
 ):
-    role     = str(user.get("role", "")).lower()
     username = str(user.get("username", ""))
     is_admin_bo   = rbac.tiene(user, "lineas.gestion")
     is_supervisor = rbac.tiene(user, "lineas.supervisar")
@@ -1278,7 +1273,6 @@ async def lineas_team_stats(
     month: Optional[str] = None,   # YYYY-MM, default: mes actual
     user: dict = Depends(current_user),
 ):
-    now = _utcnow()
     _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     if month and re.match(r"^\d{4}-\d{2}$", month):
         yr, mo = map(int, month.split("-"))

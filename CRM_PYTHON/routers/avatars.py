@@ -108,7 +108,7 @@ async def _upload_to_cloudinary(data: bytes, mimetype: str, bg_removal: bool) ->
             None, lambda: cloudinary.uploader.upload(data, **opts)
         )
         return result
-    except Exception as e:
+    except Exception:
         return None
 
 
