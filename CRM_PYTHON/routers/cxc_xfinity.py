@@ -4,7 +4,8 @@ Tabla que se llena a mano, por mes, con dos vistas independientes:
   - por team   (clave = nombre del team)
   - por agente (clave = id del usuario; se guarda también su nombre y team del momento)
 
-Todos los usuarios con sesión la ven; sólo ADMIN_ROLES la editan.
+Todos los usuarios con sesión la ven; la editan administración y el equipo de
+Control de Calidad (por su equipo, no por rol: son Backoffice como otros).
 """
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -12,7 +13,7 @@ from sqlalchemy import text
 
 import realtime
 from database_mysql import AsyncSessionLocal
-from deps import current_user, require_roles, ADMIN_ROLES, team_seccion, _normalize_role
+from deps import current_user, ADMIN_ROLES, team_seccion, _normalize_role
 
 router = APIRouter(prefix="/api/cxc-xfinity", tags=["CXC Xfinity"])
 
@@ -20,8 +21,13 @@ _ADMIN_NORM = {_normalize_role(r) for r in ADMIN_ROLES}
 _YM_RE = r"^\d{4}-(0[1-9]|1[0-2])$"
 
 
+_EQUIPOS_EDITORES = {"control de calidad"}
+
+
 def _puede_editar(user: dict) -> bool:
-    return _normalize_role(user.get("role")) in _ADMIN_NORM
+    if _normalize_role(user.get("role")) in _ADMIN_NORM:
+        return True
+    return _normalize_role(user.get("team")) in _EQUIPOS_EDITORES
 
 
 def _es_agente(role) -> bool:
@@ -82,7 +88,9 @@ class Valor(BaseModel):
 
 
 @router.put("")
-async def guardar(body: Valor, user: dict = Depends(require_roles(*ADMIN_ROLES))):
+async def guardar(body: Valor, user: dict = Depends(current_user)):
+    if not _puede_editar(user):
+        raise HTTPException(403, "Solo administración y Control de Calidad editan esta tabla")
     clave = body.clave.strip()
     if not clave:
         raise HTTPException(400, "Falta la clave")
