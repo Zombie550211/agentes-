@@ -116,6 +116,12 @@ ACCIONES = [
     ("multimedia.eliminar", "Contenido", "Eliminar multimedia", "", [ADMIN, BO]),
     # ── Sistema ──
     ("sistema.apariencia", "Sistema", "Cambiar la apariencia del CRM", "", [ADMIN, BO]),
+    # ── Tickets ──
+    ("tickets.crear", "Tickets", "Crear tickets",
+     "Reportar un problema o pedir algo a administración desde la tuerquita.",
+     [ADMIN, BO, ICON, SUP, SUP_LIN, AGENTE, VENDEDOR, AG_LIN]),
+    ("tickets.gestionar", "Tickets", "Gestionar tickets",
+     "Ver la bandeja de todos los tickets, responder y cambiar su estado.", [ADMIN]),
     ("sistema.rendimiento", "Sistema", "Ver el rendimiento de usuarios",
      "Cuánto tarda cada pantalla en cargar en la PC de cada persona.", [ADMIN]),
     ("sistema.administrar", "Sistema", "Mantenimiento del sistema",

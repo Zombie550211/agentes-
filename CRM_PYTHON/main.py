@@ -61,6 +61,7 @@ from routers import (
     cxc_xfinity as cxc_xfinity_router,
     rbac_admin as rbac_admin_router,
     rendimiento as rendimiento_router,
+    tickets as tickets_router,
     promociones as promociones_router,
     promo_video as promo_video_router,
     monitoreo as monitoreo_router,
@@ -622,6 +623,49 @@ _MIGRATIONS: list[tuple[str, str]] = [
         INDEX idx_rc_created (created_at),
         INDEX idx_rc_user (username)
     ) ENGINE=InnoDB"""),
+    # Tickets (routers/tickets.py): pedidos y reportes a administración.
+    ("0100_create_tickets", """CREATE TABLE IF NOT EXISTS tickets (
+        id            INT AUTO_INCREMENT PRIMARY KEY,
+        created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        creado_por_id INT          NOT NULL,
+        creado_por    VARCHAR(150) NOT NULL,
+        team          VARCHAR(150) NOT NULL DEFAULT '',
+        rol           VARCHAR(60)  NOT NULL DEFAULT '',
+        titulo        VARCHAR(150) NOT NULL,
+        descripcion   TEXT         NOT NULL,
+        tipo          VARCHAR(20)  NOT NULL,
+        prioridad     VARCHAR(20)  NOT NULL,
+        pagina        VARCHAR(200) NOT NULL DEFAULT '',
+        estado        VARCHAR(20)  NOT NULL DEFAULT 'nuevo',
+        asignado_a    VARCHAR(150) NULL,
+        resuelto_at   DATETIME     NULL,
+        INDEX idx_tk_estado (estado),
+        INDEX idx_tk_creador (creado_por_id)
+    ) ENGINE=InnoDB"""),
+    ("0101_create_ticket_mensajes", """CREATE TABLE IF NOT EXISTS ticket_mensajes (
+        id         INT AUTO_INCREMENT PRIMARY KEY,
+        ticket_id  INT          NOT NULL,
+        created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        autor      VARCHAR(150) NOT NULL,
+        autor_id   INT          NULL,
+        es_admin   TINYINT(1)   NOT NULL DEFAULT 0,
+        sistema    TINYINT(1)   NOT NULL DEFAULT 0,
+        texto      TEXT         NOT NULL,
+        INDEX idx_tm_ticket (ticket_id)
+    ) ENGINE=InnoDB"""),
+    ("0102_create_ticket_adjuntos", """CREATE TABLE IF NOT EXISTS ticket_adjuntos (
+        id         INT AUTO_INCREMENT PRIMARY KEY,
+        ticket_id  INT          NOT NULL,
+        mensaje_id INT          NULL,
+        created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        nombre     VARCHAR(150) NOT NULL,
+        archivo    VARCHAR(60)  NOT NULL,
+        mime       VARCHAR(30)  NOT NULL,
+        tamano     INT          NOT NULL,
+        subido_por VARCHAR(150) NOT NULL,
+        INDEX idx_ta_ticket (ticket_id)
+    ) ENGINE=InnoDB"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración
@@ -1069,6 +1113,7 @@ app.include_router(transferencias_router.router)
 app.include_router(cxc_xfinity_router.router)
 app.include_router(rbac_admin_router.router)
 app.include_router(rendimiento_router.router)
+app.include_router(tickets_router.router)
 app.include_router(promociones_router.router)
 app.include_router(promo_video_router.router)
 app.include_router(monitoreo_router.router)

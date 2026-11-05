@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tickets · CRM</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <!-- Sesión: la cabecera (menú e iconos) la reutiliza; sin sesión, al login. -->
+  <script>
+    window.__sesion = fetch('/api/auth/verify-server', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : { authenticated: false }; })
+      .then(function (d) { if (!d.authenticated) { location.replace('/login.html'); } return d; })
+      .catch(function () { location.replace('/login.html'); return {}; });
+  </script>
+  <link rel="stylesheet" href="/css/base/scroll.css?v=20261008a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
+  <link rel="stylesheet" href="/css/base/sistema.css?v=20261105a">
+  <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
+  <link rel="stylesheet" href="/css/componentes/pagina.css?v=20261009a">
+  <script src="/js/layout/transicion.js?v=20261105a"></script>
+  <script src="/js/core/fetch-interceptor.js" defer></script>
+  <script src="/js/core/logout-handler.js" defer></script>
+  <script src="/js/core/user-info.js" defer></script>
+  <style>
+    .tk-pagina{display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);gap:var(--space-3);align-items:start}
+    .tk-col{min-width:0}
+    .tk-barra{display:flex;flex-wrap:wrap;gap:6px;padding:12px;border-bottom:1px solid rgb(0 112 152 / .12)}
+    .tk-barra[hidden]{display:none}
+    .tk-tab,.tk-chip{min-height:32px;padding:0 12px;border:1px solid rgb(0 112 152 / .2);background:#fff;cursor:pointer;font:inherit;font-size:12px;font-weight:600;color:var(--color-neutral-700)}
+    .tk-tab[aria-selected="true"],.tk-chip[aria-pressed="true"]{background:var(--color-accent-2-500);border-color:var(--color-accent-2-500);color:#fff}
+    .tk-tab:focus-visible,.tk-chip:focus-visible,.tk-item:focus-visible,.tk-b:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:2px}
+    .tk-chip small{margin-left:4px;font-family:Inter,sans-serif;opacity:.8}
+    .tk-lista{list-style:none;margin:0;padding:0;max-height:calc(100vh - 290px);overflow:auto}
+    .tk-item{display:block;width:100%;text-align:left;padding:12px 14px;border:0;border-bottom:1px solid rgb(0 112 152 / .08);border-left:3px solid transparent;background:transparent;cursor:pointer;font:inherit;color:inherit}
+    .tk-item:hover{background:rgb(0 112 152 / .04)}
+    .tk-item[aria-current="true"]{background:rgb(0 112 152 / .07);border-left-color:var(--color-accent-2-500)}
+    .tk-item-t{display:block;font-weight:700;font-size:13px;line-height:1.3;margin-bottom:4px}
+    .tk-item-m{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:11px;color:var(--color-neutral-600)}
+    .tk-et{display:inline-block;padding:1px 7px;font-size:10px;font-weight:700;border:1px solid currentColor}
+    .tk-e-nuevo{color:#007098}.tk-e-en_progreso{color:#7c3aed}.tk-e-esperando{color:#b45309}.tk-e-resuelto{color:#15803d}.tk-e-cerrado{color:#5b6770}
+    .tk-p-urgente{color:#b91c1c;font-weight:700}.tk-p-alta{color:#b45309;font-weight:700}
+    .tk-vacio{padding:32px 16px;text-align:center;color:var(--color-neutral-600);font-size:13px}
+    .tk-det-cab{padding:16px 20px;border-bottom:1px solid rgb(0 112 152 / .12)}
+    .tk-det-cab h2{margin:0 0 6px;font-size:18px;line-height:1.25}
+    .tk-datos{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--color-neutral-700)}
+    .tk-gestion{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+    .tk-gestion label{font-size:12px;font-weight:600}
+    .tk-gestion select{font:inherit;font-size:12px;padding:6px 8px;border:1px solid rgb(0 112 152 / .25);background:#fff}
+    .tk-hilo{display:flex;flex-direction:column;gap:12px;padding:16px 20px;max-height:calc(100vh - 420px);min-height:180px;overflow:auto}
+    .tk-msg{max-width:78%;padding:10px 12px;border:1px solid rgb(0 112 152 / .14);background:#fff;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+    .tk-msg.admin{align-self:flex-end;background:rgb(0 112 152 / .06);border-color:rgb(0 112 152 / .25)}
+    .tk-msg.sistema{align-self:center;max-width:none;padding:4px 10px;border:0;background:transparent;color:var(--color-neutral-600);font-size:11px;font-style:italic}
+    .tk-msg-q{display:block;margin-bottom:4px;font-size:11px;font-weight:700;color:var(--color-neutral-700);white-space:normal}
+    .tk-imgs{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;white-space:normal}
+    .tk-imgs a{display:block;width:120px;height:84px;border:1px solid rgb(0 112 152 / .2);background:#f4f8fa center/cover no-repeat}
+    .tk-resp{display:flex;flex-direction:column;gap:8px;padding:12px 20px 16px;border-top:1px solid rgb(0 112 152 / .12)}
+    .tk-resp textarea{font:inherit;font-size:13px;min-height:72px;padding:8px 10px;border:1px solid rgb(0 112 152 / .25);resize:vertical}
+    .tk-resp-pie{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+    .tk-b{min-height:36px;padding:0 14px;border:1px solid var(--color-accent-2-500);background:var(--color-accent-2-500);color:#fff;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+    .tk-b.sec{background:#fff;color:var(--color-accent-2-600)}
+    .tk-b[disabled]{opacity:.6;cursor:default}
+    .tk-mini-adj{font-size:11px;color:var(--color-neutral-600)}
+    .tk-adj-btn{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+    .tk-adj-btn:focus-within{outline:2px solid var(--color-accent-2-500);outline-offset:2px}
+    @media (max-width:900px){ .tk-pagina{grid-template-columns:1fr} .tk-lista{max-height:none} .tk-hilo{max-height:none} .tk-msg{max-width:92%} }
+  </style>
+</head>
+<body>
+<div class="in-marco">
+<div class="in-hoja">
+  <header class="in-head">
+    <nav id="topnav" class="tn" aria-label="Menú principal"></nav>
+    <div id="topbar-acciones" class="in-iconos"></div>
+  </header>
+
+  <section class="pg-barra in-glass" aria-label="Tickets">
+    <div class="pg-titulo">
+      <span class="pg-ico"><i class="ph ph-chat-text" aria-hidden="true"></i></span>
+      <div>
+        <h1>Tickets</h1>
+        <p id="tk-sub">Reporta un problema o pide algo a administración, y sigue la respuesta aquí.</p>
+      </div>
+    </div>
+    <div class="pg-acciones"><button type="button" class="tk-b" id="tk-nuevo"><i class="ph ph-note-pencil" aria-hidden="true"></i> Nuevo ticket</button></div>
+  </section>
+
+  <div class="tk-pagina">
+    <section class="tk-col in-glass" aria-label="Lista de tickets">
+      <div class="tk-barra" role="tablist" id="tk-tabs" hidden>
+        <button type="button" class="tk-tab" role="tab" data-vista="todos" aria-selected="true">Bandeja</button>
+        <button type="button" class="tk-tab" role="tab" data-vista="mios" aria-selected="false">Mis tickets</button>
+      </div>
+      <div class="tk-barra" role="group" aria-label="Filtrar por estado" id="tk-filtros">
+        <button type="button" class="tk-chip" data-estado="abiertos" aria-pressed="true">Abiertos</button>
+        <button type="button" class="tk-chip" data-estado="resuelto" aria-pressed="false">Resueltos</button>
+        <button type="button" class="tk-chip" data-estado="cerrado" aria-pressed="false">Cerrados</button>
+        <button type="button" class="tk-chip" data-estado="" aria-pressed="false">Todos</button>
+      </div>
+      <ul class="tk-lista" id="tk-lista"><li class="tk-vacio">Cargando…</li></ul>
+    </section>
+    <section class="tk-col in-glass" aria-label="Detalle del ticket" id="tk-detalle">
+      <p class="tk-vacio">Elige un ticket de la lista para ver la conversación.</p>
+    </section>
+  </div>
+</div>
+</div>
+
+<script src="/js/layout/topnav.js?v=20261105d" defer></script>
+<script src="/js/layout/topbar-acciones.js?v=20261105b" defer></script>
+<script>
+(function () {
+  'use strict';
+  var gestiona = false, vista = 'mios', estado = 'abiertos', sel = null, opciones = null;
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function fecha(iso) {
+    if (!iso) return '';
+    var d = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(iso) ? iso : iso + 'Z');
+    return d.toLocaleDateString('es', { day: 'numeric', month: 'short' }) + ' ' + d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+  function pantalla(p) { return String(p || '').replace(/^\//, '').replace(/\.html$/, '') || '—'; }
+
+  async function cargarLista() {
+    var url = '/api/tickets?estado=' + encodeURIComponent(estado) + (vista === 'todos' ? '&todos=1' : '');
+    var r = await fetch(url, { credentials: 'include' });
+    if (!r.ok) { $('tk-lista').innerHTML = '<li class="tk-vacio">No se pudieron cargar los tickets. Recarga la página.</li>'; return; }
+    var j = await r.json();
+    if (vista === 'todos') {
+      var c = j.conteo || {};
+      var abiertos = (c.nuevo || 0) + (c.en_progreso || 0) + (c.esperando || 0);
+      document.querySelectorAll('#tk-filtros .tk-chip').forEach(function (b) {
+        var n = b.dataset.estado === 'abiertos' ? abiertos : (b.dataset.estado ? (c[b.dataset.estado] || 0) : null);
+        b.innerHTML = b.textContent.replace(/\s*\d+$/, '') + (n != null ? ' <small>' + n + '</small>' : '');
+      });
+    }
+    $('tk-lista').innerHTML = j.items.map(function (t) {
+      return '<li><button type="button" class="tk-item" data-id="' + t.id + '"' + (t.id === sel ? ' aria-current="true"' : '') + '>' +
+        '<span class="tk-item-t">#' + t.id + ' · ' + esc(t.titulo) + '</span>' +
+        '<span class="tk-item-m"><span class="tk-et tk-e-' + esc(t.estado) + '">' + esc(t.estado_txt) + '</span>' +
+        '<span class="tk-p-' + esc(t.prioridad) + '">' + esc(t.prioridad_txt) + '</span><span>' + esc(t.tipo_txt) + '</span>' +
+        (vista === 'todos' ? '<span>' + esc(t.creado_por) + '</span>' : '') +
+        '<span>' + fecha(t.updated_at) + '</span>' + (t.mensajes ? '<span>' + t.mensajes + ' resp.</span>' : '') + '</span></button></li>';
+    }).join('') || '<li class="tk-vacio">' + (estado === 'abiertos' ? 'No hay tickets abiertos.' : 'No hay tickets en este estado.') + (vista === 'mios' ? ' Crea uno con «Nuevo ticket».' : '') + '</li>';
+  }
+
+  async function verTicket(id) {
+    sel = id;
+    document.querySelectorAll('.tk-item').forEach(function (b) { if (+b.dataset.id === id) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current'); });
+    var r = await fetch('/api/tickets/' + id, { credentials: 'include' });
+    if (!r.ok) { $('tk-detalle').innerHTML = '<p class="tk-vacio">No se encontró el ticket #' + id + '.</p>'; return; }
+    var j = await r.json(), t = j.ticket;
+    var imgs = function (msgId) {
+      var a = j.adjuntos.filter(function (x) { return (x.mensaje_id || null) === msgId; });
+      return a.length ? '<div class="tk-imgs">' + a.map(function (x) { var u = '/api/tickets/adjuntos/' + x.id; return '<a href="' + u + '" target="_blank" rel="noopener" style="background-image:url(' + u + ')" aria-label="Abrir captura ' + esc(x.nombre) + '"></a>'; }).join('') + '</div>' : '';
+    };
+    var sel_ = function (nombre, lista, actual) {
+      return '<select data-cambio="' + nombre + '" aria-label="' + nombre + '">' + Object.keys(lista).map(function (k) { return '<option value="' + k + '"' + (k === actual ? ' selected' : '') + '>' + esc(lista[k]) + '</option>'; }).join('') + '</select>';
+    };
+    var html = '<div class="tk-det-cab"><h2>#' + t.id + ' · ' + esc(t.titulo) + '</h2><div class="tk-datos">' +
+      '<span><span class="tk-et tk-e-' + esc(t.estado) + '">' + esc(t.estado_txt) + '</span></span>' +
+      '<span>' + esc(t.tipo_txt) + ' · prioridad <b class="tk-p-' + esc(t.prioridad) + '">' + esc(t.prioridad_txt) + '</b></span>' +
+      '<span>De <b>' + esc(t.creado_por) + '</b>' + (t.team ? ' · ' + esc(t.team) : '') + '</span>' +
+      '<span>Pantalla: ' + esc(pantalla(t.pagina)) + '</span><span>' + fecha(t.created_at) + '</span></div>' +
+      (j.gestiona ? '<div class="tk-gestion"><label>Estado ' + sel_('estado', opciones.estados, t.estado) + '</label>' +
+        '<label>Prioridad ' + sel_('prioridad', opciones.prioridades, t.prioridad) + '</label></div>' : '') + '</div>';
+    html += '<div class="tk-hilo" id="tk-hilo"><div class="tk-msg"><span class="tk-msg-q">' + esc(t.creado_por) + ' · ' + fecha(t.created_at) + '</span>' + esc(t.descripcion) + imgs(null) + '</div>' +
+      j.mensajes.map(function (m) {
+        if (m.sistema) return '<div class="tk-msg sistema">' + esc(m.autor) + ': ' + esc(m.texto) + ' · ' + fecha(m.created_at) + '</div>';
+        return '<div class="tk-msg' + (m.es_admin ? ' admin' : '') + '"><span class="tk-msg-q">' + esc(m.autor) + (m.es_admin ? ' · administración' : '') + ' · ' + fecha(m.created_at) + '</span>' + esc(m.texto) + imgs(m.id) + '</div>';
+      }).join('') + '</div>';
+    var cerrado = t.estado === 'cerrado' && !j.gestiona;
+    html += cerrado ? '<p class="tk-vacio">Este ticket está cerrado. Si sigue pasando, crea uno nuevo.</p>' :
+      '<form class="tk-resp" id="tk-resp"><label for="tk-texto" class="tk-mini-adj">Responder</label>' +
+      '<textarea id="tk-texto" maxlength="5000" required placeholder="Escribe tu respuesta"></textarea>' +
+      '<div class="tk-resp-pie"><span><label class="tk-b sec tk-adj-btn"><i class="ph ph-camera" aria-hidden="true"></i> Adjuntar captura<input type="file" id="tk-adj" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden></label> <span class="tk-mini-adj" id="tk-adj-n"></span> <span class="tk-mini-adj" id="tk-err" role="alert"></span></span>' +
+      '<button type="submit" class="tk-b">Enviar respuesta</button></div></form>';
+    $('tk-detalle').innerHTML = html;
+    var hilo = $('tk-hilo'); hilo.scrollTop = hilo.scrollHeight;
+    if (history.replaceState) history.replaceState(null, '', '/tickets.html?id=' + id);
+  }
+
+  document.addEventListener('click', function (e) {
+    var it = e.target.closest('.tk-item'); if (it) return verTicket(+it.dataset.id);
+    var tab = e.target.closest('.tk-tab');
+    if (tab) { vista = tab.dataset.vista; document.querySelectorAll('.tk-tab').forEach(function (b) { b.setAttribute('aria-selected', String(b === tab)); }); return cargarLista(); }
+    var ch = e.target.closest('#tk-filtros .tk-chip');
+    if (ch) { estado = ch.dataset.estado; document.querySelectorAll('#tk-filtros .tk-chip').forEach(function (b) { b.setAttribute('aria-pressed', String(b === ch)); }); return cargarLista(); }
+    if (e.target.closest('#tk-nuevo') && window.CRMTickets) window.CRMTickets.abrir();
+  });
+  document.addEventListener('change', async function (e) {
+    if (e.target.id === 'tk-adj') { var n = e.target.files.length; $('tk-adj-n').textContent = n ? n + (n === 1 ? ' captura' : ' capturas') : ''; return; }
+    var s = e.target.closest('[data-cambio]'); if (!s || !sel) return;
+    var body = {}; body[s.dataset.cambio] = s.value;
+    var r = await fetch('/api/tickets/' + sel, { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (r.ok) { await verTicket(sel); cargarLista(); }
+  });
+  document.addEventListener('submit', async function (e) {
+    if (e.target.id !== 'tk-resp') return;
+    e.preventDefault();
+    var txt = $('tk-texto').value.trim(), err = $('tk-err'), btn = e.target.querySelector('button[type=submit]');
+    if (!txt) { err.textContent = 'Escribe la respuesta.'; return; }
+    var fd = new FormData(); fd.append('texto', txt);
+    Array.prototype.forEach.call($('tk-adj').files || [], function (f) { fd.append('capturas', f, f.name); });
+    btn.disabled = true; btn.textContent = 'Enviando…';
+    var r = await fetch('/api/tickets/' + sel + '/mensajes', { method: 'POST', body: fd, credentials: 'include' });
+    if (r.ok) { await verTicket(sel); cargarLista(); }
+    else { var j = await r.json().catch(function () { return {}; }); err.textContent = typeof j.detail === 'string' ? j.detail : 'No se envió. Vuelve a intentarlo.'; btn.disabled = false; btn.textContent = 'Enviar respuesta'; }
+  });
+
+  window.CRMTicketsPagina = { recargar: function () { cargarLista(); if (sel) verTicket(sel); } };
+
+  document.addEventListener('DOMContentLoaded', async function () {
+    var r = await fetch('/api/tickets/opciones', { credentials: 'include' });
+    opciones = r.ok ? await r.json() : { estados: {}, prioridades: {} };
+    gestiona = !!opciones.gestiona;
+    if (gestiona) { vista = 'todos'; $('tk-tabs').hidden = false; $('tk-sub').textContent = 'Bandeja de tickets de todo el CRM: responde y cambia su estado. Llegan al momento.'; }
+    if (!opciones.puede_crear) $('tk-nuevo').hidden = true;
+    await cargarLista();
+    var id = +new URLSearchParams(location.search).get('id');
+    if (id) verTicket(id);
+  });
+})();
+</script>
+</body>
+</html>
