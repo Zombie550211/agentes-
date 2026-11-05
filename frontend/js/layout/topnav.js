@@ -11,8 +11,9 @@
  *  - sección: la del usuario (líneas si su equipo o su rol dicen "línea"; si no,
  *    residencial). Ve las opciones de su sección y las comunes; administración, back
  *    office y los roles de mercado (Rol_icon, Rol_bamo) ven las dos.
- *  - rol: algunas opciones solo para administración ('admin': Facturación, cuya API exige
- *    ADMIN_ROLES) o para administración y back office ('gestion': Permisos, Tiempo laboral).
+ *  - rol: algunas opciones solo para administración ('admin': Facturación y Permisos, cuyas
+ *    APIs exigen ADMIN_ROLES), para administración y back office ('gestion': Tiempo
+ *    laboral) o para ellos y los supervisores ('equipo': Llamadas y Ventas por Team).
  * Un grupo sin opciones visibles no se muestra. Es solo navegación: cada página y su API
  * vuelven a comprobar el permiso.
  */
@@ -30,7 +31,7 @@
       { label: 'Lista de Clientes', href: '/residencial/costumer.html', seccion: 'res' },
       { label: 'Tipificación', href: '/residencial/normativas-tipificacion.html', seccion: 'res' },
       { label: 'Promociones activas', href: '/residencial/promociones-validas.html', seccion: 'res' },
-      { label: 'Llamadas y Ventas por Team', href: '/residencial/llamadas-ventas.html', seccion: 'res' },
+      { label: 'Llamadas y Ventas por Team', href: '/residencial/llamadas-ventas.html', seccion: 'res', roles: 'equipo' },
     ] },
     { label: 'Estadísticas y productividad', items: [
       { label: 'Productividad B.O', href: '/residencial/productividad-bo.html', seccion: 'res' },
@@ -53,7 +54,7 @@
       { label: 'Comisión', href: '/residencial/comisiones.html', seccion: 'res' },
     ] },
     { label: 'Administración y personal', items: [
-      { label: 'Permisos', href: '/crear-cuenta.html', seccion: 'res', roles: 'gestion' },
+      { label: 'Permisos', href: '/crear-cuenta.html', seccion: 'res', roles: 'admin' },
       { label: 'Tiempo laboral', href: '/residencial/tiempo-laboral.html', seccion: 'res', roles: 'gestion' },
       { label: 'Horarios', href: '/horarios.html', seccion: 'comun' },
       // Chat desactivado por ahora (ver js/layout/sidebar.js).
@@ -77,6 +78,7 @@
   function norm(s) { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(); }
   // Mismos roles que ADMIN_ROLES del backend (deps.py).
   function esAdmin(role) { var r = norm(role); return r === 'admin' || r === 'administrador' || r === 'administrativo' || r === 'administrator'; }
+  function esSupervisor(role) { return norm(role).indexOf('supervisor') >= 0; }
   function esBackoffice(role) { var r = norm(role); return r.indexOf('backoffice') >= 0 || r.indexOf('back office') >= 0 || r.indexOf('back_office') >= 0 || r === 'bo'; }
   // Roles de mercado (Rol_icon, Rol_bamo): en el backend tienen acceso a Residencial y a
   // Líneas (routers/lineas.py → _is_admin_bo_lineas), así que ven las dos secciones.
@@ -87,6 +89,7 @@
     var gestion = esAdmin(u.role) || esBackoffice(u.role);
     if (it.roles === 'admin' && !esAdmin(u.role)) return false;
     if (it.roles === 'gestion' && !gestion) return false;
+    if (it.roles === 'equipo' && !gestion && !esSupervisor(u.role)) return false;
     return gestion || esMercado(u.role) || it.seccion === 'comun' || it.seccion === seccionDe(u);
   }
 
@@ -141,6 +144,10 @@
       if (abierto) abierto.focus();
     });
   }
+
+  // Para Permisos → «Qué puede hacer cada rol»: la matriz sale de estas mismas reglas,
+  // así no hay dos listas que se desincronicen.
+  window.CRMMenu = { grupos: GRUPOS, visible: visible };
 
   document.addEventListener('DOMContentLoaded', function () {
     var nav = document.getElementById('topnav');

@@ -557,6 +557,17 @@ _MIGRATIONS: list[tuple[str, str]] = [
         updated_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (ym, tipo, clave)
     ) ENGINE=InnoDB"""),
+    # Registro de cambios de usuarios (Permisos → Registro, ver registro_usuarios.py).
+    ("0091_create_usuarios_registro", """CREATE TABLE IF NOT EXISTS usuarios_registro (
+        id         INT AUTO_INCREMENT PRIMARY KEY,
+        created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        actor      VARCHAR(150) NOT NULL,
+        tipo       VARCHAR(20)  NOT NULL,
+        a_quien    VARCHAR(150) NOT NULL,
+        cambio     VARCHAR(500) NOT NULL,
+        INDEX idx_ur_created (created_at),
+        INDEX idx_ur_tipo (tipo)
+    ) ENGINE=InnoDB"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración

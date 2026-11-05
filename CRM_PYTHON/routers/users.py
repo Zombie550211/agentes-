@@ -4,6 +4,7 @@ from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user, team_seccion
 import session_guard
+from registro_usuarios import registrar
 from datetime import datetime, timezone
 from typing import Optional, List
 import unicodedata, json
@@ -201,6 +202,7 @@ async def merge_users(body: MergeUsersBody, user: dict = Depends(current_user)):
         )
         await s.commit()
 
+    await registrar(user, "cuenta", pu, f"Unificó «{su}» con «{pu}» (el duplicado quedó desactivado)")
     return {
         "success": True,
         "message": f"'{su}' unificado con '{pu}'. El usuario duplicado fue desactivado."
@@ -233,6 +235,25 @@ async def agents_list(seccion: str = "", user: dict = Depends(current_user)):
     return {"success": True, "agents": [_serialize(u) for u in users], "count": len(users)}
 
 
+@router.get("/registro")
+async def registro(tipo: str = "", limit: int = 300, user: dict = Depends(current_user)):
+    """Registro de cambios de usuarios (Permisos → Registro). Solo administración."""
+    if not _is_admin(user):
+        raise HTTPException(403, "No autorizado")
+    limit = max(1, min(int(limit or 300), 1000))
+    where, params = "", {"lim": limit}
+    if tipo:
+        where, params["tipo"] = "WHERE tipo = :tipo", tipo
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text(f"""
+            SELECT id, created_at, actor, tipo, a_quien, cambio FROM usuarios_registro
+            {where} ORDER BY id DESC LIMIT :lim
+        """), params)
+        items = [{**dict(x), "created_at": x["created_at"].isoformat() if x["created_at"] else None}
+                 for x in r.mappings().all()]
+    return {"success": True, "items": items}
+
+
 @router.put("/{user_id}/role")
 async def update_role(user_id: str, body: UpdateRoleBody, user: dict = Depends(current_user)):
     if _norm_role(user.get("role","")) not in ADMIN_ROLES:
@@ -246,14 +267,23 @@ async def update_role(user_id: str, body: UpdateRoleBody, user: dict = Depends(c
         raise HTTPException(404, "Usuario no encontrado")
 
     async with AsyncSessionLocal() as s:
-        r = await s.execute(text("SELECT id, team, supervisor FROM users WHERE id = :id LIMIT 1"), {"id": uid})
+        r = await s.execute(text("SELECT id, username, role, team, supervisor, permissions FROM users WHERE id = :id LIMIT 1"), {"id": uid})
         row = r.mappings().first()
         if not row:
             raise HTTPException(404, "Usuario no encontrado")
 
         final_team = body.team if body.team is not None else (row["team"] or "")
         final_supervisor = body.supervisor if body.supervisor is not None else (row.get("supervisor") or "")
-        new_perms = ROLE_PERMS.get(body.role) or ROLE_PERMS.get(body.role.lower()) or []
+        new_perms = list(ROLE_PERMS.get(body.role) or ROLE_PERMS.get(body.role.lower()) or [])
+        # admin:full es un permiso dado a mano: mover a alguien de equipo (que también pasa
+        # por aquí) o cambiarle el rol no debe quitárselo sin avisar.
+        try:
+            old_perms = json.loads(row.get("permissions") or "[]")
+        except (ValueError, TypeError):
+            old_perms = []
+        if isinstance(old_perms, list) and "admin:full" in old_perms and "admin:full" not in new_perms:
+            new_perms.append("admin:full")
+        old_role, old_team = str(row.get("role") or ""), str(row.get("team") or "")
 
         await s.execute(text("""
             UPDATE users SET role = :role, team = :team, supervisor = :supervisor,
@@ -265,6 +295,10 @@ async def update_role(user_id: str, body: UpdateRoleBody, user: dict = Depends(c
             "perms": json.dumps(new_perms),
             "now": _utcnow(), "id": uid,
         })
+        if old_role.strip() != body.role.strip():
+            await registrar(user, "rol", row["username"], f"Rol: {old_role or '—'} → {body.role}", session=s)
+        if old_team.strip() != str(final_team or "").strip():
+            await registrar(user, "equipo", row["username"], f"Equipo: {old_team or 'sin equipo'} → {final_team or 'sin equipo'}", session=s)
         await s.commit()
         r2 = await s.execute(text("SELECT id, username, name, email, role, team, supervisor, avatar_url, permissions FROM users WHERE id = :id"), {"id": uid})
         updated = _row_to_user(r2.mappings().first())
@@ -291,9 +325,12 @@ async def update_fecha_ingreso(user_id: str, body: UpdateFechaIngresoBody, user:
         raise HTTPException(404, "Usuario no encontrado")
 
     async with AsyncSessionLocal() as s:
-        r = await s.execute(text("SELECT id FROM users WHERE id = :id LIMIT 1"), {"id": uid})
-        if not r.mappings().first():
+        r = await s.execute(text("SELECT id, username FROM users WHERE id = :id LIMIT 1"), {"id": uid})
+        prev = r.mappings().first()
+        if not prev:
             raise HTTPException(404, "Usuario no encontrado")
+        await registrar(user, "cuenta", prev["username"],
+                        f"Fecha de ingreso: {(body.fecha_ingreso or '').strip() or 'sin fecha'}", session=s)
 
         await s.execute(text("""
             UPDATE users SET fecha_ingreso = :fecha_ingreso, updated_at = :now WHERE id = :id
@@ -330,8 +367,9 @@ async def update_credentials(user_id: str, body: UpdateCredentialsBody, user: di
 
     import bcrypt as _bcrypt
     async with AsyncSessionLocal() as s:
-        r = await s.execute(text("SELECT id FROM users WHERE id = :id LIMIT 1"), {"id": uid})
-        if not r.first():
+        r = await s.execute(text("SELECT id, username FROM users WHERE id = :id LIMIT 1"), {"id": uid})
+        prev = r.mappings().first()
+        if not prev:
             raise HTTPException(404, "Usuario no encontrado")
 
         set_parts = ["updated_at = :now"]
@@ -360,6 +398,15 @@ async def update_credentials(user_id: str, body: UpdateCredentialsBody, user: di
             params["password_hash"] = hashed
 
         await s.execute(text(f"UPDATE users SET {', '.join(set_parts)} WHERE id = :id"), params)
+        cambios = []
+        if body.username and body.username != prev["username"]:
+            cambios.append(f"usuario «{prev['username']}» → «{body.username}»")
+        if body.password:
+            cambios.append("contraseña")
+        if body.name is not None or body.nombre_completo is not None:
+            cambios.append("nombre")
+        if cambios:
+            await registrar(user, "cuenta", body.username or prev["username"], "Cambió " + ", ".join(cambios), session=s)
         await s.commit()
         r2 = await s.execute(text("SELECT id, username, name, email, role, team, supervisor, avatar_url, permissions FROM users WHERE id = :id"), {"id": uid})
         updated = _row_to_user(r2.mappings().first())
@@ -406,6 +453,7 @@ async def activar_acceso(user_id: str, body: ActivarAccesoBody, user: dict = Dep
             UPDATE users SET username = :u, password_hash = :p, acceso_crm = 1, updated_at = :now
             WHERE id = :id AND acceso_crm = 0
         """), {"u": username, "p": hashed, "now": _utcnow(), "id": uid})
+        await registrar(user, "alta", username, "Dio acceso al CRM", session=s)
         await s.commit()
         r2 = await s.execute(text("SELECT id, username, name, email, role, team, supervisor, avatar_url, "
                                   "permissions, active, created_at, fecha_ingreso, acceso_crm FROM users WHERE id = :id"),
@@ -425,12 +473,23 @@ async def update_permissions(user_id: str, body: UpdatePermissionsBody, user: di
         raise HTTPException(404, "Usuario no encontrado")
 
     async with AsyncSessionLocal() as s:
-        r = await s.execute(text("UPDATE users SET permissions = :p, updated_at = :now WHERE id = :id"), {
+        prev = (await s.execute(text("SELECT username, permissions FROM users WHERE id = :id"), {"id": uid})).mappings().first()
+        if not prev:
+            raise HTTPException(404, "Usuario no encontrado")
+        try:
+            antes = set(json.loads(prev["permissions"] or "[]"))
+        except (ValueError, TypeError):
+            antes = set()
+        despues = set(body.permissions)
+        await s.execute(text("UPDATE users SET permissions = :p, updated_at = :now WHERE id = :id"), {
             "p": json.dumps(body.permissions), "now": _utcnow(), "id": uid,
         })
+        if ("admin:full" in despues) != ("admin:full" in antes):
+            await registrar(user, "permisos", prev["username"],
+                            ("Dio" if "admin:full" in despues else "Quitó") + " «Permisos de administrador (conserva su rol)»", session=s)
+        elif despues != antes:
+            await registrar(user, "permisos", prev["username"], "Cambió sus permisos individuales", session=s)
         await s.commit()
-        if r.rowcount == 0:
-            raise HTTPException(404, "Usuario no encontrado")
 
     # admin:full cambia el rol efectivo: sin esto la sesión abierta lo notaría al
     # caducar la caché de session_guard en vez de al momento.
@@ -453,13 +512,16 @@ async def suspend_user(user_id: str, body: SuspendBody, user: dict = Depends(cur
         raise HTTPException(404, "Usuario no encontrado")
 
     async with AsyncSessionLocal() as s:
-        r = await s.execute(text("SELECT id FROM users WHERE id = :id LIMIT 1"), {"id": uid})
-        if not r.first():
+        r = await s.execute(text("SELECT id, username FROM users WHERE id = :id LIMIT 1"), {"id": uid})
+        prev = r.mappings().first()
+        if not prev:
             raise HTTPException(404, "Usuario no encontrado")
         await s.execute(
             text("UPDATE users SET active = :active, updated_at = :now WHERE id = :id"),
             {"active": 1 if body.active else 0, "now": _utcnow(), "id": uid},
         )
+        await registrar(user, "cuenta", prev["username"],
+                        "Reactivó la cuenta" if body.active else "Suspendió la cuenta", session=s)
         await s.commit()
 
     # Sin esto la suspensión no echaría al usuario hasta que caducara su token
@@ -485,10 +547,12 @@ async def delete_user(user_id: str, user: dict = Depends(current_user)):
         raise HTTPException(404, "Usuario no encontrado")
 
     async with AsyncSessionLocal() as s:
-        r = await s.execute(text("SELECT id FROM users WHERE id = :id LIMIT 1"), {"id": uid})
-        if not r.first():
+        r = await s.execute(text("SELECT id, username, role FROM users WHERE id = :id LIMIT 1"), {"id": uid})
+        prev = r.mappings().first()
+        if not prev:
             raise HTTPException(404, "Usuario no encontrado")
         await s.execute(text("DELETE FROM users WHERE id = :id"), {"id": uid})
+        await registrar(user, "cuenta", prev["username"], f"Eliminó la cuenta (rol {prev['role'] or '—'})", session=s)
         await s.commit()
 
     session_guard.invalidate_user(uid)

@@ -472,6 +472,12 @@ async def register(body: RegisterBody, user: dict = Depends(require_roles(*ADMIN
         })
         # id capturado ANTES del commit (tras commit el pool puede cambiar de conexión)
         new_id = res.lastrowid
+        from registro_usuarios import registrar
+        await registrar(user, "alta", username,
+                        f"Creó el usuario con rol {body.role}"
+                        + (f" en {normalized_team_final}" if normalized_team_final else "")
+                        + (" y permisos de administrador" if "admin:full" in (body.permissions or []) else ""),
+                        session=s)
         await s.commit()
 
     return {"success": True, "message": "Usuario creado", "userId": str(new_id)}

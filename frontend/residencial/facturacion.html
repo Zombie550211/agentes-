@@ -228,7 +228,7 @@
 <script src="/js/core/fetch-interceptor.js"></script>
 <script src="/js/core/logout-handler.js"></script>
 <script src="/js/core/user-info.js"></script>
-<script src="/js/layout/topnav.js?v=20261026c" defer></script>
+<script src="/js/layout/topnav.js?v=20261105b" defer></script>
 <script src="/js/layout/topbar-acciones.js?v=20261031c" defer></script>
 <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
 <script src="/js/componentes/celdas-navegacion.js?v=20261010b"></script>
@@ -244,9 +244,10 @@
     const data = await res.json();
     if (!data.authenticated) { window.location.replace('/login.html'); return; }
     const role = (data?.user?.role || '').toLowerCase();
-    if (!['admin','administrador'].includes(role)) {
-      alert('Acceso denegado: solo administradores.');
-      window.location.href = '/';
+    // Mismos roles que ADMIN_ROLES (deps.py). Sin acceso: a su inicio (antes '/', que
+    // acababa en el login como si se hubiera cerrado la sesión).
+    if (!['admin','administrador','administrativo','administrador general'].includes(role)) {
+      window.location.replace('/residencial/inicio.html');
     }
   } catch (e) {
     window.location.href = '/login.html';

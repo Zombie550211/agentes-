@@ -13,6 +13,7 @@ from typing import Optional
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
+from registro_usuarios import registrar
 
 router = APIRouter(tags=["Permisos"])
 
@@ -21,6 +22,18 @@ ADMIN_ROLES = {"admin", "administrador", "administrativo", "administrador genera
 
 def _norm_role(r: str) -> str:
     return unicodedata.normalize("NFD", str(r or "")).encode("ascii", "ignore").decode().lower().strip()
+
+
+async def _nombre_destino(s, scope_type: str, scope_value: str) -> str:
+    """Nombre legible del equipo o usuario de una asignación (para el registro)."""
+    if scope_type != "user":
+        return scope_value
+    try:
+        r = await s.execute(text("SELECT username FROM users WHERE id = :id"), {"id": int(scope_value)})
+        row = r.first()
+        return row[0] if row else f"Usuario #{scope_value}"
+    except (ValueError, TypeError):
+        return scope_value
 
 
 def _require_admin(user: dict) -> None:
@@ -185,6 +198,11 @@ async def upsert_assignment(body: AssignmentBody, user: dict = Depends(current_u
             "cfg": json.dumps(body.config) if body.config else None,
             "en": body.enabled, "by": user.get("username", ""),
         })
+        if body.perm_key == "market:restrict_view":
+            mer = ((body.config or {}).get("mercado") or "").strip().upper()
+            await registrar(user, "mercado", await _nombre_destino(s, body.scope_type, body.scope_value.strip()),
+                            f"Restringió a solo {mer}" if body.enabled and mer else "Quitó la restricción de mercado",
+                            session=s)
         await s.commit()
     return {"success": True}
 
@@ -193,7 +211,12 @@ async def upsert_assignment(body: AssignmentBody, user: dict = Depends(current_u
 async def delete_assignment(assignment_id: int, user: dict = Depends(current_user)):
     _require_admin(user)
     async with AsyncSessionLocal() as s:
+        prev = (await s.execute(text("SELECT perm_key, scope_type, scope_value FROM permission_assignments WHERE id = :id"),
+                                {"id": assignment_id})).mappings().first()
         r = await s.execute(text("DELETE FROM permission_assignments WHERE id = :id"), {"id": assignment_id})
+        if prev and prev["perm_key"] == "market:restrict_view":
+            await registrar(user, "mercado", await _nombre_destino(s, prev["scope_type"], prev["scope_value"]),
+                            "Quitó la restricción de mercado", session=s)
         await s.commit()
         if r.rowcount == 0:
             raise HTTPException(404, "No encontrado")

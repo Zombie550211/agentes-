@@ -1650,8 +1650,9 @@
     let j;
     try {
       const r = await fetch('/api/transferencias/excluidos');
-      if (!r.ok) return;            // 403: no es administrador, la sección sigue oculta
+      if (!r.ok) return;
       j = await r.json();
+      if (j.permitido === false) return;   // no gestiona la cola: la sección sigue oculta
     } catch (e) { return; }
     sec.hidden = false;
     const sel = q('#trf-excl-agente');

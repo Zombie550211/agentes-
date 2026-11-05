@@ -679,8 +679,10 @@ def _hoy_sv():
 
 @router.get("/excluidos")
 async def excluidos(user: dict = Depends(current_user)):
+    # Quien no gestiona la cola recibe «no permitido» sin error: la página de
+    # Transferencias la pide para todos y solo pinta la sección si está permitida.
     if not _puede_pausar(user):
-        raise HTTPException(403, "No tienes permiso")
+        return {"success": True, "permitido": False}
     hoy = _hoy_sv()
     async with AsyncSessionLocal() as s:
         r = await s.execute(text("""

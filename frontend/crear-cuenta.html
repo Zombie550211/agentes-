@@ -322,6 +322,60 @@
     .ac-puede{font-size:.76rem;color:var(--ink2);line-height:1.5;max-width:64ch}
     .ac-form{display:grid;grid-template-columns:160px 1fr 180px auto;gap:12px;align-items:end;margin-bottom:12px;padding:16px;border:1px solid var(--border);background:var(--surface)}
     .ac-vacio{padding:16px 14px;font-size:.76rem;color:var(--ink3)}
+    /* ── Propuesta B: menú lateral por rol ── */
+    .pm-b{display:grid;grid-template-columns:232px minmax(0,1fr);align-items:start;min-height:70vh}
+    .pm-side{position:sticky;top:12px;align-self:start;padding:22px 12px 24px 20px;border-right:1px solid var(--border)}
+    .pm-side-t{margin:0 0 6px 10px !important;font-size:.66rem;font-weight:700;letter-spacing:.06em;color:var(--ink3)}
+    .pm-side-lista{list-style:none;margin:0 0 20px !important;padding:0 !important;display:flex;flex-direction:column;gap:2px}
+    .pm-item{display:flex;align-items:center;gap:10px;width:100%;min-height:36px;padding:7px 10px;border:0;background:transparent;cursor:pointer;
+      font-family:var(--f);font-size:.8rem;font-weight:600;color:var(--ink2);text-align:left;border-left:3px solid transparent;transition:background .12s,color .12s}
+    .pm-item i{width:16px;text-align:center;font-size:.78rem;color:var(--ink3)}
+    .pm-item span:first-of-type{flex:1;min-width:0}
+    .pm-item:hover{background:var(--blue-dim);color:var(--ink)}
+    .pm-item[aria-current="true"]{background:var(--blue-dim);color:var(--blue);border-left-color:var(--blue)}
+    .pm-item[aria-current="true"] i{color:var(--blue)}
+    .pm-item:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+    .pm-n{font-family:var(--fm);font-size:.72rem;font-weight:600;color:var(--ink3);font-variant-numeric:tabular-nums}
+    .pm-item[aria-current="true"] .pm-n{color:var(--blue)}
+    .pm-nuevo{width:100%;justify-content:center;min-height:38px}
+    .pm-cuerpo{min-width:0}
+    .pm-rol{margin:0 0 16px;max-width:72ch}
+    .pm-rol-nombre{font-size:1.5rem;line-height:1.15;font-weight:700;color:var(--ink)}
+    .pm-rol-puede{margin-top:6px !important;font-size:.82rem;line-height:1.5;color:var(--ink2)}
+    /* Matriz */
+    .pm-matriz-wrap{overflow-x:auto}
+    .pm-matriz{min-width:760px}
+    .pm-matriz th[scope="row"]{font-weight:500;color:var(--ink);text-align:left;padding:8px 14px;font-size:.78rem}
+    .pm-matriz thead th:not(:first-child){text-align:center}
+    .pm-matriz td{text-align:center;padding:8px 6px;border-bottom:1px solid var(--border)}
+    .pm-matriz tbody th{border-bottom:1px solid var(--border)}
+    .pm-matriz .pm-grupo th{text-align:left;padding:14px 14px 6px;font-size:.66rem;font-weight:700;letter-spacing:.06em;color:var(--blue);background:transparent;border-bottom:1px solid var(--border2)}
+    .pm-si{color:var(--blue);font-size:.8rem}
+    .pm-no{color:var(--ink4)}
+    .pm-matriz tbody tr:not(.pm-grupo):hover>*{background:var(--blue-dim)}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    /* Registro */
+    .pm-chips{display:flex;flex-wrap:wrap;gap:4px}
+    .pm-chip{min-height:32px;padding:5px 12px;border:1px solid var(--border2);background:var(--surface);cursor:pointer;font-family:var(--f);font-size:.74rem;font-weight:600;color:var(--ink2)}
+    .pm-chip:hover{border-color:var(--blue)}
+    .pm-chip[aria-pressed="true"]{background:var(--blue);border-color:var(--blue);color:#fff}
+    .pm-chip:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+    .pm-tipo{display:inline-block;padding:2px 8px;font-size:.66rem;font-weight:700;color:var(--ink2);background:var(--bg);border:1px solid var(--border)}
+    .rg-cuando{white-space:nowrap;color:var(--ink3);font-variant-numeric:tabular-nums}
+    #section-registro .ac-bloque-head{margin-bottom:14px}
+    @media (max-width:1100px){
+      .pm-b{grid-template-columns:200px minmax(0,1fr)}
+    }
+    @media (max-width:820px){
+      .pm-b{grid-template-columns:minmax(0,1fr)}
+      .pm-side{min-width:0;position:static;border-right:0;border-bottom:1px solid var(--border);padding:14px 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+      .pm-side-t{display:none}
+      .pm-side-lista{min-width:0;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;margin:0 !important;width:100%;gap:4px;padding-bottom:4px !important}
+      .pm-item{width:auto;white-space:nowrap;border-left:0;border-bottom:3px solid transparent}
+      .pm-item[aria-current="true"]{border-bottom-color:var(--blue)}
+      .pm-nuevo{width:auto}
+      #view-list,#section-matriz,#section-registro,#section-permisos,#section-servicios,#section-catalogos,#section-finesemana{padding-left:16px !important;padding-right:16px !important}
+    }
     .ac-tecnico{border-top:1px solid var(--border2);padding-top:16px}
     .ac-tecnico summary{cursor:pointer;font-size:.8rem;font-weight:700;color:var(--ink2);list-style-position:inside}
     .ac-tecnico summary:focus-visible{outline:2px solid var(--blue);outline-offset:4px}
@@ -810,6 +864,22 @@
       animation:navItemOut 160ms cubic-bezier(.4,0,.6,1) forwards !important;
     }
 
+    /* ── Equipos dentro de la propuesta B: misma calma que el resto de la página ──
+       Sin iconos de colores ni botones de colores; el color queda para lo activo. */
+    #view-teams .md-layout{background:transparent;height:auto;min-height:560px}
+    #view-teams .md-nav{background:transparent;box-shadow:none;border-right:1px solid var(--border)}
+    #view-teams .md-nav-icon,#view-teams .md-status-badge{display:none}
+    #view-teams .md-nav-item{border:0;border-left:3px solid transparent;background:transparent}
+    #view-teams .md-nav-item:hover{background:var(--blue-dim)}
+    #view-teams .md-nav-item.active{background:var(--blue-dim);border-left-color:var(--blue);box-shadow:none}
+    #view-teams .md-detail{background:transparent}
+    #view-teams .md-agent-row{box-shadow:none}
+    #view-teams .md-agent-av,#view-teams .agent-av{background:var(--bg) !important;color:var(--ink2) !important;border:1px solid var(--border)}
+    #view-teams .md-detail .md-btn-reset,#view-teams .md-detail .md-btn-quit,#view-teams .mbtn-reset,#view-teams .mbtn-quit,#view-teams .md-detail-option-btn{
+      background:var(--surface) !important;color:var(--ink2) !important;border:1px solid var(--border2) !important}
+    #view-teams .md-detail .md-btn-reset:hover,#view-teams .md-detail-option-btn:hover,#view-teams .mbtn-reset:hover{border-color:var(--blue) !important;color:var(--blue) !important}
+    #view-teams .md-detail .md-btn-quit:hover,#view-teams .mbtn-quit:hover{border-color:var(--red) !important;color:var(--red) !important}
+
   </style>
   <style>
     /* El menú abierto debe quedar POR ENCIMA de las tarjetas vecinas
@@ -854,16 +924,31 @@
 
   <main class="main">
 
-    <!-- Minimal header bar -->
-    <div class="pm-cabecera">
-      <div class="view-tabs" style="margin:0">
-        <button class="view-tab active" id="tab-personas" onclick="irUsuarios('list')"><i class="fas fa-user"></i> Personas</button>
-        <button class="view-tab" id="tab-equipos" onclick="irUsuarios('teams')"><i class="fas fa-users"></i> Equipos</button>
-        <button class="view-tab" id="tab-permisos" onclick="switchSection('permisos')"><i class="fas fa-shield-alt"></i> Accesos</button>
-        <button class="view-tab" id="tab-ajustes" onclick="switchSection(_ultimoAjuste)"><i class="fas fa-sliders-h"></i> Ajustes de ventas</button>
-      </div>
-      <div class="user-av-top" id="top-user-av" title="Mi perfil" style="width:30px;height:30px;font-size:.58rem;flex-shrink:0">??</div>
+    <!-- Pestañas antiguas: ya no se ven (manda el menú lateral), pero switchSection y
+         switchView siguen marcándolas. -->
+    <div hidden>
+      <button id="tab-personas"></button><button id="tab-equipos"></button>
+      <button id="tab-permisos"></button><button id="tab-ajustes"></button>
+      <div id="top-user-av"></div>
     </div>
+
+    <div class="pm-b">
+    <!-- Menú lateral: los roles (con cuántas personas activas tiene cada uno) y el resto -->
+    <nav class="pm-side" aria-label="Secciones de Permisos">
+      <p class="pm-side-t" id="pm-side-roles">Roles</p>
+      <ul class="pm-side-lista" id="pm-roles" aria-labelledby="pm-side-roles"></ul>
+      <p class="pm-side-t" id="pm-side-mas">Más</p>
+      <ul class="pm-side-lista" aria-labelledby="pm-side-mas">
+        <li><button type="button" class="pm-item" data-pm="matriz" onclick="pmIr('matriz')"><i class="fas fa-table" aria-hidden="true"></i><span>Qué puede hacer cada rol</span></button></li>
+        <li><button type="button" class="pm-item" data-pm="acceso" onclick="pmIr('acceso')"><i class="fas fa-shield-alt" aria-hidden="true"></i><span>Acceso total y mercado</span></button></li>
+        <li><button type="button" class="pm-item" data-pm="equipos" onclick="pmIr('equipos')"><i class="fas fa-users" aria-hidden="true"></i><span>Equipos</span></button></li>
+        <li><button type="button" class="pm-item" data-pm="ajustes" onclick="pmIr('ajustes')"><i class="fas fa-sliders-h" aria-hidden="true"></i><span>Ajustes de ventas</span></button></li>
+        <li><button type="button" class="pm-item" data-pm="registro" onclick="pmIr('registro')"><i class="fas fa-history" aria-hidden="true"></i><span>Registro de cambios</span></button></li>
+      </ul>
+      <button type="button" class="btn btn-primary pm-nuevo" onclick="openModal('modal-create')"><i class="fas fa-user-plus" aria-hidden="true"></i> Nuevo usuario</button>
+    </nav>
+
+    <div class="pm-cuerpo">
 
     <!-- Subpestañas de «Ajustes de ventas» (solo visibles dentro de ese grupo) -->
     <div id="ajustes-subtabs" style="display:none;padding:10px 18px 0">
@@ -928,10 +1013,14 @@
 
     <!-- Personas: tabla con filtros + panel lateral -->
     <div id="view-list" style="padding:18px 28px 60px">
+      <header class="pm-rol" id="pm-rol">
+        <h2 class="pm-rol-nombre" id="pm-rol-nombre">Todas las personas</h2>
+        <p class="pm-rol-puede" id="pm-rol-puede"></p>
+      </header>
       <div class="ps-bar" role="search">
         <div class="search-box"><i class="fas fa-search" aria-hidden="true"></i><input type="search" id="search-input" placeholder="Buscar por nombre o usuario" aria-label="Buscar personas" oninput="filterTable()" autocomplete="off"/></div>
         <select class="form-input" id="filter-team" aria-label="Filtrar por equipo" onchange="filterTable()"><option value="">Todos los equipos</option></select>
-        <select class="form-input" id="filter-role" aria-label="Filtrar por rol" onchange="filterTable()">
+        <select class="form-input" id="filter-role" aria-label="Filtrar por rol" onchange="filterTable()" hidden>
           <option value="">Todos los roles</option>
           <option value="admin">Administrador</option>
           <option value="backoffice">Backoffice</option>
@@ -940,6 +1029,7 @@
           <option value="supervisor">Supervisor</option>
           <option value="agente">Agente</option>
           <option value="lineas">Líneas Agente</option>
+          <option value="otro">Otros roles</option>
         </select>
         <select class="form-input" id="filter-estado" aria-label="Filtrar por estado" onchange="filterTable()">
           <option value="activo">Activos</option>
@@ -947,7 +1037,6 @@
           <option value="sin">Sin acceso al CRM</option>
           <option value="">Todos</option>
         </select>
-        <button class="btn btn-primary btn-sm" onclick="openModal('modal-create')"><i class="fas fa-user-plus" aria-hidden="true"></i> Nuevo usuario</button>
       </div>
       <p class="ps-meta" id="ps-meta" aria-live="polite"></p>
       <div class="ps-wrap">
@@ -1096,22 +1185,6 @@
         </div>
       </div>
 
-      <!-- 2. Qué puede hacer cada rol -->
-      <div class="ac-bloque">
-        <div class="ac-bloque-head">
-          <div>
-            <h2 class="ac-h2">Qué puede hacer cada rol</h2>
-            <p class="ac-sub">El rol es lo que decide el acceso. Para cambiar lo que alguien puede hacer, cámbiale el rol: en <b>Personas</b>, elige a la persona y pulsa «Editar perfil, rol y estado».</p>
-          </div>
-        </div>
-        <div class="table-wrap">
-          <table class="ptable">
-            <thead><tr><th>Rol</th><th style="text-align:right">Usuarios</th><th>Puede</th></tr></thead>
-            <tbody id="ac-roles-list"></tbody>
-          </table>
-        </div>
-      </div>
-
       <!-- 3. Restricción por mercado -->
       <div class="ac-bloque">
         <div class="ac-bloque-head">
@@ -1192,11 +1265,69 @@
       </details>
     </div>
 
+    <!-- ═══ SECCIÓN: QUÉ PUEDE HACER CADA ROL ═══ -->
+    <div id="section-matriz" style="display:none;padding:18px 28px 60px">
+      <div class="ac-bloque">
+        <div class="ac-bloque-head">
+          <div>
+            <h2 class="ac-h2">Qué puede hacer cada rol</h2>
+            <p class="ac-sub">El rol decide a qué pantallas entra cada persona. Para cambiar lo que alguien puede hacer, cámbiale el rol desde su ficha.</p>
+          </div>
+        </div>
+        <div class="table-wrap pm-matriz-wrap">
+          <table class="ptable pm-matriz" id="pm-matriz"></table>
+        </div>
+        <p class="form-hint" style="margin-top:10px">Sale del mismo menú del CRM. Un agente o supervisor de un equipo de Líneas ve las pantallas de Líneas en vez de las de Residencial.</p>
+      </div>
+      <div class="ac-bloque">
+        <div class="ac-bloque-head">
+          <div>
+            <h2 class="ac-h2">En resumen</h2>
+            <p class="ac-sub">Lo que permite cada rol, en una frase, y cuántas personas activas lo tienen.</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="ptable">
+            <thead><tr><th>Rol</th><th style="text-align:right">Personas</th><th>Puede</th></tr></thead>
+            <tbody id="ac-roles-list"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ SECCIÓN: REGISTRO DE CAMBIOS ═══ -->
+    <div id="section-registro" style="display:none;padding:18px 28px 60px">
+      <div class="ac-bloque-head">
+        <div>
+          <h2 class="ac-h2">Registro de cambios</h2>
+          <p class="ac-sub">Quién cambió qué, y a quién. Se anota solo cada alta, cambio de rol o equipo, contraseña, suspensión, permiso de administrador y restricción de mercado.</p>
+        </div>
+        <div class="pm-chips" role="group" aria-label="Filtrar por tipo de cambio" id="rg-filtros">
+          <button type="button" class="pm-chip" data-tipo="" aria-pressed="true">Todos</button>
+          <button type="button" class="pm-chip" data-tipo="alta" aria-pressed="false">Altas</button>
+          <button type="button" class="pm-chip" data-tipo="rol" aria-pressed="false">Rol</button>
+          <button type="button" class="pm-chip" data-tipo="equipo" aria-pressed="false">Equipo</button>
+          <button type="button" class="pm-chip" data-tipo="permisos" aria-pressed="false">Permisos</button>
+          <button type="button" class="pm-chip" data-tipo="cuenta" aria-pressed="false">Cuenta</button>
+          <button type="button" class="pm-chip" data-tipo="mercado" aria-pressed="false">Mercado</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="ptable">
+          <thead><tr><th>Cuándo</th><th>Quién</th><th>Tipo</th><th>A quién</th><th>Cambio</th></tr></thead>
+          <tbody id="rg-lista"><tr><td colspan="5" class="ac-vacio">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    </div><!-- /.pm-cuerpo -->
+    </div><!-- /.pm-b -->
+
   </main>
 
 </div>
 </div>
-<script src="/js/layout/topnav.js?v=20261026c" defer></script>
+<script src="/js/layout/topnav.js?v=20261105b" defer></script>
 <script src="/js/layout/topbar-acciones.js?v=20261031c" defer></script>
 
 <!-- ═══ MODAL: CREAR USUARIO ═══ -->
@@ -1254,8 +1385,7 @@
           <div class="form-hint" style="margin-top:4px">El supervisor quedará asignado como encargado de este equipo.</div>
         </div>
       </div>
-      <div class="perm-section-title">Permisos del usuario</div>
-      <div style="font-size:.72rem;color:var(--ink3);margin-bottom:12px">Al seleccionar un rol se marcan automáticamente los permisos correspondientes.</div>
+      <div class="perm-section-title">Qué podrá hacer</div>
       <div id="c-perms-grid"></div>
     </div>
     <div class="modal-foot">
@@ -1353,9 +1483,8 @@
         <div class="form-hint" style="margin-top:4px">El supervisor quedará asignado como encargado de este equipo.</div>
       </div>
       <div class="form-group">
-        <label class="form-label">Permisos que se asignarán</label>
-        <div id="r-perms-preview" class="perm-chips" style="margin-top:4px"></div>
-        <div class="form-hint" style="margin-top:6px">Los permisos se actualizan automáticamente con el rol.</div>
+        <label class="form-label">Qué podrá hacer con este rol</label>
+        <div id="r-perms-preview" class="form-hint" style="margin-top:4px"></div>
       </div>
 
       <!-- Restablecer contraseña (opcional) -->
@@ -1394,13 +1523,11 @@
 <div class="modal-overlay" id="modal-perms">
   <div class="modal wide">
     <div class="modal-head">
-      <div class="modal-title"><i class="fas fa-key" style="color:var(--amber);margin-right:8px"></i>Editar Permisos</div>
+      <div class="modal-title"><i class="fas fa-key" style="color:var(--amber);margin-right:8px"></i>Permisos individuales</div>
       <button class="modal-close" onclick="closeModal('modal-perms')"><i class="fas fa-times"></i></button>
     </div>
     <div class="modal-body" id="modal-perms-body"></div>
     <div class="modal-foot">
-      <button class="btn btn-ghost btn-sm" onclick="selectAllPerms(false)">Quitar todos</button>
-      <button class="btn btn-ghost btn-sm" onclick="selectAllPerms(true)">Todos</button>
       <div style="flex:1"></div>
       <button class="btn btn-ghost" onclick="closeModal('modal-perms')">Cancelar</button>
       <button class="btn btn-primary" onclick="savePerms()"><i class="fas fa-save"></i> Guardar permisos</button>
@@ -1757,7 +1884,7 @@ function switchView(v){
 const _AJUSTES=['servicios','catalogos','finesemana'];
 var _ultimoAjuste='servicios';
 function switchSection(s){
-  ['usuarios','servicios','catalogos','finesemana','permisos'].forEach(function(name){
+  ['usuarios','servicios','catalogos','finesemana','permisos','matriz','registro'].forEach(function(name){
     var sec=document.getElementById('section-'+name);
     var tab=document.getElementById('tab-'+name);
     if(sec) sec.style.display = (name===s)?'block':'none';
@@ -1772,6 +1899,8 @@ function switchSection(s){
   else if(s==='catalogos'){ resetCatForm(); loadCatalogos(); }
   else if(s==='finesemana'){ loadRotation(); }
   else if(s==='permisos'){ resetPermDefForm(); loadPermissionDefs(); renderPermSuggestions(); loadAccesos(); }
+  else if(s==='matriz'){ pmMatriz(); renderAcRoles(); }
+  else if(s==='registro'){ rgCargar(); }
 }
 
 function irUsuarios(v){ switchSection('usuarios'); switchView(v); }
@@ -2765,6 +2894,7 @@ function _psLlenarEquipos(){
 }
 function renderTable(users){
   _psLlenarEquipos();
+  pmPintarRoles();
   var q=(document.getElementById('search-input').value||'').toLowerCase().trim();
   var ft=document.getElementById('filter-team').value;
   var fr=document.getElementById('filter-role').value;
@@ -2883,22 +3013,33 @@ function _closeUCardMenus(){ document.querySelectorAll('.ucard-dropdown.open').f
 
 
 /* ── Perms grid ── */
+// Lo que cada persona puede hacer lo decide su ROL (ver Accesos → «Qué puede hacer cada
+// rol»). El único permiso individual que el CRM aplica es admin:full (deps.rol_efectivo);
+// las demás claves de ALL_PERMS se guardan por compatibilidad pero ninguna pantalla las lee.
+function _permRolTxt(role){
+  var t=_psPuede(role);
+  return t ? _escP(t) : (role ? 'Este rol no tiene una descripción en Accesos.' : 'Elige un rol para ver qué podrá hacer.');
+}
+function _permAdminHtml(id,on){
+  return '<label class="perm-item'+(on?' checked':'')+'" style="margin-top:10px"><input type="checkbox" id="'+id+'" value="admin:full"'+(on?' checked':'')+
+    ' onchange="this.closest(\'.perm-item\').classList.toggle(\'checked\',this.checked)"/>'+
+    '<span class="perm-item-label">Permisos de administrador (conserva su rol)</span></label>'+
+    '<div class="form-hint" style="margin-top:6px">Entra al CRM como administrador pero sigue siendo supervisor o agente de su equipo en Permisos, Horarios y Cuadratura.</div>';
+}
 function buildPermsGrid(containerId, checkedKeys){
-  const groups={};
-  ALL_PERMS.forEach(p=>{ if(!groups[p.group])groups[p.group]=[]; groups[p.group].push(p); });
-  document.getElementById(containerId).innerHTML=Object.entries(groups).map(([group,perms])=>`
-    <div class="perm-group"><div class="perm-group-title">${group}</div><div class="perm-grid">
-      ${perms.map(p=>`<label class="perm-item${checkedKeys.includes(p.key)?' checked':''}">
-        <input type="checkbox" value="${p.key}" ${checkedKeys.includes(p.key)?'checked':''}
-          onchange="this.closest('.perm-item').classList.toggle('checked',this.checked)"/>
-        <span class="perm-item-label">${p.label}</span></label>`).join('')}
-    </div></div>`).join('');
+  var role=(document.getElementById('c-role')||{}).value||'';
+  document.getElementById(containerId).innerHTML=
+    '<p class="form-hint" id="c-perms-rol" style="margin:0">'+_permRolTxt(role)+'</p>'+
+    _permAdminHtml('c-admin-full',(checkedKeys||[]).indexOf('admin:full')>=0);
 }
 function onRoleChange(prefix){
   const role=document.getElementById(prefix+'-role').value;
   const perms=ROLE_PERMS[role]||[];
-  if(prefix==='r') document.getElementById('r-perms-preview').innerHTML=perms.map(p=>`<span class="perm-chip active">${getPermLabel(p)}</span>`).join('')||'<span style="color:var(--ink3);font-size:.7rem">Sin permisos base</span>';
-  if(prefix==='c') buildPermsGrid('c-perms-grid',perms);
+  if(prefix==='r') document.getElementById('r-perms-preview').innerHTML=_permRolTxt(role);
+  if(prefix==='c'){
+    var adm=document.getElementById('c-admin-full');
+    buildPermsGrid('c-perms-grid',adm&&adm.checked?['admin:full']:[]);
+  }
 
   const isSup = role==='Supervisor'||role==='Supervisor Team Lineas';
 
@@ -2948,7 +3089,9 @@ async function createUser(){
   // Chequeo rápido de unicidad en cliente (el servidor valida definitivamente)
   try{ if(typeof _users!=='undefined' && Array.isArray(_users) && _users.some(u=>String(u.username||'').toLowerCase()===String(username).toLowerCase())){ toast('El usuario ya existe','err'); return; } }catch(e){}
   if(isSup&&!team){ toast('Selecciona el team que supervisará','err'); return; }
-  const permissions=Array.from(document.querySelectorAll('#c-perms-grid input[type=checkbox]:checked')).map(cb=>cb.value);
+  // Claves base del rol (compatibilidad) + admin:full si se marcó.
+  const permissions=(ROLE_PERMS[role]||[]).slice();
+  const adm=document.getElementById('c-admin-full'); if(adm&&adm.checked) permissions.push('admin:full');
   const res=await AUTH.sf('/api/auth/register',{ method:'POST', body:JSON.stringify({ username, password, role, name, team, supervisor:supervisorKey&&supervisorKey!=='__none__'?supervisorKey:'', permissions, fecha_ingreso:fechaIngreso }) });
   if(!res){ toast('Error de conexión','err'); return; }
   const data=await res.json();
@@ -3155,21 +3298,26 @@ async function toggleSuspend(){
 function openPermsModal(userId){
   const u=_users.find(x=>String(x.id||x._id)===String(userId)); if(!u)return;
   _editingId=String(userId); _editingUsername=u.username;
-  const savedPerms=Array.isArray(u.permissions)?u.permissions:[];
-  const currentPerms=savedPerms.length?savedPerms:(ROLE_PERMS[u.role]||[]);
-  const groups={}; ALL_PERMS.forEach(p=>{ if(!groups[p.group])groups[p.group]=[]; groups[p.group].push(p); });
-  let html=`<p style="font-size:.78rem;color:var(--ink2);margin-bottom:16px">Usuario: <strong>${u.username||u.name} (@${u.username})</strong></p>`;
-  Object.entries(groups).forEach(([grp,perms])=>{
-    html+=`<div class="perm-group"><div class="perm-group-title">${grp}</div><div class="perm-grid">
-      ${perms.map(p=>{ const on=currentPerms.includes(p.key); return `<label class="perm-item ${on?'checked':''}" onclick="togglePermItem(this)"><input type="checkbox" value="${p.key}" ${on?'checked':''} ${p.critico?'data-critico="1"':''} onclick="event.stopPropagation();this.parentElement.classList.toggle('checked',this.checked)"/><span class="perm-item-label">${p.label}</span></label>`; }).join('')}
-    </div></div>`;
-  });
-  document.getElementById('modal-perms-body').innerHTML=html;
+  const saved=Array.isArray(u.permissions)?u.permissions:[];
+  document.getElementById('modal-perms-body').innerHTML=
+    '<p style="font-size:.78rem;color:var(--ink2);margin:0 0 12px">Usuario: <strong>'+_escP(u.username||u.name)+'</strong> · rol <strong>'+_escP(getRoleLabel(u.role))+'</strong></p>'+
+    '<div class="perm-section-title">Lo que le da su rol</div>'+
+    '<p class="form-hint" style="margin:0 0 4px">'+_permRolTxt(u.role)+'</p>'+
+    '<p class="form-hint" style="margin:0 0 14px">Para cambiarlo, cambia su rol en «Editar perfil, rol y estado».</p>'+
+    '<div class="perm-section-title">Permiso extra</div>'+
+    _permAdminHtml('p-admin-full',saved.indexOf('admin:full')>=0);
   openModal('modal-perms');
 }
-function togglePermItem(el){ const cb=el.querySelector('input[type=checkbox]'); cb.checked=!cb.checked; el.classList.toggle('checked',cb.checked); }
-function selectAllPerms(val){ document.querySelectorAll('#modal-perms-body input[type=checkbox]:not([data-critico])').forEach(cb=>{ cb.checked=val; cb.closest('.perm-item').classList.toggle('checked',val); }); }
-async function savePerms(){ const perms=Array.from(document.querySelectorAll('#modal-perms-body input[type=checkbox]:checked')).map(cb=>cb.value); const res=await AUTH.sf(`/api/users/${_editingId}/permissions`,{ method:'PUT', body:JSON.stringify({ permissions:perms }) }); if(!res){ toast('Error de conexión','err'); return; } const data=await res.json(); if(res.ok&&data.success!==false){ toast('Permisos actualizados','ok'); closeModal('modal-perms'); loadUsers(); } else toast(data.message||'Error','err'); }
+async function savePerms(){
+  const u=_users.find(x=>String(x.id||x._id)===String(_editingId));
+  // Conserva las demás claves guardadas y solo pone o quita admin:full.
+  const perms=((u&&Array.isArray(u.permissions))?u.permissions:[]).filter(k=>k!=='admin:full');
+  if(document.getElementById('p-admin-full').checked) perms.push('admin:full');
+  const res=await AUTH.sf(`/api/users/${_editingId}/permissions`,{ method:'PUT', body:JSON.stringify({ permissions:perms }) });
+  if(!res){ toast('Error de conexión','err'); return; }
+  const data=await res.json();
+  if(res.ok&&data.success!==false){ toast('Permisos actualizados','ok'); closeModal('modal-perms'); loadUsers(); } else toast(data.message||'Error','err');
+}
 
 /* ── Password modal ── */
 function openPwdModal(userId){ const u=_users.find(x=>String(x.id||x._id)===String(userId)); if(!u)return; _editingId=String(userId); _editingUsername=u.username; document.getElementById('p-user-display').textContent=`${u.username||u.name} (@${u.username})`; document.getElementById('p-password').value=''; document.getElementById('p-confirm').value=''; openModal('modal-pwd'); }
@@ -3278,6 +3426,114 @@ async function confirmMerge(){
   }
 }
 
+/* ══ Menú lateral por rol (propuesta B) ══════════════════════════════
+   El rol es el punto de partida: eliges uno y ves qué permite y quién lo tiene.
+   Debajo, el resto de la página (matriz, acceso total, equipos, ajustes, registro). */
+// Escapa texto para innerHTML (va aquí: el arranque de la página ya la usa).
+function _escP(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+const PM_ROLES=[
+  ['admin','Administrador','Administrador'],
+  ['backoffice','Backoffice','Backoffice'],
+  ['rol_icon','Rol Icon','Rol_icon'],
+  ['supervisor','Supervisor','Supervisor'],
+  ['supervisor_lineas','Supervisor Líneas','Supervisor Team Lineas'],
+  ['agente','Agente','Agente'],
+  ['lineas','Líneas Agente','Lineas-Agentes'],
+];
+var _pmActual='rol:';
+function pmPintarRoles(){
+  var ul=document.getElementById('pm-roles'); if(!ul) return;
+  var activos=_users.filter(function(u){ return _psActivo(u)&&!_psSin(u); });
+  var n={}; activos.forEach(function(u){ var k=_psRolKey(u.role); n[k]=(n[k]||0)+1; });
+  var filas=[['','Todas las personas',activos.length]].concat(PM_ROLES.map(function(r){ return [r[0],r[1],n[r[0]]||0]; }));
+  if(n.otro) filas.push(['otro','Otros roles',n.otro]);
+  ul.innerHTML=filas.map(function(f){
+    var k='rol:'+f[0];
+    return '<li><button type="button" class="pm-item" data-pm="'+k+'" onclick="pmIr(\''+k+'\')"'+(k===_pmActual?' aria-current="true"':'')+'>'+
+      '<span>'+_escP(f[1])+'</span><span class="pm-n">'+f[2]+'</span></button></li>';
+  }).join('');
+}
+function _pmMarcar(){
+  document.querySelectorAll('.pm-side .pm-item').forEach(function(b){
+    if(b.dataset.pm===_pmActual) b.setAttribute('aria-current','true'); else b.removeAttribute('aria-current');
+  });
+}
+function pmIr(k){
+  _pmActual=k;
+  if(k.indexOf('rol:')===0){
+    var key=k.slice(4), r=PM_ROLES.find(function(x){ return x[0]===key; });
+    irUsuarios('list');
+    document.getElementById('filter-role').value=key;
+    document.getElementById('pm-rol-nombre').textContent=r?r[1]:(key==='otro'?'Otros roles':'Todas las personas');
+    document.getElementById('pm-rol-puede').textContent=r?_psPuede(r[2]):'Todas las cuentas del CRM. Elige una para ver su ficha.';
+    filterTable();
+  }
+  else if(k==='equipos') irUsuarios('teams');
+  else if(k==='acceso') switchSection('permisos');
+  else if(k==='ajustes') switchSection(_ultimoAjuste);
+  else switchSection(k);   // matriz, registro
+  _pmMarcar();
+  var cuerpo=document.querySelector('.pm-cuerpo'); if(cuerpo&&cuerpo.getBoundingClientRect().top<0) cuerpo.scrollIntoView({block:'start'});
+}
+
+// Qué puede hacer cada rol: matriz de pantallas sacada del menú real (js/layout/topnav.js).
+function pmMatriz(){
+  var t=document.getElementById('pm-matriz');
+  var M=window.CRMMenu;
+  if(!M){ t.innerHTML='<tbody><tr><td class="ac-vacio">No se pudo leer el menú del CRM. Recarga la página.</td></tr></tbody>'; return; }
+  var cols=PM_ROLES.map(function(r){ return { k:r[0], nombre:r[1], u:{ role:r[2], team:(r[0]==='supervisor'||r[0]==='agente')?'TEAM RESIDENCIAL':'' } }; });
+  var si='<td class="pm-si"><i class="fas fa-check" aria-hidden="true"></i><span class="sr-only">Sí</span></td>';
+  var no='<td class="pm-no"><span aria-hidden="true">·</span><span class="sr-only">No</span></td>';
+  var html='<thead><tr><th scope="col">Pantalla</th>'+cols.map(function(c){ return '<th scope="col">'+_escP(c.nombre)+'</th>'; }).join('')+'</tr></thead><tbody>';
+  M.grupos.forEach(function(g){
+    html+='<tr class="pm-grupo"><th scope="rowgroup" colspan="'+(cols.length+1)+'">'+_escP(g.label)+'</th></tr>';
+    g.items.forEach(function(it){
+      html+='<tr><th scope="row">'+_escP(it.label)+'</th>'+cols.map(function(c){ return M.visible(it,c.u)?si:no; }).join('')+'</tr>';
+    });
+  });
+  // Acciones dentro de pantallas que no dependen del menú.
+  var extra=[
+    ['Gestionar la cola de Transferencias (prioridad, pausa, sacar de la cola)',['admin','supervisor_lineas']],
+    ['Editar la tabla CXC Xfinity de Estadísticas',['admin']],
+    ['Editar clientes en Lista de Clientes',['admin','backoffice','rol_icon']],
+  ];
+  html+='<tr class="pm-grupo"><th scope="rowgroup" colspan="'+(cols.length+1)+'">Acciones dentro de las pantallas</th></tr>';
+  extra.forEach(function(e){
+    html+='<tr><th scope="row">'+_escP(e[0])+'</th>'+cols.map(function(c){ return e[1].indexOf(c.k)>=0?si:no; }).join('')+'</tr>';
+  });
+  t.innerHTML=html+'</tbody>';
+}
+
+// Registro de cambios (GET /api/users/registro)
+var _rgTipo='';
+const RG_TIPOS={alta:'Alta',rol:'Rol',equipo:'Equipo',permisos:'Permisos',cuenta:'Cuenta',mercado:'Mercado'};
+function _rgCuando(iso){
+  if(!iso) return '—';
+  var d=new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(iso)?iso:iso+'Z');
+  if(isNaN(d)) return iso;
+  var hoy=new Date(), ayer=new Date(); ayer.setDate(hoy.getDate()-1);
+  var hm=d.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit',hour12:false});
+  if(d.toDateString()===hoy.toDateString()) return 'Hoy '+hm;
+  if(d.toDateString()===ayer.toDateString()) return 'Ayer '+hm;
+  return d.toLocaleDateString('es',{day:'numeric',month:'short'})+' '+hm;
+}
+async function rgCargar(){
+  var body=document.getElementById('rg-lista');
+  var res=await AUTH.sf('/api/users/registro'+(_rgTipo?'?tipo='+encodeURIComponent(_rgTipo):''));
+  if(!res||!res.ok){ body.innerHTML='<tr><td colspan="5" class="ac-vacio">No se pudo cargar el registro. Recarga la página.</td></tr>'; return; }
+  var items=((await res.json()).items)||[];
+  body.innerHTML=items.map(function(x){
+    return '<tr><td class="rg-cuando">'+_escP(_rgCuando(x.created_at))+'</td><td>'+_escP(x.actor)+'</td>'+
+      '<td><span class="pm-tipo">'+_escP(RG_TIPOS[x.tipo]||x.tipo)+'</span></td><td><b>'+_escP(x.a_quien)+'</b></td><td>'+_escP(x.cambio)+'</td></tr>';
+  }).join('')||'<tr><td colspan="5" class="ac-vacio">'+(_rgTipo?'No hay cambios de este tipo todavía.':'Todavía no hay cambios anotados. Aparecerán aquí en cuanto alguien edite una cuenta.')+'</td></tr>';
+}
+document.addEventListener('click',function(e){
+  var b=e.target.closest('#rg-filtros .pm-chip'); if(!b) return;
+  _rgTipo=b.dataset.tipo||'';
+  document.querySelectorAll('#rg-filtros .pm-chip').forEach(function(x){ x.setAttribute('aria-pressed',String(x===b)); });
+  rgCargar();
+});
+
 /* ── Init ── */
 (function init(){
   if(!AUTH.check())return;
@@ -3292,6 +3548,7 @@ async function confirmMerge(){
   // Forzar búsqueda vacía al cargar (evita autofill/bfcache del browser)
   var si=document.getElementById('search-teams-input');
   if(si){ si.value=''; si.setAttribute('readonly',''); setTimeout(function(){ si.removeAttribute('readonly'); },200); }
+  pmIr('rol:');
   loadUsers();
   loadTeams();
 })();
@@ -3416,7 +3673,6 @@ document.addEventListener('keydown',function(e){
 </script>
 <script>
 let _prodItems = [], _prodEditingId = null;
-function _escP(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 async function loadProductos(){
   const res = await AUTH.sf('/api/productos');
   if(!res){ toast('Error de conexión','err'); return; }
@@ -3579,7 +3835,7 @@ async function loadAccesos(){
   ]);
   _acAssign = aRes&&aRes.ok ? (((await aRes.json()).items)||[]).filter(function(a){ return a.perm_key==='market:restrict_view'; }) : [];
   _acMercados = mRes&&mRes.ok ? (((await mRes.json()).items)||[]) : [];
-  renderAcAdmins(); renderAcRoles(); renderAcMarket();
+  renderAcAdmins(); renderAcMarket();
   var sel=document.getElementById('ac-mk-mercado');
   sel.innerHTML=_acMercados.map(function(m){ return '<option value="'+_escP(m.valor)+'">'+_escP(m.label||m.valor)+'</option>'; }).join('');
   acFillMkDestino();

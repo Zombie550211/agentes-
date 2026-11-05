@@ -947,6 +947,13 @@
     });
 
     (async function renderRoleBar(){
+      // Solo administración y back office pueden pedir /api/users/admin-list (a los demás
+      // les daba 403 en cada visita); la barra de roles no aplica al resto.
+      try{
+        const _yo = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
+        const _r = String(_yo.role || '').toLowerCase();
+        if (!['admin','administrador','backoffice','back office'].some(x => _r.includes(x))) return;
+      }catch(_){ return; }
       try{
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         const opts = { method: 'GET', credentials: 'include', headers: Object.assign({'Content-Type':'application/json'}, token?{ 'Authorization': `Bearer ${token}` }:{}) };
