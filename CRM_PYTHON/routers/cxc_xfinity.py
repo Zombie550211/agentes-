@@ -1,26 +1,26 @@
 """Cantidad de CXC Xfinity (frontend/residencial/estadisticas.html).
 
-Tabla que se llena a mano, un número por día (el historial queda guardado y el total
-del mes es la suma de sus días), con dos vistas independientes:
-  - por team   (clave = nombre del team)
-  - por agente (clave = id del usuario; se guarda también su nombre y team del momento)
+Tabla de solo lectura: cuenta los registros del formulario con motivo «CXC Xfinity»,
+por día de venta y con el mismo criterio que Ventas por equipo (sin canceladas ni REPRO).
+Dos vistas: por team y por agente; la columna Mes suma los días del mes.
 
-Todos los usuarios con sesión la ven; la editan administración y el equipo de
-Control de Calidad (por su equipo, no por rol: son Backoffice como otros).
+Lo que se cargó a mano antes de este cambio sigue en cxc_xfinity_dia y se suma, para
+que los totales de esos días no se pierdan. Esa tabla ya no recibe datos nuevos.
 """
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
 from sqlalchemy import text
 
-import realtime
 from database_mysql import AsyncSessionLocal
-from deps import current_user, team_seccion, _normalize_role
+from deps import current_user, team_seccion
 from tiempo_sv import ahora_sv
-import rbac
 
 router = APIRouter(prefix="/api/cxc-xfinity", tags=["CXC Xfinity"])
+
+# Valor del catálogo «motivo» (catalogos.py) que alimenta la tabla.
+MOTIVO_CXC = "CXC XFINITY"
+
 
 def _fecha(valor: str) -> date:
     """Valida YYYY-MM-DD y que no sea un día futuro (hora de El Salvador)."""
@@ -33,18 +33,13 @@ def _fecha(valor: str) -> date:
     return d
 
 
-_EQUIPOS_EDITORES = {"control de calidad"}
-
-
-def _puede_editar(user: dict) -> bool:
-    if rbac.tiene(user, "estadisticas.cxc_editar"):
-        return True
-    return _normalize_role(user.get("team")) in _EQUIPOS_EDITORES
-
-
 def _es_agente(role) -> bool:
     x = str(role or "").lower()
     return ("agente" in x or "vendedor" in x) and "supervisor" not in x
+
+
+def _norm(valor) -> str:
+    return " ".join(str(valor or "").replace("_", " ").split()).upper()
 
 
 @router.get("")
@@ -75,62 +70,74 @@ async def obtener(fecha: str, user: dict = Depends(current_user)):
             if _es_agente(row["role"]) and team_seccion(row["team"], row["role"]) == "residencial"
                and row["team"] in teams
         ]
+        # Todos los usuarios (también inactivos), para ubicar a quien hizo cada registro.
+        r = await s.execute(text("SELECT id, username, name, role, TRIM(team) AS team FROM users"))
+        usuarios = [dict(row) for row in r.mappings().all()]
+        # Registros con el motivo. Mismas exclusiones que Ventas por equipo.
         r = await s.execute(text("""
-            SELECT tipo, clave, nombre, team, cantidad FROM cxc_xfinity_dia WHERE fecha = :f
-        """), {"f": dia})
-        guardados = [dict(row) for row in r.mappings().all()]
+            SELECT DATE(dia_venta) AS dia, agente, agente_nombre, TRIM(team) AS team, supervisor
+            FROM leads
+            WHERE dia_venta >= :ini AND dia_venta < :fin
+              AND UPPER(TRIM(motivo_llamada)) = :motivo
+              AND LOWER(COALESCE(status, '')) != 'cancelled'
+              AND LOWER(COALESCE(status, '')) NOT REGEXP 'repro|resched|reagend'
+        """), {"ini": inicio_mes, "fin": fin_mes, "motivo": MOTIVO_CXC})
+        registros = [dict(row) for row in r.mappings().all()]
+        # Lo que se cargó a mano antes de que la tabla fuera automática.
         r = await s.execute(text("""
-            SELECT tipo, clave, MAX(nombre) AS nombre, MAX(team) AS team, SUM(cantidad) AS total
-            FROM cxc_xfinity_dia
+            SELECT fecha, tipo, clave, nombre, team, cantidad FROM cxc_xfinity_dia
             WHERE fecha >= :ini AND fecha < :fin
-            GROUP BY tipo, clave
         """), {"ini": inicio_mes, "fin": fin_mes})
-        del_mes = [{**dict(row), "total": int(row["total"])} for row in r.mappings().all()]
+        manuales = [dict(row) for row in r.mappings().all()]
+
+    por_nombre: dict = {}
+    team_de_supervisor: dict = {}
+    for u in usuarios:
+        for nombre in (u["username"], u["name"]):
+            if not _norm(nombre):
+                continue
+            por_nombre.setdefault(_norm(nombre), u)
+            if u["team"] and "supervisor" in str(u["role"] or "").lower():
+                team_de_supervisor.setdefault(_norm(nombre), u["team"])
+    teams_por_norma = {_norm(t): t for t in teams}
+
+    valores: dict = {}
+    mes: dict = {}
+
+    def sumar(fecha_dato, tipo, clave, nombre, team, cantidad):
+        k = (tipo, clave)
+        fila = mes.setdefault(k, {"tipo": tipo, "clave": clave, "nombre": nombre, "team": team, "total": 0})
+        fila["total"] += cantidad
+        if fecha_dato == dia:
+            v = valores.setdefault(k, {"tipo": tipo, "clave": clave, "nombre": nombre, "team": team, "cantidad": 0})
+            v["cantidad"] += cantidad
+
+    for m in manuales:
+        sumar(m["fecha"], m["tipo"], m["clave"], m["nombre"], m["team"], int(m["cantidad"] or 0))
+
+    for reg in registros:
+        nombre = (reg["agente"] or reg["agente_nombre"] or "").strip() or "Sin agente"
+        autor = por_nombre.get(_norm(reg["agente"])) or por_nombre.get(_norm(reg["agente_nombre"]))
+        # Team como en Ventas por equipo: el del registro o el de su supervisor;
+        # si ninguno es un team de venta, el del agente.
+        team = None
+        for candidato in (reg["team"], reg["supervisor"]):
+            t = team_de_supervisor.get(_norm(candidato)) or candidato
+            if _norm(t) in teams_por_norma:
+                team = teams_por_norma[_norm(t)]
+                break
+        team = team or (autor and autor["team"]) or "Sin team"
+        sumar(reg["dia"], "team", team, team, team, 1)
+        clave_ag = str(autor["id"]) if autor else nombre
+        nombre_ag = (autor["username"] if autor else None) or nombre
+        team_ag = (autor and autor["team"]) or team
+        sumar(reg["dia"], "agente", clave_ag, nombre_ag, team_ag, 1)
+
     return {
         "success": True,
         "fecha": dia.isoformat(),
         "teams": teams,
         "agentes": agentes,
-        "valores": guardados,
-        "mes": del_mes,
-        "puede_editar": _puede_editar(user),
+        "valores": list(valores.values()),
+        "mes": list(mes.values()),
     }
-
-
-class Valor(BaseModel):
-    fecha: str = Field(..., max_length=10)
-    tipo: str = Field(..., pattern=r"^(team|agente)$")
-    clave: str = Field(..., min_length=1, max_length=150)
-    nombre: str = Field("", max_length=150)
-    team: str = Field("", max_length=150)
-    # None o 0 = sin dato (se borra la fila)
-    cantidad: int | None = Field(None, ge=0, le=100_000)
-
-
-@router.put("")
-async def guardar(body: Valor, user: dict = Depends(current_user)):
-    if not _puede_editar(user):
-        raise HTTPException(403, "Solo administración y Control de Calidad editan esta tabla")
-    dia = _fecha(body.fecha)
-    clave = body.clave.strip()
-    if not clave:
-        raise HTTPException(400, "Falta la clave")
-    async with AsyncSessionLocal() as s:
-        if not body.cantidad:
-            await s.execute(text("""
-                DELETE FROM cxc_xfinity_dia WHERE fecha = :f AND tipo = :tipo AND clave = :clave
-            """), {"f": dia, "tipo": body.tipo, "clave": clave})
-        else:
-            await s.execute(text("""
-                INSERT INTO cxc_xfinity_dia (fecha, tipo, clave, nombre, team, cantidad, actualizado_por)
-                VALUES (:f, :tipo, :clave, :nombre, :team, :cant, :por)
-                ON DUPLICATE KEY UPDATE nombre = VALUES(nombre), team = VALUES(team),
-                    cantidad = VALUES(cantidad), actualizado_por = VALUES(actualizado_por)
-            """), {
-                "f": dia, "tipo": body.tipo, "clave": clave,
-                "nombre": (body.nombre or clave).strip(), "team": body.team.strip() or None,
-                "cant": body.cantidad, "por": user.get("username", ""),
-            })
-        await s.commit()
-    await realtime.publish("residencial", {"type": "cxc", "action": "update"})
-    return {"success": True}

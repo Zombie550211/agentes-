@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
   <link rel="stylesheet" href="/css/base/sistema.css?v=20261105a">
   <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
-  <link rel="stylesheet" href="/css/residencial/estadisticas.css?v=20261106a">
+  <link rel="stylesheet" href="/css/residencial/estadisticas.css?v=20261106b">
   <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
   <script src="/js/layout/transicion.js?v=20261105a"></script>
   <script src="/vendor/chartjs/chart.umd.min.js"></script>
@@ -127,7 +127,7 @@
       </div>
     </section>
 
-    <!-- ══ Cantidad de CXC Xfinity (editable, por team y por agente) ══ -->
+    <!-- ══ Cantidad de CXC Xfinity (automática, por team y por agente) ══ -->
     <section class="es-card es-cxc in-glass" aria-labelledby="es-cx-t">
       <div class="es-card-head">
         <div>
@@ -151,7 +151,6 @@
           <tbody id="cxc-ag-body"><tr><td colspan="3" class="es-vacio">Cargando…</td></tr></tbody>
         </table>
       </div>
-      <p class="es-cx-estado" id="es-cx-estado" role="status" aria-live="polite"></p>
     </section>
 
     <!-- ══ Team Líneas ══ -->
@@ -688,10 +687,9 @@
     tabla('lineas-hoy-body','hoy','Total hoy');
   }
 
-  // ── Cantidad de CXC Xfinity — /api/cxc-xfinity (se llena a mano, por mes) ──
-  // Dos vistas independientes: por team y por agente. Solo administración edita;
-  // cada número se guarda al salir de la casilla (o con Enter).
-  var _cx=null, _cxPend=false;
+  // ── Cantidad de CXC Xfinity — /api/cxc-xfinity (solo lectura) ──
+  // Cuenta los registros con motivo «CXC Xfinity»; se actualiza sola con los eventos en vivo.
+  var _cx=null;
   function sinTeam(t){ return String(t||'').replace(/^TEAM\s+/i,'')||t; }
   function dCorto(ds){ var p=String(ds).split('-'); return (+p[2])+'/'+(+p[1])+'/'+p[0]; }
   async function loadCxc(){
@@ -720,26 +718,17 @@
     var v=(_cx.mes||[]).find(function(x){return x.tipo===tipo&&String(x.clave)===String(clave);});
     return v?(+v.total||0):0;
   }
-  // Casillas de una fila: Día (editable) y Mes (suma de sus días, solo lectura).
-  function cxCeldas(tipo,clave,nombre,team){
-    var valor=cxValor(tipo,clave), mes=cxMes(tipo,clave);
-    var celdaMes='<td class="es-n es-cx-mes" data-cx-mes>'+(mes||'')+'</td>';
-    if(!_cx.puede_editar) return '<td class="es-n es-n-dest">'+(valor||'')+'</td>'+celdaMes;
-    return '<td class="es-n"><input type="number" min="0" max="100000" step="1" inputmode="numeric" class="es-cx-in"'+
-      ' data-fecha="'+esc(_cx.fecha)+'" data-tipo="'+tipo+'" data-clave="'+esc(clave)+'" data-nombre="'+esc(nombre)+'" data-team="'+esc(team||'')+'"'+
-      ' data-base="'+Math.max(0,mes-valor)+'" value="'+(valor||'')+'" aria-label="CXC de '+esc(nombre)+' el '+dCorto(_cx.fecha)+'"></td>'+celdaMes;
+  // Casillas de una fila: Día y Mes (suma de sus días).
+  function cxCeldas(tipo,clave){
+    return '<td class="es-n es-n-dest">'+(cxValor(tipo,clave)||'')+'</td><td class="es-n es-cx-mes">'+(cxMes(tipo,clave)||'')+'</td>';
   }
   function cxTotal(dia,mes,etiqueta){
-    return '<tr class="es-total es-cx-total"><th scope="row" class="es-izq">'+etiqueta+'</th><td class="es-n" data-cx-total>'+dia+'</td><td class="es-n" data-cx-total-mes>'+mes+'</td></tr>';
+    return '<tr class="es-total es-cx-total"><th scope="row" class="es-izq">'+etiqueta+'</th><td class="es-n">'+dia+'</td><td class="es-n">'+mes+'</td></tr>';
   }
   function renderCxc(){
     if(!_cx)return;
-    // No repintar mientras alguien escribe en una casilla (llegaría un evento en vivo).
-    var act=document.activeElement;
-    if(act&&act.classList&&act.classList.contains('es-cx-in')){ _cxPend=true; return; }
-    _cxPend=false;
     var d=aFecha(_cx.fecha);
-    setT('es-cx-sub', 'Día '+dCorto(_cx.fecha)+' · Mes: '+MN[d.getMonth()]+' '+d.getFullYear()+(_cx.puede_editar?' · escribe el número y se guarda solo':''));
+    setT('es-cx-sub', 'Día '+dCorto(_cx.fecha)+' · Mes: '+MN[d.getMonth()]+' '+d.getFullYear());
 
     // Por team: teams de venta + los que tienen dato en el mes aunque ya no existan.
     var teams=(_cx.teams||[]).slice();
@@ -747,7 +736,7 @@
     var totT=0, totTM=0;
     var filasT=teams.map(function(t){
       totT+=cxValor('team',t); totTM+=cxMes('team',t);
-      return '<tr>'+celdaEquipo(t,sinTeam(t))+cxCeldas('team',t,t,t)+'</tr>';
+      return '<tr>'+celdaEquipo(t,sinTeam(t))+cxCeldas('team',t)+'</tr>';
     });
     $('cxc-team-body').innerHTML=teams.length ? filasT.join('')+cxTotal(totT,totTM,'Total')
       : '<tr><td colspan="3" class="es-vacio">No hay teams de venta</td></tr>';
@@ -766,81 +755,16 @@
       var sub=0, subM=0;
       grupos[t].forEach(function(x){ sub+=cxValor('agente',x.id); subM+=cxMes('agente',x.id); });
       totA+=sub; totAM+=subM;
-      filasA.push('<tr class="es-cx-grupo"><th scope="rowgroup" class="es-izq">'+esc(sinTeam(t))+'</th><td class="es-n" data-cx-sub="'+esc(t)+'">'+(sub||'')+'</td><td class="es-n" data-cx-sub-mes="'+esc(t)+'">'+(subM||'')+'</td></tr>');
+      filasA.push('<tr class="es-cx-grupo"><th scope="rowgroup" class="es-izq">'+esc(sinTeam(t))+'</th><td class="es-n">'+(sub||'')+'</td><td class="es-n">'+(subM||'')+'</td></tr>');
       grupos[t].forEach(function(a){
-        filasA.push('<tr><th scope="row" class="es-izq es-cx-ag">'+esc(a.nombre)+'</th>'+cxCeldas('agente',a.id,a.nombre,t)+'</tr>');
+        filasA.push('<tr><th scope="row" class="es-izq es-cx-ag">'+esc(a.nombre)+'</th>'+cxCeldas('agente',a.id)+'</tr>');
       });
     });
     $('cxc-ag-body').innerHTML=ags.length ? filasA.join('')+cxTotal(totA,totAM,'Total')
       : '<tr><td colspan="3" class="es-vacio">No hay agentes de Residencial</td></tr>';
   }
-  // Totales en vivo mientras se escribe (sin esperar a guardar).
-  function cxRecalcular(body){
-    var tot=0, totM=0, subs={}, subsM={};
-    body.querySelectorAll('.es-cx-in').forEach(function(i){
-      var v=Math.max(0,parseInt(i.value,10)||0), m=(+i.dataset.base||0)+v;
-      tot+=v; totM+=m;
-      var celda=i.closest('tr').querySelector('[data-cx-mes]'); if(celda)celda.textContent=m||'';
-      if(i.dataset.tipo==='agente'){
-        subs[i.dataset.team]=(subs[i.dataset.team]||0)+v;
-        subsM[i.dataset.team]=(subsM[i.dataset.team]||0)+m;
-      }
-    });
-    var t=body.querySelector('[data-cx-total]'); if(t)t.textContent=tot;
-    var tm=body.querySelector('[data-cx-total-mes]'); if(tm)tm.textContent=totM;
-    body.querySelectorAll('[data-cx-sub]').forEach(function(c){ c.textContent=subs[c.getAttribute('data-cx-sub')]||''; });
-    body.querySelectorAll('[data-cx-sub-mes]').forEach(function(c){ c.textContent=subsM[c.getAttribute('data-cx-sub-mes')]||''; });
-  }
-  var _cxTimer=null;
-  function cxEstado(txt,error){
-    var e=$('es-cx-estado'); e.textContent=txt; e.classList.toggle('es-cx-error',!!error);
-    clearTimeout(_cxTimer); if(!error&&txt)_cxTimer=setTimeout(function(){e.textContent='';},2500);
-  }
-  async function cxGuardar(inp){
-    var n=inp.value===''?0:parseInt(inp.value,10);
-    if(isNaN(n)||n<0||n>100000){ cxEstado('Escribe un número entero entre 0 y 100000.',true); inp.focus(); return; }
-    // La fecha es la de la casilla: al cambiar de día, el «change» llega antes de recargar.
-    var body={fecha:inp.dataset.fecha,tipo:inp.dataset.tipo,clave:inp.dataset.clave,nombre:inp.dataset.nombre,team:inp.dataset.team,cantidad:n||null};
-    var mismoDia=_cx&&_cx.fecha===body.fecha;
-    var previo=mismoDia?cxValor(body.tipo,body.clave):null;
-    if(previo===n)return;
-    cxEstado('Guardando…');
-    try{
-      var res=await fetch('/api/cxc-xfinity',{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-      if(!res.ok)throw new Error(res.status===403?'No tienes permiso para editar esta tabla.':'No se guardó. Revisa la conexión y vuelve a intentarlo.');
-      if(_cx&&_cx.fecha===body.fecha){
-        var vs=_cx.valores=(_cx.valores||[]).filter(function(x){return !(x.tipo===body.tipo&&String(x.clave)===String(body.clave));});
-        if(n)vs.push({tipo:body.tipo,clave:body.clave,nombre:body.nombre,team:body.team,cantidad:n});
-        var base=+inp.dataset.base||0;
-        var ms=_cx.mes=(_cx.mes||[]).filter(function(x){return !(x.tipo===body.tipo&&String(x.clave)===String(body.clave));});
-        if(base+n)ms.push({tipo:body.tipo,clave:body.clave,nombre:body.nombre,team:body.team,total:base+n});
-      }
-      cxEstado('Guardado: '+sinTeam(body.nombre)+' el '+dCorto(body.fecha)+' = '+(n||'vacío'));
-    }catch(e){
-      cxEstado(e.message||'No se guardó.',true);
-    }
-  }
   function initCxc(){
     initTabs([$('es-cx-tab-team'),$('es-cx-tab-ag')]);
-    ['cxc-team-body','cxc-ag-body'].forEach(function(id){
-      var body=$(id);
-      body.addEventListener('input',function(e){ if(e.target.classList.contains('es-cx-in'))cxRecalcular(body); });
-      body.addEventListener('change',function(e){ if(e.target.classList.contains('es-cx-in'))cxGuardar(e.target); });
-      body.addEventListener('keydown',function(e){
-        if(e.key==='Enter'&&e.target.classList.contains('es-cx-in')){
-          e.preventDefault();
-          // Enter: guarda y pasa a la casilla de abajo
-          var ins=[].slice.call(body.querySelectorAll('.es-cx-in')), i=ins.indexOf(e.target);
-          if(ins[i+1])ins[i+1].focus(); else e.target.blur();
-        }
-      });
-      body.addEventListener('focusout',function(){
-        setTimeout(function(){
-          var a=document.activeElement;
-          if(_cxPend&&!(a&&a.classList&&a.classList.contains('es-cx-in')))renderCxc();
-        },0);
-      });
-    });
   }
 
   // Repinta con los últimos datos del mes (cambio de día dentro del mismo mes).

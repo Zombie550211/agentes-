@@ -19,6 +19,8 @@ CATALOGOS_SEED = {
         ('CANCELAR SERVICIOS', '❌ Cancelar Serv.'),
         ('PAGAR BILL', '💳 Pagar Bill'),
         ('ATENCION AL CLIENTE', '💬 Atención Cliente'),
+        # Alimenta la tabla CXC Xfinity de Estadísticas (routers/cxc_xfinity.py): no cambiar el valor.
+        ('CXC XFINITY', 'CXC Xfinity'),
     ],
     'riesgo': [('LOW', 'LOW'), ('MEDIUM', 'MEDIUM'), ('HIGH', 'HIGH'), ('N/A', 'N/A')],
     'status': [('PENDING', 'Pending'), ('REPRO', 'Repro')],

@@ -689,6 +689,10 @@ _MIGRATIONS: list[tuple[str, str]] = [
                   LAST_DAY(CONCAT(ym, '-01'))),
                tipo, clave, nombre, team, cantidad, actualizado_por, updated_at
         FROM cxc_xfinity"""),
+    # Nuevo motivo del formulario de registro; la tabla CXC Xfinity cuenta estos registros.
+    ("0105_motivo_cxc_xfinity", """INSERT IGNORE INTO catalogos (tipo, valor, label, orden)
+        SELECT 'motivo', 'CXC XFINITY', 'CXC Xfinity', COALESCE(MAX(orden), -1) + 1
+        FROM catalogos WHERE tipo = 'motivo'"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración
