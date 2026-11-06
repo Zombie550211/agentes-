@@ -4,8 +4,8 @@ Tabla de solo lectura: cuenta los registros del formulario con motivo «CXC Xfin
 por día de venta y con el mismo criterio que Ventas por equipo (sin canceladas ni REPRO).
 Dos vistas: por team y por agente; la columna Mes suma los días del mes.
 
-Lo que se cargó a mano antes de este cambio sigue en cxc_xfinity_dia y se suma, para
-que los totales de esos días no se pierdan. Esa tabla ya no recibe datos nuevos.
+Lo que se cargó a mano antes de este cambio sigue guardado en cxc_xfinity_dia, pero ya
+no se muestra ni recibe datos nuevos.
 """
 from datetime import date, timedelta
 
@@ -83,12 +83,6 @@ async def obtener(fecha: str, user: dict = Depends(current_user)):
               AND LOWER(COALESCE(status, '')) NOT REGEXP 'repro|resched|reagend'
         """), {"ini": inicio_mes, "fin": fin_mes, "motivo": MOTIVO_CXC})
         registros = [dict(row) for row in r.mappings().all()]
-        # Lo que se cargó a mano antes de que la tabla fuera automática.
-        r = await s.execute(text("""
-            SELECT fecha, tipo, clave, nombre, team, cantidad FROM cxc_xfinity_dia
-            WHERE fecha >= :ini AND fecha < :fin
-        """), {"ini": inicio_mes, "fin": fin_mes})
-        manuales = [dict(row) for row in r.mappings().all()]
 
     por_nombre: dict = {}
     team_de_supervisor: dict = {}
@@ -111,9 +105,6 @@ async def obtener(fecha: str, user: dict = Depends(current_user)):
         if fecha_dato == dia:
             v = valores.setdefault(k, {"tipo": tipo, "clave": clave, "nombre": nombre, "team": team, "cantidad": 0})
             v["cantidad"] += cantidad
-
-    for m in manuales:
-        sumar(m["fecha"], m["tipo"], m["clave"], m["nombre"], m["team"], int(m["cantidad"] or 0))
 
     for reg in registros:
         nombre = (reg["agente"] or reg["agente_nombre"] or "").strip() or "Sin agente"
