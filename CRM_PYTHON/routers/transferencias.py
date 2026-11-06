@@ -552,13 +552,8 @@ async def cola(seccion: str = "lineas", user: dict = Depends(current_user)):
     seccion = _validar_seccion(seccion)
     async with AsyncSessionLocal() as s:
         agentes = await _cola(s, seccion)
-        sig_sin = None
-        if not any(a["recibe"] for a in agentes):
-            todos = [a for a in await _cola(s, seccion, solo_conectados=False) if a["recibe"]]
-            if todos:
-                sig_sin = {"id": todos[0]["id"], "nombre": todos[0]["nombre"], "team": todos[0]["team"]}
     yo = _uid(user)
-    return {"success": True, "siguiente_sin_conexion": sig_sin, "mi_pausa": yo in _pausas,
+    return {"success": True, "mi_pausa": yo in _pausas,
         "mi_estado": _estados.get(yo, "dispo"), "agentes": [{
         "id": a["id"], "nombre": a["nombre"], "team": a["team"], "conectado": True, "pausado": a["pausado"],
         "estado": a["estado"], "recibe": a["recibe"],
@@ -748,11 +743,9 @@ async def crear(body: TransferenciaIn, user: dict = Depends(current_user)):
         # Los que están en pausa o no están DISPO conservan su lugar pero no reciben.
         turno = [a for a in await _cola(s, destino) if a["recibe"]]
         if not turno:
-            # Nadie conectado: igual se asigna, al siguiente por turno entre todos; le llega
-            # a la campana al entrar y corren sus 24 h.
-            turno = [a for a in await _cola(s, destino, solo_conectados=False) if a["recibe"]]
-        if not turno:
-            raise HTTPException(409, "No hay agentes para recibir la transferencia")
+            # Nunca se asigna a un desconectado: quien no vino al trabajo figura como DISPO
+            # (sin fila = dispo) y se quedaría con la transferencia y sus 24 h de protección.
+            raise HTTPException(409, "No hay agentes conectados y en DISPO para recibir la transferencia")
         agente, team = turno[0], turno[0]["team"]
         if agente["id"] == _cola_primero.get(destino):
             _cola_primero.pop(destino, None)   # «Poner primero» vale para una sola transferencia

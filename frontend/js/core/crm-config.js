@@ -14,9 +14,9 @@
 })();
 
 window.CRM_CONFIG = {
-  // Sin cierre por inactividad: la sesión dura hasta que la persona la cierra
-  // (ver js/core/inactivity-manager.js).
-  ENABLE_INACTIVITY: false,
+  // Cierre de sesión tras 1 hora sin acción (ver js/core/inactivity-manager.js).
+  INACTIVITY_TIMEOUT: 60 * 60 * 1000,
+  ENABLE_INACTIVITY: true,
   
   // API endpoints
   API_BASE_URL: '',

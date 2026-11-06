@@ -17,10 +17,10 @@ if not JWT_SECRET:
                        "Genera uno con: python -c \"import secrets; print(secrets.token_hex(32))\"")
 JWT_ALGO    = "HS256"
 JWT_EXPIRES_REMEMBER = 30 * 24 * 60 * 60  # 30 días — se renueva sola con el uso
-# Desde el 31-oct-2026 la sesión no se cierra por inactividad: dura hasta que la persona
-# pulsa «Cerrar sesión» (o un admin la revoca, ver session_guard). Todas las sesiones son
-# de 30 días renovables, con o sin «Recordar sesión»; los tokens cortos que ya existían
-# pasan a 30 días en su próxima renovación.
+# El cierre tras 1 hora sin actividad lo hace el navegador (js/core/inactivity-manager.js,
+# desde el 6-nov-2026): aquí no se puede medir, porque las peticiones automáticas de las
+# pestañas abiertas parecerían uso. Todas las sesiones son de 30 días renovables, con o sin
+# «Recordar sesión»; los tokens cortos que ya existían pasan a 30 días en su próxima renovación.
 JWT_EXPIRES = JWT_EXPIRES_REMEMBER
 IS_PROD     = os.getenv("NODE_ENV") == "production"
 # Debe coincidir con routers/auth.py. Por defecto "lax": el frontend usa URLs

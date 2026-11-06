@@ -1266,7 +1266,6 @@
   let colaTimer = null;
   let colaOrdenar = false;   // JONATHAN F y administradores: prioridad (poner primero)
   let colaPausar = false;    // JONATHAN F y administradores: pausa
-  let colaSinConexion = null;   // sin nadie conectado: a quién irá por turno
   let colaPedido = 0;
   const sinAnimar = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1292,7 +1291,6 @@
       agentes = j.agentes || [];
       colaOrdenar = !!j.puede_ordenar;
       colaPausar = !!j.puede_pausar;
-      colaSinConexion = j.siguiente_sin_conexion || null;
     } catch (e) {
       if (pedido === colaPedido && !lista.children.length) {
         lista.innerHTML = '<li class="trf-cola-vacia">No se pudo cargar la cola.</li>';
@@ -1342,15 +1340,8 @@
     // En pausa: siguen en la lista con su lugar, pero la transferencia va al primero sin pausa.
     if (!agentes.some(recibe)) {
       if (!agentes.length) lista.innerHTML = '<li class="trf-cola-vacia">Ningún agente de ' + esc(DESTINO_LABEL) + ' está conectado.</li>';
-      // Igual se puede transferir: va al siguiente por turno y le llega al conectarse.
-      if (colaSinConexion) {
-        if (asigna) asigna.innerHTML = '<span>Nadie de ' + esc(DESTINO_LABEL) + ' disponible (conectado, DISPO y sin pausa). Se asignará por turno a</span> <b>' + esc(colaSinConexion.nombre) +
-          '</b> <small>' + esc(String(colaSinConexion.team).replace(/^TEAM\s+/i, '')) + ' · le llegará al conectarse</small>';
-        if (btn) btn.disabled = false;
-      } else {
-        if (asigna) asigna.innerHTML = '<i class="ph ph-warning" aria-hidden="true"></i> No hay agentes de ' + esc(DESTINO_LABEL) + ': no se puede transferir ahora.';
-        if (btn) btn.disabled = true;
-      }
+      if (asigna) asigna.innerHTML = '<i class="ph ph-warning" aria-hidden="true"></i> Nadie de ' + esc(DESTINO_LABEL) + ' está conectado y en DISPO: no se puede transferir ahora.';
+      if (btn) btn.disabled = true;
       if (!agentes.length) return;
     } else if (btn) btn.disabled = false;
     const sig = agentes.find(recibe);

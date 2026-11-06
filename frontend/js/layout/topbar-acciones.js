@@ -367,7 +367,7 @@
     if (cont) iniciar(cont);
     // Centro de notificaciones (una conexión en vivo por navegador) y, sobre él, los avisos
     // de faltas de Monitoreo. async=false: se ejecutan en este orden.
-    ['/js/core/notificaciones.js?v=20261105a', '/js/componentes/aviso-faltas.js?v=20261026d', '/js/componentes/aviso-transferencias.js?v=20261031b', '/js/componentes/tickets.js?v=20261105a'].forEach(function (src) {
+    ['/js/core/inactivity-manager.js?v=20261106a', '/js/core/notificaciones.js?v=20261105a', '/js/componentes/aviso-faltas.js?v=20261026d', '/js/componentes/aviso-transferencias.js?v=20261031b', '/js/componentes/tickets.js?v=20261105a'].forEach(function (src) {
       var s = document.createElement('script');
       s.src = src;
       s.async = false;
