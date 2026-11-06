@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
   <link rel="stylesheet" href="/css/base/sistema.css?v=20261105a">
   <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
-  <link rel="stylesheet" href="/css/residencial/estadisticas.css?v=20261105a">
+  <link rel="stylesheet" href="/css/residencial/estadisticas.css?v=20261106a">
   <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
   <script src="/js/layout/transicion.js?v=20261105a"></script>
   <script src="/vendor/chartjs/chart.umd.min.js"></script>
@@ -132,7 +132,7 @@
       <div class="es-card-head">
         <div>
           <h2 id="es-cx-t">Cantidad de CXC Xfinity</h2>
-          <p id="es-cx-sub">Del mes</p>
+          <p id="es-cx-sub">Del día</p>
         </div>
         <div class="es-tabs" role="tablist" aria-label="Ver CXC Xfinity">
           <button type="button" role="tab" class="es-tab" id="es-cx-tab-team" aria-selected="true" aria-controls="es-cx-pan-team">Por team</button>
@@ -141,14 +141,14 @@
       </div>
       <div class="es-scroll" id="es-cx-pan-team" role="tabpanel" aria-labelledby="es-cx-tab-team">
         <table class="es-tbl es-cx-tbl">
-          <thead><tr><th scope="col" class="es-izq">Team</th><th scope="col">CXC</th></tr></thead>
-          <tbody id="cxc-team-body"><tr><td colspan="2" class="es-vacio">Cargando…</td></tr></tbody>
+          <thead><tr><th scope="col" class="es-izq">Team</th><th scope="col">Día</th><th scope="col">Mes</th></tr></thead>
+          <tbody id="cxc-team-body"><tr><td colspan="3" class="es-vacio">Cargando…</td></tr></tbody>
         </table>
       </div>
       <div class="es-scroll" id="es-cx-pan-ag" role="tabpanel" aria-labelledby="es-cx-tab-ag" hidden>
         <table class="es-tbl es-cx-tbl">
-          <thead><tr><th scope="col" class="es-izq">Agente</th><th scope="col">CXC</th></tr></thead>
-          <tbody id="cxc-ag-body"><tr><td colspan="2" class="es-vacio">Cargando…</td></tr></tbody>
+          <thead><tr><th scope="col" class="es-izq">Agente</th><th scope="col">Día</th><th scope="col">Mes</th></tr></thead>
+          <tbody id="cxc-ag-body"><tr><td colspan="3" class="es-vacio">Cargando…</td></tr></tbody>
         </table>
       </div>
       <p class="es-cx-estado" id="es-cx-estado" role="status" aria-live="polite"></p>
@@ -261,7 +261,7 @@
     var d=aFecha(ds), cambiaMes=(d.getFullYear()!==cY||d.getMonth()+1!==cM);
     selDia=ds;cY=d.getFullYear();cM=d.getMonth()+1;
     updateDisplay();refrescarSubtitulo();
-    loadWeekendRotation().then(function(){ if(cambiaMes)load(); else rerender(); });
+    loadWeekendRotation().then(function(){ if(cambiaMes)load(); else{ rerender(); loadCxc(); } });
   }
   function pasoDia(n){var d=aFecha(selDia);d.setDate(d.getDate()+n);irADia(fStr(d));}
   function elegirMes(ms){
@@ -693,18 +693,20 @@
   // cada número se guarda al salir de la casilla (o con Enter).
   var _cx=null, _cxPend=false;
   function sinTeam(t){ return String(t||'').replace(/^TEAM\s+/i,'')||t; }
+  function dCorto(ds){ var p=String(ds).split('-'); return (+p[2])+'/'+(+p[1])+'/'+p[0]; }
   async function loadCxc(){
-    var ms=mStr(cY,cM);
+    var dia=diaSel();
     try{
-      var res=await fetch('/api/cxc-xfinity?month='+ms,{credentials:'include'});
+      var res=await fetch('/api/cxc-xfinity?fecha='+dia,{credentials:'include'});
       if(!res.ok)throw new Error(res.status);
       var j=await res.json();
-      if(ms!==mStr(cY,cM))return;          // cambiaron de mes mientras cargaba
+      if(dia!==diaSel())return;            // cambiaron de día mientras cargaba
       _cx=j;
     }catch(_){
+      if(dia!==diaSel())return;
       _cx=null;
       ['cxc-team-body','cxc-ag-body'].forEach(function(id){
-        $(id).innerHTML='<tr><td colspan="2" class="es-vacio">No se pudo cargar la tabla</td></tr>';
+        $(id).innerHTML='<tr><td colspan="3" class="es-vacio">No se pudo cargar la tabla</td></tr>';
       });
       return;
     }
@@ -714,14 +716,21 @@
     var v=(_cx.valores||[]).find(function(x){return x.tipo===tipo&&String(x.clave)===String(clave);});
     return v?(+v.cantidad||0):0;
   }
-  function cxCelda(tipo,clave,nombre,team,valor){
-    if(!_cx.puede_editar) return '<td class="es-n es-n-dest">'+(valor||'')+'</td>';
-    return '<td class="es-n"><input type="number" min="0" max="100000" step="1" inputmode="numeric" class="es-cx-in"'+
-      ' data-tipo="'+tipo+'" data-clave="'+esc(clave)+'" data-nombre="'+esc(nombre)+'" data-team="'+esc(team||'')+'"'+
-      ' value="'+(valor||'')+'" aria-label="CXC de '+esc(nombre)+'"></td>';
+  function cxMes(tipo,clave){
+    var v=(_cx.mes||[]).find(function(x){return x.tipo===tipo&&String(x.clave)===String(clave);});
+    return v?(+v.total||0):0;
   }
-  function cxTotal(n,etiqueta){
-    return '<tr class="es-total es-cx-total"><th scope="row" class="es-izq">'+etiqueta+'</th><td class="es-n" data-cx-total>'+n+'</td></tr>';
+  // Casillas de una fila: Día (editable) y Mes (suma de sus días, solo lectura).
+  function cxCeldas(tipo,clave,nombre,team){
+    var valor=cxValor(tipo,clave), mes=cxMes(tipo,clave);
+    var celdaMes='<td class="es-n es-cx-mes" data-cx-mes>'+(mes||'')+'</td>';
+    if(!_cx.puede_editar) return '<td class="es-n es-n-dest">'+(valor||'')+'</td>'+celdaMes;
+    return '<td class="es-n"><input type="number" min="0" max="100000" step="1" inputmode="numeric" class="es-cx-in"'+
+      ' data-fecha="'+esc(_cx.fecha)+'" data-tipo="'+tipo+'" data-clave="'+esc(clave)+'" data-nombre="'+esc(nombre)+'" data-team="'+esc(team||'')+'"'+
+      ' data-base="'+Math.max(0,mes-valor)+'" value="'+(valor||'')+'" aria-label="CXC de '+esc(nombre)+' el '+dCorto(_cx.fecha)+'"></td>'+celdaMes;
+  }
+  function cxTotal(dia,mes,etiqueta){
+    return '<tr class="es-total es-cx-total"><th scope="row" class="es-izq">'+etiqueta+'</th><td class="es-n" data-cx-total>'+dia+'</td><td class="es-n" data-cx-total-mes>'+mes+'</td></tr>';
   }
   function renderCxc(){
     if(!_cx)return;
@@ -729,50 +738,58 @@
     var act=document.activeElement;
     if(act&&act.classList&&act.classList.contains('es-cx-in')){ _cxPend=true; return; }
     _cxPend=false;
-    var d=aFecha(diaSel());
-    setT('es-cx-sub', MN[d.getMonth()]+' '+d.getFullYear()+(_cx.puede_editar?' · escribe el número y se guarda solo':''));
+    var d=aFecha(_cx.fecha);
+    setT('es-cx-sub', 'Día '+dCorto(_cx.fecha)+' · Mes: '+MN[d.getMonth()]+' '+d.getFullYear()+(_cx.puede_editar?' · escribe el número y se guarda solo':''));
 
-    // Por team: teams de venta + los que tienen dato guardado aunque ya no existan.
+    // Por team: teams de venta + los que tienen dato en el mes aunque ya no existan.
     var teams=(_cx.teams||[]).slice();
-    (_cx.valores||[]).forEach(function(v){ if(v.tipo==='team'&&teams.indexOf(v.clave)===-1)teams.push(v.clave); });
-    var totT=0;
+    (_cx.mes||[]).forEach(function(v){ if(v.tipo==='team'&&teams.indexOf(v.clave)===-1)teams.push(v.clave); });
+    var totT=0, totTM=0;
     var filasT=teams.map(function(t){
-      var v=cxValor('team',t); totT+=v;
-      return '<tr>'+celdaEquipo(t,sinTeam(t))+cxCelda('team',t,t,t,v)+'</tr>';
+      totT+=cxValor('team',t); totTM+=cxMes('team',t);
+      return '<tr>'+celdaEquipo(t,sinTeam(t))+cxCeldas('team',t,t,t)+'</tr>';
     });
-    $('cxc-team-body').innerHTML=teams.length ? filasT.join('')+cxTotal(totT,'Total')
-      : '<tr><td colspan="2" class="es-vacio">No hay teams de venta</td></tr>';
+    $('cxc-team-body').innerHTML=teams.length ? filasT.join('')+cxTotal(totT,totTM,'Total')
+      : '<tr><td colspan="3" class="es-vacio">No hay teams de venta</td></tr>';
 
     // Por agente: agrupados por team, con subtotal en la fila del team.
     var ags=(_cx.agentes||[]).slice(), ids={};
     ags.forEach(function(a){ids[a.id]=1;});
-    (_cx.valores||[]).forEach(function(v){
+    (_cx.mes||[]).forEach(function(v){
       if(v.tipo==='agente'&&!ids[v.clave])ags.push({id:v.clave,nombre:v.nombre,team:v.team||'Sin team'});
     });
     var grupos={}, orden=[];
     ags.forEach(function(a){ var t=a.team||'Sin team'; if(!grupos[t]){grupos[t]=[];orden.push(t);} grupos[t].push(a); });
     orden.sort(function(a,b){return a.localeCompare(b);});
-    var totA=0, filasA=[];
+    var totA=0, totAM=0, filasA=[];
     orden.forEach(function(t){
-      var sub=grupos[t].reduce(function(a,x){return a+cxValor('agente',x.id);},0);
-      totA+=sub;
-      filasA.push('<tr class="es-cx-grupo"><th scope="rowgroup" class="es-izq">'+esc(sinTeam(t))+'</th><td class="es-n" data-cx-sub="'+esc(t)+'">'+(sub||'')+'</td></tr>');
+      var sub=0, subM=0;
+      grupos[t].forEach(function(x){ sub+=cxValor('agente',x.id); subM+=cxMes('agente',x.id); });
+      totA+=sub; totAM+=subM;
+      filasA.push('<tr class="es-cx-grupo"><th scope="rowgroup" class="es-izq">'+esc(sinTeam(t))+'</th><td class="es-n" data-cx-sub="'+esc(t)+'">'+(sub||'')+'</td><td class="es-n" data-cx-sub-mes="'+esc(t)+'">'+(subM||'')+'</td></tr>');
       grupos[t].forEach(function(a){
-        filasA.push('<tr><th scope="row" class="es-izq es-cx-ag">'+esc(a.nombre)+'</th>'+cxCelda('agente',a.id,a.nombre,t,cxValor('agente',a.id))+'</tr>');
+        filasA.push('<tr><th scope="row" class="es-izq es-cx-ag">'+esc(a.nombre)+'</th>'+cxCeldas('agente',a.id,a.nombre,t)+'</tr>');
       });
     });
-    $('cxc-ag-body').innerHTML=ags.length ? filasA.join('')+cxTotal(totA,'Total')
-      : '<tr><td colspan="2" class="es-vacio">No hay agentes de Residencial</td></tr>';
+    $('cxc-ag-body').innerHTML=ags.length ? filasA.join('')+cxTotal(totA,totAM,'Total')
+      : '<tr><td colspan="3" class="es-vacio">No hay agentes de Residencial</td></tr>';
   }
   // Totales en vivo mientras se escribe (sin esperar a guardar).
   function cxRecalcular(body){
-    var tot=0, subs={};
+    var tot=0, totM=0, subs={}, subsM={};
     body.querySelectorAll('.es-cx-in').forEach(function(i){
-      var v=Math.max(0,parseInt(i.value,10)||0); tot+=v;
-      if(i.dataset.tipo==='agente'){ subs[i.dataset.team]=(subs[i.dataset.team]||0)+v; }
+      var v=Math.max(0,parseInt(i.value,10)||0), m=(+i.dataset.base||0)+v;
+      tot+=v; totM+=m;
+      var celda=i.closest('tr').querySelector('[data-cx-mes]'); if(celda)celda.textContent=m||'';
+      if(i.dataset.tipo==='agente'){
+        subs[i.dataset.team]=(subs[i.dataset.team]||0)+v;
+        subsM[i.dataset.team]=(subsM[i.dataset.team]||0)+m;
+      }
     });
     var t=body.querySelector('[data-cx-total]'); if(t)t.textContent=tot;
+    var tm=body.querySelector('[data-cx-total-mes]'); if(tm)tm.textContent=totM;
     body.querySelectorAll('[data-cx-sub]').forEach(function(c){ c.textContent=subs[c.getAttribute('data-cx-sub')]||''; });
+    body.querySelectorAll('[data-cx-sub-mes]').forEach(function(c){ c.textContent=subsM[c.getAttribute('data-cx-sub-mes')]||''; });
   }
   var _cxTimer=null;
   function cxEstado(txt,error){
@@ -782,16 +799,23 @@
   async function cxGuardar(inp){
     var n=inp.value===''?0:parseInt(inp.value,10);
     if(isNaN(n)||n<0||n>100000){ cxEstado('Escribe un número entero entre 0 y 100000.',true); inp.focus(); return; }
-    var body={month:mStr(cY,cM),tipo:inp.dataset.tipo,clave:inp.dataset.clave,nombre:inp.dataset.nombre,team:inp.dataset.team,cantidad:n||null};
-    var previo=cxValor(body.tipo,body.clave);
+    // La fecha es la de la casilla: al cambiar de día, el «change» llega antes de recargar.
+    var body={fecha:inp.dataset.fecha,tipo:inp.dataset.tipo,clave:inp.dataset.clave,nombre:inp.dataset.nombre,team:inp.dataset.team,cantidad:n||null};
+    var mismoDia=_cx&&_cx.fecha===body.fecha;
+    var previo=mismoDia?cxValor(body.tipo,body.clave):null;
     if(previo===n)return;
     cxEstado('Guardando…');
     try{
       var res=await fetch('/api/cxc-xfinity',{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       if(!res.ok)throw new Error(res.status===403?'No tienes permiso para editar esta tabla.':'No se guardó. Revisa la conexión y vuelve a intentarlo.');
-      var vs=_cx.valores=(_cx.valores||[]).filter(function(x){return !(x.tipo===body.tipo&&String(x.clave)===String(body.clave));});
-      if(n)vs.push({tipo:body.tipo,clave:body.clave,nombre:body.nombre,team:body.team,cantidad:n});
-      cxEstado('Guardado: '+sinTeam(body.nombre)+' = '+(n||'vacío'));
+      if(_cx&&_cx.fecha===body.fecha){
+        var vs=_cx.valores=(_cx.valores||[]).filter(function(x){return !(x.tipo===body.tipo&&String(x.clave)===String(body.clave));});
+        if(n)vs.push({tipo:body.tipo,clave:body.clave,nombre:body.nombre,team:body.team,cantidad:n});
+        var base=+inp.dataset.base||0;
+        var ms=_cx.mes=(_cx.mes||[]).filter(function(x){return !(x.tipo===body.tipo&&String(x.clave)===String(body.clave));});
+        if(base+n)ms.push({tipo:body.tipo,clave:body.clave,nombre:body.nombre,team:body.team,total:base+n});
+      }
+      cxEstado('Guardado: '+sinTeam(body.nombre)+' el '+dCorto(body.fecha)+' = '+(n||'vacío'));
     }catch(e){
       cxEstado(e.message||'No se guardó.',true);
     }

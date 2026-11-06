@@ -666,6 +666,29 @@ _MIGRATIONS: list[tuple[str, str]] = [
         subido_por VARCHAR(150) NOT NULL,
         INDEX idx_ta_ticket (ticket_id)
     ) ENGINE=InnoDB"""),
+    # CXC Xfinity pasa a ser por día (conserva el historial; ver routers/cxc_xfinity.py).
+    ("0103_create_cxc_xfinity_dia", """CREATE TABLE IF NOT EXISTS cxc_xfinity_dia (
+        fecha           DATE         NOT NULL,
+        tipo            VARCHAR(10)  NOT NULL,
+        clave           VARCHAR(150) NOT NULL,
+        nombre          VARCHAR(150) NOT NULL,
+        team            VARCHAR(150) NULL,
+        cantidad        INT          NOT NULL DEFAULT 0,
+        actualizado_por VARCHAR(150) NULL,
+        updated_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (fecha, tipo, clave),
+        INDEX idx_cxd_tipo_fecha (tipo, fecha)
+    ) ENGINE=InnoDB"""),
+    # Lo cargado por mes pasa al día en que se escribió (hora de El Salvador), o al último
+    # día de su mes si se escribió en otro mes: así el total del mes no cambia. La tabla
+    # cxc_xfinity queda intacta como respaldo.
+    ("0104_copiar_cxc_xfinity_a_dia", """INSERT IGNORE INTO cxc_xfinity_dia
+        (fecha, tipo, clave, nombre, team, cantidad, actualizado_por, updated_at)
+        SELECT IF(DATE_FORMAT(updated_at - INTERVAL 6 HOUR, '%Y-%m') = ym,
+                  DATE(updated_at - INTERVAL 6 HOUR),
+                  LAST_DAY(CONCAT(ym, '-01'))),
+               tipo, clave, nombre, team, cantidad, actualizado_por, updated_at
+        FROM cxc_xfinity"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración
