@@ -2052,7 +2052,9 @@
   async function fetchBootstrap(monthParam){
     var m=monthParam!==undefined?monthParam:getVal('monthFilter');
     var qs='';
-    if(m==='__all')qs='?allData=true';
+    // «Todos» pide el tope del backend: con las 5000 filas por defecto solo llegaban las más
+    // recientes y la pestaña Active perdía más de la mitad de las ventas.
+    if(m==='__all')qs='?allData=true&limit=20000';
     else if(m)qs='?month='+encodeURIComponent(m);
     // Solo equipos de VENTA residencial en los filtros (el backend clasifica la sección)
     qs += (qs?'&':'?')+'seccion=residencial&salesTeams=1&por='+(__mesPorVenta?'venta':'instalacion');
