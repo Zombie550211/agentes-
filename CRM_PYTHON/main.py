@@ -693,6 +693,11 @@ _MIGRATIONS: list[tuple[str, str]] = [
     ("0105_motivo_cxc_xfinity", """INSERT IGNORE INTO catalogos (tipo, valor, label, orden)
         SELECT 'motivo', 'CXC XFINITY', 'CXC Xfinity', COALESCE(MAX(orden), -1) + 1
         FROM catalogos WHERE tipo = 'motivo'"""),
+    # Reasignar una transferencia al agente que de verdad cerró la venta
+    # (routers/transferencias.py, POST /{id}/reasignar; solo supervisores y administración).
+    ("0106_transferencias_reasignada", """ALTER TABLE transferencias_llamadas
+        ADD COLUMN reasignada_de VARCHAR(150) NULL, ADD COLUMN reasignada_por VARCHAR(150) NULL,
+        ADD COLUMN reasignada_at DATETIME NULL, ADD COLUMN reasignada_motivo VARCHAR(300) NULL"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración

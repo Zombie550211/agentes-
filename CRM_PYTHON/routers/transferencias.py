@@ -150,14 +150,17 @@ async def _puede_cerrar(s, user: dict, row) -> bool:
     return bool(mi_team) and mi_team.lower() == str(row["team_destino"] or "").strip().lower()
 
 
-async def _agentes_por_team(s, seccion_destino: str) -> dict[str, list[dict]]:
-    """Agentes activos de los teams de la sección indicada, agrupados por team."""
-    r = await s.execute(text("""
+async def _agentes_por_team(s, seccion_destino: str, incluir_excluidos: bool = False) -> dict[str, list[dict]]:
+    """Agentes activos de los teams de la sección indicada, agrupados por team.
+    `incluir_excluidos`: también los apartados de transferencias (para reasignar una ya hecha)."""
+    excluidos = "" if incluir_excluidos else \
+        "AND id NOT IN (SELECT user_id FROM transferencias_excluidos WHERE hasta >= :hoy)"
+    r = await s.execute(text(f"""
         SELECT id, username, name, role, TRIM(team) AS team FROM users
         WHERE COALESCE(active, 1) = 1 AND team IS NOT NULL AND TRIM(team) != ''
           AND COALESCE(acceso_crm, 1) = 1   -- sin usuario no puede atender la transferencia
           -- Apartados de transferencias hasta una fecha (tabla transferencias_excluidos, 0088)
-          AND id NOT IN (SELECT user_id FROM transferencias_excluidos WHERE hasta >= :hoy)
+          {excluidos}
         ORDER BY TRIM(team), username
     """), {"hoy": _hoy_sv()})
     teams: dict[str, list[dict]] = {}
@@ -392,6 +395,87 @@ async def tomar(tid: int, user: dict = Depends(current_user)):
         await s.commit()
     realtime.avisar_cola()
     return {"success": True, "message": f"La tomaste: tienes {PROTECCION_H} h para gestionarla"}
+
+
+# ── Reasignar: la transferencia pasa al agente que de verdad cerró la venta ─────
+class ReasignarIn(BaseModel):
+    agente_id: int = Field(..., gt=0)
+    motivo: Optional[str] = Field(None, max_length=300)
+
+
+async def _puede_reasignar(s, user: dict, team_destino: str, team_nuevo: str = "") -> bool:
+    """Administración (ver todas) siempre; un supervisor, si la transferencia la recibió su
+    team o el agente al que se pasa es de su team."""
+    if rbac.tiene(user, "transferencias.ver_todas"):
+        return True
+    if not rbac.tiene(user, "transferencias.su_equipo"):
+        return False
+    mi_team = (await _mi_team(s, user)).lower()
+    return bool(mi_team) and mi_team in {str(team_destino or "").strip().lower(),
+                                         str(team_nuevo or "").strip().lower()}
+
+
+@router.get("/{tid}/candidatos")
+async def candidatos_reasignar(tid: int, user: dict = Depends(current_user)):
+    """Agentes del departamento que recibió la transferencia, para reasignarla."""
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("SELECT seccion_origen, team_destino, agente_destino_id "
+                                 "FROM transferencias_llamadas WHERE id = :id"), {"id": tid})
+        t = r.mappings().first()
+        if not t:
+            raise HTTPException(404, "Transferencia no encontrada")
+        gestion = rbac.tiene(user, "transferencias.ver_todas")
+        if not gestion and not rbac.tiene(user, "transferencias.su_equipo"):
+            raise HTTPException(403, "Solo supervisores y administración pueden reasignar")
+        teams = await _agentes_por_team(s, _contraria(t["seccion_origen"]), incluir_excluidos=True)
+        mi_team = "" if gestion else (await _mi_team(s, user)).lower()
+    propia = gestion or mi_team == str(t["team_destino"] or "").strip().lower()
+    salida = []
+    for team, agentes in teams.items():
+        # Un supervisor de otro team solo puede pasarla a un agente suyo.
+        if not propia and team.lower() != mi_team:
+            continue
+        lista = [a for a in agentes if a["id"] != t["agente_destino_id"]]
+        if lista:
+            salida.append({"team": team, "agentes": lista})
+    return {"success": True, "teams": salida}
+
+
+@router.post("/{tid}/reasignar")
+async def reasignar(tid: int, body: ReasignarIn, user: dict = Depends(current_user)):
+    async with _cola_lock, AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            SELECT seccion_origen, agente_destino_id, agente_destino_nombre, team_destino, resultado
+            FROM transferencias_llamadas WHERE id = :id"""), {"id": tid})
+        t = r.mappings().first()
+        if not t:
+            raise HTTPException(404, "Transferencia no encontrada")
+        if body.agente_id == t["agente_destino_id"]:
+            raise HTTPException(400, "Ese agente ya es quien la tiene asignada")
+        teams = await _agentes_por_team(s, _contraria(t["seccion_origen"]), incluir_excluidos=True)
+        nuevo = next(({**a, "team": team} for team, ag in teams.items() for a in ag
+                      if a["id"] == body.agente_id), None)
+        if not nuevo:
+            raise HTTPException(400, "Ese agente no es del departamento que recibió la transferencia")
+        if not await _puede_reasignar(s, user, t["team_destino"], nuevo["team"]):
+            raise HTTPException(403, "Solo supervisores (de su team) y administración pueden reasignar")
+        ahora = _utcnow()
+        await s.execute(text("""
+            UPDATE transferencias_llamadas
+               SET agente_destino_id = :aid, agente_destino_nombre = :nombre, team_destino = :team,
+                   -- Si sigue pendiente, el nuevo agente recibe su propia protección.
+                   asignada_at = IF(resultado IS NULL, :ahora, asignada_at),
+                   libre_aviso_at = IF(resultado IS NULL, NULL, libre_aviso_at),
+                   reasignada_de = :de, reasignada_por = :por, reasignada_at = :ahora,
+                   reasignada_motivo = :motivo
+             WHERE id = :id"""), {
+            "aid": nuevo["id"], "nombre": nuevo["nombre"], "team": nuevo["team"], "ahora": ahora,
+            "de": (t["agente_destino_nombre"] or "").strip() or None,
+            "por": (user.get("name") or user.get("username") or "").strip(),
+            "motivo": (body.motivo or "").strip() or None, "id": tid})
+        await s.commit()
+    realtime.avisar_cola()
+    return {"success": True, "message": f"Transferencia reasignada a {nuevo['nombre']}"}
 
 
 async def _avisar_liberadas() -> int:
@@ -853,6 +937,8 @@ async def listar(seccion: str, desde: str = "", hasta: str = "", buscar: str = "
                    t.agente_destino_nombre, t.created_by, t.created_by_nombre,
                    t.created_by_team, t.resultado, t.resultado_nota, t.lineas,
                    t.captura_file_id, t.resultado_por, t.valor_linea,
+                   t.reasignada_de, t.reasignada_por, t.reasignada_motivo,
+                   DATE_FORMAT(t.reasignada_at, '%Y-%m-%dT%H:%i:%sZ') AS reasignada_at,
                    (t.resultado = 'completada' AND t.moneda_vista_at IS NULL) AS moneda_pendiente,
                    DATE_FORMAT(t.resultado_at, '%Y-%m-%dT%H:%i:%sZ') AS resultado_at,
                    DATE_FORMAT(t.created_at, '%Y-%m-%dT%H:%i:%sZ') AS created_at,
@@ -892,6 +978,10 @@ async def listar(seccion: str, desde: str = "", hasta: str = "", buscar: str = "
         receptor = f["agente_destino_id"] == yo_id or (
             bool(mi_team_sup) and str(f["team_destino"] or "").strip().lower() == mi_team_sup)
         f["puede_registrar"] = gestion or (receptor and f["resultado"] != "completada")
+        # Reasignar (al agente que cerró la venta): administración, o el supervisor del team
+        # que la recibió. Un supervisor de otro team lo hace desde la búsqueda/lista igual:
+        # el servidor lo deja si el agente nuevo es suyo (ver _puede_reasignar).
+        f["puede_reasignar"] = gestion or (bool(mi_team_sup) and f["direccion_tipo"] == "recibida")
         # Supervisor: puede poner las líneas que falten en las ventas de su team.
         f["puede_lineas"] = (gestion or receptor) and f["resultado"] == "completada" and \
             f["seccion_origen"] == "residencial" and not f["lineas"]

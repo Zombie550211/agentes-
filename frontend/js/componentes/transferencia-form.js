@@ -617,7 +617,15 @@
           // Motivo largo: caja de alto fijo con scroll propio, para que la fila no crezca.
           '<td data-l="Motivo" class="trf-motivo"><div class="trf-motivo-txt" tabindex="0" aria-label="Motivo de la llamada">' + esc(f.motivo) + '</div></td>' +
           '<td data-l="De">' + recorte(f.created_by_nombre || f.created_by, 'span') + recorte(f.created_by_team || '', 'small', 1) + '</td>' +
-          '<td data-l="Para">' + recorte(f.agente_destino_nombre, 'span') + recorte(f.team_destino, 'small', 1) + '</td>' +
+          // Reasignada: arriba quien la recibió y debajo «Reasignado a» quien la tiene ahora.
+          '<td data-l="Para">' + (f.reasignada_de
+            ? recorte(f.reasignada_de, 'span') +
+              '<small class="trf-reasig-nota" title="' + esc('Reasignada por ' + (f.reasignada_por || '') + ' · ' + fmtFecha(f.reasignada_at) + (f.reasignada_motivo ? '\n' + f.reasignada_motivo : '')) + '">' +
+                '<i class="fas fa-right-left"></i> Reasignado a ' + esc(f.agente_destino_nombre || '') + '</small>' +
+              recorte(f.team_destino, 'small', 1)
+            : recorte(f.agente_destino_nombre, 'span') + recorte(f.team_destino, 'small', 1)) +
+            (f.puede_reasignar ? '<button type="button" class="trf-res-btn trf-reasig-btn" data-trf-reasig="' + esc(f.id) + '" title="Pasar la transferencia al agente que cerró la venta">' +
+              '<i class="fas fa-right-left"></i> Reasignar</button>' : '') + '</td>' +
           '<td data-l="Resultado" class="trf-res-cel">' + celdaResultado(f) + '</td>' +
           '<td data-l="Protegido" class="trf-prot-cel">' + celdaProtegido(f) + '</td>' +
         '</tr>';
@@ -632,6 +640,12 @@
     box.querySelectorAll('[data-trf-tomar]').forEach(function (b) {
       b.dataset.ok = '1';
       b.addEventListener('click', function () { tomarTransferencia(b); });
+    });
+    box.querySelectorAll('[data-trf-reasig]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        const f = origen.find((x) => String(x.id) === b.getAttribute('data-trf-reasig'));
+        if (f) dialogoReasignar(f);
+      });
     });
     box.querySelectorAll('[data-trf-lin]').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -1101,6 +1115,76 @@
 
   /** Diálogo para indicar las líneas de una o varias ventas completadas. Obligatorio (el
    *  aviso) no se puede cerrar; si no, lleva Cancelar (botón "Indicar líneas" de la fila). */
+  // ── Reasignar: pasa la transferencia al agente que de verdad cerró la venta ──
+  // Solo supervisores y administración (el servidor lo vuelve a comprobar).
+  async function dialogoReasignar(f) {
+    const fondo = document.createElement('div');
+    fondo.className = 'trf-dlg-fondo';
+    fondo.innerHTML =
+      '<form class="trf-dlg" role="dialog" aria-modal="true" aria-labelledby="trf-reasig-t" novalidate>' +
+        '<h3 class="trf-dlg-t" id="trf-reasig-t"><i class="fas fa-right-left"></i> Reasignar transferencia</h3>' +
+        '<p class="trf-dlg-sub">' + esc(f.nombre_cliente || '') + ' · hoy la tiene <b>' + esc(f.agente_destino_nombre || 'nadie') + '</b>' +
+          (f.resultado ? ' (' + esc((RESULTADOS[f.resultado] || {}).label || f.resultado) + ')' : '') +
+          '. Pásala al agente que cerró la venta: el resultado y la venta cuentan para él.</p>' +
+        '<div class="trf-field"><label for="trf-reasig-ag">Agente que la cerró</label><select id="trf-reasig-ag" data-trf-reasig-ag required><option value="">Cargando agentes…</option></select></div>' +
+        '<div class="trf-field trf-reasig-mot"><label for="trf-reasig-mot">Motivo (opcional)</label><input id="trf-reasig-mot" type="text" maxlength="300" data-trf-reasig-mot placeholder="Ej.: el cliente volvió a llamar y la cerró otro agente"></div>' +
+        '<div class="trf-msg" role="status" aria-live="polite"></div>' +
+        '<div class="trf-dlg-acc">' +
+          '<button type="button" class="trf-btn-sec" data-trf-cerrar>Cancelar</button>' +
+          '<button type="submit" class="trf-btn" disabled><i class="fas fa-right-left"></i> Reasignar</button>' +
+        '</div>' +
+      '</form>';
+    document.body.appendChild(fondo);
+    const cerrar = () => fondo.remove();
+    fondo.querySelector('[data-trf-cerrar]').addEventListener('click', cerrar);
+    fondo.addEventListener('click', (e) => { if (e.target === fondo) cerrar(); });
+    fondo.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrar(); });
+    const sel = fondo.querySelector('[data-trf-reasig-ag]');
+    const msg = fondo.querySelector('.trf-msg');
+    const btn = fondo.querySelector('button[type="submit"]');
+    sel.focus();
+    try {
+      const r = await fetch('/api/transferencias/' + encodeURIComponent(f.id) + '/candidatos');
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(typeof j.detail === 'string' ? j.detail : 'No se pudieron cargar los agentes');
+      const teams = j.teams || [];
+      sel.innerHTML = '<option value="">' + (teams.length ? 'Elige el agente' : 'No hay agentes disponibles') + '</option>' +
+        teams.map(function (t) {
+          return '<optgroup label="' + esc(t.team) + '">' + t.agentes.map(function (a) {
+            return '<option value="' + esc(a.id) + '">' + esc(a.nombre) + '</option>';
+          }).join('') + '</optgroup>';
+        }).join('');
+      btn.disabled = !teams.length;
+    } catch (e) {
+      sel.innerHTML = '<option value="">—</option>';
+      msg.className = 'trf-msg err';
+      msg.textContent = e.message;
+    }
+    fondo.querySelector('form').addEventListener('submit', async function (ev) {
+      ev.preventDefault();
+      if (!sel.value) { msg.className = 'trf-msg err'; msg.textContent = 'Elige el agente que cerró la venta'; sel.focus(); return; }
+      btn.disabled = true;
+      msg.className = 'trf-msg';
+      try {
+        const r = await fetch('/api/transferencias/' + encodeURIComponent(f.id) + '/reasignar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agente_id: parseInt(sel.value, 10), motivo: fondo.querySelector('[data-trf-reasig-mot]').value.trim() || null }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(typeof j.detail === 'string' ? j.detail : 'No se pudo reasignar');
+        cerrar();
+        mensaje('ok', j.message || 'Transferencia reasignada');
+        cargarHistorial();
+        if (typeof cargarRanking === 'function') cargarRanking();
+      } catch (e) {
+        btn.disabled = false;
+        msg.className = 'trf-msg err';
+        msg.textContent = e.message;
+      }
+    });
+  }
+
   function dialogoLineas(filas, obligatorio) {
 
     const fondo = document.createElement('div');
