@@ -1409,6 +1409,8 @@
       puntaje:         g('pts')?parseFloat(g('pts'))||0:'',
       supervisor:      g('sup'),
       agente:          g('agente'),
+      // En todo el CRM manda agente_nombre (COALESCE(agente_nombre, agente)): hay que cambiar ambos.
+      agenteNombre:    g('agente'),
       motivo_llamada:  g('motivo'),
       imagen_url:      imgUrl,
     };
