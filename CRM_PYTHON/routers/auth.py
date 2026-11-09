@@ -445,39 +445,11 @@ def _send_email(to: str, subject: str, html: str):
 
 
 # ── Register ─────────────────────────────────────────────────────
+# Códigos viejos del formulario para áreas sin supervisor. Los teams de venta ya no van aquí:
+# salen de Roles y permisos (equipos_permisos), así un team nuevo no toca el código.
 TEAM_CODE_MAP = {
-    "team_irania": "TEAM IRANIA",
-    "team_bryan": "TEAM BRYAN PLEITEZ",
-    "team_marisol": "TEAM MARISOL BELTRAN",
-    "team_roberto": "TEAM ROBERTO VELASQUEZ",
-    "team_johana": "TEAM JOHANA",
-    "team_lineas": "TEAM LINEAS",
     "backoffice": "Backoffice",
     "administracion": "Administración",
-}
-
-TEAM_SUPERVISOR_MAP = {
-    "TEAM IRANIA":            {"supervisor": "irania.serrano",      "supervisorName": "Irania Serrano"},
-    "TEAM BRYAN PLEITEZ":     {"supervisor": "bryan.pleitez",       "supervisorName": "Bryan Pleitez"},
-    "TEAM MARISOL BELTRAN":   {"supervisor": "marisol.beltran",     "supervisorName": "Marisol Beltrán"},
-    "TEAM ROBERTO VELASQUEZ": {"supervisor": "roberto.velasquez",   "supervisorName": "Roberto Velásquez"},
-    "TEAM JOHANA":            {"supervisor": "johana.supervisor",   "supervisorName": "Guadalupe Santana"},
-    "TEAM LINEAS":            {"supervisor": "jonathan.figueroa",   "supervisorName": "Jonathan Figueroa"},
-    "Backoffice":             {"supervisor": None, "supervisorName": None},
-    "Administración":         {"supervisor": None, "supervisorName": None},
-}
-
-SUPERVISOR_ALIAS_TO_TEAM = {
-    "IRANIA": "TEAM IRANIA",
-    "ROBERTO": "TEAM ROBERTO VELASQUEZ",
-    "MARISOL": "TEAM MARISOL BELTRAN",
-    "PLEITEZ": "TEAM BRYAN PLEITEZ",
-    "BRYAN": "TEAM BRYAN PLEITEZ",
-    "JOHANA": "TEAM JOHANA",
-    "JONATHAN": "TEAM LINEAS",
-    "JONATHAN F": "TEAM LINEAS",
-    "LUIS": "TEAM LINEAS",
-    "LUIS G": "TEAM LINEAS",
 }
 
 
@@ -485,12 +457,6 @@ def _norm_team_key(v: str) -> str:
     s = str(v or "").strip().lower()
     s = unicodedata.normalize("NFD", s).encode("ascii", "ignore").decode()
     return re.sub(r"\s+", " ", s)
-
-
-def _canon_sup_key(v: str) -> str:
-    s = str(v or "").strip()
-    s = unicodedata.normalize("NFD", s).encode("ascii", "ignore").decode()
-    return s.strip().upper()
 
 
 @router.post("/register")
@@ -515,15 +481,22 @@ async def register(body: RegisterBody, user: dict = Depends(rbac.requiere("usuar
         team_key = _norm_team_key(body.team)
         normalized_team = TEAM_CODE_MAP.get(team_key, body.team.strip())
 
-        sup_key = _canon_sup_key(body.supervisor or body.supervisorName)
-        team_from_supervisor = SUPERVISOR_ALIAS_TO_TEAM.get(sup_key, "")
+        # Team y supervisor según Roles y permisos: si viene el supervisor, manda su team; si
+        # viene solo el team, el supervisor es el de ese team.
+        from equipos_permisos import cargar_resolver, clave
+        equipos = await cargar_resolver(s)
+        sup_dado = (body.supervisor or body.supervisorName or "").strip()
+        team_from_supervisor = equipos.por_supervisor.get(clave(sup_dado), "") if sup_dado else ""
         normalized_team_final = team_from_supervisor or normalized_team or ""
-
-        derived_sup = TEAM_SUPERVISOR_MAP.get(normalized_team_final) or {}
-        use_derived = bool(team_from_supervisor)
-
-        sup_name_final = (derived_sup.get("supervisorName") or body.supervisorName or body.supervisor or "").strip() if use_derived else (body.supervisorName or derived_sup.get("supervisorName") or body.supervisor or "").strip()
-        sup_user_final = (derived_sup.get("supervisor") or body.supervisor or "").strip() if use_derived else (body.supervisor or derived_sup.get("supervisor") or "").strip()
+        sup_del_team = ""
+        if not sup_dado and normalized_team_final:
+            r = await s.execute(text("""
+                SELECT username FROM users WHERE TRIM(team) = :t AND LOWER(role) LIKE '%supervisor%'
+                ORDER BY COALESCE(active, 1) DESC, id LIMIT 1
+            """), {"t": normalized_team_final})
+            sup_del_team = (r.scalar() or "").strip()
+        sup_user_final = (body.supervisor or sup_del_team).strip()
+        sup_name_final = (body.supervisorName or "").strip()
 
         res = await s.execute(text("""
             INSERT INTO users (username, password_hash, role, permissions, team, name, email, supervisor, fecha_ingreso)

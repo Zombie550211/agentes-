@@ -69,6 +69,16 @@ def teams_for_date(cfg: dict, d: date):
     return list(entry.get(key) or [])
 
 
+def _con_teams_sin_rotacion(cfg: dict, teams, teams_permisos: list):
+    """Un team creado en Permisos que todavía no está en ningún grupo de la rotación trabaja los
+    dos días del fin de semana: así aparece solo y no queda oculto hasta que lo acomoden."""
+    if teams is None:
+        return None
+    from equipos_permisos import clave
+    en_rotacion = {clave(t) for e in (cfg or {}).get("cycle") or [] for k in ("sat", "sun") for t in (e.get(k) or [])}
+    return list(teams) + [t for t in teams_permisos if clave(t) not in en_rotacion]
+
+
 async def _load_cfg(session) -> dict:
     r = await session.execute(text("SELECT value FROM system_settings WHERE `key` = :k LIMIT 1"), {"k": _KEY})
     row = r.mappings().first()
@@ -105,6 +115,9 @@ async def get_rotation(date_str: Optional[str] = Query(None, alias="date"),
                        user: dict = Depends(current_user)):
     async with AsyncSessionLocal() as s:
         cfg = await _load_cfg(s)
+        # Teams de venta de Residencial según Roles y permisos (los de Líneas no rotan aquí).
+        from equipos_permisos import teams_de_venta
+        teams_permisos = await teams_de_venta(s, "residencial")
     out = {"success": True, "config": cfg}
     if date_str:
         try:
@@ -115,7 +128,7 @@ async def get_rotation(date_str: Optional[str] = Query(None, alias="date"),
                 "isWeekend": wd >= 5,
                 "day": "sat" if wd == 5 else ("sun" if wd == 6 else None),
                 # teams=None → sin filtro (mostrar todos)
-                "teams": teams_for_date(cfg, d),
+                "teams": _con_teams_sin_rotacion(cfg, teams_for_date(cfg, d), teams_permisos),
             }
         except ValueError:
             pass

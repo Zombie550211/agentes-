@@ -81,27 +81,17 @@ def get_time_ago(date) -> str:
     return date.strftime("%d/%m/%Y")
 
 
-_AGENT_TO_SUP: dict = {
-    "josue renderos":    "irania serrano",   "tatiana ayala":    "irania serrano",
-    "giselle diaz":      "irania serrano",   "miguel nunez":     "irania serrano",
-    "roxana martinez":   "irania serrano",   "irania serrano":   "irania serrano",
-    "abigail galdamez":  "bryan pleitez",    "alexander rivera": "bryan pleitez",
-    "diego mejia":       "bryan pleitez",    "evelin garcia":    "bryan pleitez",
-    "fabricio panameno": "bryan pleitez",    "luis chavarria":   "bryan pleitez",
-    "steven varela":     "bryan pleitez",
-    "cindy flores":      "roberto velasquez","daniela bonilla":  "roberto velasquez",
-    "francisco aguilar": "roberto velasquez","levy ceren":        "roberto velasquez",
-    "lisbeth cortez":    "roberto velasquez","lucia ferman":      "roberto velasquez",
-    "nelson ceren":      "roberto velasquez",
-    "anderson guzman":   "johana",           "carlos grande":    "johana",
-    "guadalupe santana": "johana",           "julio chavez":     "johana",
-    "priscila hernandez":"johana",           "riquelmi torres":  "johana",
-}
-
-
-def get_supervisor_agents(supervisor_username: str) -> list:
-    norm = norm_text(supervisor_username)
-    return [agent for agent, sup in _AGENT_TO_SUP.items() if norm_text(sup) == norm]
+async def get_supervisor_agents(supervisor_username: str) -> list:
+    """Agentes del team del supervisor según Roles y permisos (users.team), en minúsculas.
+    Antes era una lista fija: un supervisor nuevo quedaba sin agentes y veía todo."""
+    async with AsyncSessionLocal() as s:
+        r = await s.execute(text("""
+            SELECT LOWER(u.username) AS username, LOWER(COALESCE(u.name, '')) AS name FROM users u
+            JOIN users sup ON TRIM(sup.team) = TRIM(u.team) AND sup.username = :sup
+            WHERE u.team IS NOT NULL AND TRIM(u.team) != '' AND u.username != :sup
+        """), {"sup": supervisor_username})
+        rows = r.mappings().all()
+    return sorted({x for row in rows for x in (row["username"], row["name"]) if x})
 
 
 def _month_range(year: int, month: int):
@@ -141,7 +131,7 @@ async def init_dashboard(user: dict = Depends(current_user)):
     is_adm_or_bo = rbac.tiene(user, "paneles.ver_todo")
 
     start_date, end_date = _month_range(_sv.year, _sv.month)
-    sup_agents = get_supervisor_agents(username) if is_sup else []
+    sup_agents = await get_supervisor_agents(username) if is_sup else []
 
     where  = ["""(
         (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR LEFT(dia_instalacion,7)=LEFT(dia_venta,7)))
@@ -746,7 +736,7 @@ async def recent_activity(user: dict = Depends(current_user)):
     is_sup    = rbac.tiene(user, "paneles.su_equipo")
     is_agent  = "agente" in role or "agent" in role
 
-    sup_agents     = get_supervisor_agents(username) if is_sup else []
+    sup_agents     = await get_supervisor_agents(username) if is_sup else []
     users_for_data = None
     if is_sup:                                    users_for_data = sup_agents
     elif is_agent and not rbac.tiene(user, "paneles.ver_todo"): users_for_data = [username]

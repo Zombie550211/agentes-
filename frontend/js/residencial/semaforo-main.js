@@ -93,11 +93,11 @@
 
   function formatTeamDisplayName(name) {
     try {
+      // Nombre del team como en Permisos, sin «TEAM»: «TEAM IRANIA SERRANO» → «Irania Serrano».
       let v = String(name||'').trim();
       if (!v) return 'Sin equipo';
       if (/^TEAM\s+/i.test(v)) v = v.replace(/^TEAM\s+/i,'').trim();
-      const first = v.split(/\s+/)[0] || v;
-      return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+      return v.toLowerCase().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     } catch(_) { return 'Sin equipo'; }
   }
 
@@ -212,9 +212,8 @@
   function shouldExcludeFromSemaforo(name) {
     try {
       const cleaned = String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase();
-      const base = cleaned.replace(/^TEAM\s+/,'').trim();
-      const first = (base.split(/\s+/)[0]||base).trim();
-      return first==='JONATHAN' || first==='LUIS';
+      // Los teams de Líneas tienen su propio semáforo (misma regla que team_seccion del backend).
+      return /LINEA/.test(cleaned);
     } catch(_) { return false; }
   }
 
@@ -354,14 +353,12 @@
 
     let top3=0, warning=0, danger=0, total=0;
 
-    const getRowStatus = (pos) => pos<=3?'top':(pos===4?'warning':'danger');
+    // Por pares, con cualquier cantidad de teams: 1.º y 2.º verde, 3.º y 4.º amarillo, 5.º en adelante rojo.
+    const getRowStatus = (pos) => pos<=2?'top':(pos<=4?'warning':'danger');
     const getRowSub = (s) => s==='top'?'Excelente desempeño':s==='warning'?'Necesita mejorar':'Requiere atención';
     const getRowBadge = (pos) => {
       if (pos===1) return '<span class="pos-badge pos-1">🥇 1°</span>';
       if (pos===2) return '<span class="pos-badge pos-2">🥈 2°</span>';
-      if (pos===3) return '<span class="pos-badge pos-3">🥉 TOP</span>';
-      if (pos===4) return '<span class="pos-badge pos-warn">⚠️ ALERTA</span>';
-      if (pos===5) return '<span class="pos-badge pos-danger">🚨 PELIGRO</span>';
       return '';
     };
 
@@ -506,7 +503,8 @@
       let teams = await fetchMonthSalesByTeam(selectedMonthDate);
       if (!Array.isArray(teams)||teams.length===0) { console.warn('[SEMAFORO] Dataset vacío.'); return; }
 
-      equipos = teams.slice(0,5).map((t,idx)=>({
+      // Todos los teams (vienen de Roles y permisos): uno nuevo con supervisor aparece solo.
+      equipos = teams.map((t,idx)=>({
         id:idx+1, nombre:t.nombre, posicion:idx+1,
         ventas:Number(t.ventas||0), puntos:Number(t.puntos||0)
       }));

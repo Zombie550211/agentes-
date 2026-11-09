@@ -8,6 +8,7 @@ from permissions import resolve_market_restriction
 from datetime import datetime, timezone
 from typing import Optional, List
 from tiempo_sv import ahora_sv
+from equipos_permisos import cargar_resolver
 
 
 def _utcnow() -> datetime:
@@ -30,31 +31,6 @@ SAMPLE_DATA = [
     {"TEAM": "TEAM RANDAL MARTINEZ",  "Icon": 11, "BAMO": 9,  "Total": 20, "Puntaje": 45.0},
     {"TEAM": "TEAM LINEA",            "Icon": 4,  "BAMO": 4,  "Total": 8,  "Puntaje": 50.0},
 ]
-
-# Alias map: last-name fragment → normalized team key
-_TEAM_ALIAS = {
-    "PLEITEZ":   "PLEITEZ",
-    "VELASQUEZ": "ROBERTO",
-    "BELTRAN":   "MARISOL",
-    "SERRANO":   "IRANIA",
-    "JOHANA":    "JOHANA",
-    "SANTANA":   "JOHANA",
-    "JONATHAN":  "JONATHAN F",
-    "LUIS":      "LUIS G",
-    "VICTOR":    "VICTOR H",
-}
-
-
-def _normalize_team(team_raw: str) -> str:
-    if not team_raw:
-        return "SIN EQUIPO"
-    parts = team_raw.strip().upper().split()
-    last = parts[-1] if parts else team_raw.upper()
-    for fragment, alias in _TEAM_ALIAS.items():
-        if fragment in last:
-            return alias
-    return last or "SIN EQUIPO"
-
 
 @router.get("/test")
 async def equipo_test(user: dict = Depends(current_user)):
@@ -112,6 +88,7 @@ async def _equipo_estadisticas_core(fechaInicio=None, fechaFin=None, scope=None,
             r = await s.execute(text(f"""
                 SELECT
                     UPPER(TRIM(COALESCE(supervisor, team, equipo, ''))) AS team_raw,
+                    supervisor, agente,
                     UPPER(TRIM(COALESCE(mercado, 'SIN MERCADO')))       AS mercado_norm,
                     LOWER(TRIM(COALESCE(status_grupo, '')))                   AS status_lower,
                     COALESCE(puntaje, 0)                                AS puntaje
@@ -120,6 +97,8 @@ async def _equipo_estadisticas_core(fechaInicio=None, fechaFin=None, scope=None,
                 {mercado_where}
             """), params)
             rows = r.mappings().all()
+            # Team de cada venta según Roles y permisos (supervisor → su team), no por alias fijos.
+            equipos = await cargar_resolver(s)
     except Exception as e:
         return {"success": False, "message": f"Error: {e}", "data": []}
 
@@ -133,7 +112,7 @@ async def _equipo_estadisticas_core(fechaInicio=None, fechaFin=None, scope=None,
     repro_re   = ("repro", "rescheduled", "reagendado", "reprogram", "resched")
 
     for row in rows:
-        team_norm  = _normalize_team(row["team_raw"])
+        team_norm  = equipos.team(row["supervisor"], row["agente"], row["team_raw"])
         mercado    = row["mercado_norm"]
         sl         = (row["status_lower"] or "").strip()
         puntaje    = float(row["puntaje"] or 0)
@@ -191,6 +170,7 @@ async def equipo_telefonos(
                     COALESCE(telefono_principal, telefono, '') AS tel,
                     nombre_cliente,
                     UPPER(TRIM(COALESCE(supervisor, team, equipo, ''))) AS team_raw,
+                    supervisor, agente,
                     status_grupo AS status,
                     dia_venta,
                     dia_instalacion
@@ -199,6 +179,7 @@ async def equipo_telefonos(
                 ORDER BY tel
             """), params)
             rows = r.mappings().all()
+            equipos = await cargar_resolver(s)
     except Exception as e:
         return {"success": False, "message": str(e)}
 
@@ -211,7 +192,7 @@ async def equipo_telefonos(
         tel_map[tel].append({
             "id":       str(row["id"]),
             "nombre":   row["nombre_cliente"],
-            "team":     _normalize_team(row["team_raw"]),
+            "team":     equipos.team(row["supervisor"], row["agente"], row["team_raw"]),
             "status":   row["status"],
             "dia_venta": str(row["dia_venta"] or ""),
             "dia_instalacion": str(row["dia_instalacion"] or ""),
@@ -253,11 +234,13 @@ async def equipo_comparar_telefonos(
                     COALESCE(telefono_principal, telefono, '') AS tel,
                     nombre_cliente,
                     UPPER(TRIM(COALESCE(supervisor, team, equipo, ''))) AS team_raw,
+                    supervisor, agente,
                     status_grupo AS status, dia_venta
                 FROM leads
                 WHERE dia_venta BETWEEN :fi AND :ff
             """), {"fi": fi, "ff": ff})
             rows = r.mappings().all()
+            equipos = await cargar_resolver(s)
     except Exception as e:
         return {"success": False, "message": str(e)}
 
@@ -265,7 +248,7 @@ async def equipo_comparar_telefonos(
     for row in rows:
         tel = clean_tel(row["tel"])
         if tel:
-            db_map[tel] = {"nombre": row["nombre_cliente"], "team": _normalize_team(row["team_raw"]), "status": row["status"]}
+            db_map[tel] = {"nombre": row["nombre_cliente"], "team": equipos.team(row["supervisor"], row["agente"], row["team_raw"]), "status": row["status"]}
 
     db_set = set(db_map.keys())
 

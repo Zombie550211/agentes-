@@ -374,20 +374,14 @@ async def _leads_bootstrap_core(
                 """), {"ini": mes_ini, "fin": mes_fin, "hoy": hoy})
                 rows = r.mappings().all()
 
-            # Mapear supervisorKey → nombre de equipo
-            sup_map = {
-                "JONATHAN F": "TEAM LINEAS JONATHAN",
-                "JONATHAN":   "TEAM LINEAS JONATHAN",
-                "LUIS G":     "TEAM LINEAS LUIS",
-                "LUIS":       "TEAM LINEAS LUIS",
-                "VICTOR H":      "TEAM LINEAS VICTOR",
-                "VICTOR HURTADO":"TEAM LINEAS VICTOR",
-                "VICTOR":        "TEAM LINEAS VICTOR",
-            }
+            # Clave del supervisor → team de Permisos (los teams nuevos de Líneas salen solos).
+            from routers.lineas import _cargar_supervisores_lineas, _canon_supervisor, _team_de_supervisor
+            await _cargar_supervisores_lineas()
             teams: dict = {}
             for row in rows:
                 sup_raw = str(row["sup"] or "").strip().upper()
-                team_lbl = sup_map.get(sup_raw, sup_raw)
+                canon = _canon_supervisor(sup_raw)
+                team_lbl = _team_de_supervisor(canon) if canon else sup_raw
                 if team_lbl not in teams:
                     teams[team_lbl] = {"team": team_lbl, "mes": 0, "hoy": 0}
                 teams[team_lbl]["mes"] += int(row["mes"] or 0)

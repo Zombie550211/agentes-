@@ -75,7 +75,51 @@ def _team_token(team_name: str) -> str:
 # Claves con las que se guarda el supervisor en la BD de Líneas. Es la forma
 # canónica: todo lo demás (nombre completo, usuario, nombre del team) se reduce
 # a una de estas tres con _canon_supervisor.
-_SUP_CANON = ("jonathan f", "luis g", "victor h")
+# Las tres históricas se mantienen (hay ventas guardadas con ellas aunque el supervisor ya no
+# exista); las demás salen de Roles y permisos: cada supervisor de un «TEAM LINEAS …» suma la
+# suya (nombre + inicial del apellido) y su team. Así un team nuevo de Líneas no toca el código.
+_SUP_CANON_BASE = ("jonathan f", "luis g", "victor h")
+_SUP_TEAM_BASE = {"jonathan f": "TEAM LINEAS JONATHAN", "luis g": "TEAM LINEAS LUIS", "victor h": "TEAM LINEAS VICTOR"}
+# clave corta → team de Permisos (se llena con _cargar_supervisores_lineas).
+_SUP_TEAM: dict = {}
+
+
+def _sup_canon_lista() -> list:
+    return list(dict.fromkeys([*_SUP_CANON_BASE, *_SUP_TEAM.keys()]))
+
+
+def _clave_corta(nombre: str) -> str:
+    """'Carlos Pérez' / 'carlos.perez' / 'LUIS G' → 'carlos p' (nombre + inicial del apellido)."""
+    import unicodedata
+    v = unicodedata.normalize("NFD", str(nombre or "")).encode("ascii", "ignore").decode().lower()
+    w = re.sub(r"[._\-]+", " ", v).split()
+    return f"{w[0]} {w[1][0]}" if len(w) >= 2 else (w[0] if w else "")
+
+
+async def _cargar_supervisores_lineas() -> None:
+    """Refresca las claves de supervisores de Líneas desde `users` (página de permisos)."""
+    try:
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(text("""
+                SELECT username, name, TRIM(team) AS team FROM users
+                WHERE UPPER(COALESCE(team,'')) LIKE 'TEAM LINEAS%'
+                  AND LOWER(COALESCE(role,'')) LIKE '%supervisor%'
+                  AND COALESCE(active, 1) = 1
+            """))
+            nuevo = {}
+            for u in r.mappings().all():
+                # Si ya coincide con una histórica por nombre de pila, se usa esa (no se duplica).
+                k = _canon_supervisor(u["username"]) or _canon_supervisor(u["name"]) or _clave_corta(u["username"] or u["name"])
+                if k:
+                    nuevo[k] = u["team"]
+        _SUP_TEAM.clear()
+        _SUP_TEAM.update(nuevo)
+    except Exception as e:  # sin BD se sigue con lo que hubiera
+        print(f"[lineas] no se pudieron leer los supervisores: {e}")
+
+
+def _team_de_supervisor(clave: str) -> str:
+    return _SUP_TEAM.get(clave) or _SUP_TEAM_BASE.get(clave) or (f"TEAM LINEAS {clave.split()[0].upper()}" if clave else "TEAM LINEAS")
 
 # Variantes conocidas que no se resuelven por nombre de pila.
 _SUP_ALIAS = {
@@ -93,13 +137,17 @@ def _canon_supervisor(valor: str) -> str:
     v = re.sub(r"\s+", " ", v).strip()
     if not v:
         return ""
-    if v in _SUP_CANON:
+    canon_lista = _sup_canon_lista()
+    if v in canon_lista:
         return v
     if v in _SUP_ALIAS:
         return _SUP_ALIAS[v]
     # Nombre de pila: cubre nombres completos y nombres de team ('team lineas luis').
     nombre = v.replace("team lineas", "").replace("team", "").strip()
-    for canon in _SUP_CANON:
+    # Primero la clave exacta (nombre + inicial): distingue a dos supervisores con el mismo nombre.
+    if _clave_corta(nombre) in canon_lista:
+        return _clave_corta(nombre)
+    for canon in canon_lista:
         if nombre.startswith(canon.split()[0]):
             return canon
     return ""
@@ -162,6 +210,7 @@ async def lineas_teams(user: dict = Depends(current_user)):
     (el POST lo impone igualmente, esto es solo para que la UI no mienta).
     Los demás consumidores (ranking, estadísticas…) siguen leyendo `teams`.
     """
+    await _cargar_supervisores_lineas()
     teams    = await get_lineas_teams()
     asignado = "" if _is_admin_bo_lineas(user) else _supervisor_asignado(user)
 
@@ -577,6 +626,7 @@ async def post_lineas(body: LineasBody, user: dict = Depends(current_user)):
     # podía registrar el lead en otro equipo simplemente cambiando la petición.
     # Admin y backoffice sí eligen — son los únicos que dan de alta por cualquier
     # team — y a ellos el formulario les sigue mostrando las opciones.
+    await _cargar_supervisores_lineas()
     asignado = _supervisor_asignado(user)
     if _is_admin_bo_lineas(user):
         supervisor_val = _canon_supervisor(body.supervisor) or asignado
@@ -587,8 +637,8 @@ async def post_lineas(body: LineasBody, user: dict = Depends(current_user)):
 
     if not supervisor_val:
         errors.append("No se pudo determinar el supervisor")
-    elif supervisor_val not in _SUP_CANON:
-        errors.append("supervisor inválido (permitidos: JONATHAN F, LUIS G, VICTOR H)")
+    elif supervisor_val not in _sup_canon_lista():
+        errors.append("supervisor inválido (permitidos: " + ", ".join(k.upper() for k in _sup_canon_lista()) + ")")
 
     cantidad_lineas = int(body.cantidad_lineas or 0)
     if cantidad_lineas < 1 or cantidad_lineas > 10:
@@ -608,14 +658,8 @@ async def post_lineas(body: LineasBody, user: dict = Depends(current_user)):
     target_col_name = _normalize_col_name(target_agent)
 
     # Determinar nombre del team según supervisor
-    if "jonathan" in supervisor_val:
-        team_name = "TEAM LINEAS JONATHAN"
-    elif "luis" in supervisor_val:
-        team_name = "TEAM LINEAS LUIS"
-    elif "victor" in supervisor_val:
-        team_name = "TEAM LINEAS VICTOR"
-    else:
-        team_name = "TEAM LINEAS"
+    # Team de Permisos del supervisor (los nuevos salen solos de users).
+    team_name = _team_de_supervisor(supervisor_val)
 
     servicios = [str(s) for s in (body.servicios or [])]
     payload_lineas_st = body.lineas_status if isinstance(body.lineas_status, dict) else {}
@@ -752,6 +796,7 @@ async def lineas_team_update(body: LineasTeamUpdateBody, user: dict = Depends(cu
         # Mismo criterio que el alta: el supervisor sale de los permisos, no del
         # cliente. Sin esta comprobación bastaba con crear el registro y editarlo
         # después para moverlo al team de otro. Admin y backoffice sí lo cambian.
+        await _cargar_supervisores_lineas()
         sup_pedido = _canon_supervisor(body.supervisor)
         asignado   = _supervisor_asignado(user)
         if not _is_admin_bo_lineas(user) and asignado and sup_pedido != asignado:
