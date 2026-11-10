@@ -966,6 +966,27 @@ async def lineas_notes_delete(body: NoteDeleteBody, user: dict = Depends(current
     return {"success": True, "message": "Nota eliminada"}
 
 
+# El listado (/api/lineas-team) ya NO trae el PIN: antes mandaba descifrados los PIN de
+# todos los clientes (2.000+ para admin) y la página lo repetía cada 30 s. Ahora se pide
+# uno a la vez, al pulsar «Mostrar» en la ficha, con el mismo alcance que ver la ficha,
+# límite por minuto y registro en logs/audit.log (quién vio qué PIN y cuándo).
+@router.get("/api/lineas-team/{client_id}/pin")
+@limiter.limit("30/minute")
+async def lineas_team_pin(request: Request, client_id: str, user: dict = Depends(current_user)):
+    from cifrado_datos import descifrar
+    import audit
+    async with AsyncSessionLocal() as s:
+        await _ensure_can_view(s, client_id, user)
+        r = await s.execute(text("SELECT pin_seguridad FROM lineas_clientes WHERE id = :id"),
+                            {"id": int(client_id)})
+        fila = r.first()
+    if fila is None:
+        raise HTTPException(404, "Cliente no encontrado")
+    audit._log("lineas_pin_ver", str(user.get("username", "")),
+               request.client.host if request.client else "", {"cliente_id": int(client_id)})
+    return {"success": True, "pin": descifrar(fila[0]) or ""}
+
+
 @router.get("/api/lineas-team/notes/{lead_id}")
 async def lineas_notes_get(lead_id: str, user: dict = Depends(current_user)):
     async with AsyncSessionLocal() as s:
@@ -1061,7 +1082,8 @@ async def lineas_team_list(
         r = await s.execute(text(f"""
             SELECT id, team, supervisor, agente, agente_nombre,
                    cantidad_lineas, dia_venta, dia_instalacion, status, mercado, nombre_cliente,
-                   telefono_principal, numero_cuenta, pin_seguridad, direccion,
+                   telefono_principal, numero_cuenta,
+                   (pin_seguridad IS NOT NULL AND pin_seguridad <> '') AS tiene_pin, direccion,
                    telefonos, lineas_status, lines_data, servicios, imagen_url, autopago,
                    created_at
             FROM lineas_clientes

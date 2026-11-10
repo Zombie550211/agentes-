@@ -1181,6 +1181,7 @@ async def leads_lineas(
         leads = []
         for row in r.mappings().all():
             d = descifrar_fila(dict(row))
+            d.pop("pin_seguridad", None)  # el PIN solo por /api/lineas-team/{id}/pin
             d["_id"] = str(d.get("id", ""))
             for col in ("servicios", "telefonos", "lineas_status", "lines_data"):
                 v = d.get(col)
@@ -1889,6 +1890,7 @@ async def get_lineas_team(
         leads = []
         for row in r.mappings().all():
             d = descifrar_fila(dict(row))
+            d.pop("pin_seguridad", None)  # el PIN solo por /api/lineas-team/{id}/pin
             d["_id"] = str(d.get("id", ""))
             for col in ("servicios", "telefonos", "lineas_status", "lines_data"):
                 v = d.get(col)

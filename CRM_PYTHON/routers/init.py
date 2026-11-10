@@ -508,7 +508,7 @@ async def init_all_pages(user: dict = Depends(current_user)):
             r = await s.execute(text(f"""
                 SELECT id, nombre_cliente, status_grupo AS status, telefono_principal, numero_cuenta,
                        agente, agente_nombre, supervisor, dia_venta, dia_instalacion,
-                       autopago, pin_seguridad, direccion, telefonos, cantidad_lineas,
+                       autopago, direccion, telefonos, cantidad_lineas,
                        servicios, mercado, puntaje
                 FROM leads WHERE {date_cond}
                 LIMIT 200

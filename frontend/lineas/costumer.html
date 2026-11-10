@@ -1121,7 +1121,7 @@
                         <div class="fc-row">
                           <label for="fc-pin-${idx}">PIN de seguridad</label>
                           <div class="fc-val">
-                            <input id="fc-pin-${idx}" type="password" class="ile-pin" data-row="${idx}" value="${escH(it.pin_seguridad||'')}" data-inicial="${escH(it.pin_seguridad||'')}" ${editable?'':'disabled'} style="letter-spacing:.2em">
+                            <input id="fc-pin-${idx}" type="password" class="ile-pin" data-row="${idx}" data-id="${docId}" value="" data-inicial="" placeholder="${it.tiene_pin ? '••••••' : 'Sin PIN'}" autocomplete="off" ${editable?'':'disabled'} style="letter-spacing:.2em">
                             <button class="fc-icon-btn" type="button" onclick="fcVerPin(this)">Mostrar</button>
                           </div>
                         </div>
@@ -1661,7 +1661,10 @@
             const nombre  = getF('ile-nombre');     if (nombre !== null)  payload.nombre_cliente = nombre;
             const tel     = getF('ile-tel');         if (tel !== null)     payload.telefono_principal = tel;
             const cuenta  = getF('ile-cuenta');      if (cuenta !== null)  payload.numero_cuenta = cuenta;
-            const pin     = getF('ile-pin');         if (pin !== null)     payload.pin_seguridad = pin;
+            const pinEl   = detailsRow.querySelector(`.ile-pin[data-row="${rowIdx}"]`);
+            // El PIN ya no viene en el listado: el campo empieza vacío. Solo se manda si el
+            // usuario lo escribió o lo cambió; si no, se dejaría en blanco el PIN guardado.
+            if (pinEl && pinEl.value !== (pinEl.dataset.inicial || '')) payload.pin_seguridad = pinEl.value;
             const dir     = getF('ile-dir');         if (dir !== null)     payload.direccion = dir;
             const status  = getF('ile-status');      if (status !== null)  payload.status = status;
             const dventa  = getF('ile-dventa');      if (dventa !== null)  payload.dia_venta = dventa;
@@ -1711,7 +1714,10 @@
                 if (payload.nombre_cliente) item.nombre_cliente = payload.nombre_cliente;
                 if (payload.telefono_principal) item.telefono_principal = payload.telefono_principal;
                 if (payload.numero_cuenta) item.numero_cuenta = payload.numero_cuenta;
-                if (payload.pin_seguridad !== undefined) item.pin_seguridad = payload.pin_seguridad;
+                if (payload.pin_seguridad !== undefined) {
+                  item.tiene_pin = !!String(payload.pin_seguridad).trim();
+                  if (pinEl) pinEl.dataset.inicial = payload.pin_seguridad;
+                }
                 if (payload.direccion !== undefined) item.direccion = payload.direccion;
                 if (payload.status) item.status = payload.status;
                 if (payload.dia_venta) item.dia_venta = payload.dia_venta;
@@ -3495,9 +3501,27 @@
       if (txt) txt.textContent = fcEtiquetaEstado(sel.value);
     }
 
-    function fcVerPin(btn) {
+    // El PIN se pide al servidor solo al pulsar «Mostrar» (uno a la vez, queda registrado).
+    async function fcVerPin(btn) {
       var campo = btn.parentElement.querySelector('.ile-pin');
       if (!campo) return;
+      if (campo.dataset.cargado !== '1' && campo.value === '') {
+        btn.disabled = true;
+        try {
+          var r = await fetch('/api/lineas-team/' + encodeURIComponent(campo.dataset.id) + '/pin', { credentials: 'include' });
+          var j = await r.json().catch(function () { return {}; });
+          if (!r.ok) throw new Error(j.detail || j.message || 'No se pudo obtener el PIN');
+          campo.value = j.pin || '';
+          campo.dataset.inicial = j.pin || '';
+          campo.dataset.cargado = '1';
+          if (!j.pin) campo.placeholder = 'Sin PIN';
+        } catch (e) {
+          showNotification(e.message, 'error');
+          return;
+        } finally {
+          btn.disabled = false;
+        }
+      }
       var oculto = campo.type === 'password';
       campo.type = oculto ? 'text' : 'password';
       btn.textContent = oculto ? 'Ocultar' : 'Mostrar';
