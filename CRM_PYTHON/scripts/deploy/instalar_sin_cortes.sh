@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Instalado en producción el 10-nov-2026.
 # Pasa el EC2 al despliegue sin cortes (una sola vez, como root, en una ventana sin uso:
 # corta el CRM unos segundos, lo que tarda en arrancar en el puerto nuevo).
 #
