@@ -38,74 +38,52 @@ fi
 # atrás (starlette 1.0.0 frente a 1.3.1): se probaba contra una versión y el cron
 # corría sobre otra. .venvlinux se borró el 21-09-2026, junto con .venv-viejo:
 # este .venv es ya el único entorno del proyecto.
-PYTHON="${BASE_DIR}/CRM_PYTHON/.venv/bin/python"
-LOCAL_PORT="3308"
-EC2_IP="3.150.243.188"
-EC2_USER="ubuntu"
+# 10-nov-2026: ya no hay túnel ni MYSQL_URL en la PC. El volcado lo hace el EC2 con sus
+# propias credenciales (que nunca salen del servidor) y llega comprimido por SSH: la
+# misma vía que scripts/sync_prod_local.sh. Antes fallaba desde el 9-oct porque faltaba
+# CRM_PYTHON/.env, y además obligaba a tener la contraseña de producción en la PC.
+EC2="ubuntu@3.150.243.188"
 SSH_KEY="${HOME}/.ssh/aws-crm/crm-connecting-key.pem"
-RDS_ENDPOINT="crm-connecting-db.cjcggw26guwj.us-east-2.rds.amazonaws.com"
-
-TUNNEL_PID=""
-
+KEEP="${BACKUP_KEEP:-7}"   # ~700 MB cada uno
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
-cleanup() {
-  # Sólo cerramos el túnel si lo abrimos nosotros: si ya estaba levantado (sesión de
-  # desarrollo), matarlo dejaría al usuario sin conexión a la BD.
-  if [[ -n "${TUNNEL_PID}" ]]; then
-    log "cerrando túnel (pid ${TUNNEL_PID})"
-    kill "${TUNNEL_PID}" 2>/dev/null || true
-  fi
-}
-trap cleanup EXIT
+log "=== backup CRM Connecting (vía EC2) — destino: ${BACKUP_DIR}"
+DESTINO="${BACKUP_DIR}/crm-backup-$(date +%Y%m%d-%H%M%S).sql.gz"
+PARCIAL="${DESTINO}.parcial"
+trap 'rm -f "${PARCIAL}"' EXIT
 
-port_open() { (exec 3<>"/dev/tcp/127.0.0.1/${LOCAL_PORT}") 2>/dev/null; }
-
-log "=== backup CRM Connecting — base: ${BASE_DIR}"
-
-if [[ ! -x "${PYTHON}" ]]; then
-  log "ERROR: no existe el intérprete ${PYTHON} — backup abortado"
+if ! ssh -i "${SSH_KEY}" -o ConnectTimeout=20 -o ServerAliveInterval=30 "${EC2}" 'bash -s' > "${PARCIAL}" 9>&- <<'REMOTO'
+set -euo pipefail
+cd ~/app/CRM_PYTHON
+U=$(grep -oE '^MYSQL_URL=.*' .env | sed -E 's#^MYSQL_URL=[^/]*//##')
+USR=${U%%:*}; R=${U#*:}; export MYSQL_PWD=${R%%@*}; R=${R#*@}; HOST=${R%%[:/]*}
+DB=$(echo "$R" | sed -E 's#^[^/]*/([^?]*).*#\1#')
+CA=$(grep -oE '^MYSQL_SSL_CA=.*' .env | cut -d= -f2-)
+mysqldump -h "$HOST" -u "$USR" --ssl-ca="$CA" --single-transaction --quick --no-tablespaces \
+  --set-gtid-purged=OFF --column-statistics=0 --skip-triggers "$DB" | gzip -c
+REMOTO
+then
+  log "ERROR: el volcado por SSH falló"
   exit 1
 fi
 
-if port_open; then
-  log "puerto ${LOCAL_PORT} ya en uso — reutilizando el túnel existente"
-else
-  if [[ ! -f "${SSH_KEY}" ]]; then
-    log "ERROR: falta la clave SSH ${SSH_KEY} — no se puede abrir el túnel"
-    exit 1
-  fi
-  log "abriendo túnel 127.0.0.1:${LOCAL_PORT} -> ${RDS_ENDPOINT}:3306 vía ${EC2_USER}@${EC2_IP}"
-  ssh -N -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
-      -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 \
-      -i "${SSH_KEY}" \
-      -L "${LOCAL_PORT}:${RDS_ENDPOINT}:3306" \
-      "${EC2_USER}@${EC2_IP}" 9>&- &   # 9>&-: el túnel no hereda el candado
-  TUNNEL_PID=$!
-
-  # El túnel tarda en negociar; esperamos hasta 30s a que el puerto acepte conexiones.
-  for _ in $(seq 1 30); do
-    port_open && break
-    sleep 1
-  done
-
-  if ! port_open; then
-    log "ERROR: el túnel no llegó a levantar en 30s — backup abortado"
-    exit 1
-  fi
-  log "túnel listo (pid ${TUNNEL_PID})"
+# Integridad: gzip sano, trae tablas y terminó (mysqldump escribe "Dump completed" al final).
+# (sin pipefail: cortar el zcat a propósito con head/grep -q no es un error)
+integro() {
+  set +o pipefail
+  gzip -t "${PARCIAL}" 2>/dev/null \
+    && zcat "${PARCIAL}" | head -c 2000000 | grep -q "CREATE TABLE" \
+    && zcat "${PARCIAL}" | tail -c 200 | grep -q "Dump completed"
+}
+if ! integro; then
+  log "ERROR: el backup llegó incompleto o dañado — descartado"
+  exit 1
 fi
+mv "${PARCIAL}" "${DESTINO}"
+date +%F > "${MARCA_OK}"
+log "backup OK: $(basename "${DESTINO}") ($(du -h "${DESTINO}" | cut -f1))"
 
-cd "${BASE_DIR}" || { log "ERROR: no se pudo entrar a ${BASE_DIR}"; exit 1; }
-
-"${PYTHON}" CRM_PYTHON/scripts/backup_db.py
-STATUS=$?
-
-if [[ ${STATUS} -eq 0 ]]; then
-  date +%F > "${MARCA_OK}"
-  log "backup OK"
-else
-  log "ERROR: backup_db.py terminó con código ${STATUS}"
-fi
-
-exit ${STATUS}
+# Rotación: los últimos ${KEEP} backups diarios.
+ls -1t "${BACKUP_DIR}"/crm-backup-*.sql.gz 2>/dev/null | tail -n +$((KEEP + 1)) | while read -r viejo; do
+  rm -f "${viejo}"; log "rotado: $(basename "${viejo}")"
+done
