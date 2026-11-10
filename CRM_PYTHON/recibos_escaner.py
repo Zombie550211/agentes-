@@ -17,12 +17,19 @@ escaneados como imagen no tienen texto: se devuelve `con_texto=False`.
 from __future__ import annotations
 
 import io
+import json
 import re
+import resource
+import subprocess
+import sys
 from datetime import date
+from pathlib import Path
 
 from pypdf import PdfReader
 
 MAX_PAGINAS = 20
+# Límites del proceso aislado que lee el PDF (ver escanear_aislado).
+MEMORIA_MAX_MB = 512
 
 MESES = {
     "jan": 1, "january": 1, "ene": 1, "enero": 1,
@@ -168,3 +175,47 @@ def escanear(contenido: bytes) -> dict:
     datos["con_texto"] = con_texto
     datos["paginas"] = paginas
     return datos
+
+
+# ── Lectura aislada ──────────────────────────────────────────────
+# Un PDF malicioso puede dejar a pypdf en un bucle infinito o hacerle gastar memoria
+# sin límite (pasó con 10 CVE de pypdf 6.21.1). asyncio.wait_for no basta: corta la
+# espera, pero el hilo sigue girando dentro del backend (un solo worker) y se come la
+# CPU o la RAM del EC2. Por eso el PDF se lee en un proceso aparte (este mismo archivo
+# ejecutado con -I), con tope de memoria y de CPU, que se mata si pasa del tiempo.
+# Así un fallo futuro de pypdf no puede tumbar el CRM.
+
+def escanear_aislado(contenido: bytes, timeout: float = 20, memoria_mb: int = MEMORIA_MAX_MB) -> dict:
+    """Como escanear(), pero en un proceso aparte que se mata al pasar `timeout` segundos.
+
+    Lanza TimeoutError si no termina a tiempo y ValueError si el PDF no se pudo leer.
+    Es bloqueante: desde código async llamarlo con asyncio.to_thread."""
+    try:
+        r = subprocess.run(
+            [sys.executable, "-I", str(Path(__file__).resolve()), str(memoria_mb), str(int(timeout) + 1)],
+            input=contenido, capture_output=True, timeout=timeout, check=False)
+    except subprocess.TimeoutExpired:   # subprocess.run ya mató al hijo
+        raise TimeoutError("el PDF tardó demasiado en leerse")
+    if r.returncode != 0:
+        raise ValueError("el PDF no se pudo leer")
+    try:
+        datos = json.loads(r.stdout)
+    except ValueError:
+        raise ValueError("el PDF no se pudo leer")
+    if "error" in datos:
+        raise ValueError(f"el PDF no se pudo leer ({datos['error']})")
+    return datos
+
+
+if __name__ == "__main__":
+    # Proceso hijo de escanear_aislado: PDF por stdin, JSON por stdout.
+    _lim = int(sys.argv[1]) * 1024 * 1024
+    resource.setrlimit(resource.RLIMIT_AS, (_lim, _lim))
+    resource.setrlimit(resource.RLIMIT_CPU, (int(sys.argv[2]), int(sys.argv[2])))
+    try:
+        _salida = escanear(sys.stdin.buffer.read())
+    except MemoryError:
+        _salida = {"error": "memoria"}
+    except Exception as _e:  # PDF dañado, cifrado, etc.
+        _salida = {"error": type(_e).__name__}
+    sys.stdout.write(json.dumps(_salida))

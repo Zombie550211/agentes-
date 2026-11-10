@@ -37,7 +37,7 @@ from sqlalchemy.exc import IntegrityError
 
 from database_mysql import AsyncSessionLocal
 from routers.portal import admin_o_portal
-from recibos_escaner import escanear
+from recibos_escaner import escanear_aislado
 from routers.cuadratura_entrada import _verificar_clave
 from tiempo_sv import TZ_SV, ahora_sv
 
@@ -50,6 +50,9 @@ PDF_DIR = Path(os.environ.get("RECIBOS_GOOGLE_DIR")
 MAX_PDF_BYTES = 10 * 1024 * 1024
 MAX_ARCHIVOS = 20
 TIMEOUT_ESCANEO = 20  # segundos
+# La pantalla escanea todos los PDF a la vez (hasta 20). Cada lectura es un proceso con
+# hasta 512 MB: más de 2 a la vez podrían agotar la RAM del EC2 (2 GB). El resto espera turno.
+_ESCANEOS = asyncio.Semaphore(2)
 
 # (clave, nombre, índice del monto en facturacion.campos, clase de color en facturación)
 CUENTAS = (
@@ -235,8 +238,10 @@ async def escanear_pdf(archivo: UploadFile = File(...), _: dict = Depends(solo_a
     """Lee el PDF y devuelve los datos del pago. No guarda nada."""
     nombre, contenido = await _leer_pdf(archivo)
     try:
-        datos = await asyncio.wait_for(asyncio.to_thread(escanear, contenido), timeout=TIMEOUT_ESCANEO)
-    except asyncio.TimeoutError:
+        # Proceso aparte con tope de tiempo/memoria: un PDF malicioso no puede colgar el backend.
+        async with _ESCANEOS:
+            datos = await asyncio.to_thread(escanear_aislado, contenido, TIMEOUT_ESCANEO)
+    except TimeoutError:
         raise HTTPException(422, f"{nombre}: el PDF tardó demasiado en leerse")
     except Exception:
         raise HTTPException(422, f"{nombre}: el PDF está dañado o protegido con contraseña")
