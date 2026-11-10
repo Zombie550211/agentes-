@@ -387,6 +387,21 @@ button.trf-prot.trf-tomar:disabled{cursor:wait;opacity:.6}
   font:inherit;font-size:10px;font-weight:600;line-height:1.2;padding:3px 4px !important;padding-right:16px !important;
   border:1px solid rgb(0 112 152 / .3);border-radius:0;background-color:#fff;color:var(--texto-2,#334155);
   background-position:right 3px center;background-size:10px 10px}
+/* selector.js envuelve el <select> en .sel (100% de ancho, 38px de alto) y se comía el nombre:
+   en las filas de la cola va compacto, del tamaño del texto. */
+.trf-cola-acc .sel{width:auto;flex:none}
+.trf-cola-acc .sel-btn{width:auto;height:22px;padding:0 18px 0 6px;font-size:10px;font-weight:600;letter-spacing:.02em;
+  color:var(--texto-2,#334155);background:#fff;border-color:rgb(0 112 152 / .3)}
+.trf-cola-acc .sel-txt{overflow:visible}
+.trf-cola-acc .sel-flecha{right:6px;width:5px;height:5px;margin-top:-4px}
+.trf-cola-acc .sel-abierto .sel-flecha{margin-top:-1px}
+.trf-cola-acc .trf-cola-subir{height:22px;box-sizing:border-box}
+/* La columna de acciones no debe quitarle sitio al nombre: el nombre manda, las acciones se ajustan. */
+.trf-cola-fila{grid-template-columns:24px minmax(90px,1fr) auto}
+/* Filas con controles (status + Pausar): el nombre ocupa todo el ancho y los controles
+   bajan a una segunda línea, alineados con el nombre. */
+.trf-cola-fila:has(.trf-estado-sel){grid-template-columns:24px minmax(0,1fr);row-gap:6px}
+.trf-cola-fila:has(.trf-estado-sel) .trf-cola-acc{grid-column:2;justify-content:flex-start}
 
 /* Fuera de transferencias (JONATHAN F y administradores) */
 .trf-excl[hidden]{display:none}
