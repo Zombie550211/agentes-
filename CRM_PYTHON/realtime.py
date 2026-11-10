@@ -12,6 +12,7 @@ Notas de arquitectura:
 import asyncio
 import json
 import os
+from pathlib import Path
 from typing import Optional
 
 import jwt
@@ -84,19 +85,90 @@ def conectado_desde(user_id):
     return p["desde"] if p else None
 
 
+# Un reinicio del backend (cada despliegue, o el del servidor) borraba _presencia: todos se
+# reconectaban a la vez con un «desde» nuevo y la cola quedaba en el orden en que volvieron
+# (un agente 5.º pasaba a 10.º). Al apagar se guarda en disco y al arrancar se recupera:
+# quien se reconecta dentro de GRACIA_REINICIO conserva su lugar.
+GRACIA_REINICIO = 600
+_ARCHIVO_PRESENCIA = Path(os.getenv("PRESENCIA_FILE") or
+                          Path(__file__).resolve().parent.parent / "datos_privados" / "presencia_cola.json")
+
+
+# Despliegue sin cortes (scripts/deploy/aplicar_release.sh): el proceso nuevo arranca mientras
+# el viejo sigue atendiendo, así que la presencia también se guarda cada 30 s y solo la
+# guarda el proceso que de verdad tiene clientes (el nuevo, recién arrancado, todavía no).
+_tuvo_clientes = False
+
+
+def guardar_presencia() -> None:
+    """Quién estaba conectado y desde cuándo (al apagar y cada 30 s)."""
+    if not _tuvo_clientes:
+        return
+    ahora = _ahora()
+    datos = {ch: {"desde": p["desde"].isoformat(), "salio": (p.get("salio") or ahora).isoformat(),
+                  # uvicorn corta las conexiones SSE antes de llegar aquí: quien salió en los
+                  # últimos 30 s salió por el apagado, no porque se fuera.
+                  "conectado": bool(_subscribers.get(ch)) or not p.get("salio")
+                               or (ahora - p["salio"]).total_seconds() < 30}
+             for ch, p in _presencia.items()}
+    try:
+        _ARCHIVO_PRESENCIA.parent.mkdir(parents=True, exist_ok=True)
+        tmp = _ARCHIVO_PRESENCIA.with_suffix(f".{os.getpid()}.tmp")
+        tmp.write_text(json.dumps(datos))
+        tmp.replace(_ARCHIVO_PRESENCIA)
+    except Exception as e:
+        print(f"[realtime] no se pudo guardar la presencia: {e}")
+
+
+def cargar_presencia() -> None:
+    """Al arrancar: recupera los «desde»; los que estaban conectados al apagar tienen
+    GRACIA_REINICIO para volver sin perder su lugar en la cola."""
+    import datetime as _dt
+    try:
+        datos = json.loads(_ARCHIVO_PRESENCIA.read_text())
+    except FileNotFoundError:
+        return
+    except Exception as e:
+        print(f"[realtime] presencia guardada ilegible, se ignora: {e}")
+        return
+    ahora = _ahora()
+    for ch, p in datos.items():
+        try:
+            salio = _dt.datetime.fromisoformat(p["salio"])
+            desde = _dt.datetime.fromisoformat(p["desde"])
+            if p.get("conectado"):
+                if (ahora - salio).total_seconds() <= GRACIA_REINICIO:
+                    _presencia[ch] = {"desde": desde, "salio": ahora, "gracia": GRACIA_REINICIO}
+            else:   # ya se había ido antes de apagar: sigue con la gracia normal
+                _presencia[ch] = {"desde": desde, "salio": salio}
+        except Exception:
+            continue
+
+
+async def bucle_guardar_presencia():
+    while True:
+        await asyncio.sleep(30)
+        if any(_subscribers.get(ch) for ch in list(_presencia)):
+            guardar_presencia()
+
+
 def subscribe_many(channels: list[str]) -> asyncio.Queue:
     """Una sola cola registrada en varios canales."""
+    global _tuvo_clientes
     q: asyncio.Queue = asyncio.Queue(maxsize=_MAX_QUEUE)
     cambio_presencia = False
     for ch in channels:
         if ch.startswith("usuario:") and not _subscribers.get(ch):
             cambio_presencia = True
+            _tuvo_clientes = True
             p = _presencia.get(ch)
             ahora = _ahora()
-            if not p or not p.get("salio") or (ahora - p["salio"]).total_seconds() > GRACIA_RECONEXION:
+            gracia = p.get("gracia", GRACIA_RECONEXION) if p else GRACIA_RECONEXION
+            if not p or not p.get("salio") or (ahora - p["salio"]).total_seconds() > gracia:
                 _presencia[ch] = {"desde": ahora, "salio": None}
             else:
                 p["salio"] = None
+                p.pop("gracia", None)
         _subscribers.setdefault(ch, set()).add(q)
     if cambio_presencia:
         avisar_cola()

@@ -29,6 +29,10 @@
 # por ella. Tras 2-3 días sin problemas: foto final y borrarla.
 set -euo pipefail
 
+# Nombre del servicio del CRM en el EC2: crm-backend, o crm-backend@PUERTO desde el
+# despliegue sin cortes (deploy/instalar_sin_cortes.sh). Se resuelve allí, en $S.
+SVC='S=crm-backend; U=/etc/nginx/conf.d/crm-backend-upstream.conf; [ -f $U ] && S=crm-backend@$(grep -oE "127\.0\.0\.1:[0-9]+" $U | cut -d: -f2);'
+
 REGION="us-east-2"
 VIEJA="crm-connecting-db"
 RENOMBRADA="crm-connecting-db-viejo"
@@ -79,7 +83,7 @@ comprobar)
   log "base actual: $(estado "$VIEJA")"
   log "nombre -viejo libre: $(estado "$RENOMBRADA")"
   log "nombre -cifrada libre: $(estado "$NUEVA")"
-  "${SSH[@]}" 'systemctl is-active crm-backend nginx crm-auto-desplegar.timer; sudo -n true && echo "sudo OK"'
+  "${SSH[@]}" "${SVC}"' echo "servicio: $S"; systemctl is-active $S nginx crm-auto-desplegar.timer; sudo -n true && echo "sudo OK"'
   "${SSH[@]}" 'sudo -n tail -2 /var/log/crm-backup.log'
   # ── Para el paso a 8.4 ──
   log "versión actual: $(version "$VIEJA") → destino ${VERSION_84}"
@@ -101,7 +105,7 @@ except Exception as e: print(\"sin permiso para ver el plugin:\", e)
 
 parar)
   log "== CORTE: parando el CRM"
-  "${SSH[@]}" 'sudo -n systemctl stop crm-auto-desplegar.timer crm-backend && systemctl is-active crm-backend || true'
+  "${SSH[@]}" "${SVC}"' sudo -n systemctl stop crm-auto-desplegar.timer $S && systemctl is-active $S || true'
   contar > "$DIR/filas-antes.txt"
   log "filas contadas: $(wc -l < "$DIR/filas-antes.txt") tablas (logs/cifrado-rds/filas-antes.txt)"
   ;;
@@ -183,7 +187,7 @@ arrancar)
     diff "$DIR/filas-antes.txt" "$DIR/filas-despues.txt" | head -20
     exit 1
   fi
-  "${SSH[@]}" 'sudo -n systemctl start crm-backend crm-auto-desplegar.timer; sleep 5; systemctl is-active crm-backend; curl -s -o /dev/null -w "login: HTTP %{http_code}\n" https://connecting.lat/login.html'
+  "${SSH[@]}" "${SVC}"' sudo -n systemctl start $S crm-auto-desplegar.timer; sleep 5; systemctl is-active $S; curl -s -o /dev/null -w "login: HTTP %{http_code}\n" https://connecting.lat/login.html'
   log "CRM arrancado sobre la base cifrada (MySQL $(version "$VIEJA"))"
   ;;
 
@@ -196,7 +200,7 @@ probar-backup)
 
 revertir)
   log "== REVERTIR: volver a la base sin cifrar"
-  "${SSH[@]}" 'sudo -n systemctl stop crm-backend' || true
+  "${SSH[@]}" "${SVC}"' sudo -n systemctl stop $S' || true
   if [[ "$(estado "$RENOMBRADA")" != "no-existe" ]]; then
     if [[ "$(estado "$VIEJA")" != "no-existe" ]]; then
       "${AWSR[@]}" rds modify-db-instance --db-instance-identifier "$VIEJA" \
@@ -207,7 +211,7 @@ revertir)
       --new-db-instance-identifier "$VIEJA" --apply-immediately >/dev/null
     sleep 20; esperar "$VIEJA"
   fi
-  "${SSH[@]}" 'sudo -n systemctl start crm-backend crm-auto-desplegar.timer; sleep 5; systemctl is-active crm-backend'
+  "${SSH[@]}" "${SVC}"' sudo -n systemctl start $S crm-auto-desplegar.timer; sleep 5; systemctl is-active $S'
   log "revertido: el CRM usa otra vez la base original ($(estado "$VIEJA"))"
   ;;
 

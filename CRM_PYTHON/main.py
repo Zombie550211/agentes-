@@ -930,7 +930,13 @@ async def lifespan(app: FastAPI):
         await rbac.recargar()
     except Exception as e:
         print(f"[rbac] no se pudo cargar (se usan los permisos por defecto del código): {e}")
+    # Presencia de la cola de transferencias: sobrevive al reinicio (ver realtime.py).
+    import realtime
+    realtime.cargar_presencia()
+    tarea_presencia = asyncio.create_task(realtime.bucle_guardar_presencia())
     yield
+    tarea_presencia.cancel()
+    realtime.guardar_presencia()
     for tarea in (tarea_semaforo, tarea_horarios, tarea_recibos, tarea_liberadas):
         if tarea:
             tarea.cancel()

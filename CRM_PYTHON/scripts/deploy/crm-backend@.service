@@ -1,0 +1,21 @@
+# Backend del CRM en el puerto %i (8000 u 8002). Despliegue sin cortes: aplicar_release.sh
+# arranca la versión nueva en el puerto libre, espera a que responda, cambia nginx a ese
+# puerto (/etc/nginx/conf.d/crm-backend-upstream.conf, recarga sin cortar conexiones) y
+# solo entonces apaga el viejo. Solo uno de los dos queda habilitado (el que arranca al
+# encender el servidor). Se instala con instalar_sin_cortes.sh.
+[Unit]
+Description=CRM Connecting - FastAPI backend (puerto %i)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/app/CRM_PYTHON
+Environment=PATH=/home/ubuntu/app/CRM_PYTHON/.venv/bin
+ExecStart=/home/ubuntu/app/CRM_PYTHON/.venv/bin/uvicorn main:app --host 127.0.0.1 --port %i --workers 1 --timeout-graceful-shutdown 5
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target
