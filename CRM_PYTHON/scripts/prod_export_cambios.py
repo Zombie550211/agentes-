@@ -65,7 +65,11 @@ def main():
         c.execute("""SELECT column_name AS col, extra AS ex, column_key AS k FROM information_schema.columns
                      WHERE table_schema = %s AND table_name = %s ORDER BY ordinal_position""", (base, t))
         info = c.fetchall()
-        cols = [x["col"] for x in info if "GENERATED" not in (x["ex"] or "").upper()]
+        # Solo se saltan las columnas calculadas (VIRTUAL/STORED GENERATED). MySQL 8 marca
+        # created_at/updated_at como DEFAULT_GENERATED: esas sí hay que copiarlas, o la tabla
+        # se queda sin columnas de tiempo y no se sincroniza nunca (le pasó a leads).
+        cols = [x["col"] for x in info
+                if not re.search(r"\b(VIRTUAL|STORED) GENERATED\b", (x["ex"] or "").upper())]
         pk = [x["col"] for x in info if x["k"] == "PRI"]
         tiempo = [x for x in COLS_TIEMPO if x in cols]
         if tiempo:

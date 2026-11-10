@@ -79,6 +79,13 @@ vuelta() {   # $1 = 1 para hacer también tablas completas y borrados
   echo "$corte" > "$ESTADO"
   echo "$(date '+%F %T') ok corte=${corte} sentencias=$(grep -c '^REPLACE\|^DELETE' "$sql" || true)${extra:+ (completas)}" >> "$LOG"
   rm -f "$sql"
+  # Los PDF de recibos viven en el disco del EC2, no en la BD: se copian (solo lectura en
+  # prod, sin --delete) cada 10 vueltas, junto con las tablas completas.
+  if [[ "$1" == 1 ]]; then
+    mkdir -p "${BASE_DIR}/datos_privados/recibos_google"
+    rsync -a -e "ssh -i ${KEY} -o ConnectTimeout=15" "${EC2}:app/datos_privados/recibos_google/" \
+      "${BASE_DIR}/datos_privados/recibos_google/" 2>> "$LOG" || echo "$(date '+%F %T') aviso: no se copiaron los PDF de recibos" >> "$LOG"
+  fi
 }
 
 case "${1:-}" in
