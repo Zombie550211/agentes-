@@ -698,6 +698,21 @@ _MIGRATIONS: list[tuple[str, str]] = [
     ("0106_transferencias_reasignada", """ALTER TABLE transferencias_llamadas
         ADD COLUMN reasignada_de VARCHAR(150) NULL, ADD COLUMN reasignada_por VARCHAR(150) NULL,
         ADD COLUMN reasignada_at DATETIME NULL, ADD COLUMN reasignada_motivo VARCHAR(300) NULL"""),
+    # Historial de status de la cola (DISPO / LUNCH / NO DISPO): cada cambio queda guardado
+    # con el status anterior y cuánto duró (transferencias_estado_agente solo tiene el actual).
+    ("0107_create_transferencias_estado_historial", """CREATE TABLE IF NOT EXISTS transferencias_estado_historial (
+        id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+        created_at    DATETIME     NOT NULL,
+        user_id       INT          NOT NULL,
+        username      VARCHAR(150) NOT NULL DEFAULT '',
+        team          VARCHAR(150) NOT NULL DEFAULT '',
+        estado        VARCHAR(10)  NOT NULL,
+        anterior      VARCHAR(10)  NULL,
+        anterior_seg  INT          NULL,
+        cambiado_por  VARCHAR(150) NULL,
+        INDEX idx_teh_user (user_id, created_at),
+        INDEX idx_teh_fecha (created_at)
+    ) ENGINE=InnoDB"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración

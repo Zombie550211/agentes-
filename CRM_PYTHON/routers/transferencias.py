@@ -712,14 +712,32 @@ async def cola_estado(body: dict, user: dict = Depends(current_user)):
     aid = int(body.get("id") or 0) or yo
     if aid != yo and not _puede_pausar(user):
         raise HTTPException(403, "Solo puedes cambiar tu propio status")
+    ahora = _utcnow()
+    por = str(user.get("username") or "")[:150]
     async with _cola_lock, AsyncSessionLocal() as s:
         await _cargar_pausas(s)
+        # Historial: status anterior (sin fila = DISPO) y cuánto duró, antes de sobrescribirlo.
+        r = await s.execute(text("""
+            SELECT u.username, TRIM(COALESCE(u.team, '')) AS team, e.estado, e.desde
+            FROM users u LEFT JOIN transferencias_estado_agente e ON e.user_id = u.id
+            WHERE u.id = :u"""), {"u": aid})
+        prev = r.mappings().first() or {}
+        anterior = prev.get("estado") or "dispo"
+        if anterior != estado:
+            seg = int((ahora - prev["desde"]).total_seconds()) if prev.get("desde") else None
+            await s.execute(text("""
+                INSERT INTO transferencias_estado_historial
+                    (created_at, user_id, username, team, estado, anterior, anterior_seg, cambiado_por)
+                VALUES (:t, :u, :n, :team, :e, :a, :seg, :by)"""), {
+                "t": ahora, "u": aid, "n": (prev.get("username") or "")[:150], "team": (prev.get("team") or "")[:150],
+                "e": estado, "a": anterior, "seg": seg, "by": por})
         await s.execute(text("""
             INSERT INTO transferencias_estado_agente (user_id, estado, desde, cambiado_por)
             VALUES (:u, :e, :d, :by)
-            ON DUPLICATE KEY UPDATE estado = VALUES(estado), desde = VALUES(desde),
-                                    cambiado_por = VALUES(cambiado_por)
-        """), {"u": aid, "e": estado, "d": _utcnow(), "by": str(user.get("username") or "")[:150]})
+            -- Si vuelve a elegir el mismo status, «desde» no se reinicia (cuenta la duración real).
+            ON DUPLICATE KEY UPDATE desde = IF(estado = VALUES(estado), desde, VALUES(desde)),
+                                    estado = VALUES(estado), cambiado_por = VALUES(cambiado_por)
+        """), {"u": aid, "e": estado, "d": ahora, "by": por})
         await s.commit()
         if estado == "dispo":
             _estados.pop(aid, None)
