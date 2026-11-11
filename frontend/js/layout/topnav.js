@@ -69,6 +69,7 @@
       { label: 'Customer Líneas', href: '/lineas/costumer.html', seccion: 'lin' },
       { label: 'Estadísticas Líneas', href: '/lineas/estadisticas.html', seccion: 'lin' },
       { label: 'Ranking Líneas', href: '/lineas/ranking.html', seccion: 'lin' },
+      { label: 'Consolidado Líneas', href: '/lineas/consolidado.html', seccion: 'lin' },
     ] },
   ];
 

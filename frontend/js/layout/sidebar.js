@@ -66,6 +66,7 @@
     {"href": "/lineas/costumer.html", "label": "Costumer Líneas", "color": "#0d9488", "icon": "<circle cx=\"8\" cy=\"8\" r=\"3\"/><path d=\"M2 20c0-3.5 2.7-6 6-6s6 2.5 6 6\"/><circle cx=\"17\" cy=\"9\" r=\"2.6\"/><path d=\"M15.5 14c2.6.4 4.5 2.6 4.5 6\"/>"},
     {"href": "/lineas/estadisticas.html", "label": "Estadísticas Líneas", "color": "#0d9488", "icon": "<line x1=\"4\" y1=\"20\" x2=\"20\" y2=\"20\"/><rect x=\"6\" y=\"12\" width=\"3\" height=\"8\" rx=\"2\"/><rect x=\"11\" y=\"8\" width=\"3\" height=\"12\" rx=\"2\"/><rect x=\"16\" y=\"4\" width=\"3\" height=\"16\" rx=\"2\"/>"},
     {"href": "/lineas/ranking.html", "label": "Ranking Líneas", "color": "#0d9488", "icon": "<path d=\"M4 16l5-5 4 3 7-8\"/><path d=\"M4 20h16\"/>"},
+    {"href": "/lineas/consolidado.html", "label": "Consolidado Líneas", "color": "#0d9488", "icon": "<path d=\"M12 3 3 8l9 5 9-5-9-5z\"/><path d=\"m3 13 9 5 9-5\"/>"},
     {"href": "/horarios.html", "label": "Horarios", "color": "#2563eb", "icon": "<rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2\"/><line x1=\"3\" y1=\"10\" x2=\"21\" y2=\"10\"/><line x1=\"8\" y1=\"3\" x2=\"8\" y2=\"7\"/><line x1=\"16\" y1=\"3\" x2=\"16\" y2=\"7\"/><path d=\"M12 13v3l2 1\"/>"}
   ],
   };

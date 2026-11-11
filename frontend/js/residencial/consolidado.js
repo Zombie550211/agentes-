@@ -10,6 +10,11 @@
 (function () {
   'use strict';
 
+  // La misma página sirve a las dos secciones; el <body> dice cuál (lineas/consolidado.html):
+  // data-api (endpoint) y data-unidad («pts» en Residencial, «líneas» en Líneas, sin decimales).
+  var API = document.body.dataset.api || '/api/consolidado';
+  var UNIDAD = document.body.dataset.unidad || 'pts';
+  var DEC = UNIDAD === 'pts' ? 2 : 0;
   var MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto',
     'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
   // st: color del status en el encabezado (css/residencial/consolidado.css).
@@ -25,7 +30,7 @@
   var mes = { y: hoy.getFullYear(), m: hoy.getMonth() + 1 };   // se corrige con lo que diga el servidor
   var actual = null;
   var vista = 'team';               // 'team' | 'mercado'
-  try { if (localStorage.getItem('co_vista') === 'mercado') vista = 'mercado'; } catch (e) {}
+  try { if (localStorage.getItem('co_vista' + UNIDAD) === 'mercado') vista = 'mercado'; } catch (e) {}
 
   var elTotal = document.getElementById('co-total');
   var elEquipos = document.getElementById('co-equipos');
@@ -41,7 +46,7 @@
     });
   }
   function num(n) {
-    return Number(n || 0).toLocaleString('es-SV', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return Number(n || 0).toLocaleString('es-SV', { minimumFractionDigits: DEC, maximumFractionDigits: DEC });
   }
   // "TEAM IRANIA SERRANO" → "Irania Serrano"
   function nombreTeam(t) {
@@ -160,7 +165,7 @@
       var v = Number(f[c.k] || 0), base = Number(tot[c.k] || 0);
       var p = base ? v / base * 100 : 0;
       return '<td class="pg-n co-pct' + (c.sum ? ' co-sum' : '') + (c.tot ? ' co-tot' : '') + (p === 0 ? ' co-cero' : '') + '">' +
-        pct(p) + '<small>' + num(v) + ' pts</small></td>';
+        pct(p) + '<small>' + num(v) + ' ' + UNIDAD + '</small></td>';
     }).join('');
   }
   function tablaMercado(filas) {
@@ -242,7 +247,7 @@
   document.querySelectorAll('.co-vista').forEach(function (b) {
     b.addEventListener('click', function () {
       vista = b.dataset.vista;
-      try { localStorage.setItem('co_vista', vista); } catch (e) {}
+      try { localStorage.setItem('co_vista' + UNIDAD, vista); } catch (e) {}
       pintarVista();
     });
   });
@@ -258,7 +263,7 @@
     pintarMes();
     elTotal.innerHTML = '<div class="pg-vacio">Cargando…</div>';
     elMercado.innerHTML = '<div class="pg-vacio">Cargando…</div>';
-    fetch('/api/consolidado?mes=' + clave(mes), { credentials: 'include' })
+    fetch(API + '?mes=' + clave(mes), { credentials: 'include' })
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(function (d) {
         tablas = [];
@@ -287,7 +292,7 @@
   btnNext.addEventListener('click', function () { mover(1); });
 
   // El mes en curso lo fija el servidor (hora de El Salvador), no el reloj del equipo.
-  fetch('/api/consolidado', { credentials: 'include' })
+  fetch(API, { credentials: 'include' })
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (d) {
       if (d && d.mes) { actual = d.mes; mes = { y: +d.mes.slice(0, 4), m: +d.mes.slice(5, 7) }; }
