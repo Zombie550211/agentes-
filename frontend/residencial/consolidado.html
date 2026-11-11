@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="/css/base/sistema.css?v=20261105a">
   <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
   <link rel="stylesheet" href="/css/componentes/pagina.css?v=20261009a">
-  <link rel="stylesheet" href="/css/residencial/consolidado.css?v=20261026d">
+  <link rel="stylesheet" href="/css/residencial/consolidado.css?v=20261111c">
   <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
   <script src="/js/layout/transicion.js?v=20261105a"></script>
   <script src="/js/core/fetch-interceptor.js" defer></script>
@@ -46,6 +46,10 @@
       </div>
     </div>
     <div class="pg-acciones">
+      <div class="pg-tabs" role="group" aria-label="Vista">
+        <button type="button" class="pg-tab co-vista" data-vista="team" aria-pressed="true"><i class="ph ph-users-three" aria-hidden="true"></i>Por team</button>
+        <button type="button" class="pg-tab co-vista" data-vista="mercado" aria-pressed="false"><i class="ph ph-percent" aria-hidden="true"></i>Por mercado</button>
+      </div>
       <div class="pg-periodo">
         <button type="button" class="pg-paso" id="co-prev" aria-label="Mes anterior"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
         <span class="pg-periodo-lbl" id="co-mes" aria-live="polite">—</span>
@@ -55,7 +59,7 @@
   </section>
 
   <!-- ══ Consolidado total: una fila por team (js/residencial/consolidado.js) ══ -->
-  <section class="pg-card in-glass" aria-labelledby="co-total-titulo">
+  <section class="pg-card in-glass co-v-team" aria-labelledby="co-total-titulo">
     <div class="pg-card-head">
       <div>
         <h2 id="co-total-titulo"><i class="ph ph-users-three" aria-hidden="true"></i>Consolidado total</h2>
@@ -65,8 +69,24 @@
     <div id="co-total"><div class="pg-vacio">Cargando…</div></div>
   </section>
 
+  <!-- ══ Por mercado: ICON y BAMO como % de cada columna (cada columna suma 100 %) ══ -->
+  <section class="pg-card in-glass co-v-mercado" aria-labelledby="co-mer-titulo" hidden>
+    <div class="pg-card-head">
+      <div>
+        <h2 id="co-mer-titulo"><i class="ph ph-percent" aria-hidden="true"></i>Consolidado por mercado · Total</h2>
+        <p>Qué parte del puntaje de cada status aporta cada mercado; cada columna suma 100&nbsp;%</p>
+      </div>
+    </div>
+    <div id="co-mercado"><div class="pg-vacio">Cargando…</div></div>
+  </section>
+
+  <section class="co-equipos co-v-mercado" aria-labelledby="co-mer-eq-titulo" hidden>
+    <h2 class="co-seccion" id="co-mer-eq-titulo"><i class="ph ph-percent" aria-hidden="true"></i>Por mercado en cada team</h2>
+    <div id="co-mercado-equipos" class="co-grid"></div>
+  </section>
+
   <!-- ══ Consolidado por equipos: una tabla por team, una fila por agente ══ -->
-  <section class="co-equipos" aria-labelledby="co-eq-titulo">
+  <section class="co-equipos co-v-team" aria-labelledby="co-eq-titulo">
     <h2 class="co-seccion" id="co-eq-titulo"><i class="ph ph-user-check" aria-hidden="true"></i>Consolidado por equipos</h2>
     <div id="co-equipos"></div>
   </section>
@@ -76,6 +96,6 @@
 
 <script src="/js/layout/topnav.js?v=20261105d" defer></script>
 <script src="/js/layout/topbar-acciones.js?v=20261106a" defer></script>
-<script src="/js/residencial/consolidado.js?v=20261026e" defer></script>
+<script src="/js/residencial/consolidado.js?v=20261111d" defer></script>
 </body>
 </html>

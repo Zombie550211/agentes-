@@ -5,6 +5,9 @@ vistas. Entran las ventas del mes (leads.dia_venta) y las de colchón: instalada
 (dia_instalacion) pero vendidas en un mes anterior, con la misma regla que routers/ranking.py.
 - total:   una fila por team de venta (su supervisor).
 - equipos: por cada team, una fila por agente.
+- mercados: una fila por mercado (ICON, BAMO) con el puntaje por status; la página lo
+  muestra como % de cada columna (ICON + BAMO = 100 %). También va por team en equipos[].mercados
+  y por agente en equipos[].agentes_mercado.
 Van por nombre; ordenar por columna lo hace la página al tocar el encabezado.
 
 Columnas (suma de leads.puntaje): Active, Pending, Active + Pending, Cancel, Hold y
@@ -41,6 +44,7 @@ router = APIRouter(prefix="/api/consolidado", tags=["Consolidado"])
 _EXCLUIDO = ("reser", "resched", "reagend", "repro", "oficina")
 _ACTIVE = ("completed", "completado", "complete", "active", "activo", "activa", "cerrad")
 COLUMNAS = ("active", "pending", "cancel", "hold")
+MERCADOS = ("ICON", "BAMO")   # siempre salen, aunque estén en cero
 
 
 def _es_admin_bo(user: dict) -> bool:
@@ -81,6 +85,13 @@ def _cerrar(fila: dict) -> dict:
     return fila
 
 
+def _lista_mercados(por: dict) -> list[dict]:
+    """{mercado: fila} → filas cerradas: ICON y BAMO siempre, luego cualquier otro."""
+    filas = [{"mercado": m, **_cerrar(dict(por.get(m) or _vacio()))} for m in MERCADOS]
+    filas += [{"mercado": m, **_cerrar(dict(f))} for m, f in por.items() if m not in MERCADOS]
+    return filas
+
+
 def _periodo(mes: str | None) -> tuple[date, date, str]:
     hoy = ahora_sv().date()
     if mes:
@@ -115,7 +126,8 @@ async def consolidado(mes: str | None = Query(None), user: dict = Depends(curren
         r = await s.execute(text(f"""
             SELECT TRIM(COALESCE(supervisor, '')) AS supervisor,
                    TRIM(COALESCE(NULLIF(agente, ''), agente_nombre, '')) AS agente,
-                   status_grupo AS status, COALESCE(puntaje, 0) AS puntaje
+                   status_grupo AS status, COALESCE(puntaje, 0) AS puntaje,
+                   UPPER(TRIM(COALESCE(mercado, ''))) AS mercado
             FROM leads
             WHERE ((dia_venta >= :d AND dia_venta < :h)
                    OR (dia_instalacion >= :d AND dia_instalacion < :h
@@ -147,6 +159,8 @@ async def consolidado(mes: str | None = Query(None), user: dict = Depends(curren
 
     for t in teams.values():
         t["fila"] = _vacio()
+        t["mercados"] = {}
+        t["ag_merc"] = {}               # clave del agente → {mercado: fila}
         t["agentes"] = {_clave(n): {"agente": n, **_vacio()} for n in t["roster"]}
 
     for v in ventas:
@@ -159,16 +173,29 @@ async def consolidado(mes: str | None = Query(None), user: dict = Depends(curren
             nombre = v["supervisor"] or "Sin supervisor"
             key = "SUP:" + _clave(nombre)
             teams.setdefault(key, {"team": "", "supervisores": [nombre], "roster": [],
-                                   "fila": _vacio(), "agentes": {}})
+                                   "fila": _vacio(), "mercados": {}, "ag_merc": {}, "agentes": {}})
         t = teams[key]
         pts = float(v["puntaje"] or 0)
         t["fila"][col] += pts
-        ag = t["agentes"].setdefault(_clave(v["agente"]) or "—",
-                                     {"agente": v["agente"] or "Sin agente", **_vacio()})
+        merc = v["mercado"] or "SIN MERCADO"
+        t["mercados"].setdefault(merc, _vacio())[col] += pts
+        clave_ag = _clave(v["agente"]) or "—"
+        ag = t["agentes"].setdefault(clave_ag, {"agente": v["agente"] or "Sin agente", **_vacio()})
         ag[col] += pts
+        t["ag_merc"].setdefault(clave_ag, {}).setdefault(merc, _vacio())[col] += pts
 
     if mi_team is not None:
         teams = {k: v for k, v in teams.items() if k == mi_team}
+
+    # Por mercado (ICON / BAMO): suma de los teams visibles; los % los calcula la página.
+    por_mercado: dict[str, dict] = {m: _vacio() for m in MERCADOS}
+    for t in teams.values():
+        for m, f in t["mercados"].items():
+            dst = por_mercado.setdefault(m, _vacio())
+            for c in COLUMNAS:
+                dst[c] += f[c]
+    mercados = [{"mercado": m, **_cerrar(f)} for m, f in por_mercado.items()
+                if m in MERCADOS or any(f.values())]
 
     total, equipos = [], []
     for key in sorted(teams, key=lambda k: (k.startswith("SUP:"), teams[k]["team"] or teams[k]["supervisores"][0])):
@@ -179,6 +206,12 @@ async def consolidado(mes: str | None = Query(None), user: dict = Depends(curren
         base = {"team": t["team"], "supervisor": ", ".join(t["supervisores"])}
         total.append({**base, **fila})
         agentes = sorted((_cerrar(a) for a in t["agentes"].values()), key=lambda a: a["agente"].lower())
-        equipos.append({**base, "totales": fila, "agentes": agentes})
+        # Por mercado de cada agente (botón «Ver team» de la vista Por mercado).
+        agentes_mercado = [{"agente": t["agentes"][k]["agente"], "total": t["agentes"][k]["total"],
+                            "mercados": _lista_mercados(t["ag_merc"].get(k, {}))}
+                           for k in sorted(t["agentes"], key=lambda k: t["agentes"][k]["agente"].lower())]
+        equipos.append({**base, "totales": fila, "agentes": agentes,
+                        "mercados": _lista_mercados(t["mercados"]), "agentes_mercado": agentes_mercado})
 
-    return {"success": True, "mes": mes, "todos": mi_team is None, "total": total, "equipos": equipos}
+    return {"success": True, "mes": mes, "todos": mi_team is None, "total": total, "equipos": equipos,
+            "mercados": mercados}

@@ -5,6 +5,7 @@
  * - Consolidado por equipos: una tabla por team con una fila por agente.
  * Admin y back office ven todos los teams; los demás solo el suyo (lo filtra el servidor).
  * Cada tabla se ordena tocando el encabezado de una columna.
+ * «Por mercado»: ICON y BAMO como % de cada columna (cada columna suma 100 %): total y una tabla por team.
  */
 (function () {
   'use strict';
@@ -23,9 +24,13 @@
   var hoy = new Date();
   var mes = { y: hoy.getFullYear(), m: hoy.getMonth() + 1 };   // se corrige con lo que diga el servidor
   var actual = null;
+  var vista = 'team';               // 'team' | 'mercado'
+  try { if (localStorage.getItem('co_vista') === 'mercado') vista = 'mercado'; } catch (e) {}
 
   var elTotal = document.getElementById('co-total');
   var elEquipos = document.getElementById('co-equipos');
+  var elMercado = document.getElementById('co-mercado');
+  var elMercadoEq = document.getElementById('co-mercado-equipos');
   var elMes = document.getElementById('co-mes');
   var btnPrev = document.getElementById('co-prev');
   var btnNext = document.getElementById('co-next');
@@ -144,6 +149,105 @@
       '</div></div>' + cuerpo + '</section>';
   }
 
+  // ── Por mercado ───────────────────────────────────────────────────
+  // Cada celda es el % que aporta ese mercado al total de la columna (ICON + BAMO = 100 %),
+  // con el puntaje debajo. La fila Total da 100 % en toda columna que tenga puntaje.
+  function pct(n) {
+    return Number(n || 0).toLocaleString('es-SV', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '\u00a0%';
+  }
+  function celdasPct(f, tot) {
+    return COLS.map(function (c) {
+      var v = Number(f[c.k] || 0), base = Number(tot[c.k] || 0);
+      var p = base ? v / base * 100 : 0;
+      return '<td class="pg-n co-pct' + (c.sum ? ' co-sum' : '') + (c.tot ? ' co-tot' : '') + (p === 0 ? ' co-cero' : '') + '">' +
+        pct(p) + '<small>' + num(v) + ' pts</small></td>';
+    }).join('');
+  }
+  function tablaMercado(filas) {
+    var tot = sumar(filas);
+    if (!filas.length || !tot.total) return '<div class="pg-vacio">Sin ventas este mes</div>';
+    var cab = '<thead><tr><th scope="col" class="pg-izq"><span class="co-orden">Mercado</span></th>' +
+      COLS.map(function (c) {
+        var cls = c.st ? 'co-st co-st-' + c.st : c.sum ? 'co-sum' : 'co-tot';
+        return '<th scope="col" class="' + cls + '"><span class="co-orden">' +
+          (c.st ? '<span class="co-punto" aria-hidden="true"></span>' : '') + c.t + '</span></th>';
+      }).join('') + '</tr></thead>';
+    var cuerpo = filas.map(function (f) {
+      return '<tr><th scope="row" class="pg-izq"><span class="co-mer co-mer-' + esc(f.mercado.toLowerCase()) + '">' +
+        '<span class="co-mer-punto" aria-hidden="true"></span>' + esc(f.mercado) + '</span></th>' + celdasPct(f, tot) + '</tr>';
+    }).join('');
+    return '<div class="pg-scroll"><table class="pg-tbl co-tbl">' + cab + '<tbody>' + cuerpo + '</tbody>' +
+      '<tfoot><tr><th scope="row" class="pg-izq">Total</th>' + celdasPct(tot, tot) + '</tr></tfoot></table></div>';
+  }
+
+  // «Ver team»: por cada agente, sus filas ICON y BAMO como % de SU puntaje (suman 100 %).
+  // Solo agentes con puntaje; los demás se cuentan al pie.
+  function tablaMercadoAgentes(lista) {
+    var con = lista.filter(function (a) { return Number(a.total || 0) > 0; });
+    var sin = lista.length - con.length;
+    var notaSin = sin ? '<p class="co-nota">' + sin + (sin === 1 ? ' agente sin ventas' : ' agentes sin ventas') + ' este mes</p>' : '';
+    if (!con.length) return '<div class="pg-vacio">Ningún agente con ventas este mes</div>';
+    var cab = '<thead><tr><th scope="col" class="pg-izq"><span class="co-orden">Agente</span></th>' +
+      '<th scope="col" class="pg-izq"><span class="co-orden">Mercado</span></th>' +
+      COLS.map(function (c) {
+        var cls = c.st ? 'co-st co-st-' + c.st : c.sum ? 'co-sum' : 'co-tot';
+        return '<th scope="col" class="' + cls + '"><span class="co-orden">' +
+          (c.st ? '<span class="co-punto" aria-hidden="true"></span>' : '') + c.t + '</span></th>';
+      }).join('') + '</tr></thead>';
+    var cuerpos = con.map(function (a) {
+      var filas = (a.mercados || []).filter(function (f) { return f.mercado === 'ICON' || f.mercado === 'BAMO' || Number(f.total) > 0; });
+      var tot = sumar(filas);
+      return '<tbody class="co-ag">' + filas.map(function (f, i) {
+        return '<tr>' + (i === 0 ? '<th scope="rowgroup" rowspan="' + filas.length + '" class="pg-izq co-ag-nom">' + esc(a.agente) + '</th>' : '') +
+          '<th scope="row" class="pg-izq"><span class="co-mer co-mer-' + esc(f.mercado.toLowerCase()) + '">' +
+          '<span class="co-mer-punto" aria-hidden="true"></span>' + esc(f.mercado) + '</span></th>' + celdasPct(f, tot) + '</tr>';
+      }).join('') + '</tbody>';
+    }).join('');
+    return '<div class="pg-scroll"><table class="pg-tbl co-tbl co-tbl-ag">' + cab + cuerpos + '</table></div>' + notaSin;
+  }
+
+  var nEquipo = 0;
+  function tablaMercadoEquipo(e) {
+    var titulo = e.team ? nombreTeam(e.team) : e.supervisor;
+    var id = 'co-mag-' + (nEquipo++);
+    var lista = e.agentes_mercado || [];
+    return '<section class="pg-card in-glass" aria-label="' + esc(titulo) + ' por mercado">' +
+      '<div class="pg-card-head"><div>' +
+        '<h2><i class="ph ph-users-three" aria-hidden="true"></i>' + esc(titulo) + '</h2>' +
+        '<p>Supervisor: ' + esc(e.supervisor) + '</p>' +
+      '</div>' +
+      (lista.length ? '<button type="button" class="co-ver" aria-expanded="false" aria-controls="' + id + '">' +
+        '<i class="ph ph-caret-down" aria-hidden="true"></i><span>Ver team</span></button>' : '') +
+      '</div>' + tablaMercado(e.mercados || []) +
+      (lista.length ? '<div class="co-ag-panel" id="' + id + '" hidden>' +
+        '<h3 class="co-ag-titulo"><i class="ph ph-user-check" aria-hidden="true"></i>Por agente</h3>' +
+        tablaMercadoAgentes(lista) + '</div>' : '') +
+      '</section>';
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('.co-ver');
+    if (!b) return;
+    var abierto = b.getAttribute('aria-expanded') !== 'true';
+    b.setAttribute('aria-expanded', String(abierto));
+    b.querySelector('span').textContent = abierto ? 'Ocultar team' : 'Ver team';
+    document.getElementById(b.getAttribute('aria-controls')).hidden = !abierto;
+  });
+
+  function pintarVista() {
+    document.querySelectorAll('.co-vista').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.vista === vista)); });
+    document.querySelectorAll('.co-v-team').forEach(function (el) { el.hidden = vista !== 'team'; });
+    document.querySelectorAll('.co-v-mercado').forEach(function (el) { el.hidden = vista !== 'mercado'; });
+  }
+  document.querySelectorAll('.co-vista').forEach(function (b) {
+    b.addEventListener('click', function () {
+      vista = b.dataset.vista;
+      try { localStorage.setItem('co_vista', vista); } catch (e) {}
+      pintarVista();
+    });
+  });
+  pintarVista();
+
   function pintarMes() {
     elMes.textContent = MESES[mes.m - 1] + ' ' + mes.y;
     // No hay meses futuros que ver.
@@ -153,10 +257,15 @@
   function cargar() {
     pintarMes();
     elTotal.innerHTML = '<div class="pg-vacio">Cargando…</div>';
+    elMercado.innerHTML = '<div class="pg-vacio">Cargando…</div>';
     fetch('/api/consolidado?mes=' + clave(mes), { credentials: 'include' })
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(function (d) {
         tablas = [];
+        elMercado.innerHTML = tablaMercado(d.mercados || []);
+        nEquipo = 0;
+        elMercadoEq.innerHTML = (d.equipos || []).map(tablaMercadoEquipo).join('') ||
+          '<div class="pg-vacio in-glass">' + (d.todos ? 'Sin equipos' : 'No tienes un equipo de venta asignado') + '</div>';
         elTotal.innerHTML = tablaTotal(d.total || [], d.todos);
         elEquipos.innerHTML = (d.equipos || []).map(tablaEquipo).join('') ||
           '<div class="pg-vacio in-glass">' + (d.todos ? 'Sin equipos' : 'No tienes un equipo de venta asignado') + '</div>';
@@ -164,6 +273,8 @@
       .catch(function () {
         elTotal.innerHTML = '<div class="pg-vacio">No se pudo cargar el consolidado</div>';
         elEquipos.innerHTML = '';
+        elMercado.innerHTML = '<div class="pg-vacio">No se pudo cargar el consolidado</div>';
+        elMercadoEq.innerHTML = '';
       });
   }
 

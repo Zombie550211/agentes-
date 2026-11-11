@@ -27,7 +27,7 @@
 .co-equipos{display:flex;flex-direction:column;gap:var(--space-3)}
 .co-seccion{display:flex;align-items:center;gap:8px;margin:var(--space-2) 0 0;font-size:18px;color:var(--color-text)}
 .co-seccion i{color:var(--color-accent-2-500)}
-#co-equipos{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--space-3)}
+#co-equipos,.co-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--space-3)}
 /* La fila de totales lleva un solo fondo; solo Suma total se distingue. */
 .co-tbl tfoot td.co-sum{background:#e3edf2}
 .co-tbl tfoot td.co-tot{background:#d3e6ed}
@@ -45,3 +45,29 @@
 .co-tbl thead th.co-activo:not(.co-tot):not(.co-sum){background:#1e293b}
 .co-tbl thead th.pg-izq.co-activo{color:#fff}
 @media (prefers-reduced-motion:no-preference){ .co-orden{transition:background-color .15s ease-out} }
+
+/* Por mercado: % grande y el puntaje debajo, tenue. */
+.co-pct small{display:block;margin-top:1px;font-size:10px;font-weight:400;color:var(--color-neutral-600)}
+.co-tbl tfoot .co-pct small{color:var(--color-neutral-700)}
+.co-mer{display:inline-flex;align-items:center;gap:8px;font-weight:600}
+.co-mer-punto{width:8px;height:8px;border-radius:999px;background:var(--co-m)}
+.co-mer-icon{--co-m:#0e7490}
+.co-mer-bamo{--co-m:#a855f7}
+.co-v-team[hidden],.co-v-mercado[hidden]{display:none}
+
+/* «Ver team» (vista Por mercado): botón de la tarjeta y desglose por agente. */
+.co-ver{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid rgb(14 116 144 / .3);
+  border-radius:999px;background:transparent;color:#0e7490;font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.co-ver:hover{background:rgb(6 182 212 / .08)}
+.co-ver:focus-visible{outline:2px solid #06b6d4;outline-offset:2px}
+.co-ver[aria-expanded="true"]{background:#0e7490;border-color:#0e7490;color:#fff}
+.co-ver i{font-size:14px}
+.co-ver[aria-expanded="true"] i{transform:rotate(180deg)}
+@media (prefers-reduced-motion:no-preference){ .co-ver,.co-ver i{transition:background-color .15s ease-out,transform .2s ease-out} }
+.co-ag-panel{border-top:1px solid rgb(0 112 152 / .12)}
+.co-ag-titulo{display:flex;align-items:center;gap:8px;margin:0;padding:12px var(--space-4) 8px;font-size:13px;color:var(--color-text)}
+.co-ag-titulo i{color:var(--color-accent-2-500)}
+/* Cada agente es un bloque de dos filas; una línea más marcada los separa (sin rayado). */
+.co-tbl-ag tbody.co-ag+tbody.co-ag tr:first-child>*{border-top:1px solid rgb(0 112 152 / .2)}
+.co-tbl-ag .co-ag-nom{font-weight:600;vertical-align:top;white-space:nowrap}
+.co-nota{margin:0;padding:8px var(--space-4) 12px;font-size:11px;color:var(--color-neutral-600)}
