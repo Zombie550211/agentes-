@@ -23,7 +23,7 @@
   <link rel="stylesheet" href="/css/base/sistema.css?v=20261105a">
   <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
   <link rel="stylesheet" href="/css/componentes/pagina.css?v=20261009a">
-  <link rel="stylesheet" href="/css/residencial/facturacion.css?v=20261013b">
+  <link rel="stylesheet" href="/css/residencial/facturacion.css?v=20261112a">
   <link rel="stylesheet" href="/css/portal/portal.css?v=20261022a">
   <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
   <script src="/js/layout/transicion.js?v=20261105a"></script>
@@ -649,8 +649,15 @@ function refreshDashboard() {
   const cpv = a => a.ventas > 0 ? a.monto / a.ventas : Infinity;
   const mejor = asesores.slice().sort((a, b) => (b.ventas - a.ventas) || (cpv(a) - cpv(b)))[0];
   document.getElementById('kpi-mejor').textContent = mejor.ventas > 0 ? mejor.nombre : '—';
-  document.getElementById('kpi-mejor-sub').textContent = mejor.ventas > 0
-    ? `${intFmt(mejor.ventas)} ${mejor.ventas === 1 ? 'venta' : 'ventas'}` : '';
+  // Las ventas resaltadas: cifra grande en azul y «ventas» al lado (createElement: sin innerHTML).
+  const sub = document.getElementById('kpi-mejor-sub');
+  sub.textContent = '';
+  if (mejor.ventas > 0) {
+    const n = document.createElement('strong');
+    n.className = 'kpi-mejor-num';
+    n.textContent = intFmt(mejor.ventas);
+    sub.append(n, ' ' + (mejor.ventas === 1 ? 'venta' : 'ventas'));
+  }
   const activos = asesores.filter(a => a.monto > 0).length;
   document.getElementById('kpi-activos').textContent = activos;
   document.getElementById('kpi-activos-sub').textContent = `de ${asesores.length} totales`;
