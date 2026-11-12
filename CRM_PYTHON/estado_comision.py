@@ -30,6 +30,17 @@ LISTA = (
 INICIAL = "PENDING"
 
 
+def inicial_para(status) -> str:
+    """Status de comisión con el que entra una venta. Si el agente la manda como Repro (status
+    del formulario), entra como REPRO: reprocesa una venta de días atrás y no debe contar como
+    venta del día (12-nov-2026: entraban como PENDING y se contaban)."""
+    return "REPRO" if grupo(status) == "repro" else INICIAL
+
+
+# Al cambiar `status` a Repro, la comisión pasa a REPRO solo si nadie la tocó aún (PENDING).
+SQL_REPRO_SI_PENDIENTE = "status_comision = IF(status_comision = 'PENDING', 'REPRO', status_comision)"
+
+
 def _sql_grupo(col: str) -> str:
     s = f"UPPER(TRIM(COALESCE({col},'')))"
     return (f"(CASE WHEN {s} LIKE '%ACTIVE%' OR {s} LIKE 'COMPLET%' OR {s} IN ('ACTIVO','ACTIVA') THEN 'completed' "

@@ -12,7 +12,8 @@ from scoring import score_for
 from validators import ImagenUrl
 import realtime
 from tiempo_sv import ahora_sv
-from estado_comision import INICIAL as INICIAL_COMISION, grupo as grupo_comision, normalizar as normalizar_comision
+from estado_comision import (INICIAL as INICIAL_COMISION, SQL_REPRO_SI_PENDIENTE, grupo as grupo_comision,
+                             inicial_para as comision_inicial_para, normalizar as normalizar_comision)
 import rbac
 _GRUPOS_COMISION = ("completed", "cancelled", "pending", "hold", "oficina", "reserva", "repro")
 
@@ -642,9 +643,10 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
     _svc_key = body.servicios[0] if isinstance(body.servicios, list) and body.servicios else body.servicios
     caso_txt, caso_estado = _caso_de_alta(body)
     from casos import riesgo_por_status
-    # Toda venta entra con el status de comisión inicial; `status` se guarda tal cual,
-    # solo informativo (estado_comision.py).
-    _rcx = riesgo_por_status(INICIAL_COMISION)
+    # Toda venta entra con el status de comisión inicial (REPRO si la mandan como Repro: no
+    # cuenta como venta); `status` se guarda tal cual, solo informativo (estado_comision.py).
+    _sc_inicial = comision_inicial_para(body.status)
+    _rcx = riesgo_por_status(_sc_inicial)
 
     async with AsyncSessionLocal() as s:
         # Puntaje calculado en el BACKEND (tabla productos). Si el servicio no está
@@ -684,7 +686,7 @@ async def create_lead(body: LeadCreateBody, user: dict = Depends(current_user)):
             "mer": body.mercado,
             "ml":  body.motivo_llamada,
             "st":  body.status,
-            "sc":  INICIAL_COMISION,
+            "sc":  _sc_inicial,
             "ap":  1 if str(body.autopago or "").lower() in ("si","sí","yes","true","1") else (0 if str(body.autopago or "").lower() in ("no","false","0") else None),
             "sis": body.sistema or None,
             "rie": body.riesgo or None,
@@ -1561,11 +1563,13 @@ async def update_lead_status(
         raise HTTPException(400, "status requerido")
     mysql_id, mongo_id = _find_id(lead_id)
     async with AsyncSessionLocal() as s:
+        # Pasar a Repro saca la venta de los conteos si su comisión seguía en PENDING.
+        extra = (", " + SQL_REPRO_SI_PENDIENTE) if grupo_comision(body.status) == "repro" else ""
         if mysql_id:
-            r = await s.execute(text("UPDATE leads SET status = :st WHERE id = :id"),
+            r = await s.execute(text(f"UPDATE leads SET status = :st{extra} WHERE id = :id"),
                                 {"st": body.status, "id": mysql_id})
         else:
-            r = await s.execute(text("UPDATE leads SET status = :st WHERE mongo_id = :mid"),
+            r = await s.execute(text(f"UPDATE leads SET status = :st{extra} WHERE mongo_id = :mid"),
                                 {"st": body.status, "mid": mongo_id})
         await s.commit()
         if r.rowcount == 0:
@@ -1731,6 +1735,9 @@ async def update_lead(
         if field in data:
             sets.append(f"{col} = :{field}")
             params[field] = data[field]
+    # Pasar a Repro saca la venta de los conteos si su comisión seguía en PENDING.
+    if "status" in data and grupo_comision(data.get("status")) == "repro":
+        sets.append(SQL_REPRO_SI_PENDIENTE)
 
     # Special handling
     if "autopago" in data:
@@ -2030,7 +2037,7 @@ async def crm_agente(raw_request: Request, user: dict = Depends(current_user)):
             "nc":  request_data.get("nombre_cliente", ""),
             "tp":  request_data.get("telefono_principal", ""),
             "st":  request_data.get("status", "pending"),
-            "sc":  INICIAL_COMISION,
+            "sc":  comision_inicial_para(request_data.get("status", "pending")),
             "ag":  agent_username,
             "agn": agent_username,
             "srv": json.dumps(servicios) if isinstance(servicios, list) else json.dumps([servicios] if servicios else []),

@@ -716,6 +716,12 @@ _MIGRATIONS: list[tuple[str, str]] = [
         INDEX idx_teh_user (user_id, created_at),
         INDEX idx_teh_fecha (created_at)
     ) ENGINE=InnoDB"""),
+    # Ventas mandadas como Repro desde el formulario: entraban con comisión PENDING y se contaban
+    # como venta del día. Pasan a REPRO solo las que nadie tocó (las que ya tienen ACTIVE,
+    # CANCEL… se quedan como están). Las nuevas ya entran así (estado_comision.inicial_para).
+    ("0108_repro_formulario_no_cuenta", """UPDATE leads SET status_comision = 'REPRO'
+        WHERE status_comision = 'PENDING'
+          AND (UPPER(TRIM(status)) LIKE '%REPRO%' OR UPPER(TRIM(status)) LIKE 'RESCHED%')"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración

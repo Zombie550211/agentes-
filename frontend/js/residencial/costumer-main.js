@@ -866,7 +866,9 @@
 
       const dv=String(l.dia_venta||'').slice(0,10);
       const st=l.status_grupo;
-      if(dv===today&&refMon===realMon&&st!=='oficina'&&st!=='reserva'&&st!=='hold')kpi.hoy++;
+      // Hoy: ventas del día. REPRO no cuenta: reprocesa una venta de días atrás (estado_comision.py);
+      // aquí su grupo se llama 'rescheduled' (grupoComision).
+      if(dv===today&&refMon===realMon&&st!=='oficina'&&st!=='reserva'&&st!=='hold'&&st!=='rescheduled')kpi.hoy++;
       if(fVenta||fInst){
         // Con un día elegido los KPIs cuentan ese día, no el mes.
         if(fVenta&&dv!==fVenta)return;
