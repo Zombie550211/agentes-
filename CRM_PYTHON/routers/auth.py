@@ -17,6 +17,7 @@ from deps import (
 )
 import session_guard
 import rbac
+import auditoria_acceso
 import unicodedata, re, os, json, math, time, secrets, smtplib
 import datetime as _dt
 from email.mime.text import MIMEText
@@ -388,7 +389,19 @@ async def verify_server(request: Request, response: Response):
     # Acciones que tiene (Roles y permisos): el menú y las pantallas muestran solo lo
     # que puede hacer. Es solo para la interfaz; cada API vuelve a comprobarlo.
     user_data["acciones"] = sorted(rbac.acciones_de(user_data))
+    # Auditoría de llamadas: solo Monitoreo (ver auditoria_acceso.py).
+    user_data["auditor"] = auditoria_acceso.puede_ver(user_data)
     return {"success": True, "authenticated": True, "user": user_data}
+
+
+@router.get("/auditoria")
+async def auditoria_sesion(user: dict = Depends(current_user)):
+    """Para el panel del auditor (Reintento/auditor/panel): con la cookie del CRM dice quién es y si
+    puede usar la Auditoría de llamadas. Así el panel no tiene login propio: es una opción más del CRM."""
+    if not auditoria_acceso.puede_ver(user):
+        raise HTTPException(status_code=403, detail="La Auditoría de llamadas es solo para Monitoreo")
+    nombre = user.get("username") or user.get("name") or ""
+    return {"success": True, "user": {"id": user.get("id"), "username": nombre, "nombre": nombre}}
 
 
 @router.get("/verify")

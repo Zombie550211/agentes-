@@ -27,6 +27,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent / os.getenv("CRM_ENV_FILE", ".env"))
 
 from limiter import limiter
+import auditoria_acceso
 from deps import decode_token
 from database_mysql import init_mysql, close_mysql, engine
 from sqlalchemy import text as _sa_text
@@ -1119,6 +1120,15 @@ async def _security_headers(request: Request, call_next):
     resp.headers["Permissions-Policy"] = (
         "geolocation=(), camera=(), microphone=(), payment=(), usb=()"
     )
+    # Auditoría de llamadas: muestra en un marco el revisor de la PC del auditor
+    # (localhost:8777, que necesita el micrófono para «En vivo») y el panel /auditor/
+    # (en el CRM local, el panel de prueba de localhost:8010).
+    # Solo esta página abre esas puertas; el resto del CRM sigue sin marcos ni micrófono.
+    if request.url.path == "/residencial/auditoria.html":
+        resp.headers["Content-Security-Policy"] = _CSP + (
+            "; frame-src 'self' http://localhost:8777 http://127.0.0.1:8777 http://localhost:8010")
+        resp.headers["Permissions-Policy"] = (
+            'geolocation=(), camera=(), microphone=("http://localhost:8777"), payment=(), usb=()')
     if _IS_PROD:
         resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return resp
@@ -1440,6 +1450,16 @@ async def serve_page(page: str, request: Request):
     for old, new in _LEGACY_REDIRECTS.items():
         if page_lower == old.lower():
             return RedirectResponse(url=new, status_code=301)
+
+    # Auditoría de llamadas: solo Monitoreo (auditoria_acceso.py), aunque escriban la dirección.
+    if page_lower.removesuffix(".html") == "residencial/auditoria":
+        try:
+            from deps import current_user as _cu
+            _u = await _cu(request, Response())
+        except Exception:
+            return RedirectResponse(url="/login.html")
+        if not auditoria_acceso.puede_ver(_u):
+            return RedirectResponse(url="/residencial/inicio.html", status_code=302)
 
     # 1. Intentar como archivo HTML exacto (con contención anti-traversal)
     for d in HTML_DIRS:

@@ -42,6 +42,7 @@
       { label: 'Productividad', href: '/residencial/productividad.html', seccion: 'res' },
       { label: 'El Semáforo', href: '/residencial/semaforo.html', seccion: 'res' },
       { label: 'Monitoreo', href: '/residencial/monitoreo.html', seccion: 'res' },
+      { label: 'Auditoría de llamadas', href: '/residencial/auditoria.html', seccion: 'res', roles: 'auditor' },
       { label: 'Consolidado', href: '/residencial/consolidado.html', seccion: 'res' },
     ] },
     { label: 'Ranking residencial', items: [
@@ -90,6 +91,8 @@
   function seccionDe(u) { return (norm(u.team).indexOf('linea') >= 0 || norm(u.role).indexOf('linea') >= 0) ? 'lin' : 'res'; }
   function visible(it, u) {
     if (!u) return it.seccion === 'comun';            // aún sin sesión: solo lo común
+    // 'auditor': Auditoría de llamadas, solo Monitoreo (verify-server → user.auditor).
+    if (it.roles === 'auditor') return !!u.auditor;
     // Con las acciones de Roles y permisos (las manda /api/auth/verify-server), el menú
     // muestra lo que el rol tiene marcado en Permisos → «Qué puede hacer cada rol».
     if (Array.isArray(u.acciones)) {
