@@ -5,7 +5,7 @@ import json
 from database_mysql import AsyncSessionLocal
 from sqlalchemy import text
 from deps import current_user
-from scoring import score_for
+from scoring import REGLAS_ESPECIALES, score_for
 import rbac
 
 router = APIRouter(tags=["Productos"])
@@ -85,7 +85,10 @@ async def list_productos(user: dict = Depends(current_user)):
             FROM productos ORDER BY categoria, servicio
         """))
         rows = [_row(x) for x in r.mappings().all()]
-    return {"success": True, "productos": rows, "count": len(rows)}
+    # Reglas que mandan sobre el catálogo según el tipo de servicio (scoring.REGLAS_ESPECIALES);
+    # la Tabla de Puntaje las muestra para que no haya puntajes escondidos.
+    especiales = [{"tipo": t, "servicio": svc, "puntaje": p} for (t, svc), p in REGLAS_ESPECIALES.items()]
+    return {"success": True, "productos": rows, "count": len(rows), "reglas_especiales": especiales}
 
 
 @router.get("/api/productos/score")

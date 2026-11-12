@@ -143,21 +143,22 @@ def service_meta(servicio: str, categoria: str) -> tuple:
     return tipo, sistema
 
 
+# Reglas especiales XFINITY / DOUBLE PLAY: (tipo de servicio, servicio) → puntaje. Mandan sobre el
+# catálogo. Son datos (no if/else) para que la Tabla de Puntaje las muestre tal cual (/api/productos).
+REGLAS_ESPECIALES = {
+    ('DOUBLE PLAY', 'XFINITY 1G'): 1.0,
+    ('DOUBLE PLAY', 'XFINITY 500'): 0.85,
+    ('DOUBLE PLAY', 'XFINITY 300'): 0.85,
+    ('XFINITY', 'XFINITY 1G'): 0.75,
+    ('XFINITY', 'XFINITY 500'): 0.60,
+}
+
+
 def special_score(servicio: str, tipo_servicio: str):
     """Reglas especiales XFINITY / DOUBLE PLAY. Devuelve el puntaje o None."""
     svc = str(servicio or '').strip().upper()
     tipo = str(tipo_servicio or '').strip().upper()
-    if tipo == 'DOUBLE PLAY':
-        if svc == 'XFINITY 1G':
-            return 1.0
-        if svc in ('XFINITY 500', 'XFINITY 300'):
-            return 0.85
-    if tipo == 'XFINITY':
-        if svc == 'XFINITY 1G':
-            return 0.75
-        if svc == 'XFINITY 500':
-            return 0.60
-    return None
+    return REGLAS_ESPECIALES.get((tipo, svc))
 
 
 async def score_for(session, servicio: str, riesgo: str = "", tipo_servicio: str = "") -> float:

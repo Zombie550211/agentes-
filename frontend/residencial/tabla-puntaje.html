@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="/css/base/sistema.css?v=20261105a">
   <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
   <link rel="stylesheet" href="/css/componentes/pagina.css?v=20261009a">
-  <link rel="stylesheet" href="/css/residencial/tabla-puntaje.css?v=20261009a">
+  <link rel="stylesheet" href="/css/residencial/tabla-puntaje.css?v=20261112a">
   <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
   <script src="/js/layout/transicion.js?v=20261105a"></script>
   <script src="/js/core/fetch-interceptor.js" defer></script>
@@ -42,14 +42,14 @@
       <span class="pg-ico"><i class="ph ph-hash" aria-hidden="true"></i></span>
       <div>
         <h1>Tabla de puntaje</h1>
-        <p>Puntos que suma cada producto según proveedor y velocidad</p>
+        <p>Puntos que suma cada servicio, tal como los calcula el CRM (Permisos → Servicios y puntajes)</p>
       </div>
     </div>
     <div class="pg-acciones">
       <label class="pg-campo tp-buscar">
         <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
-        <span class="tp-sr">Buscar producto</span>
-        <input type="search" id="tp-buscar" placeholder="Buscar proveedor, producto o velocidad" autocomplete="off">
+        <span class="tp-sr">Buscar servicio</span>
+        <input type="search" id="tp-buscar" placeholder="Buscar servicio, categoría o tipo" autocomplete="off">
       </label>
     </div>
   </section>
@@ -71,191 +71,92 @@
 <script src="/js/layout/topbar-acciones.js?v=20261106a" defer></script>
 <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
 <script>
+/* Tabla de puntaje: se arma con el catálogo de Permisos → Servicios y puntajes (GET /api/productos),
+   el mismo que usa el CRM para calcular los puntos de cada venta (scoring.score_for). Así, un servicio
+   nuevo o un puntaje cambiado aparece aquí solo. Las reglas especiales (XFINITY / DOUBLE PLAY según el
+   tipo de servicio) mandan sobre el catálogo y vienen en la misma respuesta. */
 (function () {
   'use strict';
-  // [proveedor, producto, velocidad, puntos] — mismos valores que la tabla anterior.
-  var PUNTAJES = [
-    { cat: "AT&T", filas: [
-      ["AT&T", "Internet Air 90-300Mbps", "90-300 Mbps", "0.45"],
-      ["AT&T", "Internet Menos de 50Mbps", "Menos de 50 Mbps", "0.25"],
-      ["AT&T", "Internet 50 y 75 MBPS", "50 y 75 Mbps", "0.35"],
-      ["AT&T", "Internet de 100 MBPS", "100 Mbps", "0.35"],
-      ["AT&T", "Internet 100 Fibra", "100 Mbps Fibra", "0.70"],
-      ["AT&T", "internet 300MBPS", "300 Mbps", "1.25"],
-      ["AT&T", "internet 500MBPS", "500 Mbps", "1.25"],
-      ["AT&T", "internet 1GB o más", "1 Gbps o más", "1.50"]
-    ] },
-    { cat: "Frontier", filas: [
-      ["Frontier", "7 GIG Fiber", "7,000 Mbps", "1.50"],
-      ["Frontier", "5 GIG Fiber", "5,000 Mbps", "1.50"],
-      ["Frontier", "2 GIG Fiber", "2,000 Mbps", "1.50"],
-      ["Frontier", "1 GIG Fiber", "1,000 Mbps", "1.25"],
-      ["Frontier", "500 MBPS", "500 Mbps", "1.00"],
-      ["Frontier", "FIBER UNDER 500 MBPS", "500 Mbps", "0.35"],
-      ["Frontier", "UNLIMITED DIGITAL VOICE", "----", "0.35"]
-    ] },
-    { cat: "AltaFiber - Cincinnati Bell Y Hawaiian TELECOM", filas: [
-      ["AltaFiber", "800MB - 1GB", "800Mbps-1000Mbps", "0.35"],
-      ["AltaFiber", "100MB - 600MB", "100-600 Mbps", "0.25"],
-      ["Hawaiian Telecom", "1 Gig Fiber", "1,000 Mbps", "0.35"],
-      ["Hawaiian Telecom", "750MB Fiber", "750 Mbps", "0.25"],
-      ["Hawaiian Telecom", "500MB Fiber", "500Mbps", "0.25"],
-      ["Hawaiian Telecom", "300MB Fiber", "300Mbps", "0.25"]
-    ] },
-    { cat: "DIRECTV", filas: [
-      ["DIRECTV", "LOW", "LOW", "1.00"],
-      ["DIRECTV", "Medium", "MEDIUM", "0.35"]
-    ] },
-    { cat: "XFINITY", filas: [
-      ["XFINITY", "100-299 Mbps", "100-299 Mbps", "0.35"],
-      ["XFINITY", "300 Mbps", "300 Mbps", "0.35"],
-      ["XFINITY", "500 Mbps+", "500 Mbps o más", "0.75"],
-      ["XFINITY", "Double Play", "Internet + TV", "1.00"],
-      ["XFINITY", "Ultimate TV", "TV Premium", "0.75"],
-      ["XFINITY", "Unlimited VoIP", "Telefonía VoIP", "0.75"]
-    ] },
-    { cat: "Spectrum", filas: [
-      ["Spectrum", "2 GIGA Ultra", "2,000 Mbps", "1.25"],
-      ["Spectrum", "1 GIGA Pro", "1,000 Mbps", "1.00"],
-      ["Spectrum", "Premier", "premie", "1.00"],
-      ["Spectrum", "Advantage", "Standard", "0.35"],
-      ["400MBPS", "400MBPS", "400MBPS", "1.00"]
-    ] },
-    { cat: "Zipl fiber", filas: [
-      ["Zipl fiber 10GIG", "Zipl fiber 10GIG", "Zipl fiber 10GIG", "1.25"],
-      ["Zipl fiber 5GIG", "Zipl fiber 5GIG", "Zipl fiber 5GIG", "1.25"],
-      ["Zipl fiber 2GIG", "Zipl fiber 2GIG", "Zipl fiber 2GIG", "1.00"],
-      ["Zipl fiber 1GIG", "Zipl fiber 1GIG", "Zipl fiber 1GIG", "1.00"],
-      ["Zipl fiber 300MB", "Zipl fiber 300MB", "Zipl fiber 300MB", "0.35"],
-      ["Zipl fiber 200MB", "Zipl fiber 200MB", "Zipl fiber 200MB", "0.35"]
-    ] },
-    { cat: "Consolidated Communications/Fidium", filas: [
-      ["Consolidated/Fidium", "2G/G", "2,000 Mbps", "1.25"],
-      ["Consolidated/Fidium", "1G/G", "1,000 Mbps", "1.25"],
-      ["Consolidated/Fidium", "300M", "300 Mbps", "0.35"],
-      ["Consolidated/Fidium", "100M", "100 Mbps", "0.35"]
-    ] },
-    { cat: "Windstream/Kinetic", filas: [
-      ["Windstream/Kinetic", "DEBAJO DE 499MBPS", "Menos de 499 Mbps", "1.00"],
-      ["Windstream/Kinetic", "500 A 999MBPS", "500-999 Mbps", "1.00"],
-      ["Windstream/Kinetic", "1GIG O MAS", "1,000 Mbps o más", "1.25"]
-    ] },
-    { cat: "MetroNet Residential", filas: [
-      ["MetroNet", "5GB", "5,000 Mbps", "1.25"],
-      ["MetroNet", "3GB", "3,000 Mbps", "1.25"],
-      ["MetroNet", "2GB", "2,000 Mbps", "1.25"],
-      ["MetroNet", "1GB", "1,000 Mbps", "1.00"]
-    ] },
-    { cat: "CenturyLink/Lumen", filas: [
-      ["CenturyLink/Lumen", "900MBPS+", "900 Mbps o más", "1.00"],
-      ["CenturyLink/Lumen", "100-899MBPS", "100-899 Mbps", "0.75"],
-      ["CenturyLink/Lumen", "10-99MBPS", "10-99 Mbps", "0.25"],
-      ["CenturyLink/Lumen", "CenturyLink/Lumen D2D", "---", "0.35"],
-      ["CenturyLink/Lumen", "ALL FIBER", "Fibra", "1.25"],
-      ["CenturyLink/Lumen", "40-99MBPS", "40-99 Mbps", "0.35"],
-      ["CenturyLink/Lumen", "10-39MBPS", "10-39 Mbps", "0.25"]
-    ] },
-    { cat: "Brightspeed", filas: [
-      ["Brightspeed", "900MBPS+", "900 Mbps o más", "1.00"],
-      ["Brightspeed", "100-899MBPS", "100-899 Mbps", "1.00"],
-      ["Brightspeed", "40-99MBPS", "40-99 Mbps", "0.35"],
-      ["Brightspeed", "10-39MBPS", "10-39 Mbps", "0.35"]
-    ] },
-    { cat: "Earthlink", filas: [
-      ["Earthlink", "Earthlink <100MBPS", "Menos de 100 Mbps", "0.25"],
-      ["Earthlink", "Speeds up to 99mbps", "Hasta 99 Mbps", "0.25"],
-      ["Earthlink", "Speeds 100+mbps", "100 Mbps o más", "0.35"],
-      ["Earthlink", "12 AT&T Markets - 100mbps UNLIMITED", "100 Mbps", "0.75"],
-      ["Earthlink", "12 AT&T Markets - 300mbps UNLIMITED", "300 Mbps", "1.00"]
-    ] },
-    { cat: "WIRELES - ATT", filas: [
-      ["ATT Wireless", "C/A", "Con Activación", "0.50"],
-      ["ATT Wireless", "S/A", "Sin Activación", "0.25"]
-    ] },
-    { cat: "Altafiber - Cincinnati Bell (Productos Adicionales)", filas: [
-      ["Altafiber", "800MB - 1GB", "800-1000 Mbps", "0.35"],
-      ["Altafiber", "100MB - 600MB", "100-600 Mbps", "0.25"],
-      ["Hawaiian Telecom", "1200MBPS", "1,200 Mbps", "0.35"],
-      ["Hawaiian Telecom", "1000MBPS", "1,000 Mbps", "0.35"],
-      ["Hawaiian Telecom", "500MBPS", "500 Mbps", "0.25"],
-      ["Hawaiian Telecom", "300MB", "300 Mbps", "0.25"],
-      ["Hawaiian Telecom", "200MBPS", "200 Mbps", "0.25"]
-    ] },
-    { cat: "HughesNet", filas: [
-      ["HughesNet", "Activation Commission", "---", "0.35"]
-    ] },
-    { cat: "OPTIMUM", filas: [
-      ["Optimum", "BROADBAND 5 GBPS", "5,000 Mbps", "1.25"],
-      ["Optimum", "BROADBAND 2 GBPS", "2,000 Mbps", "1.25"],
-      ["Optimum", "BROADBAND 1 GBPS", "1,000 Mbps", "1.00"],
-      ["Optimum", "BROADBAND 500 MBPS", "500 Mbps", "0.35"]
-    ] },
-    { cat: "EXTRAS NO APLICAN PARA PUNTAJE", filas: [
-      ["Extras", "VIVINT", "---", "N/A"],
-      ["Extras", "LINEAS TELEFONICA AT&T", "---", "N/A"],
-      ["Extras", "LINEAS TELEFONICA SPECTRUM", "---", "N/A"],
-      ["Extras", "VIDEO EXTRA DE SPECTRUM", "---", "N/A"]
-    ] },
-    { cat: "DIRECTV (Productos Adicionales)", filas: [
-      ["DIRECTV", "Low", "Low", "1.00"],
-      ["DIRECTV", "Medium", "Medium", "0.35"]
-    ] },
-    { cat: "SPECTRUM (Productos Adicionales)", filas: [
-      ["Spectrum", "2 GIGA", "2,000 Mbps", "1.25"],
-      ["Spectrum", "1 GIGA", "1,000 Mbps", "1.00"],
-      ["Spectrum", "PREMIER", "Premier", "1.00"],
-      ["Spectrum", "ADVANTAGE", "Standard", "0.35"],
-      ["Spectrum", "400 mbps", "400 Mbps", "1.00"]
-    ] },
-    { cat: "MOBILITY", filas: [
-      ["Mobility", "UNLIMITED PLUS FIRST LINE", "---", "0.25"],
-      ["Mobility", "UNLIMITED PLUS LINES 2 +", "---", "1.00"],
-      ["Mobility", "UNLIMITED LINES 2 +", "---", "0.35"]
-    ] },
-    { cat: "VIDEO", filas: [
-      ["Video", "SELECT", "---", "0.35"],
-      ["Video", "ADDITIONAL", "---", "N/A"],
-      ["Video", "DOUBLE PLAY", "---", "0.25"],
-      ["Video", "TRIPLE PLAY", "---", "0.35"]
-    ] }
-  ];
+  var RIESGOS = [['score_low', 'LOW'], ['score_medium', 'MEDIUM'], ['score_high', 'HIGH'], ['score_na', 'N/A']];
+  var productos = [], especiales = [];
 
-  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
   function norm(s) { try { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); } catch (e) { return String(s || '').toLowerCase(); } }
-  function nivel(p) {
-    var n = parseFloat(p);
-    if (isNaN(n)) return 'tp-na';
+  function fmt(n) { return n == null || isNaN(n) ? '—' : Number(n).toFixed(2); }
+  function nivel(n) {
+    if (n == null || isNaN(n) || Number(n) <= 0) return 'tp-na';
     return n >= 1.25 ? 'tp-alto' : n >= 0.7 ? 'tp-medio' : 'tp-bajo';
   }
-  function sinDato(v) { return !v || /^-+$/.test(v); }
+  function pts(n) { return '<span class="tp-pts ' + nivel(n) + '">' + (n == null || Number(n) <= 0 ? 'N/A' : fmt(n)) + '</span>'; }
+  // Puntaje fijo (score_base) o, si no hay, uno por riesgo del cliente.
+  function celdaPuntos(p) {
+    if (p.score_base != null) return pts(p.score_base);
+    return '<div class="tp-riesgos">' + RIESGOS.map(function (r) {
+      return '<span class="tp-riesgo"><small>' + r[1] + '</small>' + pts(p[r[0]]) + '</span>';
+    }).join('') + '</div>';
+  }
+  function equivalentes(p) { return Array.isArray(p.equivalentes) ? p.equivalentes : []; }
+  function texto(p) { return norm([p.servicio, p.categoria, p.tipo, p.sistema].concat(equivalentes(p)).join(' ')); }
+
+  function tarjeta(titulo, chip, cabecera, filas) {
+    return '<section class="pg-card in-glass tp-card"><div class="pg-card-head"><h2>' + esc(titulo) + '</h2>' +
+      '<span class="pg-chip">' + chip + '</span></div><table class="pg-tbl tp-tbl"><thead><tr>' + cabecera +
+      '</tr></thead><tbody>' + filas + '</tbody></table></section>';
+  }
 
   function pintar() {
     var q = norm(document.getElementById('tp-buscar').value.trim());
-    var html = '', vistos = 0, total = 0;
-    PUNTAJES.forEach(function (c) {
-      total += c.filas.length;
-      var filas = c.filas.filter(function (r) { return !q || norm(c.cat + ' ' + r.join(' ')).indexOf(q) >= 0; });
-      if (!filas.length) return;
-      vistos += filas.length;
-      // La columna de proveedor sólo hace falta si en la categoría hay más de uno.
-      var varios = c.filas.some(function (r) { return r[0] !== c.filas[0][0]; });
-      html += '<section class="pg-card in-glass tp-card"><div class="pg-card-head"><h2>' + esc(c.cat) + '</h2>' +
-        '<span class="pg-chip">' + filas.length + (filas.length === 1 ? ' producto' : ' productos') + '</span></div>' +
-        '<table class="pg-tbl tp-tbl"><thead><tr>' + (varios ? '<th scope="col" class="pg-izq">Proveedor</th>' : '') +
-        '<th scope="col" class="pg-izq">Producto</th><th scope="col" class="pg-izq">Velocidad</th><th scope="col" class="tp-col-pts">Puntos</th></tr></thead><tbody>' +
-        filas.map(function (r) {
-          return '<tr>' + (varios ? '<td class="pg-izq tp-prov">' + esc(r[0]) + '</td>' : '') +
-            '<th scope="row" class="pg-izq tp-prod">' + esc(r[1]) + '</th>' +
-            '<td class="pg-izq tp-vel">' + (sinDato(r[2]) ? '<span class="tp-guion">—</span>' : esc(r[2])) + '</td>' +
-            '<td class="tp-col-pts"><span class="tp-pts ' + nivel(r[3]) + '">' + esc(r[3]) + '</span></td></tr>';
-        }).join('') + '</tbody></table></section>';
+    var html = '', vistos = 0;
+
+    var esp = especiales.filter(function (e) { return !q || norm(e.tipo + ' ' + e.servicio + ' reglas especiales').indexOf(q) >= 0; });
+    if (esp.length) {
+      html += tarjeta('Reglas especiales', 'Mandan sobre el catálogo',
+        '<th scope="col" class="pg-izq">Servicio</th><th scope="col" class="pg-izq">Si el tipo de servicio es</th><th scope="col" class="tp-col-pts">Puntos</th>',
+        esp.map(function (e) {
+          return '<tr><th scope="row" class="pg-izq tp-prod">' + esc(e.servicio) + '</th><td class="pg-izq tp-vel">' + esc(e.tipo) + '</td>' +
+            '<td class="tp-col-pts">' + pts(e.puntaje) + '</td></tr>';
+        }).join(''));
+    }
+
+    var grupos = {};
+    productos.forEach(function (p) {
+      if (q && texto(p).indexOf(q) < 0) return;
+      var c = p.categoria || 'Sin categoría';
+      (grupos[c] = grupos[c] || []).push(p);
     });
-    document.getElementById('tp-grid').innerHTML = html || '<div class="pg-vacio in-glass">Ningún producto coincide con la búsqueda</div>';
-    document.getElementById('tp-resumen').textContent = q ? vistos + ' de ' + total + ' productos' : total + ' productos';
+    Object.keys(grupos).sort(function (a, b) { return a.localeCompare(b, 'es'); }).forEach(function (c) {
+      var filas = grupos[c];
+      vistos += filas.length;
+      html += tarjeta(c, filas.length + (filas.length === 1 ? ' servicio' : ' servicios'),
+        '<th scope="col" class="pg-izq">Servicio</th><th scope="col" class="pg-izq">Tipo</th><th scope="col" class="tp-col-pts">Puntos</th>',
+        filas.map(function (p) {
+          var eq = equivalentes(p);
+          return '<tr><th scope="row" class="pg-izq tp-prod">' + esc(p.servicio) +
+            (eq.length ? '<span class="tp-eq">También: ' + esc(eq.join(', ')) + '</span>' : '') + '</th>' +
+            '<td class="pg-izq tp-vel">' + (p.tipo ? esc(p.tipo) : '<span class="tp-guion">—</span>') + '</td>' +
+            '<td class="tp-col-pts">' + celdaPuntos(p) + '</td></tr>';
+        }).join(''));
+    });
+
+    document.getElementById('tp-grid').innerHTML = html || '<div class="pg-vacio in-glass">Ningún servicio coincide con la búsqueda</div>';
+    document.getElementById('tp-resumen').textContent = q ? vistos + ' de ' + productos.length + ' servicios' : productos.length + ' servicios';
+  }
+
+  function error(msg) {
+    document.getElementById('tp-grid').innerHTML = '<div class="pg-vacio in-glass">' + esc(msg) + '</div>';
   }
 
   document.getElementById('tp-buscar').addEventListener('input', pintar);
-  pintar();
+  document.getElementById('tp-grid').innerHTML = '<div class="pg-vacio in-glass">Cargando el catálogo…</div>';
+  fetch('/api/productos', { credentials: 'include' })
+    .then(function (r) { if (!r.ok) throw new Error('No se pudo cargar el catálogo (' + r.status + ')'); return r.json(); })
+    .then(function (d) {
+      // Solo los activos: los mismos que se pueden elegir en el formulario.
+      productos = (d.productos || []).filter(function (p) { return p.activo !== false && p.activo !== 0; });
+      especiales = d.reglas_especiales || [];
+      pintar();
+    })
+    .catch(function (e) { error(e.message || 'No se pudo cargar el catálogo'); });
 })();
 </script>
 </body>
