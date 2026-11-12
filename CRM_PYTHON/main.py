@@ -68,6 +68,7 @@ from routers import (
     monitoreo as monitoreo_router,
     consolidado as consolidado_router,
     consolidado_lineas as consolidado_lineas_router,
+    auditoria as auditoria_router,
 )
 
 # ── Rutas base ──────────────────────────────────────────────────
@@ -1183,6 +1184,7 @@ app.include_router(promo_video_router.router)
 app.include_router(monitoreo_router.router)
 app.include_router(consolidado_router.router)
 app.include_router(consolidado_lineas_router.router)
+app.include_router(auditoria_router.router)
 
 # ── Archivos estáticos ───────────────────────────────────────────
 class _RevalidateStaticFiles(StaticFiles):
