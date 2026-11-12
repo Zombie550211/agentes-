@@ -611,6 +611,7 @@ function leerTotales() {
     // Igual que la columna «CPA puntos» de la fila de totales: total día del mes ÷ puntos.
     cpa: puntos > 0 ? totalDiaMes / puntos : 0,
     alexis, alexis2, alejandro, tito, titoLineas, garayRes,
+    alexisVentas, alexis2Ventas, garayVentas, titoVentas,
   };
 }
 
@@ -636,17 +637,20 @@ function refreshDashboard() {
 
   // Mejor asesor / activos — solo Residencial (Alexis, Alexis 2, Tito y, desde oct-2026,
   // Garay Residencial); Tito Líneas se muestra en el KPI de Líneas Móviles, no aquí.
-  const garay = { nombre: nombreGaray(currentMonth, currentYear), monto: T.alejandro, color: 'var(--c-alejandro)' };
+  const garay = { nombre: nombreGaray(currentMonth, currentYear), monto: T.alejandro, ventas: T.garayVentas, color: 'var(--c-alejandro)' };
   const asesores = [
-    { nombre: 'Alexis', monto: T.alexis, color: 'var(--c-alexis)' },
-    { nombre: 'Alexis 2', monto: T.alexis2, color: 'var(--c-alexis2)' },
+    { nombre: 'Alexis', monto: T.alexis, ventas: T.alexisVentas, color: 'var(--c-alexis)' },
+    { nombre: 'Alexis 2', monto: T.alexis2, ventas: T.alexis2Ventas, color: 'var(--c-alexis2)' },
     ...(T.garayRes ? [garay] : []),
-    { nombre: 'Tito', monto: T.tito, color: 'var(--c-tito)' },
+    { nombre: 'Tito', monto: T.tito, ventas: T.titoVentas, color: 'var(--c-tito)' },
   ];
-  const ordenados = asesores.slice().sort((a, b) => b.monto - a.monto);
-  const mejor = ordenados[0];
-  document.getElementById('kpi-mejor').textContent = mejor.monto > 0 ? mejor.nombre : '—';
-  document.getElementById('kpi-mejor-sub').textContent = mejor.monto > 0 ? money(mejor.monto) : '';
+  // Mejor asesor = el que más ventas tiene en el mes (antes era el de más monto facturado).
+  // Empate en ventas: gana el que gastó menos por venta.
+  const cpv = a => a.ventas > 0 ? a.monto / a.ventas : Infinity;
+  const mejor = asesores.slice().sort((a, b) => (b.ventas - a.ventas) || (cpv(a) - cpv(b)))[0];
+  document.getElementById('kpi-mejor').textContent = mejor.ventas > 0 ? mejor.nombre : '—';
+  document.getElementById('kpi-mejor-sub').textContent = mejor.ventas > 0
+    ? `${intFmt(mejor.ventas)} ${mejor.ventas === 1 ? 'venta' : 'ventas'}` : '';
   const activos = asesores.filter(a => a.monto > 0).length;
   document.getElementById('kpi-activos').textContent = activos;
   document.getElementById('kpi-activos-sub').textContent = `de ${asesores.length} totales`;
