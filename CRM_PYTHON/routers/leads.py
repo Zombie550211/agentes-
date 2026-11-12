@@ -1454,18 +1454,24 @@ async def lead_visible(lead_id: str, user: dict) -> dict:
         else:
             r = await s.execute(text("SELECT * FROM leads WHERE mongo_id = :mid LIMIT 1"), {"mid": mongo_id})
         row = r.mappings().first()
-    if not row:
+    if not row or not fila_visible(row, user, await _mercado_restrict(user)):
         raise HTTPException(404, "Lead no encontrado")
-    mercado_restrict = await _mercado_restrict(user)
+    return dict(row)
+
+
+def fila_visible(row, user: dict, mercado_restrict: str) -> bool:
+    """La frontera de lead_visible sobre una fila ya cargada (para comprobar muchas de una vez).
+    mercado_restrict: el de _mercado_restrict(user), calculado una vez por petición.
+    La usa routers/auditoria.py (llamadas auditadas en la Lista de Clientes)."""
     if mercado_restrict and str(row.get("mercado") or "").strip().upper() != mercado_restrict:
-        raise HTTPException(404, "Lead no encontrado")
+        return False
     if _is_agent(user):
         username = user.get("username", "")
         propios = {str(row.get("agente_nombre") or ""), str(row.get("agente") or ""),
                    str(row.get("created_by") or "")}
         if not username or username not in propios:
-            raise HTTPException(404, "Lead no encontrado")
-    return dict(row)
+            return False
+    return True
 
 
 @router.get("/api/leads/{lead_id}")

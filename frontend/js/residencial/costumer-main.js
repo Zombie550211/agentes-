@@ -701,9 +701,10 @@
 
   /* ── Auditoría de llamadas (js/componentes/auditoria-cliente.js) ──
      Si el cliente tiene llamadas auditadas (por teléfono o No. de cuenta), «Acción» lleva el botón
-     de audífonos de diadema (SVG propio: el de Phosphor no se reconocía); solo para quien ve la Auditoría de llamadas. Punto rojo: alguna con faltas. */
+     de audífonos de diadema (SVG propio: el de Phosphor no se reconocía). Lo ve todo el que ve la
+     lista, solo en sus clientes (el servidor decide por cliente). Punto rojo: alguna con faltas. */
   function audBoton(lead,lid){
-    const a=window.AudCliente&&window.AudCliente.tiene(lead);
+    const a=window.AudCliente&&window.AudCliente.tiene(lid);
     if(!a)return'';
     const t='Llamadas auditadas: '+a.llamadas+(a.faltas?' · '+a.faltas+(a.faltas===1?' falta':' faltas'):' · sin faltas');
     return'<button type="button" class="cl-accion cl-accion-aud'+(a.faltas?' cl-aud-falta':'')+'" onclick="event.stopPropagation();abrirAuditoriaCliente(\''+lid+'\')" title="'+escHTML(t)+'" aria-label="'+escHTML(t)+'"><svg class="aud-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg></button>';
@@ -779,6 +780,7 @@
         '</div></td>'+
       '</tr>';
     }).join('');}
+    if(window.AudCliente&&paged.length)window.AudCliente.pedir(paged.map(function(l){return String(l._id);}));
     window._openCostumerImgLightbox=function(src){
       var ov=document.createElement('div');
       // z-index por encima del modal "Editar cliente" (10000) y del aviso superior

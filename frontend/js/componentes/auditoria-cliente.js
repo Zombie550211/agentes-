@@ -2,27 +2,25 @@
  * Auditoría de llamadas en la Lista de Clientes (residencial/costumer.html).
  *
  * Las llamadas auditadas (panel del auditor) llevan teléfono y/o No. de cuenta. Si coinciden con un
- * cliente (teléfono principal, alterno o No. de cuenta), su fila muestra en «Acción» el botón de
- * audífonos, y al pulsarlo se abre esta ventana: la llamada transcrita y las faltas (sin el audio,
- * a pedido de Daniel: para escucharla está el panel de Auditoría de llamadas).
+ * cliente, su fila muestra en «Acción» el botón de audífonos, y al pulsarlo se abre esta ventana: la
+ * llamada transcrita y las faltas (sin el audio, a pedido de Daniel).
  *
- * Solo para quien ve la Auditoría de llamadas (verify-server → user.auditor). API: routers/auditoria.py.
- *   window.AudCliente.tiene(lead)  → null o { llamadas, faltas }
+ * La ve todo el que ve la Lista de Clientes, solo en sus clientes: el servidor decide por cliente con
+ * la frontera del listado (routers/auditoria.py). La página «Auditoría de llamadas» sigue restringida.
+ *   window.AudCliente.pedir(ids)   pregunta qué clientes de la página tienen llamadas (una vez por id)
+ *   window.AudCliente.tiene(id)    → null o { llamadas, faltas }
  *   window.AudCliente.abrir(lead)
- * Al tener los enlaces avisa con el evento «auditoria:vinculos» para que la tabla se repinte.
+ * Cuando llegan respuestas avisa con el evento «auditoria:vinculos» para que la tabla se repinte.
  */
 (function () {
   'use strict';
 
-  var vinculos = [], listo = false;
+  var marcas = {};   // id → { llamadas, faltas } | null (ya preguntado, sin llamadas)
   // Audífonos de diadema (mismo dibujo que el botón de la lista).
   var AUD_SVG = '<svg class="aud-ico" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>';
   var ESTADOS = { nuevo: 'Pendiente', revisado: 'Revisado', descartado: 'Descartado', falta: 'Falta confirmada' };
 
   function nTel(s) { var d = String(s || '').replace(/\D/g, ''); return d.length >= 10 ? d.slice(-10) : ''; }
-  function nCta(s) {
-    return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^0-9a-z]/g, '');
-  }
   function el(tag, clase, texto) {
     var e = document.createElement(tag);
     if (clase) e.className = clase;
@@ -39,33 +37,32 @@
   function duracion(ll) { var a = new Date(ll.inicio), b = new Date(ll.fin); return isNaN(a) || isNaN(b) ? '' : mmss((b - a) / 1000); }
   function fmtTel(t) { t = String(t || ''); return t.length === 10 ? '(' + t.slice(0, 3) + ') ' + t.slice(3, 6) + '-' + t.slice(6) : t; }
 
-  // ── Enlaces (qué clientes tienen llamadas) ─────────────────────────
-  function cargar() {
-    Promise.resolve(window.__sesion).then(function (s) {
-      if (!s || !s.user || !s.user.auditor) return;
-      return fetch('/api/auditoria/vinculos', { credentials: 'include' })
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (d) {
-          if (!d || !Array.isArray(d.vinculos)) return;
-          vinculos = d.vinculos;
-          listo = true;
-          document.dispatchEvent(new CustomEvent('auditoria:vinculos'));
-        });
-    }).catch(function () {});
+  // ── Qué clientes de la página tienen llamadas ──────────────────────
+  var enCurso = false, cola = [];
+  function pedir(ids) {
+    (ids || []).forEach(function (id) {
+      id = String(id || '');
+      if (id && !(id in marcas) && cola.indexOf(id) < 0) cola.push(id);
+    });
+    if (enCurso || !cola.length) return;
+    var lote = cola.splice(0, 300);
+    enCurso = true;
+    fetch('/api/auditoria/marcas', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: lote })
+    })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d) return;
+        var hay = false;
+        lote.forEach(function (id) { marcas[id] = (d.marcas && d.marcas[id]) || null; if (marcas[id]) hay = true; });
+        if (hay) document.dispatchEvent(new CustomEvent('auditoria:vinculos'));
+      })
+      .catch(function () {})
+      .then(function () { enCurso = false; if (cola.length) pedir([]); });
   }
 
-  function tiene(lead) {
-    if (!listo || !lead) return null;
-    // Misma regla que el panel (servicio_cliente): si la llamada y el cliente tienen No. de cuenta,
-    // manda la cuenta; el teléfono solo enlaza cuando a alguno le falta.
-    var cta = nCta(lead.numero_cuenta), t1 = nTel(lead.telefono), t2 = nTel(lead.telefono_alt);
-    var r = { llamadas: 0, faltas: 0 };
-    vinculos.forEach(function (v) {
-      var ok = (v.cuenta && cta) ? v.cuenta === cta : (!!v.telefono && (v.telefono === t1 || v.telefono === t2));
-      if (ok) { r.llamadas += v.llamadas; r.faltas += v.faltas; }
-    });
-    return r.llamadas ? r : null;
-  }
+  function tiene(id) { return marcas[String(id)] || null; }
 
   // ── Ventana ─────────────────────────────────────────────────────────
   var dlg, cuerpo, titulo, sub, datos = [], actual = 0;
@@ -97,9 +94,7 @@
     cuerpo.textContent = '';
     cuerpo.appendChild(el('p', 'audc-vacio', 'Cargando…'));
     if (!dlg.open) dlg.showModal();
-    var q = [nTel(lead.telefono), nTel(lead.telefono_alt)].filter(Boolean).map(function (t) { return 'telefono=' + t; });
-    if (nCta(lead.numero_cuenta)) q.push('cuenta=' + encodeURIComponent(lead.numero_cuenta));
-    fetch('/api/auditoria/cliente?' + q.join('&'), { credentials: 'include' })
+    fetch('/api/auditoria/cliente/' + encodeURIComponent(String(lead._id)), { credentials: 'include' })
       .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.detail || 'Error ' + r.status); return d; }); })
       .then(function (d) {
         datos = d.llamadas || []; actual = 0;
@@ -191,6 +186,5 @@
 
   }
 
-  window.AudCliente = { tiene: tiene, abrir: abrir };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', cargar); else cargar();
+  window.AudCliente = { pedir: pedir, tiene: tiene, abrir: abrir };
 })();
