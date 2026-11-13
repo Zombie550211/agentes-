@@ -44,6 +44,8 @@ async function loadRankingData() {
     const agentMap = {};
 
     leads.forEach(lead => {
+      // REPRO no cuenta: reprocesa una venta de días atrás (se guarda como RESCHEDULED).
+      if (/repro|resched|reagend/i.test(String(lead.status || ''))) return;
       const agentName = lead.agenteAsignado || lead._collection || lead.agente || 'Sin asignar';
       const supervisor = lead.supervisor || 'Sin supervisor';
 

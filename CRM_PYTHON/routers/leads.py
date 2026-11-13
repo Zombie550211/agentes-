@@ -1074,6 +1074,8 @@ async def comisiones_agentes_lineas(
                   COALESCE(SUM(puntaje), 0) AS puntos
                 FROM lineas_clientes
                 WHERE dia_venta BETWEEN :s AND :e
+                  -- REPRO no cuenta: reprocesa una venta de días atrás (se guarda como RESCHEDULED).
+                  AND LOWER(TRIM(COALESCE(status,''))) NOT REGEXP 'repro|resched|reagend'
                 GROUP BY COALESCE(agente_nombre, agente)
                 ORDER BY puntos DESC, ventas DESC
             """), {"s": start, "e": end})

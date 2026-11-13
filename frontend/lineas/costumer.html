@@ -2540,7 +2540,9 @@
         // Calcular KPIs según lógica de ESTADISTICAS-LINEAS
         // 1. Ventas Clientes/Líneas: desde ventaItems (rango por dia_venta estricto)
         //    para cuadrar con las ventas reales del mes. Fallback: items.
-        const _ventaSrc = Array.isArray(ventaItems) ? ventaItems : items;
+        // REPRO no cuenta como venta (reprocesa una venta de días atrás); sigue en la lista de clientes.
+        const _ventaSrc = (Array.isArray(ventaItems) ? ventaItems : items)
+          .filter(it => !/repro|resched|reagend/i.test(String(it && it.status || '')));
         const cantidadVentas = _ventaSrc.length;
         let cantidadLineasVenta = 0;
         _ventaSrc.forEach(item => {

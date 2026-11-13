@@ -365,6 +365,9 @@
           allLeads = [];  // sin datos falsos: si la API falla, no se muestra nada inventado
         }
 
+        // REPRO no cuenta como venta: reprocesa una venta de días atrás (se guarda como RESCHEDULED).
+        allLeads = allLeads.filter(l => !/repro|resched|reagend/i.test(String(l && l.status || '')));
+
         // Filtrar por mes/rango seleccionado y deduplicar
         const leadsDelMes = filterLeadsByMonth(allLeads);
         const leads = __dedupeLeads(
