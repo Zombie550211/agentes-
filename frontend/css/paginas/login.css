@@ -102,18 +102,13 @@ body {
   background-position: center, center;
 }
 
-/* Video de temporada, por encima del degradado de marca (que queda de
+/* Imagen/video de temporada, por encima del degradado de marca (que queda de
    respaldo mientras carga o si el archivo falla).
    El escenario es más alto que ancho y el video es 16:9: a pantalla llena el
    `cover` recortaba casi la mitad de los lados. Se dibuja al 78% del alto
    (se ve más escena) y el hueco de arriba/abajo lo rellena el mismo
    fotograma desenfocado; la máscara funde los bordes para que no haya corte. */
-.stage::before {
-  content: ""; position: absolute; inset: -40px;
-  background: url("../../images/video/login-halloween-poster.webp?v=2") center / cover no-repeat;
-  filter: blur(28px) brightness(.7);
-}
-.stage-video {
+.stage-video, .stage-foto {
   position: absolute; top: 50%; left: 50%; translate: -50% -50%;
   height: 78%; width: auto; min-width: 100%;
   object-fit: cover; object-position: center;
@@ -453,8 +448,121 @@ body {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
   /* Quien pidió menos movimiento ve el fotograma fijo en vez del video. */
   .stage-video { display: none; }
-  .stage {
-    background-image: url("../../images/video/login-halloween-poster.webp?v=2");
-    background-size: cover; background-position: center;
-  }
 }
+
+/* Texto solo para lectores de pantalla (el título «Iniciar sesión» ya no se ve). */
+.solo-lector{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* ══════════ Tarjeta navideña (17-nov-2026) ══════════
+   El formulario va en una tarjeta blanca con doble filete dorado; la guirnalda cuelga
+   de su borde superior y el botón es rojo navideño con brillo dorado. */
+.form-side {
+  background:
+    radial-gradient(60% 45% at 50% 0%, rgba(212,166,58,.10), transparent 70%),
+    linear-gradient(180deg, #f7fafc 0%, #eef3f7 100%);
+}
+.form-inner {
+  max-width: 420px;
+  margin-top: 84px;                      /* espacio para la guirnalda que sobresale */
+  padding: 58px 34px 26px;
+  background: #fff;
+  border: 1.5px solid #d4a63a;
+  border-radius: 26px;
+  box-shadow:
+    inset 0 0 0 5px #fff,
+    inset 0 0 0 6.5px rgba(212,166,58,.35),   /* segundo filete dorado, por dentro */
+    0 22px 48px rgba(11,74,102,.14),
+    0 4px 12px rgba(11,74,102,.06);
+}
+.form-guirnalda {
+  position: absolute; top: -96px; left: 50%; translate: -50% 0;
+  width: 118%; height: auto; max-width: none;
+  pointer-events: none; z-index: 2;
+  filter: drop-shadow(0 8px 10px rgba(11,74,102,.20));
+}
+.form-side .form-inner > *:not(.form-guirnalda):not(.form-astronauta) { position: relative; z-index: 1; }
+
+/* Logo navideño dentro de la tarjeta */
+.form-logo-navidad { display: block; width: 100%; max-width: 360px; height: auto; margin: 0 auto 22px; }
+
+/* Campos redondeados con foco dorado */
+.form-inner .ctrl { border-radius: 14px; background: #fbfcfd; border-color: #dfe7ee; }
+.form-inner .ctrl:hover { border-color: #cdd8e1; }
+.form-inner .ctrl:focus { border-color: #c9962c; background: #fff; box-shadow: 0 0 0 4px rgba(212,166,58,.20); }
+.form-inner .input-wrap:focus-within .fi { color: #b3141f; }
+.form-inner .field-label { color: #0b3a52; }
+
+/* Botón rojo navideño con brillo dorado */
+.form-inner .btn-submit {
+  border-radius: 14px;
+  background: linear-gradient(180deg, #e2343f 0%, #b3141f 100%);
+  border: 1px solid rgba(242,201,76,.55);
+  box-shadow: 0 8px 20px rgba(179,20,31,.30), inset 0 1px 0 rgba(255,255,255,.28);
+}
+.form-inner .btn-submit:hover:not(:disabled) {
+  background: linear-gradient(180deg, #d42a35 0%, #9c0f19 100%);
+  box-shadow: 0 12px 26px rgba(179,20,31,.36), inset 0 1px 0 rgba(255,255,255,.28);
+}
+.form-inner .btn-submit:active:not(:disabled) { box-shadow: 0 4px 12px rgba(179,20,31,.30); }
+.form-inner .btn-submit:focus-visible { outline: 3px solid #d4a63a; outline-offset: 3px; }
+
+/* Casilla y enlace en rojo, a juego con el botón */
+.form-inner input:checked + .custom-check { background: #b3141f; border-color: #b3141f; }
+.form-inner .forgot-link { color: #b3141f; }
+
+/* Nieve con pino iluminado en la parte de abajo de la tarjeta, recortada a sus esquinas.
+   La tarjeta deja espacio abajo para que la nieve no tape el botón. */
+.form-inner { padding-bottom: 150px; }
+.form-inner::after {
+  content: ""; position: absolute; left: 1.5px; right: 1.5px; bottom: 1.5px;
+  aspect-ratio: 900 / 324; max-height: 190px;
+  background: url("../../images/dise%C3%B1o%20Navide%C3%B1o/fondo-nevado.webp?v=1") center bottom / 100% auto no-repeat;
+  border-radius: 0 0 24px 24px;
+  pointer-events: none; z-index: 0;
+}
+
+/* Astronauta sentado en la nieve, abajo a la izquierda (por encima de la imagen de nieve). */
+.form-astronauta {
+  position: absolute; left: 22px; bottom: 16px; z-index: 1;
+  width: 27%; max-width: 118px; height: auto;
+  pointer-events: none;
+  filter: drop-shadow(0 6px 6px rgba(61,87,120,.25));
+}
+
+/* Pantallas bajas y celular: tarjeta más compacta */
+@media (max-height: 820px) {
+  .form-inner { margin-top: 64px; padding-top: 46px; padding-bottom: 120px; }
+  .form-guirnalda { top: -74px; width: 100%; }
+  .form-logo-navidad { max-width: 300px; margin-bottom: 16px; }
+  .form-inner .field { margin-bottom: 12px; }
+  .form-astronauta { max-width: 100px; bottom: 12px; }
+}
+@media (max-width: 480px) {
+  .form-inner { padding: 44px 18px 110px; border-radius: 20px; margin-top: 60px; }
+  .form-inner::after { border-radius: 0 0 18px 18px; }
+  .form-astronauta { left: 14px; bottom: 10px; max-width: 92px; }
+  .form-guirnalda { top: -62px; width: 108%; }
+}
+
+/* ══════════ Solo la tarjeta, centrada (17-nov-2026) ══════════
+   Sin la columna blanca: el escenario azul ocupa toda la pantalla y la tarjeta
+   navideña flota en el centro, por encima. Va al final para ganarle a los
+   @media de dos columnas de más arriba. */
+.page { grid-template-columns: 1fr; grid-template-areas: "todo"; }
+.stage, .form-side { grid-area: todo; }
+.stage { min-height: 100vh; min-height: 100dvh; }
+.form-side {
+  background: none;
+  padding: 40px 20px;
+  align-items: center; justify-content: center;
+  min-height: 100vh; min-height: 100dvh;
+}
+.form-side::after { display: none; }            /* marca de agua de la columna blanca */
+.form-inner {
+  box-shadow:
+    inset 0 0 0 5px #fff,
+    inset 0 0 0 6.5px rgba(212,166,58,.35),
+    0 30px 70px rgba(0,0,0,.35),
+    0 6px 16px rgba(0,0,0,.18);
+}
+@media (max-width: 480px) { .form-side { padding: 24px 14px; } }
