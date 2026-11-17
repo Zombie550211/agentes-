@@ -755,6 +755,7 @@ class LineasTeamUpdateBody(BaseModel):
     dia_instalacion:    Optional[str] = None
     imagen_url:         Optional[ImagenUrl] = None
     supervisor:         Optional[str] = None
+    mercado:            Optional[str] = None
     line_index:         Optional[int] = None
     line_telefono:      Optional[str] = None
     line_servicio:      Optional[str] = None
@@ -792,6 +793,11 @@ async def lineas_team_update(body: LineasTeamUpdateBody, user: dict = Depends(cu
         sets.append("dia_instalacion = :di"); params["di"] = _normalize_date(body.dia_instalacion)
     if body.imagen_url is not None:
         sets.append("imagen_url = :img"); params["img"] = body.imagen_url or None
+    if body.mercado is not None and body.mercado.strip():
+        merc = body.mercado.strip().upper()
+        if merc not in ("BAMO", "ICON"):
+            raise HTTPException(400, "mercado debe ser BAMO o ICON")
+        sets.append("mercado = :merc"); params["merc"] = merc
     if body.supervisor is not None and body.supervisor.strip():
         # Mismo criterio que el alta: el supervisor sale de los permisos, no del
         # cliente. Sin esta comprobación bastaba con crear el registro y editarlo

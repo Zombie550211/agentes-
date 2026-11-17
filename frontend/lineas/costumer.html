@@ -1155,6 +1155,15 @@
                           </div>
                         </div>
                         <div class="fc-row">
+                          <label for="fc-merc-${idx}">Mercado</label>
+                          <div class="fc-val">
+                            <select id="fc-merc-${idx}" class="ile-mercado fc-plain" data-row="${idx}" data-inicial="${escH(String(it.mercado||'').toUpperCase())}" ${editable?'':'disabled'}>
+                              ${(()=>{ const m=String(it.mercado||'').toUpperCase(); const ops=['BAMO','ICON']; return (m && !ops.includes(m) ? `<option value="${escH(m)}" selected>${escH(m)}</option>` : (m ? '' : '<option value="" selected>—</option>')) + ops.map(o=>`<option value="${o}" ${o===m?'selected':''}>${o}</option>`).join(''); })()}
+                            </select>
+                            <svg class="fc-chev" viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2"><path d="M1.5 1.5l5 5-5 5"/></svg>
+                          </div>
+                        </div>
+                        <div class="fc-row">
                           <label for="fc-sup-${idx}">Supervisor</label>
                           <div class="fc-val">
                             ${(LINEAS_ASIGNADO && LINEAS_ASIGNADO.locked)
@@ -1671,6 +1680,7 @@
             const dinst   = getF('ile-dinst');       if (dinst !== null)   payload.dia_instalacion = dinst;
             const cant    = getF('ile-cant');        if (cant !== null)    payload.cantidad_lineas = parseInt(cant);
             const supVal  = getF('ile-supervisor');  if (supVal !== null && supVal !== '') payload.supervisor = supVal;
+            const merc    = getF('ile-mercado');     if (merc === 'BAMO' || merc === 'ICON') payload.mercado = merc;
 
             // Imagen
             const zone = detailsRow.querySelector(`.ile-img-zone[data-row="${rowIdx}"]`);
@@ -1725,6 +1735,7 @@
                 if (payload.cantidad_lineas) item.cantidad_lineas = payload.cantidad_lineas;
                 if (payload.imagen_url !== undefined) item.imagen_url = payload.imagen_url;
                 if (payload.supervisor)  item.supervisor = payload.supervisor;
+                if (payload.mercado)     item.mercado = payload.mercado;
               }
             } catch(err) {
               if (msgEl) { msgEl.textContent = 'Error: '+err.message; msgEl.style.color='#dc2626'; }
