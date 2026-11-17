@@ -88,3 +88,180 @@
 /* ═══ Casos pendientes (los colores del semáforo están en css/base/sistema.css) ═══ */
 #in-casos a:hover{background:var(--color-neutral-300) !important}
 #in-casos a:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:2px}
+
+/* Muñeco de nieve navideño en la esquina inferior izquierda de «Casos pendientes».
+   Sale por fuera del borde (hacia el margen) para no tapar los nombres de la lista.
+   El montón de nieve usa el mismo vidrio que las tarjetas; el muñeco lleva la sombra
+   azulada de la marca en vez de gris, para que parezca parte del mismo panel. */
+.in-muneco{position:absolute;left:calc(-1 * clamp(10px, 4.5vw - 8px, 80px) - 46px);bottom:-28px;width:230px;height:310px;z-index:2;pointer-events:none}
+.in-muneco img{position:absolute;left:22px;bottom:26px;width:186px;height:auto;
+  filter:drop-shadow(0 10px 14px rgb(0 112 152 / .22)) drop-shadow(0 0 1px rgb(255 255 255 / .9))}
+.in-muneco-monte{position:absolute;left:0;right:0;bottom:0;height:60px;border-radius:115px 115px 34px 34px / 52px 52px 22px 22px;
+  background:var(--glass-fondo);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-borde);box-shadow:var(--glass-sombra)}
+/* En pantallas angostas no hay margen al lado: se esconde. */
+@media (max-width:1100px){.in-muneco{display:none}}
+
+/* Iconos navideños 3D (Fluent Emoji de Microsoft, licencia MIT) junto al título de cada tarjeta. */
+.in-ico-nav{display:inline-block;width:20px;height:20px;margin:-3px 6px 0 0;vertical-align:middle;
+  filter:drop-shadow(0 2px 3px rgb(0 112 152 / .2))}
+
+/* ══════════ Inicio: esquinas redondeadas, saludo ordenado y promo más ancha (17-nov-2026) ══════════ */
+/* Esquinas: solo en Inicio (.in-marco-amplio); el resto del CRM sigue con esquinas rectas. */
+.in-marco-amplio{--radius-glass:18px}
+.in-marco-amplio .in-kpi-card{border-radius:14px}
+.in-marco-amplio .in-kpi-ico{border-radius:9px}
+
+/* Saludo a la izquierda (de lado) y las tres cifras en una sola fila a su derecha. */
+@media (min-width:1181px){
+  /* Saludo a la izquierda (ocupa las dos filas) y las cuatro tarjetas en 2×2 a su derecha. */
+  .in-marco-amplio .in-a-hero{grid-template-columns:minmax(0,1.1fr) repeat(2,minmax(0,1fr));align-items:stretch}
+  .in-marco-amplio .in-a-hero > :first-child{grid-column:auto;grid-row:span 2}
+  .in-marco-amplio .in-a-hero .in-kpi-card{gap:var(--space-2)}
+}
+
+/* Promociones: más ancha (3 de 8 columnas) y sin marco de tarjeta, solo el video con esquinas redondeadas. */
+@media (min-width:1181px){
+  .in-marco-amplio .in-grid{grid-template-areas:
+    "hero hero hero hero hero promo promo promo"
+    "kpi kpi kpi asis asis asis agenda agenda"
+    "tareas tareas satis satis sit sit agenda agenda"}
+}
+.in-marco-amplio .in-promo.in-glass{border:0;box-shadow:0 14px 34px rgb(11 47 69 / .22);
+  -webkit-backdrop-filter:none;backdrop-filter:none;border-radius:22px}
+
+/* Árbol navideño anclado a la esquina inferior derecha del calendario: se mueve con la página
+   (no flota) y sale un poco hacia el margen, igual que el muñeco de «Casos pendientes». */
+.in-arbol-navidad{position:absolute;right:calc(-1 * clamp(10px, 4.5vw - 8px, 80px) - 10px);bottom:-22px;z-index:2;
+  width:clamp(170px,14vw,240px);height:auto;pointer-events:none;
+  filter:drop-shadow(0 10px 14px rgb(11 47 69 / .25))}
+@media (max-width:760px){.in-arbol-navidad{display:none}}
+
+/* Inicio a pantalla completa: la cuadrícula ocupa todo el alto disponible y las filas de
+   tarjetas (gráficas y listas) crecen para llenarlo, en vez de dejar espacio vacío abajo. */
+@media (min-width:1181px){
+  .in-marco-amplio > .in-hoja{display:flex;flex-direction:column}
+  .in-marco-amplio .in-grid{flex:1 0 auto;grid-template-rows:auto 1fr 1fr}
+}
+
+/* Logotipo «C» navideño con regalos en el saludo, en lugar de la «C» de siempre (al lado del texto). */
+.in-saludo-logo-navidad{height:84px;width:auto}
+
+/* Cuenta regresiva del aguinaldo: tarjeta roja navideña con borde dorado (resalta entre las cifras). */
+.in-marco-amplio .in-aguinaldo.in-glass{background:linear-gradient(160deg,#e2343f 0%,#a5101b 100%);
+  border:1.5px solid #e6b23c;color:#fff;box-shadow:0 10px 24px rgb(165 16 27 / .28)}
+.in-aguinaldo .in-kpi-head span:first-child{color:rgb(255 255 255 / .92);font-weight:600}
+.in-aguinaldo .in-kpi-ico{color:#fff3c4;border-color:rgb(255 243 196 / .55);background:rgb(255 255 255 / .1)}
+.in-agui-cuenta{display:flex;align-items:baseline;gap:6px;margin-top:auto}
+.in-agui-cuenta b{font-size:30px;line-height:1;font-weight:700;color:#fff;font-variant-numeric:tabular-nums}
+.in-agui-cuenta span{font-size:13px;color:#fde7a6}
+.in-agui-reloj{margin-top:4px;font-size:15px;font-weight:600;letter-spacing:.04em;color:#fff3c4;font-variant-numeric:tabular-nums}
+
+/* ══════════ Inicio a pantalla completa, sin scroll (17-nov-2026) ══════════
+   En escritorio todo cabe en la ventana: márgenes mínimos, la cuadrícula ocupa el alto
+   que queda bajo el menú y cada tarjeta se ajusta a su celda. Las listas (casos, ventas
+   del día, semáforo, productos) hacen scroll por dentro de su tarjeta y las gráficas se
+   escalan al alto disponible. En pantallas bajas (<620 px) vuelve el scroll normal. */
+@media (min-width:1181px) and (min-height:620px){
+  html:has(.in-marco-amplio),body:has(.in-marco-amplio){height:100%;overflow:hidden}
+  .in-marco.in-marco-amplio{height:100vh;height:100dvh;min-height:0;box-sizing:border-box;
+    padding:10px 14px 12px;overflow:hidden}
+  .in-marco-amplio > .in-head{margin-bottom:10px;padding:6px var(--space-3)}
+  .in-marco-amplio > .in-hoja{flex:1 1 0;min-height:0;display:flex;flex-direction:column}
+  .in-marco-amplio .in-grid{flex:1 1 0;min-height:0;gap:10px;
+    grid-template-rows:auto minmax(0,1.2fr) minmax(0,1fr)}
+  .in-marco-amplio .in-grid > section{min-height:0;overflow:hidden;padding:12px 14px!important}
+
+  /* Saludo y tarjetas de cifras más compactos */
+  .in-marco-amplio .in-a-hero{padding:10px!important;gap:10px}
+  .in-marco-amplio .in-a-hero .in-kpi-card{padding:8px 12px;gap:4px}
+  .in-marco-amplio .in-kpi-num{font-size:19px}
+  .in-marco-amplio .in-kpi-num-txt{font-size:15px}
+  .in-marco-amplio .in-a-hero .in-kpi-ico{width:24px;height:24px;font-size:13px}
+  .in-marco-amplio .in-agui-cuenta b{font-size:21px}
+  .in-marco-amplio .in-agui-reloj{margin-top:0;font-size:13px}
+  .in-marco-amplio .in-a-hero > :first-child{padding:2px 4px!important;gap:6px}
+  .in-marco-amplio .in-saludo-logo-navidad{height:62px}
+  .in-marco-amplio #in-hola{font-size:22px}
+  .in-marco-amplio .in-promo{min-height:0}
+
+  /* Gráfica de ventas mensuales: a todo el ancho de la tarjeta, centrada en el alto que quede */
+  /* La gráfica llega a los bordes de la tarjeta (sin el relleno lateral ni el de abajo). */
+  .in-marco-amplio .in-a-kpi > div:last-child{flex:1 1 0;min-height:0;margin:4px -14px -2px!important}
+  /* Cabecera de «Ventas mensuales» más compacta para dejarle alto a la gráfica */
+  .in-marco-amplio .in-a-kpi{gap:2px!important}
+  .in-marco-amplio #in-kpi-valor{font-size:19px!important}
+  .in-marco-amplio #in-kpi-ant{margin-top:-2px!important}
+  .in-marco-amplio #in-kpi{width:100%!important;height:100%!important}
+  /* Ventas diarias: las barras se ajustan al alto */
+  .in-marco-amplio #in-asist{min-height:0!important}
+  /* Listas con scroll propio (sin alto mínimo fijo) */
+  .in-marco-amplio .in-lista-scroll{min-height:0}
+  .in-marco-amplio #in-calendario,.in-marco-amplio #in-cal{flex:none}
+  .in-marco-amplio .in-a-sit #in-donut-ley{flex:1 1 0;min-height:0;overflow-y:auto}
+  .in-marco-amplio .in-a-sit > div:nth-child(2){width:104px!important;margin:6px 0!important}
+  .in-marco-amplio .in-a-satis > div:nth-child(2){width:140px!important;margin-top:4px!important}
+
+  /* Decoraciones: con márgenes mínimos se apoyan sobre la esquina de su tarjeta */
+  .in-marco-amplio .in-muneco{left:-14px;bottom:-12px;width:118px;height:160px}
+  .in-marco-amplio .in-muneco img{left:10px;bottom:14px;width:96px}
+  .in-marco-amplio .in-muneco-monte{height:32px}
+  .in-marco-amplio .in-arbol-navidad{right:-10px;bottom:-8px;width:150px}
+  .in-marco-amplio .in-a-tareas,.in-marco-amplio .in-a-agenda{overflow:visible!important}
+}
+
+/* Regalos y ramas (navidad1) en la esquina inferior izquierda de «Casos pendientes»,
+   en lugar del muñeco de nieve. Sale un poco hacia el margen, sin recibir clics. */
+.in-esquina-navidad{position:absolute;left:calc(-1 * clamp(10px, 4.5vw - 8px, 80px));bottom:-18px;z-index:2;
+  width:clamp(200px,17vw,280px);height:auto;pointer-events:none;
+  filter:drop-shadow(0 8px 12px rgb(11 47 69 / .22))}
+@media (max-width:1100px){.in-esquina-navidad{display:none}}
+@media (min-width:1181px) and (min-height:620px){
+  .in-marco-amplio .in-esquina-navidad{left:-14px;bottom:-12px;width:170px}
+}
+
+/* Ramas con moños (navidad3 y navidad4) grandes en las dos esquinas de arriba de la pantalla.
+   Van ENCIMA de la barra del menú (z-index 45 > 40), como pidió Daniel; no reciben clics,
+   así que las opciones que quedan debajo se siguen pudiendo usar. */
+.in-esquina-sup{position:fixed;top:0;z-index:45;width:clamp(210px,18vw,340px);height:auto;pointer-events:none;
+  filter:drop-shadow(0 6px 8px rgb(11 47 69 / .2))}
+.in-esquina-sup.izq{left:0}
+.in-esquina-sup.der{right:0}
+
+@media (max-width:760px){.in-esquina-sup{display:none}}
+
+/* ══════════ Colores navideños difuminados en Inicio (17-nov-2026) ══════════
+   Manchas suaves de verde pino y rojo navideño sobre el fondo claro, mezcladas con el azul
+   de la marca; el saludo pasa del verde al rojo muy tenue. Las tarjetas siguen blancas. */
+body:has(.in-marco-amplio){
+  background:
+    radial-gradient(42vw 42vw at -4% 104%, rgb(21 128 61 / .28), transparent 70%),
+    radial-gradient(38vw 38vw at 104% -6%, rgb(200 26 39 / .22), transparent 70%),
+    radial-gradient(34vw 34vw at 102% 104%, rgb(21 128 61 / .20), transparent 70%),
+    radial-gradient(30vw 30vw at -2% -4%, rgb(200 26 39 / .16), transparent 70%),
+    radial-gradient(50vw 40vw at 50% 50%, rgb(0 112 152 / .07), transparent 75%),
+    #f6f8f6;
+  background-attachment:fixed}
+.in-marco-amplio .in-a-hero.in-glass{
+  background:linear-gradient(120deg, rgb(21 128 61 / .24) 0%, rgb(255 255 255 / .70) 45%, rgb(255 255 255 / .70) 60%, rgb(200 26 39 / .20) 100%)}
+.in-marco-amplio > .in-head{background:linear-gradient(90deg, rgb(21 128 61 / .07), rgb(255 255 255 / .78) 30%, rgb(255 255 255 / .78) 70%, rgb(200 26 39 / .07))}
+
+/* ══════════ Tarjetas de vidrio transparentes en Inicio (17-nov-2026) ══════════
+   Más transparencia y más desenfoque para que el verde y el rojo del fondo se vean a
+   través de las tarjetas; borde blanco fino y brillo arriba para que se lean como vidrio. */
+.in-marco-amplio{
+  --glass-fondo:rgb(255 255 255 / .38);
+  --glass-borde:rgb(255 255 255 / .70);
+  --glass-blur:blur(22px) saturate(170%);
+  --glass-sombra:0 10px 30px rgb(11 47 69 / .10), inset 0 1px 0 rgb(255 255 255 / .85);
+}
+.in-marco-amplio .in-glass-card.in-glass{--glass-fondo:rgb(255 255 255 / .52)}
+.in-marco-amplio .in-a-hero.in-glass{
+  background:linear-gradient(120deg, rgb(21 128 61 / .20) 0%, rgb(255 255 255 / .34) 45%, rgb(255 255 255 / .34) 60%, rgb(200 26 39 / .18) 100%)}
+.in-marco-amplio > .in-head{background:linear-gradient(90deg, rgb(21 128 61 / .10), rgb(255 255 255 / .55) 30%, rgb(255 255 255 / .55) 70%, rgb(200 26 39 / .10))}
+/* Filas internas (casos, eventos) también translúcidas */
+.in-marco-amplio #in-casos > a, .in-marco-amplio #in-casos > div{background:rgb(255 255 255 / .38)!important}
+/* Navegadores sin backdrop-filter: más opaco para que se lea */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .in-marco-amplio{--glass-fondo:rgb(255 255 255 / .82)}
+}

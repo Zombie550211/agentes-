@@ -576,12 +576,18 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .stage { background: #0b2f45 url("../../images/dise%C3%B1o%20Navide%C3%B1o/paisaje-invernal.webp?v=1") center bottom / cover no-repeat; }
 }
+/* Astronauta grande: anclado a la nieve del paisaje, no a la tarjeta.
+   El fondo es «cover» desde abajo, así que mide max(100vh, 100vw × 897/1752) de alto;
+   la altura y el tamaño se calculan sobre esa medida para que siempre quede sentado
+   en el mismo punto de la nieve. En horizontal se pega al costado izquierdo de la
+   tarjeta (420 px de ancho, centrada). */
 .login-astronauta-grande {
+  --alto-fondo: max(100vh, 51.2vw);
   position: absolute; z-index: 3;
-  right: calc(100% - 22px); bottom: -26px;
-  width: 210px; height: auto;
+  width: clamp(150px, calc(var(--alto-fondo) * .24), 260px); height: auto;
+  bottom: calc(var(--alto-fondo) * .03);
+  right: calc(50% + 210px - 30px);
   pointer-events: none;
   filter: drop-shadow(0 10px 12px rgba(0,0,0,.35));
 }
-@media (max-height: 820px) { .login-astronauta-grande { width: 170px; } }
-@media (max-width: 820px)  { .login-astronauta-grande { display: none; } }
+@media (max-width: 820px) { .login-astronauta-grande { display: none; } }

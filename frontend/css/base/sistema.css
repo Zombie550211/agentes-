@@ -105,6 +105,17 @@ img { max-width: 100%; }
 .in-marco{padding:var(--space-6) clamp(12px,2vw,var(--space-6))}
 .in-hoja{--hoja-pad:var(--space-4);position:relative;border-radius:var(--radius-glass);padding:0 var(--hoja-pad) var(--hoja-pad);font-size:13px;
   background:var(--glass-hoja);border:1px solid var(--glass-borde);box-shadow:var(--glass-sombra)}
+/* Margen amplio (de momento solo residencial/inicio.html): más aire arriba, abajo y a los lados. */
+.in-marco-amplio{padding:clamp(24px,3.5vw,56px) clamp(16px,4.5vw,88px)}
+/* Cabecera separada del panel: barra propia de vidrio (menú + ajustes, avisos, usuario),
+   con aire debajo. Sigue fija arriba al hacer scroll. */
+.in-marco-amplio > .in-head{margin:0 0 var(--space-4);padding:10px var(--space-4);
+  border:1px solid var(--glass-borde);border-radius:var(--radius-glass);box-shadow:var(--glass-sombra)}
+/* Sin panel que las encierre: las tarjetas quedan sueltas sobre el fondo. */
+.in-marco-amplio > .in-hoja{padding:0;background:none;border:0;box-shadow:none;border-radius:0}
+@media (max-width:760px){
+  .in-marco-amplio > .in-head{margin-bottom:var(--space-2);padding:8px var(--space-2)}
+}
 @media (max-width:760px){
   .in-marco{padding:var(--space-2)}
   .in-hoja{--hoja-pad:var(--space-2)}
@@ -242,3 +253,9 @@ body{background:
   color:var(--color-accent-2-500);border:1px solid rgb(0 112 152 / .22)}
 .in-kpi-num{font-size:24px;font-weight:700;line-height:1.1;letter-spacing:-.01em;overflow-wrap:anywhere}
 .in-kpi-num-txt{font-size:16px}
+
+/* Alto completo (17-nov-2026): con el zoom del navegador alejado, las páginas cortas
+   dejaban un gran espacio vacío abajo. El marco ocupa siempre todo el alto de la ventana
+   y la hoja (el panel de cada página) se estira hasta abajo. */
+.in-marco{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
+.in-marco > .in-hoja{flex:1 0 auto}

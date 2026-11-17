@@ -55,15 +55,65 @@
         tarjeta('ph-star', fmtN(k.puntos_totales, 1), 'Puntos totales de ' + mes) +
         tarjeta('ph-trophy', mejor, 'Mejor vendedor de ' + mes, true)
       : tarjeta('ph-shopping-cart', '—', 'Ventas totales') + tarjeta('ph-star', '—', 'Puntos totales') + tarjeta('ph-trophy', '—', 'Mejor vendedor');
+    html += tarjetaAguinaldo();
     var tmp = document.createElement('div');
     tmp.innerHTML = html;
     Array.prototype.slice.call(tmp.children).forEach(function (c) { c.classList.add('in-stat'); hero.appendChild(c); });
+    contarAguinaldo();
   }
 
+  // ── Cuenta regresiva del aguinaldo (11 de diciembre, 00:00 hora de El Salvador) ──
+  // Se actualiza cada segundo solo mientras la pestaña está visible (texto, sin animaciones).
+  var AGUINALDO = new Date('2026-12-11T00:00:00-06:00').getTime();
+  var aguinaldoTimer = null;
+  function tarjetaAguinaldo() {
+    if (Date.now() >= AGUINALDO + 86400000) return '';   // pasado el día de pago, desaparece
+    return '<div class="in-glass in-glass-card in-kpi-card in-aguinaldo" role="timer" aria-live="off">' +
+      '<div class="in-kpi-head"><span>Pago de Aguinaldo en</span><span class="in-kpi-ico" aria-hidden="true"><i class="ph ph-gift"></i></span></div>' +
+      '<div class="in-agui-cuenta"><b id="in-agui-dias">—</b><span id="in-agui-dias-txt">días</span></div>' +
+      '<div class="in-agui-reloj" id="in-agui-reloj">--:--:--</div>' +
+    '</div>';
+  }
+  function contarAguinaldo() {
+    clearInterval(aguinaldoTimer);
+    if (!$('in-agui-dias')) return;
+    var p2 = function (n) { return String(n).padStart(2, '0'); };
+    var tic = function () {
+      if (document.hidden || !$('in-agui-dias')) return;
+      var ms = AGUINALDO - Date.now();
+      if (ms <= 0) {
+        $('in-agui-dias').textContent = '¡Hoy!';
+        $('in-agui-dias-txt').textContent = '';
+        $('in-agui-reloj').textContent = 'Se paga el aguinaldo';
+        clearInterval(aguinaldoTimer);
+        return;
+      }
+      var s = Math.floor(ms / 1000), d = Math.floor(s / 86400);
+      $('in-agui-dias').textContent = d;
+      $('in-agui-dias-txt').textContent = d === 1 ? 'día' : 'días';
+      $('in-agui-reloj').textContent = p2(Math.floor(s % 86400 / 3600)) + ':' + p2(Math.floor(s % 3600 / 60)) + ':' + p2(s % 60);
+    };
+    tic();
+    aguinaldoTimer = setInterval(tic, 1000);
+  }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && $('in-agui-dias')) contarAguinaldo(); });
+
   // ── Ventas mensuales (línea con punto que sigue al ratón) ──
-  var W = 560, X0 = 40, TOP = 10, BOT = 150;
+  // La gráfica se dibuja al tamaño real de su caja (1 unidad = 1 px): así el texto queda
+  // siempre a 11 px y la línea ocupa todo el ancho y el alto disponibles, sin achicarse.
+  var W = 560, H = 170, X0 = 22, TOP = 18, BOT = 150;
+  function medirKpi() {
+    var svg = $('in-kpi'), caja = svg && svg.parentElement;
+    var w = caja ? Math.round(caja.clientWidth) : 0;
+    if (w < 200) w = 560;
+    // En Inicio a pantalla completa la caja tiene alto propio; si no, la proporción de siempre.
+    var h = caja && getComputedStyle(caja).flexGrow !== '0' ? Math.round(caja.clientHeight) : Math.round(w * 170 / 560);
+    if (!h || h < 120) h = Math.max(120, Math.round(w * 170 / 560));
+    W = w; H = h; BOT = H - 26;
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+  }
   var mensual = [], mesActual = 0, kpiIdx = 0;
-  function px(i) { return X0 + i * ((W - X0 - 10) / 11); }
+  function px(i) { return X0 + i * ((W - 2 * X0) / 11); }
   function techo(max) {                                    // escala «redonda» para el eje
     if (max <= 4) return 4;
     var p = Math.pow(10, Math.floor(Math.log10(max))), f = max / p;
@@ -72,9 +122,16 @@
     return 10 * p;
   }
   function pintarKpi() {
+    if (!mensual.length) return;
+    medirKpi();
     var vals = mensual.slice(0, mesActual + 1);             // hasta el mes en curso
     var top = techo(Math.max.apply(null, vals.concat([1])));
-    var py = function (v) { return BOT - (v / top) * (BOT - TOP); };
+    // El eje no empieza en 0 sino un poco por debajo del mes más bajo (redondeado), para que
+    // la línea use todo el alto y se noten las subidas y bajadas.
+    var conVentas = vals.filter(function (v) { return v > 0; });
+    var min = conVentas.length ? Math.min.apply(null, conVentas) : 0, paso = top / 10;
+    var lo = conVentas.length > 1 ? Math.max(0, Math.floor((min - (top - min) * 0.2) / paso) * paso) : 0;
+    var py = function (v) { return BOT - ((Math.max(v, lo) - lo) / (top - lo || 1)) * (BOT - TOP); };
     var pts = vals.map(function (v, i) { return [px(i), py(v)]; });
     var d = 'M ' + pts[0][0] + ' ' + pts[0][1];
     for (var i = 1; i < pts.length; i++) {
@@ -82,29 +139,39 @@
       d += ' C ' + mx + ' ' + ay + ', ' + mx + ' ' + by + ', ' + bx + ' ' + by;
     }
     var hp = pts[Math.min(kpiIdx, pts.length - 1)];
-    $('in-kpi').innerHTML = '<defs><linearGradient id="kpiFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--color-accent-200)"></stop><stop offset="1" stop-color="var(--color-accent-100)" stop-opacity="0"></stop></linearGradient></defs>' +
+    // Colores navideños: la línea pasa de verde pino a rojo a lo largo del año y el área
+    // es un vidrio translúcido con esos mismos colores difuminados hacia abajo.
+    $('in-kpi').innerHTML = '<defs>' +
+        '<linearGradient id="kpiLinea" gradientUnits="userSpaceOnUse" x1="' + pts[0][0] + '" y1="0" x2="' + pts[pts.length - 1][0] + '" y2="0">' +
+          '<stop offset="0" stop-color="#15803d"></stop><stop offset=".5" stop-color="#d4a017"></stop><stop offset="1" stop-color="#c81a27"></stop></linearGradient>' +
+        '<linearGradient id="kpiFillH" gradientUnits="userSpaceOnUse" x1="' + pts[0][0] + '" y1="0" x2="' + pts[pts.length - 1][0] + '" y2="0">' +
+          '<stop offset="0" stop-color="#16a34a" stop-opacity=".38"></stop><stop offset=".5" stop-color="#eab308" stop-opacity=".22"></stop><stop offset="1" stop-color="#dc2626" stop-opacity=".36"></stop></linearGradient>' +
+        '<linearGradient id="kpiFillV" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="1"></stop><stop offset="1" stop-color="#fff" stop-opacity="0"></stop></linearGradient>' +
+        '<mask id="kpiMask"><rect x="0" y="0" width="' + W + '" height="' + H + '" fill="url(#kpiFillV)"></rect></mask>' +
+        '<filter id="kpiBrillo" x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur stdDeviation="3" result="b"></feGaussianBlur><feMerge><feMergeNode in="b"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge></filter>' +
+      '</defs>' +
       [1, 0.75, 0.5, 0.25, 0].map(function (f) {
-        var y = py(top * f);
-        return '<line x1="30" x2="560" y1="' + y + '" y2="' + y + '" stroke="var(--color-neutral-200)"></line>' +
-          '<text x="0" y="' + (y + 3) + '" font-size="9" fill="var(--color-neutral-500)">' + fmtN(top * f) + '</text>';
+        var y = py(lo + (top - lo) * f);
+        return '<line x1="0" x2="' + W + '" y1="' + y + '" y2="' + y + '" stroke="var(--color-neutral-200)"></line>' +
+          '<text x="6" y="' + (y - 4) + '" font-size="10" fill="var(--color-neutral-500)">' + fmtN(lo + (top - lo) * f) + '</text>';
       }).join('') +
-      '<path d="' + d + ' L ' + pts[pts.length - 1][0] + ' ' + BOT + ' L ' + pts[0][0] + ' ' + BOT + ' Z" fill="url(#kpiFill)"></path>' +
-      '<path d="' + d + '" fill="none" stroke="var(--color-accent-2-500)" stroke-width="2"></path>' +
-      '<line x1="' + hp[0] + '" x2="' + hp[0] + '" y1="' + hp[1] + '" y2="150" stroke="var(--color-text)" stroke-width="1"></line>' +
-      '<circle cx="' + hp[0] + '" cy="' + hp[1] + '" r="4" fill="var(--color-accent-2-600)" stroke="var(--color-neutral-100)" stroke-width="2"></circle>' +
+      '<path d="' + d + ' L ' + pts[pts.length - 1][0] + ' ' + BOT + ' L ' + pts[0][0] + ' ' + BOT + ' Z" fill="url(#kpiFillH)" mask="url(#kpiMask)"></path>' +
+      '<path d="' + d + '" fill="none" stroke="url(#kpiLinea)" stroke-width="3" stroke-linecap="round" filter="url(#kpiBrillo)" opacity=".95"></path>' +
+      '<line x1="' + hp[0] + '" x2="' + hp[0] + '" y1="' + hp[1] + '" y2="' + BOT + '" stroke="var(--color-text)" stroke-width="1"></line>' +
+      '<circle cx="' + hp[0] + '" cy="' + hp[1] + '" r="5" fill="#c81a27" stroke="#fff" stroke-width="2"></circle>' +
       MES_CORTO.map(function (m, i) {
-        return '<text x="' + px(i) + '" y="166" font-size="9" text-anchor="middle" fill="' + (i > mesActual ? 'var(--color-neutral-300)' : 'var(--color-neutral-500)') + '">' + m + '</text>';
+        return '<text x="' + px(i) + '" y="' + (H - 7) + '" font-size="11" text-anchor="middle" fill="' + (i > mesActual ? 'var(--color-neutral-300)' : 'var(--color-neutral-500)') + '">' + m + '</text>';
       }).join('');
     var tip = $('in-kpi-tip');
     tip.style.left = (hp[0] / W * 100) + '%';
-    tip.style.top = (hp[1] / 170 * 100) + '%';
+    tip.style.top = (hp[1] / H * 100) + '%';
     var v = vals[Math.min(kpiIdx, vals.length - 1)];
     tip.textContent = MES_CORTO[kpiIdx] + ': ' + fmtN(v) + (v === 1 ? ' venta' : ' ventas');
   }
   function moverKpi(e) {
     if (!mensual.length) return;
     var r = e.currentTarget.getBoundingClientRect();
-    var i = Math.max(0, Math.min(mesActual, Math.round(((e.clientX - r.left) / r.width * W - X0) / ((W - X0 - 10) / 11))));
+    var i = Math.max(0, Math.min(mesActual, Math.round(((e.clientX - r.left) / r.width * W - X0) / ((W - 2 * X0) / 11))));
     if (i !== kpiIdx) { kpiIdx = i; pintarKpi(); }
   }
   function pintarMensual(d) {
@@ -444,6 +511,11 @@
     cargarCasos();
 
     $('in-kpi').addEventListener('mousemove', moverKpi);
+    // Redibuja la gráfica cuando cambia el tamaño de su caja (ventana, zoom).
+    if (window.ResizeObserver) {
+      var rzKpi = null;
+      new ResizeObserver(function () { clearTimeout(rzKpi); rzKpi = setTimeout(pintarKpi, 120); }).observe($('in-kpi').parentElement);
+    }
     $('in-promo-archivo').addEventListener('change', function () { subirPromo(this.files[0]); this.value = ''; });
     $('in-promo-quitar').addEventListener('click', quitarPromo);
     $('in-cal').addEventListener('click', function (e) {
