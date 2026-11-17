@@ -43,8 +43,7 @@
   let destinos = null;   // [{team, agentes:[{id,nombre,username}]}] — se carga al abrir la pestaña
   let panel = null;
   let historial = [];    // última carga de "Mis transferencias"
-  let filtroTipo = '';   // '' | 'enviada' | 'recibida'
-  let periodo = 0;       // días hacia atrás: 0 = hoy, 7, 30
+  let filtroTipo = 'enviada';   // 'enviada' | 'recibida' (ya no hay «Todas»)
   let busqueda = '';     // texto del buscador de "Mis transferencias" (nombre o teléfono)
   let encontradas = [];  // resultado de la búsqueda (todas las fechas)
   let busqPedido = 0;
@@ -81,7 +80,7 @@
           '<div class="trf-ic"><i class="ph ph-trophy"></i></div>' +
           '<div class="trf-head-txt">' +
             '<h2 class="trf-title" id="trf-rank-title">Transferencias por agente</h2>' +
-            '<p class="trf-sub" id="trf-rank-sub">Cuántas lleva cada agente hoy.</p>' +
+            '<p class="trf-sub" id="trf-rank-sub"></p>' +
           '</div>' +
         '</div>' +
         '<div class="trf-rank-body" id="trf-rank-body" aria-live="polite"></div>' +
@@ -97,40 +96,21 @@
           '<div class="trf-ic"><i class="ph ph-chart-bar"></i></div>' +
           '<div class="trf-head-txt">' +
             '<h2 class="trf-title" id="trf-res-title">Resumen de transferencias</h2>' +
-            '<p class="trf-sub" id="trf-res-sub">Las que enviaste y las que te transfirieron hoy.</p>' +
+            '<p class="trf-sub" id="trf-res-sub"></p>' +
           '</div>' +
           '<div class="trf-hist-filtros">' +
-            '<div class="trf-seg" role="group" aria-label="Periodo">' +
-              '<button type="button" data-dias="0" class="trf-seg-on" aria-pressed="true">Hoy</button>' +
-              '<button type="button" data-dias="7" aria-pressed="false">7 días</button>' +
-              '<button type="button" data-dias="30" aria-pressed="false">30 días</button>' +
+            // Periodo: por defecto el mes en curso (del día 1 a hoy); manda en toda la página.
+            '<div class="trf-rango" role="group" aria-label="Periodo">' +
+              '<label>Desde<input type="date" id="trf-desde"></label>' +
+              '<label>Hasta<input type="date" id="trf-hasta"></label>' +
             '</div>' +
             '<div class="trf-seg" role="group" aria-label="Tipo">' +
-              '<button type="button" data-tipo="" class="trf-seg-on" aria-pressed="true">Todas</button>' +
-              '<button type="button" data-tipo="enviada" aria-pressed="false">Enviadas</button>' +
-              '<button type="button" data-tipo="recibida" aria-pressed="false">Recibidas</button>' +
+              '<button type="button" data-tipo="enviada" class="trf-seg-on" aria-pressed="true">Transferencias enviadas</button>' +
+              '<button type="button" data-tipo="recibida" aria-pressed="false">Transferencias recibidas</button>' +
             '</div>' +
           '</div>' +
         '</div>' +
         '<div class="trf-kpis" id="trf-kpis" aria-live="polite"></div>' +
-      '</section>' +
-      // JONATHAN F y administradores: agentes fuera de transferencias hasta una fecha.
-      // Oculta hasta que /excluidos responde (a los demás les da 403 y no se ve).
-      '<section class="trf-card trf-excl" id="trf-excl" aria-labelledby="trf-excl-title" hidden>' +
-        '<div class="trf-head">' +
-          '<div class="trf-ic"><i class="ph ph-user-minus"></i></div>' +
-          '<div class="trf-head-txt">' +
-            '<h2 class="trf-title" id="trf-excl-title">Fuera de transferencias</h2>' +
-            '<p class="trf-sub">Hasta la fecha indicada (inclusive) no salen en la cola, en la lista ni en el ranking. Luego vuelven solos.</p>' +
-          '</div>' +
-        '</div>' +
-        '<form class="trf-excl-form" id="trf-excl-form">' +
-          '<label>Agente<select id="trf-excl-agente" required></select></label>' +
-          '<label>Hasta<input type="date" id="trf-excl-hasta" required></label>' +
-          '<label class="trf-excl-motivo">Motivo<input type="text" id="trf-excl-motivo" maxlength="120" placeholder="Opcional"></label>' +
-          '<button type="submit" class="trf-pausa-btn">Sacar de la cola</button>' +
-        '</form>' +
-        '<ul class="trf-excl-lista" id="trf-excl-lista" aria-live="polite"></ul>' +
       '</section>' +
       '<div class="trf-fila">' +
       // A la izquierda, la cola propia (la de la sección de la página, que recibe de la otra)
@@ -208,7 +188,7 @@
           '<div class="trf-ic"><i class="fas fa-clock-rotate-left"></i></div>' +
           '<div class="trf-head-txt">' +
             '<h2 class="trf-title" id="trf-hist-title">Mis transferencias</h2>' +
-            '<p class="trf-sub" id="trf-hist-sub">Las de hoy, según los filtros del resumen.</p>' +
+            '<p class="trf-sub" id="trf-hist-sub"></p>' +
           '</div>' +
           '<label class="trf-buscar">' +
             '<i class="ph ph-magnifying-glass" aria-hidden="true"></i>' +
@@ -217,37 +197,78 @@
           '</label>' +
         '</div>' +
         // Filtros de la lista: team, supervisor y agente (de quien transfirió o de quien
-        // recibió) y un rango de fechas que reemplaza a Hoy / 7 / 30 días.
+        // recibió). Las fechas las pone el Desde/Hasta del resumen.
         '<div class="trf-filtros" role="group" aria-label="Filtros de la lista">' +
           '<label>Team<select id="trf-f-team"><option value="">Todos</option></select></label>' +
           '<label>Supervisor<select id="trf-f-sup"><option value="">Todos</option></select></label>' +
           '<label>Agente<select id="trf-f-agente"><option value="">Todos</option></select></label>' +
-          '<label>Desde<input type="date" id="trf-f-desde"></label>' +
-          '<label>Hasta<input type="date" id="trf-f-hasta"></label>' +
           '<button type="button" id="trf-f-limpiar" class="trf-f-limpiar">Limpiar filtros</button>' +
         '</div>' +
         '<div class="trf-hist-body" id="trf-hist-body"></div>' +
       '</section>' +
+      // Transferencias exitosas: las que hizo quien mira (o su team / todos, según el rol) que
+      // se confirmaron como venta, con lo que vale cada cliente. Usa el Desde/Hasta del resumen.
+      '<section class="trf-card trf-exito" aria-labelledby="trf-exito-title">' +
+        '<div class="trf-head">' +
+          '<div class="trf-ic"><i class="ph ph-seal-check"></i></div>' +
+          '<div class="trf-head-txt">' +
+            '<h2 class="trf-title" id="trf-exito-title">Transferencias exitosas</h2>' +
+            '<p class="trf-sub" id="trf-exito-sub"></p>' +
+          '</div>' +
+        '</div>' +
+        '<div class="trf-exito-resumen" id="trf-exito-total" aria-live="polite"></div>' +
+        '<div class="trf-exito-body" id="trf-exito-body"></div>' +
+      '</section>' +
       // Residencial: el ranking va al final, como gráfica de barras.
-      (COLA ? seccionRanking() : '');
+      (COLA ? seccionRanking() : '') +
+      // JONATHAN F, supervisores de Líneas y administración: agentes fuera de transferencias
+      // hasta una fecha. Herramienta de gestión: va al final y plegada (se abre al tocarla).
+      // Oculta hasta que /excluidos responde (a los demás les da 403 y no se ve).
+      '<section class="trf-card trf-excl" id="trf-excl" aria-labelledby="trf-excl-title" hidden>' +
+        '<details class="trf-excl-det">' +
+          '<summary>' +
+            '<i class="ph ph-phone-slash" aria-hidden="true"></i>' +
+            '<span class="trf-excl-sum-txt"><b id="trf-excl-title">Fuera de transferencias</b>' +
+              '<small>Hasta la fecha indicada (inclusive) no salen en la cola, en la lista ni en el ranking. Luego vuelven solos.</small></span>' +
+            '<span class="trf-excl-n" id="trf-excl-n"></span>' +
+            '<i class="ph ph-caret-down trf-excl-caret" aria-hidden="true"></i>' +
+          '</summary>' +
+          '<form class="trf-excl-form" id="trf-excl-form">' +
+            '<label>Agente<select id="trf-excl-agente" required></select></label>' +
+            '<label>Hasta<input type="date" id="trf-excl-hasta" required></label>' +
+            '<label class="trf-excl-motivo">Motivo<input type="text" id="trf-excl-motivo" maxlength="120" placeholder="Opcional"></label>' +
+            '<button type="submit" class="trf-pausa-btn">Sacar de la cola</button>' +
+          '</form>' +
+          '<ul class="trf-excl-lista" id="trf-excl-lista" aria-live="polite"></ul>' +
+        '</details>' +
+      '</section>';
 
     if (q('#trf-team')) q('#trf-team').addEventListener('change', onTeamChange);
     ['#trf-f-team', '#trf-f-sup', '#trf-f-agente'].forEach((id) => q(id).addEventListener('change', pintarHistorial));
-    ['#trf-f-desde', '#trf-f-hasta'].forEach((id) => q(id).addEventListener('change', function () {
-      const d = q('#trf-f-desde').value, h = q('#trf-f-hasta').value;
-      q('#trf-hist-sub').textContent = (d || h) ? 'Del ' + (d || h) + ' al ' + (h || d) + '.' : 'Las de hoy, según los filtros del resumen.';
+    // Desde/Hasta del resumen: arranca en el mes en curso. Si se borra una fecha, vuelve
+    // a la del mes; si «desde» queda después de «hasta», se intercambian.
+    q('#trf-desde').value = inicioMes();
+    q('#trf-hasta').value = fechaISO(0);
+    ['#trf-desde', '#trf-hasta'].forEach((id) => q(id).addEventListener('change', function () {
+      if (!q('#trf-desde').value) q('#trf-desde').value = inicioMes();
+      if (!q('#trf-hasta').value) q('#trf-hasta').value = fechaISO(0);
+      if (q('#trf-desde').value > q('#trf-hasta').value) {
+        const d = q('#trf-desde').value; q('#trf-desde').value = q('#trf-hasta').value; q('#trf-hasta').value = d;
+      }
+      textosPeriodo();
       cargarHistorial();
     }));
+    textosPeriodo();
     q('#trf-f-limpiar').addEventListener('click', function () {
-      ['#trf-f-team', '#trf-f-sup', '#trf-f-agente', '#trf-f-desde', '#trf-f-hasta'].forEach((id) => { q(id).value = ''; });
-      cargarHistorial();
+      ['#trf-f-team', '#trf-f-sup', '#trf-f-agente'].forEach((id) => { q(id).value = ''; });
+      pintarHistorial();
     });
     q('form.trf-form').addEventListener('submit', onSubmit);
     q('#trf-buscar').addEventListener('input', function () {
       clearTimeout(busqTimer);
       busqTimer = setTimeout(buscarVentas, 300);
     });
-    // Dos grupos de botones: periodo (recarga del servidor) y tipo (filtra lo cargado).
+    // Botones de tipo (enviadas / recibidas): filtran lo ya cargado.
     panel.querySelectorAll('.trf-seg').forEach(function (grupo) {
       grupo.querySelectorAll('button').forEach(function (b) {
         b.addEventListener('click', function () {
@@ -256,30 +277,40 @@
             x.classList.toggle('trf-seg-on', on);
             x.setAttribute('aria-pressed', on ? 'true' : 'false');
           });
-          if (b.hasAttribute('data-dias')) {
-            periodo = parseInt(b.getAttribute('data-dias'), 10) || 0;
-            const txt = periodo ? 'de los últimos ' + periodo + ' días' : 'de hoy';
-            q('#trf-res-sub').textContent = 'Las que enviaste y las que te transfirieron ' + (periodo ? 'en los últimos ' + periodo + ' días' : 'hoy') + '.';
-            q('#trf-hist-sub').textContent = 'Las ' + txt + ', según los filtros del resumen.';
-            q('#trf-rank-sub').textContent = 'Cuántas lleva cada agente ' + (periodo ? 'en los últimos ' + periodo + ' días' : 'hoy') + '.';
-            cargarHistorial();
-          } else {
-            filtroTipo = b.getAttribute('data-tipo');
-            pintarHistorial();
-            pintarRanking();
-          }
+          filtroTipo = b.getAttribute('data-tipo');
+          textosPeriodo();
+          pintarHistorial();
+          pintarRanking();
         });
       });
     });
   }
 
   // ── Mis transferencias ─────────────────────────────────────────
-  // Fechas que se piden al servidor: las del filtro Desde/Hasta si están puestas; si no, el
-  // periodo de los botones (Hoy / 7 / 30 días).
+  // Fechas que se piden al servidor: las del Desde/Hasta del resumen (por defecto, el mes en curso).
   function rango() {
-    const d = q('#trf-f-desde') && q('#trf-f-desde').value, h = q('#trf-f-hasta') && q('#trf-f-hasta').value;
-    if (d || h) return { desde: d || h, hasta: h || d };
-    return { desde: fechaISO(periodo), hasta: fechaISO(0) };
+    const d = q('#trf-desde') && q('#trf-desde').value, h = q('#trf-hasta') && q('#trf-hasta').value;
+    return { desde: d || inicioMes(), hasta: h || fechaISO(0) };
+  }
+
+  function inicioMes() { return fechaISO(0).slice(0, 8) + '01'; }
+
+  const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  /** El periodo en palabras: «en noviembre» (mes en curso), «hoy», «el 05/11» o «del 01/11 al 15/11». */
+  function textoPeriodo() {
+    const { desde, hasta } = rango();
+    const hoy = fechaISO(0), corta = (iso) => iso.slice(8, 10) + '/' + iso.slice(5, 7);
+    if (desde === inicioMes() && hasta === hoy) return 'en ' + MESES[new Date().getMonth()];
+    if (desde === hasta) return desde === hoy ? 'hoy' : 'el ' + corta(desde);
+    return 'del ' + corta(desde) + ' al ' + corta(hasta);
+  }
+
+  function textosPeriodo() {
+    const p = textoPeriodo();
+    q('#trf-res-sub').textContent = (filtroTipo === 'recibida' ? 'Las que te transfirieron ' : 'Las que enviaste ') + p + '.';
+    q('#trf-hist-sub').textContent = 'Las ' + (filtroTipo === 'recibida' ? 'recibidas' : 'enviadas') + ' ' + p + ', según los filtros del resumen.';
+    q('#trf-exito-sub').textContent = 'Clientes que transferiste y que terminaron en venta ' + p + '.';
+    if (q('#trf-rank-sub')) q('#trf-rank-sub').textContent = 'Cuántas ' + (filtroTipo === 'recibida' ? 'recibió' : 'envió') + ' cada agente ' + p + '.';
   }
 
   function fechaISO(diasAtras) {
@@ -318,9 +349,8 @@
       if (pedido === rankPedido) box.innerHTML = '<div class="trf-vacio">No se pudo cargar el ranking</div>';
     }
   }
-  // Según el filtro de tipo: Enviadas (las que hizo), Recibidas (las que le llegaron) o
-  // Todas (la suma). Ordenadas de más a menos.
-  /** Ranking con el filtro actual (Todas / Enviadas / Recibidas), de más a menos. */
+  /** Ranking con el filtro de tipo: enviadas (las que hizo) o recibidas (las que le llegaron),
+   *  de más a menos. */
   function rankingActual() {
     const filas = rankDatos.map(function (a) {
       const env = filtroTipo !== 'recibida', rec = filtroTipo !== 'enviada';
@@ -334,7 +364,7 @@
     const enMin = filas.filter((f) => f.total === min).length;
     return { filas, max, min, enMin, marcarMin: max > min && enMin <= 3,
       que: filtroTipo === 'enviada' ? 'hechas' : filtroTipo === 'recibida' ? 'recibidas' : 'hechas y recibidas',
-      cuando: periodo ? 'en los últimos ' + periodo + ' días' : 'hoy' };
+      cuando: textoPeriodo() };
   }
 
   function filasRanking(rk, lista) {
@@ -510,7 +540,7 @@
     return filtroTipo ? lista.filter((f) => f.direccion_tipo === filtroTipo) : lista;
   }
 
-  /** KPIs del periodo y del filtro (Todas / Enviadas / Recibidas) que se ven en la tabla. */
+  /** KPIs del periodo y del filtro (enviadas / recibidas) que se ven en la tabla. */
   function pintarKpis(filas) {
     const n = { total: filas.length, pendiente: 0 };
     VIGENTES.forEach((k) => { n[k] = 0; });
@@ -519,7 +549,7 @@
       else n.pendiente++;   // sin resultado o con un status antiguo
     });
     const pct = (v) => (n.total ? Math.round(v * 100 / n.total) : 0) + '% del total';
-    // Monedero: transferencias del periodo y del filtro (Todas / Enviadas / Recibidas)
+    // Monedero: transferencias del periodo y del filtro (enviadas / recibidas)
     // cerradas como venta completada. Cada línea (o venta, si no llegó a Líneas) vale lo que
     // fijó el backend al cerrarla según lo que tardó (valor_linea: $1 / $0.50 / $0.25).
     let vendidas = 0, monto = 0;
@@ -554,7 +584,7 @@
           '<ul class="trf-leyenda">' + tramos.map(function (t) {
             return '<li class="' + t.cls + (t.v ? '' : ' cero') + '"><i aria-hidden="true"></i>' + esc(t.label) + ' <b>' + t.v + '</b></li>';
           }).join('') + '</ul>'
-        : '<p class="trf-sin-mov">Todavía no hay transferencias ' + (periodo ? 'en los últimos ' + periodo + ' días' : 'hoy') + '. Registra la primera en «Nueva transferencia».</p>');
+        : '<p class="trf-sin-mov">No hay transferencias ' + (filtroTipo === 'recibida' ? 'recibidas ' : 'enviadas ') + textoPeriodo() + '.</p>');
   }
 
   const SIN_TEAM = (t) => String(t || '').replace(/^TEAM\s+/i, '').trim();
@@ -586,11 +616,64 @@
     });
   }
 
+  /** Transferencias exitosas: enviadas del periodo cerradas como «Venta completada».
+   *  Cada línea (o la venta, si no llegó a Líneas) vale valor_linea, que fija el backend al
+   *  cerrarla según lo que tardó ($1 hasta el día 15, $0.50 hasta el 22, $0.25 después). */
+  function pintarExitosas() {
+    const box = q('#trf-exito-body');
+    if (!box) return;
+    const dinero = (n) => '$' + n.toFixed(2);
+    const dia = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('es', { day: 'numeric', month: 'short' }); };
+    const filas = historial
+      .filter((f) => f.direccion_tipo === 'enviada' && f.resultado === 'completada')
+      .map(function (f) {
+        const l = f.lineas || 1, v = f.valor_linea == null ? PAGO_POR_VENTA : f.valor_linea;
+        const tardo = f.resultado_at ? Math.max(0, Math.floor((new Date(f.resultado_at) - new Date(f.created_at)) / 86400000)) : null;
+        return { f: f, lineas: l, conLineas: !!f.lineas, valor: v, total: l * v, tardo: tardo };
+      })
+      .sort((a, b) => String(b.f.resultado_at || b.f.created_at).localeCompare(String(a.f.resultado_at || a.f.created_at)));
+    const suma = filas.reduce((m, x) => m + x.total, 0);
+    const varios = new Set(filas.map((x) => String(x.f.created_by || '').toLowerCase())).size > 1;
+    const quien = varios ? 'Se ganaron' : 'Ganaste';
+    q('#trf-exito-sub').textContent = (varios ? 'Clientes transferidos' : 'Clientes que transferiste') + ' que terminaron en venta ' + textoPeriodo() + '.';
+
+    // Resumen en palabras + la regla de pago, para que se entienda de dónde sale cada monto.
+    q('#trf-exito-total').innerHTML = filas.length
+      ? '<p class="trf-exito-titular">' + quien + ' <b>' + dinero(suma) + '</b> con ' + filas.length +
+          (filas.length === 1 ? ' venta' : ' ventas') + ' ' + esc(textoPeriodo()) + '</p>' +
+        '<p class="trf-exito-regla"><i class="ph ph-info" aria-hidden="true"></i> Cada línea vendida paga <b>$1.00</b> si el cliente se cierra en los primeros 15 días, ' +
+          '<b>$0.50</b> hasta el día 22 y <b>$0.25</b> después.</p>'
+      : '';
+    if (!filas.length) {
+      box.innerHTML = '<div class="trf-vacio">Todavía no tienes clientes cerrados como venta ' + esc(textoPeriodo()) +
+        '. Cuando un cliente que transferiste se cierre, aparecerá aquí con lo que te paga.</div>';
+      return;
+    }
+    box.innerHTML = '<ul class="trf-exito-lista">' + filas.map(function (x) {
+      const f = x.f;
+      const cuanto = x.conLineas ? x.lineas + (x.lineas === 1 ? ' línea' : ' líneas') + ' × ' + dinero(x.valor) : '1 venta × ' + dinero(x.valor);
+      const plazo = x.tardo == null ? '' : x.tardo === 0 ? ' · se cerró el mismo día' : ' · se cerró en ' + x.tardo + (x.tardo === 1 ? ' día' : ' días');
+      return '<li class="trf-exito-item">' +
+          '<div class="trf-exito-info">' +
+            '<p class="trf-exito-cliente">' + esc(f.nombre_cliente) + ' <span>' + esc(fmtTel(f.telefono)) + '</span></p>' +
+            '<p class="trf-exito-paso">' +
+              (varios ? 'Transferido por <b>' + esc(f.created_by_nombre || f.created_by) + '</b> el ' : 'Lo transferiste el ') + esc(dia(f.created_at)) +
+              ' · lo cerró <b>' + esc(f.agente_destino_nombre || '') + '</b>' + (f.team_destino ? ' (' + esc(SIN_TEAM(f.team_destino)) + ')' : '') +
+              (f.resultado_at ? ' el ' + esc(dia(f.resultado_at)) : '') +
+            '</p>' +
+            '<p class="trf-exito-calc">' + cuanto + esc(plazo) + '</p>' +
+          '</div>' +
+          '<p class="trf-exito-monto"><b>+' + dinero(x.total) + '</b><span>' + (varios ? 'para quien transfirió' : 'para ti') + '</span></p>' +
+        '</li>';
+    }).join('') + '</ul>';
+  }
+
   function pintarHistorial() {
     const box = q('#trf-hist-body');
     setTimeout(revisarMonedas, 400);   // una vez por visita, ya con el monedero pintado
     // Los KPIs son siempre del periodo; la tabla, del periodo o de la búsqueda.
     pintarKpis(filtrarTipo(historial));
+    pintarExitosas();
     const origen = busqueda ? encontradas : historial;
     llenarFiltros(filtrarTipo(origen));
     const filas = filtrarLista(filtrarTipo(origen));
@@ -1745,6 +1828,8 @@
     hasta.min = j.hoy;
     const lista = q('#trf-excl-lista');
     const ex = j.excluidos || [];
+    q('#trf-excl-n').textContent = ex.length ? ex.length + (ex.length === 1 ? ' agente fuera' : ' agentes fuera') : 'Nadie fuera';
+    q('#trf-excl-n').classList.toggle('hay', ex.length > 0);
     lista.innerHTML = ex.length ? ex.map((x) =>
       '<li class="trf-excl-fila">' +
         '<span class="trf-cola-nom"><b>' + esc(x.nombre) + '</b><small>' + esc(String(x.team).replace(/^TEAM\s+/i, '')) +

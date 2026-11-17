@@ -58,6 +58,13 @@
 .trf-sola .trf-card{margin:0}
 .trf-resumen .trf-head{flex-wrap:wrap}
 .trf-resumen .trf-hist-filtros{margin-left:auto}
+/* Desde/Hasta del resumen (por defecto, el mes en curso): mismo alto y borde que los botones de tipo. */
+.trf-rango{display:inline-flex;gap:6px;align-items:center}
+.trf-rango label{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--texto-3)}
+.trf-rango input{height:32px;margin:0;padding:0 8px;box-sizing:border-box;font:inherit;font-size:.74rem;color:var(--texto-1,#0f172a);
+  background:var(--sup-1,#fff);border:1px solid var(--linea,#e2e8f0)}
+.trf-rango input:focus{outline:none;border-color:var(--color-accent-2-500);box-shadow:0 0 0 3px rgb(0 112 152 / .12)}
+@media (max-width:560px){ .trf-rango{width:100%} .trf-rango label{flex:1} .trf-rango input{flex:1;min-width:0} }
 .trf-resumen .trf-kpis{border-bottom:0}
 .trf-seg{border-radius:0}
 .trf-seg button{border-radius:0}
@@ -315,7 +322,7 @@ button.trf-prot.trf-tomar:disabled{cursor:wait;opacity:.6}
 }
 
 /* Filtros de «Mis transferencias» */
-.trf-filtros{display:grid;grid-template-columns:repeat(3,minmax(0,1.3fr)) repeat(2,minmax(0,1fr)) auto;gap:8px;align-items:end;
+.trf-filtros{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:8px;align-items:end;
   padding:0 22px 14px}
 .trf-filtros label{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:11px;color:var(--texto-3)}
 .trf-filtros select,.trf-filtros input{width:100%;min-width:0;height:34px;margin:0;padding:0 8px;box-sizing:border-box;
@@ -416,3 +423,87 @@ button.trf-prot.trf-tomar:disabled{cursor:wait;opacity:.6}
 .trf-excl-fila .trf-cola-subir{opacity:1}
 @media (max-width:760px){ .trf-excl-form{grid-template-columns:1fr 1fr} .trf-excl-form button{grid-column:1 / -1} }
 .trf-excl{box-shadow:inset 3px 0 0 #b91c1c}
+
+/* Transferencias exitosas: resumen en palabras arriba y una tarjeta por cliente con el monto a la derecha. */
+.trf-exito-resumen{padding:0 18px}
+.trf-exito-resumen:empty{display:none}
+.trf-exito-titular{margin:4px 0 6px;font-size:1.05rem;color:var(--texto-1,#0f172a)}
+.trf-exito-titular b{font-size:1.6rem;color:#15803d;font-variant-numeric:tabular-nums}
+.trf-exito-regla{display:flex;gap:6px;align-items:flex-start;margin:0 0 12px;padding:8px 10px;font-size:.74rem;line-height:1.45;
+  color:var(--texto-3);background:rgb(21 128 61 / .06);border-left:3px solid #15803d}
+.trf-exito-regla i{margin-top:2px;color:#15803d}
+.trf-exito-body{padding:0 18px 16px}
+.trf-exito-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;max-height:440px;overflow:auto;overscroll-behavior:contain}
+.trf-exito-item{display:flex;align-items:center;gap:16px;padding:12px 14px;background:var(--sup-1,#fff);border:1px solid var(--linea,#e2e8f0);border-left:4px solid #15803d}
+.trf-exito-info{flex:1;min-width:0}
+.trf-exito-info p{margin:0}
+.trf-exito-cliente{font-size:.9rem;font-weight:700;color:var(--texto-1,#0f172a)}
+.trf-exito-cliente span{margin-left:6px;font-size:.74rem;font-weight:500;color:var(--texto-3)}
+.trf-exito-paso{margin-top:3px!important;font-size:.78rem;color:var(--texto-2,#334155)}
+.trf-exito-calc{margin-top:2px!important;font-size:.72rem;color:var(--texto-3)}
+.trf-exito-monto{margin:0;display:flex;flex-direction:column;align-items:flex-end;white-space:nowrap}
+.trf-exito-monto b{font-size:1.35rem;color:#15803d;font-variant-numeric:tabular-nums}
+.trf-exito-monto span{font-size:.68rem;color:var(--texto-3)}
+@media (max-width:560px){ .trf-exito-item{flex-direction:column;align-items:flex-start;gap:6px} .trf-exito-monto{align-items:flex-start} }
+
+/* ══════════ Orden y jerarquía (17-nov-2026) ══════════
+   Cada sección con su propia identidad para que no se vean todas iguales:
+   · Resumen = panel de control: franja azul de la marca con los filtros, cifras en recuadros.
+   · Mis transferencias = la tabla de trabajo, neutra.
+   · Transferencias exitosas = verde de dinero.
+   · Fuera de transferencias = herramienta de gestión, al final, gris y plegada. */
+
+/* Resumen: cabecera en franja azul con texto blanco y filtros en la misma franja */
+.trf-resumen{overflow:hidden}
+.trf-resumen > .trf-head{background:linear-gradient(120deg,#0b4a66 0%,#007098 100%);border-bottom:0;padding:14px 20px;gap:12px 18px}
+.trf-resumen > .trf-head .trf-title{color:#fff;font-size:16px}
+.trf-resumen > .trf-head .trf-sub{color:rgb(255 255 255 / .78)}
+.trf-resumen > .trf-head .trf-ic{border-color:rgb(255 255 255 / .35);color:#fff;background:rgb(255 255 255 / .08)}
+.trf-resumen .trf-rango label{color:rgb(255 255 255 / .85)}
+.trf-resumen .trf-rango input{border-color:rgb(255 255 255 / .35);background:#fff}
+.trf-resumen .trf-seg{background:rgb(255 255 255 / .12);border-color:rgb(255 255 255 / .25)}
+.trf-resumen .trf-seg button{color:rgb(255 255 255 / .85)}
+.trf-resumen .trf-seg button.trf-seg-on{background:#fff;color:#0b4a66}
+.trf-resumen .trf-seg button:focus-visible{outline-color:#fff}
+/* Cifras en recuadros iguales; el monedero, resaltado */
+.trf-resumen .trf-cifras{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.trf-resumen .trf-cifra{flex-direction:column-reverse;align-items:flex-start;gap:6px;padding:12px 14px;background:var(--sup-1,#fff);border:1px solid var(--linea)}
+.trf-resumen .trf-cifra span{font-size:12px}
+.trf-resumen .trf-cifra.ok{border-top:3px solid #16a34a}
+.trf-resumen .trf-cifra.tot{border-top:3px solid #0b4a66}
+.trf-resumen .trf-cifra.pend{border-top:3px solid #cbd5e1}
+.trf-resumen .trf-cifra.mon{flex-direction:row;align-items:center;flex-wrap:wrap;border-top:3px solid var(--color-accent-2-500);background:rgb(0 112 152 / .05)}
+.trf-resumen .trf-cifra.mon span{flex-basis:100%}
+@media (max-width:760px){ .trf-resumen .trf-cifras{grid-template-columns:repeat(2,minmax(0,1fr))} }
+
+/* Mis transferencias: neutra, icono gris pizarra */
+.trf-hist > .trf-head .trf-ic{color:#475569;border-color:rgb(71 85 105 / .3)}
+
+/* Transferencias exitosas: identidad verde y filas más compactas */
+.trf-exito{border-top:3px solid #15803d}
+.trf-exito > .trf-head{background:rgb(21 128 61 / .06)}
+.trf-exito > .trf-head .trf-ic{background:#15803d;border-color:#15803d;color:#fff}
+.trf-exito-resumen{padding:12px 18px 0}
+.trf-exito-item{padding:9px 12px;gap:12px}
+.trf-exito-paso{font-size:.76rem}
+.trf-exito-monto b{font-size:1.15rem}
+.trf-exito-lista{max-height:340px}
+
+/* Fuera de transferencias: al final, gris, plegada. El resumen hace de botón para abrirla. */
+.trf-excl{box-shadow:none;background:rgb(241 245 249 / .85);border:1px dashed #94a3b8}
+.trf-excl-det > summary{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;list-style:none;color:#334155}
+.trf-excl-det > summary::-webkit-details-marker{display:none}
+.trf-excl-det > summary > .ph-phone-slash{font-size:18px;color:#64748b}
+.trf-excl-sum-txt{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.trf-excl-sum-txt b{font-size:13px;font-weight:600}
+.trf-excl-sum-txt small{font-size:11.5px;color:#64748b}
+.trf-excl-n{padding:3px 10px;font-size:11px;font-weight:600;color:#475569;background:#e2e8f0;white-space:nowrap}
+.trf-excl-n.hay{color:#991b1b;background:#fee2e2}
+.trf-excl-caret{color:#64748b;transition:transform .15s}
+.trf-excl-det[open] .trf-excl-caret{transform:rotate(180deg)}
+.trf-excl-det > summary:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:-2px}
+.trf-excl-det[open] > summary{border-bottom:1px solid #cbd5e1}
+@media (prefers-reduced-motion:reduce){ .trf-excl-caret{transition:none} }
+.trf-resumen .trf-cifras{align-items:stretch}
+.trf-resumen .trf-cifra span{display:block}
+.trf-resumen .trf-cifra span::first-letter{text-transform:uppercase}
