@@ -1092,6 +1092,62 @@
     setTimeout(function () { if (celebrando === capa) celebrando = null; capa.remove(); }, 4200);
   };
 
+  // ── Nieve cayendo ───────────────────────────────────────────────────────────────────────
+  // Tres capas fijas (cerca, media y lejos) con copos dibujados en un azulejo SVG repetido;
+  // cada capa baja exactamente un azulejo y vuelve a empezar, así el ciclo no se nota. Solo
+  // se anima transform: lo mueve la tarjeta gráfica sin trabajo del procesador por cuadro.
+  // Va por delante de las tarjetas (sin recibir clics): detrás obligaría a recalcular el
+  // desenfoque del vidrio en cada cuadro. Sin nieve en modo ligero ni con «reducir movimiento».
+  // cristal: copos de seis puntas (capa cercana); si no, puntos difuminados.
+  function azulejoNieve(lado, n, rMin, rMax, semilla, cristal) {
+    var rnd = azar(semilla), copos = '';
+    for (var i = 0; i < n; i++) {
+      var x = r1(rnd() * lado), y = r1(rnd() * lado), r = r1(rMin + rnd() * (rMax - rMin)), giro = Math.round(rnd() * 60);
+      // Cada copo cerca del borde se repite al otro lado para que el azulejo empalme.
+      [[0, 0], [lado, 0], [-lado, 0], [0, lado], [0, -lado]].forEach(function (o) {
+        var cx = r1(x + o[0]), cy = r1(y + o[1]);
+        if (cx < -r || cx > lado + r || cy < -r || cy > lado + r) return;
+        copos += cristal
+          ? '<use href="#c" transform="translate(' + cx + ' ' + cy + ') rotate(' + giro + ') scale(' + r1(r / 10) + ')"/>'
+          : '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '"/>';
+      });
+    }
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="' + lado + '" height="' + lado + '">' +
+      '<defs><radialGradient id="d"><stop offset="0" stop-color="#fff"/><stop offset=".55" stop-color="#fff" stop-opacity=".9"/>' +
+      '<stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>' +
+      '<g id="b"><path d="M0 0V-10M0-6l-3-3M0-6l3-3"/></g>' +
+      '<g id="c"><use href="#b"/><use href="#b" transform="rotate(60)"/><use href="#b" transform="rotate(120)"/>' +
+      '<use href="#b" transform="rotate(180)"/><use href="#b" transform="rotate(240)"/><use href="#b" transform="rotate(300)"/></g></defs>' +
+      (cristal
+        // Contorno azul claro debajo y el trazo blanco encima: se distingue sobre fondo blanco.
+        ? '<g fill="none" stroke-linecap="round"><g stroke="rgb(0,112,152)" stroke-opacity=".35" stroke-width="4.2">' + copos +
+          '</g><g stroke="#fff" stroke-width="2.2">' + copos + '</g></g>'
+        : '<g fill="url(#d)" stroke="rgb(0,112,152)" stroke-opacity=".18" stroke-width=".5">' + copos + '</g>') +
+      '</svg>';
+    return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
+  }
+
+  function nevar() {
+    if (quieto || document.documentElement.classList.contains('modo-ligero')) return;
+    if (document.querySelector('.nv-nevada')) return;
+    var capa = document.createElement('div');
+    capa.className = 'nv-nevada';
+    capa.setAttribute('aria-hidden', 'true');
+    [
+      { lado: 460, n: 6, r: [5, 7.5], dur: 18, semilla: 3, cristal: true },   // cerca: cristales, rápidos
+      { lado: 300, n: 12, r: [2.2, 3.4], dur: 26, semilla: 5 },              // media: puntos difuminados
+      { lado: 220, n: 14, r: [1.3, 2], dur: 38, semilla: 8 }                 // lejos: pequeños y lentos
+    ].forEach(function (c, i) {
+      var l = document.createElement('span');
+      l.className = 'nv-copos nv-copos-' + (i + 1);
+      l.style.backgroundImage = azulejoNieve(c.lado, c.n, c.r[0], c.r[1], c.semilla, c.cristal);
+      l.style.setProperty('--lado', c.lado + 'px');
+      l.style.setProperty('--dur', c.dur + 's');
+      capa.appendChild(l);
+    });
+    document.body.appendChild(capa);
+  }
+
   function iniciar() {
     var nodos = document.querySelectorAll('[data-guirnalda]');
     for (var i = 0; i < nodos.length; i++) {
@@ -1107,6 +1163,7 @@
       else dibujarRegalos(cont);
     });
     decorarTarjetas();
+    nevar();
     // Las tarjetas que llegan con los datos se decoran al aparecer.
     [1200, 3500, 8000].forEach(function (ms) { setTimeout(decorarTarjetas, ms); });
     var ligero = document.documentElement.classList.contains('modo-ligero');

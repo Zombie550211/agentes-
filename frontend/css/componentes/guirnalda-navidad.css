@@ -177,3 +177,21 @@
   .nv-fiesta-msg{animation:nv-fiesta-msg-suave 3.4s ease both}
   @keyframes nv-fiesta-msg-suave{0%,100%{opacity:0}12%,85%{opacity:1}}}
 @media (max-width:480px){.nv-fiesta-msg{font-size:16px;white-space:normal;text-align:center;width:80vw}}
+
+/* ══ Nieve cayendo (nevar en guirnalda-navidad.js) ══
+   Cada capa mide un azulejo más que la pantalla y baja un azulejo por ciclo (sin salto).
+   Por delante de las tarjetas pero bajo el menú y las ventanas; no recibe clics. */
+.nv-nevada{position:fixed;inset:0;z-index:30;pointer-events:none;overflow:hidden;contain:strict}
+.nv-copos{position:absolute;left:0;right:0;top:calc(var(--lado) * -1);height:calc(100% + var(--lado));
+  background-repeat:repeat;background-size:var(--lado) var(--lado);will-change:transform;
+  animation:nv-nieva var(--dur) linear infinite}
+.nv-copos-1{opacity:.75}
+.nv-copos-2{opacity:.65;animation-name:nv-nieva-deriva}
+.nv-copos-3{opacity:.5}
+@keyframes nv-nieva{from{transform:translate3d(0,0,0)}to{transform:translate3d(0,var(--lado),0)}}
+/* La capa media se desliza en diagonal (un azulejo a lo ancho por ciclo): parece viento. */
+@keyframes nv-nieva-deriva{from{transform:translate3d(0,0,0)}to{transform:translate3d(calc(var(--lado) * -1),var(--lado),0)}}
+.nv-copos-2{left:calc(var(--lado) * -1)}
+@media (prefers-reduced-motion:reduce){.nv-nevada{display:none}}
+html.modo-ligero .nv-nevada,html.sin-navidad .nv-nevada{display:none}
+@media print{.nv-nevada{display:none}}

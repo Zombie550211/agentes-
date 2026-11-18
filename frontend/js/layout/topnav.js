@@ -194,7 +194,7 @@
 
   // Decoración navideña de la barra del menú en todas las páginas (js/componentes/
   // guirnalda-navidad.js). Una sola vez aunque la página ya la cargue (Inicio).
-  var VER_NAVIDAD = '20261119a';
+  var VER_NAVIDAD = '20261119c';
   function cargarNavidad() {
     if (!document.querySelector('link[href*="guirnalda-navidad.css"]')) {
       var l = document.createElement('link');
