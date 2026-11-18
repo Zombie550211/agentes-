@@ -1200,6 +1200,50 @@
     }).observe(barra, { childList: true, subtree: true });
   }
 
+  // ── Cuenta regresiva a Navidad y Año Nuevo (Inicio, #in-cuenta-navidad) ─────────────────
+  // Hora de El Salvador (UTC−6, sin horario de verano): Navidad el 25-dic a las 00:00 y Año
+  // Nuevo el 1-ene a las 00:00. El 25 dice «¡Feliz Navidad!»; del 26 al 31 solo queda Año
+  // Nuevo; del 1 al 7 de enero, «¡Feliz Año Nuevo!». Se refresca cada 30 s con la pestaña a
+  // la vista (precisión de minutos: no hace falta más).
+  var SV = 6 * 3600 * 1000;
+  function cuentaNavidad() {
+    var caja = document.getElementById('in-cuenta-navidad');
+    if (!caja) return;
+    function falta(ms) {
+      var min = Math.max(0, Math.floor(ms / 60000)), d = Math.floor(min / 1440), h = Math.floor(min % 1440 / 60), m = min % 60;
+      return { d: d, resto: (h < 10 ? '0' : '') + h + ' h ' + (m < 10 ? '0' : '') + m + ' min' };
+    }
+    function recuadro(clase, nombre, ms) {
+      // Una sola línea («Navidad 36 días»); las horas y minutos van en el título (al pasar el mouse).
+      var f = falta(ms);
+      return '<div class="in-cn ' + clase + '" title="Faltan ' + f.d + (f.d === 1 ? ' día' : ' días') + ' y ' + f.resto + '">' +
+        '<span class="in-cn-nom">' + nombre + '</span>' +
+        (f.d > 0 ? '<span class="in-cn-num"><b>' + f.d + '</b>' + (f.d === 1 ? ' día' : ' días') + '</span>'
+                 : '<span class="in-cn-num"><b>' + f.resto.replace(' min', '').replace(' h ', ':') + '</b> h</span>') +
+        '</div>';
+    }
+    function pintar() {
+      if (document.hidden) return;
+      var ahora = Date.now(), sv = new Date(ahora - SV);          // fecha y hora de El Salvador
+      var anio = sv.getUTCFullYear(), mes = sv.getUTCMonth() + 1, dia = sv.getUTCDate();
+      var navidad = Date.UTC(anio, 11, 25) + SV, anioNuevo = Date.UTC(mes === 1 ? anio : anio + 1, 0, 1) + SV;
+      var html = '';
+      if (mes === 1) {
+        html = '<div class="in-cn in-cn-fiesta"><span class="in-cn-nom">¡Feliz Año Nuevo ' + anio + '!</span></div>';
+      } else {
+        html = (mes === 12 && dia === 25)
+          ? '<div class="in-cn in-cn-navidad in-cn-fiesta"><span class="in-cn-nom">¡Feliz Navidad!</span></div>'
+          : (navidad > ahora ? recuadro('in-cn-navidad', 'Navidad', navidad - ahora) : '');
+        html += recuadro('in-cn-anio', 'Año Nuevo', anioNuevo - ahora);
+      }
+      caja.innerHTML = html;
+      caja.setAttribute('aria-label', caja.textContent.replace(/\s+/g, ' ').trim());
+    }
+    pintar();
+    setInterval(pintar, 30000);
+    document.addEventListener('visibilitychange', pintar);
+  }
+
   function iniciar() {
     var nodos = document.querySelectorAll('[data-guirnalda]');
     for (var i = 0; i < nodos.length; i++) {
@@ -1217,6 +1261,7 @@
     decorarTarjetas();
     nevar();
     vigilarCabecera();
+    cuentaNavidad();
     // Las tarjetas que llegan con los datos se decoran al aparecer.
     [1200, 3500, 8000].forEach(function (ms) { setTimeout(decorarTarjetas, ms); });
     var ligero = document.documentElement.classList.contains('modo-ligero');
