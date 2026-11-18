@@ -1451,7 +1451,6 @@
   // final. Cada fila se identifica por el id del agente, así al cambiar el orden las filas
   // se deslizan a su nuevo lugar (técnica FLIP) en vez de redibujarse de golpe.
   let colaTimer = null;
-  let colaOrdenar = false;   // JONATHAN F y administradores: prioridad (poner primero)
   let colaPausar = false;    // JONATHAN F y administradores: pausa
   let colaPedido = 0;
   const sinAnimar = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1476,7 +1475,6 @@
       const j = await r.json();
       if (!r.ok) throw new Error(j.detail || 'Error');
       agentes = j.agentes || [];
-      colaOrdenar = !!j.puede_ordenar;
       colaPausar = !!j.puede_pausar;
     } catch (e) {
       if (pedido === colaPedido && !lista.children.length) {
@@ -1551,24 +1549,13 @@
           esc(String(a.team).replace(/^TEAM\s+/i, '')) + ' · ' + esc(haceCuanto(a.ultima)) + '</small></span>' +
         '<span class="trf-cola-acc">' +
           (!recibe(a) ? tagEstado(a)
-            : a === sig ? '<span class="trf-cola-tag">Siguiente</span>'
-            : colaOrdenar ? '<button type="button" class="trf-cola-subir" data-primero="' + a.id + '" title="Que ' + esc(a.nombre) +
-                ' reciba la próxima transferencia (una sola vez)">Poner primero</button>' : '') +
+            : a === sig ? '<span class="trf-cola-tag">Siguiente</span>' : '') +
           (colaPausar ? selEstadoFila(a) + btnPausaFila(a) : '') +
         '</span>';
       lista.appendChild(li);
     });
     enlazarPausaFila(lista);
     enlazarEstadoFila(lista);
-    lista.querySelectorAll('[data-primero]').forEach(function (b) {
-      b.addEventListener('click', async function () {
-        b.disabled = true;
-        const r = await fetch('/api/transferencias/cola/primero', { method: 'POST',
-          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: parseInt(b.dataset.primero, 10), seccion: DESTINO }) });
-        if (!r.ok) { b.disabled = false; mensaje('err', 'No se pudo cambiar el orden de la cola'); return; }
-        cargarCola();
-      });
-    });
     if (sinAnimar) return;
     lista.querySelectorAll('li[data-id]').forEach(function (li) {
       const y0 = antes[li.dataset.id];
@@ -1601,7 +1588,7 @@
       return;
     }
     if (pedido !== miColaPedido) return;
-    pintarMiCola(lista, (j.agentes || []).filter((a) => a.conectado !== false), parseInt(j.yo, 10) || 0, !!j.mi_pausa, !!j.puede_pausar, j.mi_estado || 'dispo');
+    pintarMiCola(lista, (j.agentes || []).filter((a) => a.conectado !== false), parseInt(j.yo, 10) || 0, !!j.mi_pausa, !!j.puede_pausar, j.mi_estado || 'dispo', !!j.sin_volver_a_dispo);
   }
 
   /** JONATHAN F y administradores: botón Pausar / Quitar pausa en la fila de cualquier agente. */
@@ -1624,12 +1611,14 @@
     });
   }
 
-  function pintarMiCola(lista, agentes, yo, enPausa, admin, miEstado) {
+  function pintarMiCola(lista, agentes, yo, enPausa, admin, miEstado, sinVolver) {
     const resumen = q('#trf-micola-yo');
     const pos = agentes.findIndex((a) => a.id === yo);
     // Los que están en pausa conservan su lugar pero no reciben: no cuentan como «faltan».
     const antes = pos > 0 ? agentes.slice(0, pos).filter(recibe).length : 0;
     const suspendido = miEstado !== 'dispo';
+    // Agentes de Líneas: una vez en LUNCH o NO DISPO, solo su supervisor los devuelve a DISPO.
+    const bloqueaDispo = suspendido && sinVolver;
     if (resumen) {
       let html;
       if (enPausa) {
@@ -1639,7 +1628,8 @@
       } else if (suspendido) {
         resumen.className = 'trf-micola-yo pausa';
         html = '<b>' + (pos >= 0 ? pos + 1 : '–') + '</b><span>Estás en ' + (miEstado === 'launch' ? 'LUNCH' : 'NO DISPO') +
-          '<small>No recibirás transferencias hasta que cambies tu status a DISPO.</small></span>';
+          '<small>' + (bloqueaDispo ? 'No recibirás transferencias. Solo tu supervisor puede devolverte a DISPO.'
+            : 'No recibirás transferencias hasta que cambies tu status a DISPO.') + '</small></span>';
       } else if (pos >= 0 && antes === 0) {
         resumen.className = 'trf-micola-yo sig';
         html = '<b>' + (pos + 1) + '</b><span>Eres el siguiente<small>La próxima transferencia de ' + esc(DESTINO_LABEL) + ' es para ti.</small></span>';
@@ -1660,11 +1650,13 @@
       // Status: lo elige cada agente (DISPO recibe; LUNCH y NO DISPO quedan suspendidos).
       html += '<div class="trf-estado" role="group" aria-label="Tu status">' +
         ESTADOS.map((e) => '<button type="button" class="trf-estado-btn e-' + e[0] + '" data-estado="' + e[0] + '" aria-pressed="' +
-          (miEstado === e[0]) + '">' + e[1] + '</button>').join('') + '</div>';
+          (miEstado === e[0]) + '"' + (bloqueaDispo && e[0] === 'dispo' ? ' disabled title="Solo tu supervisor puede devolverte a DISPO"' : '') +
+          '>' + e[1] + '</button>').join('') + '</div>';
       resumen.innerHTML = html;
       resumen.querySelectorAll('[data-estado]').forEach(function (b) {
         b.addEventListener('click', function () {
           if (b.getAttribute('aria-pressed') === 'true') return;
+          if (b.disabled) return;
           resumen.querySelectorAll('[data-estado]').forEach((x) => { x.disabled = true; });
           cambiarEstado(b.dataset.estado);
         });

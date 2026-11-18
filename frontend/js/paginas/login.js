@@ -661,6 +661,8 @@
       // Marca de actividad fresca: una vieja (js/core/inactivity-manager.js) cerraría la sesión recién abierta.
       try { localStorage.setItem('crm_ultima_actividad', String(Date.now())); } catch (_) {}
       try { localStorage.setItem('crm_show_update_for_all', '1'); } catch (_) {}
+      // La guirnalda de la barra del menú vuelve a animarse una vez en esta sesión.
+      try { localStorage.removeItem('crm_gnb_animada'); localStorage.removeItem('crm_gn_paginas_animadas'); } catch (_) {}
       preheatPages();
       setTimeout(function () { window.location.replace(redirectUrl); }, 500);
 

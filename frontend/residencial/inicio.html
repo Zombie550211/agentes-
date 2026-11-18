@@ -18,16 +18,15 @@
   <link rel="stylesheet" href="/css/base/scroll.css?v=20261008a">
   <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008a">
   <link rel="stylesheet" href="/css/base/sistema.css?v=20261117b">
-  <link rel="stylesheet" href="/css/paginas/inicio.css?v=20261118a">
+  <link rel="stylesheet" href="/css/componentes/marco-amplio.css?v=20261118a">
+  <link rel="stylesheet" href="/css/paginas/inicio.css?v=20261118p">
+  <link rel="stylesheet" href="/css/componentes/guirnalda-navidad.css?v=20261118s">
   <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
   <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
   <script src="/js/layout/transicion.js?v=20261105a"></script>
 </head>
 <body>
 <div class="in-marco in-marco-amplio">
-  <!-- Decoración navideña: ramas con moños en las dos esquinas de arriba (no reciben clics). -->
-  <img class="in-esquina-sup izq" src="/images/dise%C3%B1o%20Navide%C3%B1o/navidad3.webp?v=1" alt="" aria-hidden="true" width="420" height="283" decoding="async">
-  <img class="in-esquina-sup der" src="/images/dise%C3%B1o%20Navide%C3%B1o/navidad4.webp?v=1" alt="" aria-hidden="true" width="420" height="280" decoding="async">
   <header class="in-head">
     <nav id="topnav" class="tn" aria-label="Menú principal"></nav>
     <!-- Ajustes, chat, notificaciones y usuario: js/layout/topbar-acciones.js -->
@@ -51,6 +50,8 @@
         </div>
       </div>
 
+      <!-- Guirnalda navideña 3D colgada de la esquina (js/componentes/guirnalda-navidad.js). -->
+      <div class="gn" data-guirnalda="izq" aria-hidden="true"></div>
     </section>
 
     <!-- Video promocional (GET /api/promo-video), sin sonido y sin nada encima. Se sube y se
@@ -67,6 +68,7 @@
           <input id="in-promo-archivo" type="file" accept="video/mp4,video/quicktime,video/webm,video/x-matroska,video/x-msvideo,.mp4,.m4v,.mov,.webm,.mkv,.avi,.3gp" hidden></label>
         <button type="button" id="in-promo-quitar" class="in-promo-btn" aria-label="Quitar video" hidden><i class="ph ph-trash"></i></button>
       </div>
+      <div class="gn" data-guirnalda="der" aria-hidden="true"></div>
     </section>
 
     <section class="in-a-kpi in-glass" style="padding:var(--space-3);display:flex;flex-direction:column;gap:6px">
@@ -106,19 +108,17 @@
       <div style="height:1px;background:var(--color-neutral-200);margin:var(--space-2) 0"></div>
       <div id="in-dia" style="font-size:11px"></div>
       <div id="in-eventos" class="in-lista-scroll" style="display:flex;flex-direction:column;gap:var(--space-3);margin-top:var(--space-1)"></div>
-      <!-- Decoración navideña: árbol en la esquina inferior derecha del calendario, sale hacia
+      <!-- Decoración navideña: árbol 3D (js/componentes/guirnalda-navidad.js) en la esquina inferior derecha del calendario, sale hacia
            el margen como el muñeco de «Casos pendientes» (no recibe clics). -->
-      <img class="in-arbol-navidad" src="/images/dise%C3%B1o%20Navide%C3%B1o/arbol-navideno.webp?v=1" alt="" aria-hidden="true"
-        width="420" height="449" decoding="async">
+      <div class="in-arbol-navidad" data-navidad="arbol" aria-hidden="true"></div>
     </section>
 
     <section id="in-tareas" class="in-a-tareas in-glass" style="position:relative;padding:var(--space-3);display:flex;flex-direction:column;gap:var(--space-2)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-1)"><span style="font-size:13px;font-weight:600"><img class="in-ico-nav" src="/images/dise%C3%B1o%20Navide%C3%B1o/iconos/regalo.webp" alt="" width="20" height="20">Casos pendientes <span id="in-casos-total" style="font-weight:400;font-size:10px;color:var(--color-neutral-600)"></span></span><a href="/residencial/semaforo.html" style="font-size:10px;color:var(--color-neutral-700);text-decoration:none">Ver todo</a></div>
       <!-- Casos del Semáforo sin solventar (js/paginas/inicio.js → cargarCasos). -->
       <div id="in-casos" class="in-lista-scroll" style="display:flex;flex-direction:column;gap:var(--space-2)"><div style="font-size:10px;color:var(--color-neutral-600)">Cargando casos…</div></div>
-      <!-- Decoración navideña: regalos y ramas en la esquina inferior izquierda (no recibe clics). -->
-      <img class="in-esquina-navidad" src="/images/dise%C3%B1o%20Navide%C3%B1o/navidad1.webp?v=1" alt="" aria-hidden="true"
-        width="420" height="284" decoding="async">
+      <!-- Decoración navideña: regalos 3D con ramas en la esquina inferior izquierda (js/componentes/guirnalda-navidad.js). -->
+      <div class="in-esquina-navidad" data-navidad="regalos" aria-hidden="true"></div>
     </section>
 
     <!-- Semáforo del mes (dashboard/home → semaforo), con el diseño de medidor + barras.
@@ -153,8 +153,9 @@
 </div>
 
 <script src="/js/core/fetch-interceptor.js" defer></script>
-<script src="/js/layout/topnav.js?v=20261112a" defer></script>
+<script src="/js/layout/topnav.js?v=20261118s" defer></script>
 <script src="/js/layout/topbar-acciones.js?v=20261106a" defer></script>
 <script src="/js/paginas/inicio.js?v=20261118b" defer></script>
+<script src="/js/componentes/guirnalda-navidad.js?v=20261118s" defer></script>
 </body>
 </html>

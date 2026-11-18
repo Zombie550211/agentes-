@@ -99,7 +99,7 @@ ACCIONES = [
     ("llamadas_ventas.registro", "Llamadas y ventas", "Registro diario de llamadas y ventas", "", [ADMIN, BO]),
     # ── Transferencias ──
     ("transferencias.gestionar_cola", "Transferencias", "Gestionar la cola",
-     "Dar prioridad, pausar, cambiar el status y sacar agentes de la cola.", [ADMIN, SUP_LIN]),
+     "Pausar, cambiar el status y sacar agentes de la cola.", [ADMIN, SUP_LIN]),
     # ── Pre-leads ──
     ("pre_leads.procesar", "Pre-leads", "Procesar pre-leads", "Ver todos y resolverlos.", [ADMIN]),
     # ── Monitoreo ──

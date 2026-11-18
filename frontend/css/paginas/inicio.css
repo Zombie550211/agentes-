@@ -108,7 +108,6 @@
 
 /* ══════════ Inicio: esquinas redondeadas, saludo ordenado y promo más ancha (17-nov-2026) ══════════ */
 /* Esquinas: solo en Inicio (.in-marco-amplio); el resto del CRM sigue con esquinas rectas. */
-.in-marco-amplio{--radius-glass:18px}
 .in-marco-amplio .in-kpi-card{border-radius:14px}
 .in-marco-amplio .in-kpi-ico{border-radius:9px}
 
@@ -133,8 +132,7 @@
 /* Árbol navideño anclado a la esquina inferior derecha del calendario: se mueve con la página
    (no flota) y sale un poco hacia el margen, igual que el muñeco de «Casos pendientes». */
 .in-arbol-navidad{position:absolute;right:calc(-1 * clamp(10px, 4.5vw - 8px, 80px) - 10px);bottom:-22px;z-index:2;
-  width:clamp(170px,14vw,240px);height:auto;pointer-events:none;
-  filter:drop-shadow(0 10px 14px rgb(11 47 69 / .25))}
+  width:clamp(170px,14vw,240px);height:auto;aspect-ratio:200/240;pointer-events:none;}
 @media (max-width:760px){.in-arbol-navidad{display:none}}
 
 /* Inicio a pantalla completa: la cuadrícula ocupa todo el alto disponible y las filas de
@@ -207,61 +205,130 @@
   .in-marco-amplio .in-muneco img{left:10px;bottom:14px;width:96px}
   .in-marco-amplio .in-muneco-monte{height:32px}
   .in-marco-amplio .in-arbol-navidad{right:-10px;bottom:-8px;width:150px}
-  .in-marco-amplio .in-a-tareas,.in-marco-amplio .in-a-agenda{overflow:visible!important}
+  .in-marco-amplio .in-a-tareas,.in-marco-amplio .in-a-agenda,
+  .in-marco-amplio .in-a-hero,.in-marco-amplio .in-promo{overflow:visible!important}
 }
 
 /* Regalos y ramas (navidad1) en la esquina inferior izquierda de «Casos pendientes»,
    en lugar del muñeco de nieve. Sale un poco hacia el margen, sin recibir clics. */
 .in-esquina-navidad{position:absolute;left:calc(-1 * clamp(10px, 4.5vw - 8px, 80px));bottom:-18px;z-index:2;
-  width:clamp(200px,17vw,280px);height:auto;pointer-events:none;
-  filter:drop-shadow(0 8px 12px rgb(11 47 69 / .22))}
+  width:clamp(200px,17vw,280px);height:auto;aspect-ratio:230/150;pointer-events:none;}
 @media (max-width:1100px){.in-esquina-navidad{display:none}}
 @media (min-width:1181px) and (min-height:620px){
   .in-marco-amplio .in-esquina-navidad{left:-14px;bottom:-12px;width:170px}
 }
 
-/* Ramas con moños (navidad3 y navidad4) grandes en las dos esquinas de arriba de la pantalla.
-   Van ENCIMA de la barra del menú (z-index 45 > 40), como pidió Daniel; no reciben clics,
-   así que las opciones que quedan debajo se siguen pudiendo usar. */
-.in-esquina-sup{position:fixed;top:0;z-index:45;width:clamp(210px,18vw,340px);height:auto;pointer-events:none;
-  filter:drop-shadow(0 6px 8px rgb(11 47 69 / .2))}
-.in-esquina-sup.izq{left:0}
-.in-esquina-sup.der{right:0}
-
-@media (max-width:760px){.in-esquina-sup{display:none}}
+/* ══════════ Guirnalda navideña en 3D (18-nov-2026) ══════════
+   Sustituye a las imágenes navidad3/navidad4: la dibuja js/componentes/guirnalda-navidad.js
+   colgada exactamente del borde y la esquina redondeada del saludo (izquierda) y del video
+   (derecha). Las ramas son un SVG estático; las bolas son HTML con luz arriba a la
+   izquierda y se balancean solo con transform (GPU, sin repintar). No reciben clics. */
+.in-a-hero,.in-promo{position:relative}
+/* .gn (posición y sombra) está en css/componentes/guirnalda-navidad.css */
+/* Aire entre el menú y la primera fila para que el menú no tape las agujas de arriba. */
+@media (min-width:1181px) and (min-height:620px){.in-marco-amplio > .in-head{margin-bottom:20px}}
+/* Con la guirnalda arriba, la fecha baja junto al saludo y el video deja salir las ramas. */
+.in-marco-amplio .in-a-hero > :first-child{justify-content:flex-end!important;gap:8px}
+.in-promo{overflow:visible}
+.in-promo video,.in-promo img,.in-promo-vacio{border-radius:inherit}
 
 /* ══════════ Colores navideños difuminados en Inicio (17-nov-2026) ══════════
    Manchas suaves de verde pino y rojo navideño sobre el fondo claro, mezcladas con el azul
    de la marca; el saludo pasa del verde al rojo muy tenue. Las tarjetas siguen blancas. */
-body:has(.in-marco-amplio){
-  background:
-    radial-gradient(42vw 42vw at -4% 104%, rgb(21 128 61 / .28), transparent 70%),
-    radial-gradient(38vw 38vw at 104% -6%, rgb(200 26 39 / .22), transparent 70%),
-    radial-gradient(34vw 34vw at 102% 104%, rgb(21 128 61 / .20), transparent 70%),
-    radial-gradient(30vw 30vw at -2% -4%, rgb(200 26 39 / .16), transparent 70%),
-    radial-gradient(50vw 40vw at 50% 50%, rgb(0 112 152 / .07), transparent 75%),
-    #f6f8f6;
-  background-attachment:fixed}
 .in-marco-amplio .in-a-hero.in-glass{
   background:linear-gradient(120deg, rgb(21 128 61 / .24) 0%, rgb(255 255 255 / .70) 45%, rgb(255 255 255 / .70) 60%, rgb(200 26 39 / .20) 100%)}
-.in-marco-amplio > .in-head{background:linear-gradient(90deg, rgb(21 128 61 / .07), rgb(255 255 255 / .78) 30%, rgb(255 255 255 / .78) 70%, rgb(200 26 39 / .07))}
 
 /* ══════════ Tarjetas de vidrio transparentes en Inicio (17-nov-2026) ══════════
    Más transparencia y más desenfoque para que el verde y el rojo del fondo se vean a
    través de las tarjetas; borde blanco fino y brillo arriba para que se lean como vidrio. */
-.in-marco-amplio{
-  --glass-fondo:rgb(255 255 255 / .38);
-  --glass-borde:rgb(255 255 255 / .70);
-  --glass-blur:blur(22px) saturate(170%);
-  --glass-sombra:0 10px 30px rgb(11 47 69 / .10), inset 0 1px 0 rgb(255 255 255 / .85);
-}
 .in-marco-amplio .in-glass-card.in-glass{--glass-fondo:rgb(255 255 255 / .52)}
 .in-marco-amplio .in-a-hero.in-glass{
   background:linear-gradient(120deg, rgb(21 128 61 / .20) 0%, rgb(255 255 255 / .34) 45%, rgb(255 255 255 / .34) 60%, rgb(200 26 39 / .18) 100%)}
-.in-marco-amplio > .in-head{background:linear-gradient(90deg, rgb(21 128 61 / .10), rgb(255 255 255 / .55) 30%, rgb(255 255 255 / .55) 70%, rgb(200 26 39 / .10))}
 /* Filas internas (casos, eventos) también translúcidas */
 .in-marco-amplio #in-casos > a, .in-marco-amplio #in-casos > div{background:rgb(255 255 255 / .38)!important}
-/* Navegadores sin backdrop-filter: más opaco para que se lea */
-@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
-  .in-marco-amplio{--glass-fondo:rgb(255 255 255 / .82)}
-}
+
+/* ══════════ Regalos y árbol en 3D (18-nov-2026) ══════════
+   Sustituyen a navidad1.webp y arbol-navideno.webp; los dibuja js/componentes/guirnalda-navidad.js
+   en un lienzo fijo (230×150 los regalos, 200×240 el árbol) escalado a su hueco.
+   Todo lo que se mueve es transform/opacity (GPU). En modo ligero o «reducir movimiento», quieto. */
+.nv-lienzo{position:absolute;left:0;bottom:0}
+.in-arbol-navidad .nv-lienzo{left:auto;right:0}
+/* La sombra va solo en las capas fijas: un filtro sobre algo que se anima se repinta en cada cuadro. */
+.nv-capa{position:absolute;left:0;top:0;overflow:visible;filter:drop-shadow(0 6px 8px rgb(11 47 69 / .22))}
+.nv-capa svg{overflow:visible}
+/* Ramas que crecen desde su base */
+.nv-crece{transform-box:fill-box;transform-origin:0 100%;
+  animation:nv-crece 1.6s cubic-bezier(.3,1.2,.5,1) var(--entra,0s) both}
+@keyframes nv-crece{from{transform:scale(0);opacity:0}to{transform:none;opacity:1}}
+.nv-nieve{animation:nv-nieve 1.4s ease-out var(--entra,0s) both}
+@keyframes nv-nieve{from{transform:translateY(14px);opacity:0}to{transform:none;opacity:1}}
+.nv-escarcha{animation:gn-titila 1.6s ease-in-out var(--ret,0s) infinite alternate}
+
+/* Caja 3D: frente, dos lados y tapa; cada cara con su luz (arriba claro, lado en sombra). */
+.nv-cae{position:absolute;perspective:420px;animation:nv-cae 1.5s cubic-bezier(.3,1.25,.5,1) var(--entra,0s) both}
+@keyframes nv-cae{0%{transform:translateY(-150px);opacity:0}12%{opacity:1}
+  62%{transform:translateY(0) scale(1.06,.92)}78%{transform:translateY(-10px) scale(.98,1.03)}100%{transform:none;opacity:1}}
+.nv-salto{position:absolute;inset:0;transform-origin:50% 100%;
+  animation:nv-latido 9s ease-in-out var(--ret,0s) infinite}
+@keyframes nv-latido{0%,90%,100%{transform:none}93%{transform:translateY(-6px) scale(1.02,.98)}96%{transform:translateY(0) scale(1.04,.95)}}
+.nv-salto.nv-brinca{animation:nv-brinco .7s cubic-bezier(.3,1.4,.5,1)}
+@keyframes nv-brinco{0%{transform:none}25%{transform:translateY(0) scale(1.08,.9)}
+  55%{transform:translateY(-16px) scale(.95,1.06) rotate(-3deg)}80%{transform:translateY(0) scale(1.05,.95)}100%{transform:none}}
+.nv-caja{position:absolute;inset:0;transform-style:preserve-3d;
+  transform:rotateX(-16deg) rotateY(var(--giro,26deg))}
+.nv-cara{position:absolute;backface-visibility:hidden;background-color:var(--papel);
+  background-image:
+    linear-gradient(90deg,transparent calc(50% - 5px),var(--cinta) calc(50% - 5px) calc(50% + 5px),transparent calc(50% + 5px)),
+    linear-gradient(90deg,transparent calc(50% - 5px),rgb(255 255 255 / .35) calc(50% - 3px),transparent calc(50% - 1px)),
+    radial-gradient(rgb(255 255 255 / .16) .8px,transparent 1.3px);
+  background-size:100% 100%,100% 100%,7px 7px}
+.nv-frente{left:0;top:0;width:var(--w);height:var(--h);transform:translateZ(calc(var(--p) / 2));
+  box-shadow:inset 0 10px 14px -8px rgb(255 255 255 / .35),inset 0 -12px 14px -8px rgb(0 0 0 / .3)}
+.nv-der,.nv-izq{top:0;width:var(--p);height:var(--h);left:calc((var(--w) - var(--p)) / 2)}
+.nv-der{transform:rotateY(90deg) translateZ(calc(var(--w) / 2));box-shadow:inset 0 0 0 999px rgb(0 0 0 / .3)}
+.nv-izq{transform:rotateY(-90deg) translateZ(calc(var(--w) / 2));box-shadow:inset 0 0 0 999px rgb(0 0 0 / .14)}
+.nv-tapa{left:0;width:var(--w);height:var(--p);top:calc((var(--h) - var(--p)) / 2);
+  transform:rotateX(90deg) translateZ(calc(var(--h) / 2));
+  background-image:
+    linear-gradient(90deg,transparent calc(50% - 5px),var(--cinta) calc(50% - 5px) calc(50% + 5px),transparent calc(50% + 5px)),
+    linear-gradient(0deg,transparent calc(50% - 5px),var(--cinta) calc(50% - 5px) calc(50% + 5px),transparent calc(50% + 5px)),
+    radial-gradient(rgb(255 255 255 / .16) .8px,transparent 1.3px);
+  box-shadow:inset 0 0 0 999px rgb(255 255 255 / .16)}
+.nv-lazo{position:absolute;left:50%;top:0;width:var(--lw);
+  transform:translate(-50%,-72%) rotateY(calc(var(--giro) * -1));transform-style:preserve-3d}
+.nv-lazo svg{display:block;width:100%;height:auto;filter:drop-shadow(0 2px 2px rgb(0 0 0 / .25))}
+
+/* Bolas apoyadas en la nieve: llegan rodando. */
+.nv-bola{position:absolute;width:0;height:0}
+.nv-rueda{animation:nv-rueda 1.6s cubic-bezier(.25,.9,.35,1) var(--entra,0s) both}
+@keyframes nv-rueda{from{transform:translateX(70px) rotate(300deg);opacity:0}20%{opacity:1}to{transform:none;opacity:1}}
+.nv-chispa{width:10px;height:10px;margin:-5px 0 0 -5px;--nucleo:#fff;--halo:255 255 240}
+
+/* Árbol: los pisos aparecen de arriba hacia abajo; el oropel se dibuja y las luces corren. */
+.nv-piso{transform-box:fill-box;transform-origin:50% 0;
+  animation:nv-piso 1.3s cubic-bezier(.3,1.3,.5,1) var(--entra,0s) both}
+@keyframes nv-piso{from{transform:scale(.1,.2);opacity:0}to{transform:none;opacity:1}}
+.nv-oropel{stroke-dasharray:1;stroke-dashoffset:1;filter:drop-shadow(0 0 1.5px rgb(255 220 120 / .9));
+  animation:nv-oropel 2s ease-in-out var(--entra,0s) forwards}
+@keyframes nv-oropel{to{stroke-dashoffset:0}}
+.nv-luz-arbol{width:11px;height:11px;margin:-5.5px 0 0 -5.5px;
+  animation:gn-enciende .9s ease-out var(--entra,0s) both,gnb-ola 2.4s ease-in-out calc(var(--entra,0s) + 3.3s + var(--ola,0s)) infinite}
+.nv-mono-arbol{position:absolute;transform:translate(-50%,-50%);
+  animation:gn-mono 1.2s cubic-bezier(.3,1.5,.5,1) var(--entra,0s) both}
+.nv-mono-arbol svg{display:block}
+.nv-estrella{position:absolute;width:36px;height:36px;margin:-18px 0 0 -18px;perspective:200px;
+  animation:gn-mono 1.4s cubic-bezier(.3,1.6,.5,1) var(--entra,0s) both}
+.nv-halo{position:absolute;inset:-16px;border-radius:50%;
+  background:radial-gradient(circle,rgb(255 236 150 / .85),rgb(255 210 80 / .35) 40%,transparent 70%);
+  animation:nv-halo 2.6s ease-in-out infinite alternate}
+@keyframes nv-halo{from{opacity:.55;transform:scale(.85)}to{opacity:1;transform:scale(1.15)}}
+.nv-estrella-giro{position:absolute;inset:0;animation:nv-gira 7s linear infinite}
+.nv-estrella-giro svg{display:block;filter:drop-shadow(0 0 3px rgb(255 220 100 / .9))}
+@keyframes nv-gira{to{transform:rotateY(360deg)}}
+.in-arbol-navidad .gn-colgante{z-index:1}
+.in-arbol-navidad .nv-cae{z-index:2}
+
+@media (prefers-reduced-motion:reduce){
+  .nv-crece,.nv-nieve,.nv-escarcha,.nv-cae,.nv-salto,.nv-rueda,.nv-piso,.nv-oropel,.nv-luz-arbol,
+  .nv-mono-arbol,.nv-estrella,.nv-halo,.nv-estrella-giro{animation:none}
+  .nv-oropel{stroke-dashoffset:0}}

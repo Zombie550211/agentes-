@@ -1,0 +1,39 @@
+/* Diseño de tarjetas de Inicio en todo el CRM (18-nov-2026). Lo usa cada página con
+   <div class="in-marco in-marco-amplio">: barra del menú suelta, sin panel que encierre
+   las tarjetas, esquinas redondeadas, vidrio translúcido y fondo con manchas navideñas.
+   La estructura base (márgenes, barra separada, hoja sin panel) está en css/base/sistema.css;
+   lo propio de cada página (Inicio: saludo, video, aguinaldo…) sigue en su hoja. */
+.in-marco-amplio{--radius-glass:18px}
+
+/* Fondo: manchas suaves de verde pino y rojo navideño con el azul de la marca. */
+body:has(.in-marco-amplio){
+  background:
+    radial-gradient(42vw 42vw at -4% 104%, rgb(21 128 61 / .28), transparent 70%),
+    radial-gradient(38vw 38vw at 104% -6%, rgb(200 26 39 / .22), transparent 70%),
+    radial-gradient(34vw 34vw at 102% 104%, rgb(21 128 61 / .20), transparent 70%),
+    radial-gradient(30vw 30vw at -2% -4%, rgb(200 26 39 / .16), transparent 70%),
+    radial-gradient(50vw 40vw at 50% 50%, rgb(0 112 152 / .07), transparent 75%),
+    #f6f8f6;
+  background-attachment:fixed}
+
+/* Vidrio más transparente para que el fondo se vea a través de las tarjetas. */
+.in-marco-amplio{
+  --glass-fondo:rgb(255 255 255 / .38);
+  --glass-borde:rgb(255 255 255 / .70);
+  --glass-blur:blur(22px) saturate(170%);
+  --glass-sombra:0 10px 30px rgb(11 47 69 / .10), inset 0 1px 0 rgb(255 255 255 / .85);
+}
+.in-marco-amplio > .in-head{background:linear-gradient(90deg, rgb(21 128 61 / .10), rgb(255 255 255 / .55) 30%, rgb(255 255 255 / .55) 70%, rgb(200 26 39 / .10))}
+/* Navegadores sin backdrop-filter: más opaco para que se lea */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .in-marco-amplio{--glass-fondo:rgb(255 255 255 / .82)}
+}
+
+/* En las demás páginas la barra del menú va dentro de la hoja (en Inicio es hija directa del
+   marco): misma barra suelta, redondeada y de vidrio que en Inicio. */
+.in-marco-amplio > .in-hoja > .in-head{margin:0 0 var(--space-4);padding:10px var(--space-4);
+  border:1px solid var(--glass-borde);border-radius:var(--radius-glass);box-shadow:var(--glass-sombra);
+  background:linear-gradient(90deg, rgb(21 128 61 / .10), rgb(255 255 255 / .55) 30%, rgb(255 255 255 / .55) 70%, rgb(200 26 39 / .10))}
+@media (max-width:760px){
+  .in-marco-amplio > .in-hoja > .in-head{margin-bottom:var(--space-2);padding:8px var(--space-2)}
+}

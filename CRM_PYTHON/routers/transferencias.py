@@ -89,8 +89,8 @@ def _contraria(seccion: str) -> str:
 
 
 # Única persona que gestiona la cola de transferencias: poner/quitar pausa (a sí mismo o a
-# cualquiera) y dar prioridad («Poner primero»). Los administradores también pueden
-# pausar y poner primero (_puede_pausar / _puede_ordenar); agentes y BO no.
+# cualquiera). Los administradores y supervisores de Líneas también (_puede_pausar);
+# agentes y BO no.
 # Se compara el username normalizado (minúsculas, «.»/«_» → espacio).
 _GESTORES_COLA = {"jonathan figueroa", "jonathan f"}
 
@@ -112,9 +112,13 @@ def _puede_pausar(user: dict) -> bool:
     return _gestiona_cola(user)
 
 
-def _puede_ordenar(user: dict) -> bool:
-    """«Poner primero» en la cola: JONATHAN F, administradores y supervisores de Líneas."""
-    return _gestiona_cola(user)
+async def _sin_volver_a_dispo(s, user: dict) -> bool:
+    """Agente de Líneas sin permiso de gestionar la cola: puede ponerse en LUNCH o NO DISPO,
+    pero no volver solo a DISPO (ni por error ni a propósito, aunque cierre sesión y vuelva
+    a entrar). Lo devuelve a DISPO un supervisor, JONATHAN F o un administrador."""
+    if _gestiona_cola(user):
+        return False
+    return await _seccion_de(s, user) == "lineas"
 
 
 def _es_agente(role: str) -> bool:
@@ -525,9 +529,6 @@ async def bucle_liberadas():
 
 # ── Cola de agentes (de Líneas para lo que transfiere Residencial y viceversa) ──
 _cola_lock = asyncio.Lock()
-# «Poner primero» (admin/BO), por sección destino: ese agente recibe la PRÓXIMA transferencia
-# aunque no le toque; al recibirla vuelve a su lugar. En memoria (un solo worker).
-_cola_primero: dict[str, int] = {}
 
 # «Pausa» (almuerzo, se levanta del puesto): el agente no recibe transferencias pero conserva
 # su lugar. Se guarda el turno que tenía al pausar; mientras dura la pausa la cola avanza sin
@@ -547,6 +548,9 @@ _pausas_cargadas = False
 # sin fila = dispo.
 ESTADOS = ("dispo", "launch", "no_dispo")
 _estados: dict[int, str] = {}        # user_id -> estado (sólo los distintos de dispo)
+# Quien vuelve a DISPO desde LUNCH o NO DISPO va al final de la cola desde ese momento (como
+# si acabara de recibir). Columna al_final (0109).
+_al_final: dict[int, datetime] = {}  # user_id -> momento en que volvió a DISPO
 
 
 async def _cargar_pausas(s) -> None:
@@ -557,10 +561,12 @@ async def _cargar_pausas(s) -> None:
     for x in r.mappings().all():
         (_pausas if x["estado"] == "pausa" else _turno_fijo)[int(x["user_id"])] = \
             {"turno": x["turno"], "desde": x["desde"]}
-    r = await s.execute(text("SELECT user_id, estado FROM transferencias_estado_agente"))
+    r = await s.execute(text("SELECT user_id, estado, al_final FROM transferencias_estado_agente"))
     for x in r.mappings().all():
         if x["estado"] in ESTADOS and x["estado"] != "dispo":
             _estados[int(x["user_id"])] = x["estado"]
+        if x["al_final"]:
+            _al_final[int(x["user_id"])] = x["al_final"]
     _pausas_cargadas = True
 
 
@@ -610,7 +616,8 @@ async def _cola(s, seccion: str, solo_conectados: bool = True) -> list[dict]:
     # la asignación de respaldo), primero.
     for a in agentes:
         desde = realtime.conectado_desde(a["id"]) if solo_conectados and not _COLA_TODOS else None
-        a["turno"] = max([x for x in (a["ultima"], desde) if x is not None], default=None)
+        a["turno"] = max([x for x in (a["ultima"], desde, _al_final.get(a["id"])) if x is not None],
+                         default=None)
         a["pausado"] = a["id"] in _pausas
         a["estado"] = _estados.get(a["id"], "dispo")
         a["recibe"] = not a["pausado"] and a["estado"] == "dispo"
@@ -623,8 +630,7 @@ async def _cola(s, seccion: str, solo_conectados: bool = True) -> list[dict]:
                 await _guardar_pausa(s, a["id"], None)
             else:
                 a["turno"] = fijo["turno"]
-    primero = _cola_primero.get(seccion)
-    agentes.sort(key=lambda a: (a["id"] != primero, a["turno"] is not None,
+    agentes.sort(key=lambda a: (a["turno"] is not None,
                                 a["turno"] or datetime.min, a["nombre"].lower()))
     return agentes
 
@@ -636,33 +642,15 @@ async def cola(seccion: str = "lineas", user: dict = Depends(current_user)):
     seccion = _validar_seccion(seccion)
     async with AsyncSessionLocal() as s:
         agentes = await _cola(s, seccion)
+        bloqueado = await _sin_volver_a_dispo(s, user)
     yo = _uid(user)
-    return {"success": True, "mi_pausa": yo in _pausas,
+    return {"success": True, "mi_pausa": yo in _pausas, "sin_volver_a_dispo": bloqueado,
         "mi_estado": _estados.get(yo, "dispo"), "agentes": [{
         "id": a["id"], "nombre": a["nombre"], "team": a["team"], "conectado": True, "pausado": a["pausado"],
         "estado": a["estado"], "recibe": a["recibe"],
         "ultima": a["ultima"].replace(tzinfo=timezone.utc).isoformat() if a["ultima"] else None,
-    } for a in agentes], "puede_ordenar": _puede_ordenar(user), "puede_pausar": _puede_pausar(user),
-        "primero": _cola_primero.get(seccion), "yo": _uid(user)}
-
-
-# ── POST /api/transferencias/cola/primero {id} ── JONATHAN F y administradores: ese agente va primero (una vez) ──
-@router.post("/cola/primero")
-async def cola_primero(body: dict, user: dict = Depends(current_user)):
-    if not _puede_ordenar(user):
-        raise HTTPException(403, "No tienes permiso para cambiar el orden de la cola")
-    seccion = _validar_seccion(body.get("seccion") or "lineas")
-    aid = int(body.get("id") or 0)
-    if aid in _pausas:
-        raise HTTPException(409, "Ese agente está en pausa: no puede recibir transferencias")
-    if _estados.get(aid, "dispo") != "dispo":
-        raise HTTPException(409, "Ese agente no está DISPO: no puede recibir transferencias")
-    if aid:
-        _cola_primero[seccion] = aid
-    else:
-        _cola_primero.pop(seccion, None)
-    realtime.avisar_cola()
-    return {"success": True, "primero": _cola_primero.get(seccion)}
+    } for a in agentes], "puede_pausar": _puede_pausar(user),
+        "yo": _uid(user)}
 
 
 # ── POST /api/transferencias/cola/pausa {pausar: bool, id?} ── JONATHAN F y los administradores
@@ -689,9 +677,6 @@ async def cola_pausa(body: dict, user: dict = Depends(current_user)):
             _pausas[aid] = {"turno": fila["turno"], "desde": _utcnow()}
             _turno_fijo.pop(aid, None)
             await _guardar_pausa(s, aid, "pausa", _pausas[aid])
-            for sec in list(_cola_primero):
-                if _cola_primero[sec] == aid:
-                    _cola_primero.pop(sec, None)
         else:
             p = _pausas.pop(aid, None)
             if p:
@@ -723,6 +708,10 @@ async def cola_estado(body: dict, user: dict = Depends(current_user)):
             WHERE u.id = :u"""), {"u": aid})
         prev = r.mappings().first() or {}
         anterior = prev.get("estado") or "dispo"
+        # Vuelve a DISPO desde LUNCH o NO DISPO: va al final de la cola.
+        al_final = ahora if estado == "dispo" and anterior != "dispo" else None
+        if aid == yo and estado == "dispo" and anterior != "dispo" and await _sin_volver_a_dispo(s, user):
+            raise HTTPException(403, "Solo tu supervisor puede devolverte a DISPO")
         if anterior != estado:
             seg = int((ahora - prev["desde"]).total_seconds()) if prev.get("desde") else None
             await s.execute(text("""
@@ -732,20 +721,23 @@ async def cola_estado(body: dict, user: dict = Depends(current_user)):
                 "t": ahora, "u": aid, "n": (prev.get("username") or "")[:150], "team": (prev.get("team") or "")[:150],
                 "e": estado, "a": anterior, "seg": seg, "by": por})
         await s.execute(text("""
-            INSERT INTO transferencias_estado_agente (user_id, estado, desde, cambiado_por)
-            VALUES (:u, :e, :d, :by)
+            INSERT INTO transferencias_estado_agente (user_id, estado, desde, cambiado_por, al_final)
+            VALUES (:u, :e, :d, :by, :fin)
             -- Si vuelve a elegir el mismo status, «desde» no se reinicia (cuenta la duración real).
             ON DUPLICATE KEY UPDATE desde = IF(estado = VALUES(estado), desde, VALUES(desde)),
+                                    al_final = COALESCE(VALUES(al_final), al_final),
                                     estado = VALUES(estado), cambiado_por = VALUES(cambiado_por)
-        """), {"u": aid, "e": estado, "d": ahora, "by": por})
+        """), {"u": aid, "e": estado, "d": ahora, "by": por, "fin": al_final})
+        if al_final:
+            _al_final[aid] = al_final
+            # Un turno conservado tras una pausa ya no vale: ahora va al final.
+            if _turno_fijo.pop(aid, None):
+                await _guardar_pausa(s, aid, None)
         await s.commit()
         if estado == "dispo":
             _estados.pop(aid, None)
         else:
             _estados[aid] = estado
-            for sec in list(_cola_primero):
-                if _cola_primero[sec] == aid:
-                    _cola_primero.pop(sec, None)
     realtime.avisar_cola()
     return {"success": True, "estado": estado}
 
@@ -807,9 +799,6 @@ async def excluir(body: dict, user: dict = Depends(current_user)):
             ON DUPLICATE KEY UPDATE hasta = VALUES(hasta), motivo = VALUES(motivo)
         """), {"u": uid, "h": hasta, "m": (motivo + (" · " if motivo else "") + "por " + por)[:200]})
         await s.commit()
-        for sec in list(_cola_primero):
-            if _cola_primero[sec] == uid:
-                _cola_primero.pop(sec, None)
     realtime.avisar_cola()
     return {"success": True}
 
@@ -849,8 +838,6 @@ async def crear(body: TransferenciaIn, user: dict = Depends(current_user)):
             # (sin fila = dispo) y se quedaría con la transferencia y sus 24 h de protección.
             raise HTTPException(409, "No hay agentes conectados y en DISPO para recibir la transferencia")
         agente, team = turno[0], turno[0]["team"]
-        if agente["id"] == _cola_primero.get(destino):
-            _cola_primero.pop(destino, None)   # «Poner primero» vale para una sola transferencia
 
         r = await s.execute(text("SELECT name, username, team FROM users WHERE id = :id"),
                             {"id": _uid(user)})

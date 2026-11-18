@@ -722,6 +722,10 @@ _MIGRATIONS: list[tuple[str, str]] = [
     ("0108_repro_formulario_no_cuenta", """UPDATE leads SET status_comision = 'REPRO'
         WHERE status_comision = 'PENDING'
           AND (UPPER(TRIM(status)) LIKE '%REPRO%' OR UPPER(TRIM(status)) LIKE 'RESCHED%')"""),
+    # Cola de transferencias: quien vuelve a DISPO desde LUNCH o NO DISPO pasa al final de la
+    # cola desde ese momento (routers/transferencias.py, _al_final).
+    ("0109_transferencias_estado_al_final", """ALTER TABLE transferencias_estado_agente
+        ADD COLUMN al_final DATETIME NULL"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración

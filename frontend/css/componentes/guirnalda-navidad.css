@@ -1,0 +1,139 @@
+/* Decoración navideña común a todo el CRM (18-nov-2026): bolas, luces y la guirnalda
+   enroscada en la barra del menú. La dibuja js/componentes/guirnalda-navidad.js, que
+   carga js/layout/topnav.js en todas las páginas (Inicio añade además las guirnaldas de
+   las tarjetas, el árbol y los regalos, con sus medidas en css/paginas/inicio.css). */
+/* Guirnalda colgada de la esquina de una tarjeta (con position:relative): «izq» de la
+   esquina superior izquierda y «der» de la derecha. */
+.gn{position:absolute;top:-18px;z-index:3;width:var(--gn-ancho,300px);height:var(--gn-alto,170px);
+  pointer-events:none}
+.gn[data-guirnalda="izq"]{left:-18px}
+.gn[data-guirnalda="der"]{right:-18px}
+.gn svg{display:block;overflow:visible;filter:drop-shadow(0 5px 6px rgb(11 47 30 / .22))}
+@media (max-width:760px){.gn{display:none}}
+.gn-colgante{position:absolute;width:0;height:0;transform-origin:0 0;will-change:transform;
+  animation:gn-balanceo var(--dur,3.6s) ease-in-out var(--ret,0s) infinite alternate}
+.gn-golpe,.gn-entra{position:absolute;left:0;top:0;width:0;height:0;transform-origin:0 0}
+.gn-golpe{will-change:transform}
+/* Caída al paso del barrido: aparece colgando, se pasa de largo y se asienta. */
+.gn-entra{animation:gn-cae 1.6s cubic-bezier(.3,1.3,.5,1) var(--entra,0s) both}
+@keyframes gn-cae{
+  0%{transform:scale(.15) rotate(-35deg);opacity:0}
+  45%{transform:scale(1.08) rotate(16deg);opacity:1}
+  72%{transform:scale(.97) rotate(-7deg)}
+  100%{transform:none;opacity:1}}
+/* Barrido: el trazo de la máscara avanza de una punta a la otra. */
+.gn-barrido{animation:gn-barre var(--gn-dur,1.5s) cubic-bezier(.45,.05,.35,1) both}
+@keyframes gn-barre{from{stroke-dashoffset:1.2}to{stroke-dashoffset:0}}
+/* El moño salta en cuanto el barrido pasa por la esquina. */
+.gn-mono{transform-box:fill-box;transform-origin:50% 35%;
+  animation:gn-mono 1.3s cubic-bezier(.3,1.5,.5,1) var(--gn-esquina,.5s) both}
+@keyframes gn-mono{from{transform:scale(0) rotate(-20deg);opacity:0}to{transform:none;opacity:1}}
+/* Luces de la rama: se encienden al paso del barrido y titilan. */
+.gn-luz{position:absolute;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;
+  --nucleo:#fffbe8;--halo:255 214 110;will-change:opacity,transform;
+  background:radial-gradient(circle,#fff 0 9%,var(--nucleo) 14%,rgb(var(--halo) / .95) 24%,rgb(var(--halo) / .4) 46%,rgb(var(--halo) / 0) 70%);
+  animation:gn-enciende .9s ease-out var(--entra,0s) both,
+    gn-titila var(--tit,1.8s) ease-in-out calc(var(--entra,0s) + .9s) infinite alternate}
+.gn-luz-dorada{--nucleo:#fff6cf;--halo:246 196 70}
+.gn-luz-roja{--nucleo:#ffe3df;--halo:255 70 70}
+@keyframes gn-enciende{from{opacity:0;transform:scale(2.2)}to{opacity:1;transform:scale(1)}}
+@keyframes gn-titila{from{opacity:1;transform:scale(1.05)}to{opacity:.35;transform:scale(.75)}}
+/* Destello: una estrellita aparece de vez en cuando sobre el reflejo de cada bola. */
+.gn-esfera::before{content:"";position:absolute;left:14%;top:8%;width:46%;height:46%;z-index:1;opacity:0;
+  background:conic-gradient(from 45deg,transparent 0 10%,#fff 12.5%,transparent 15% 35%,#fff 37.5%,transparent 40% 60%,#fff 62.5%,transparent 65% 85%,#fff 87.5%,transparent 90%);
+  -webkit-mask:radial-gradient(circle,#000 0 12%,rgb(0 0 0 / .6) 30%,transparent 70%);
+          mask:radial-gradient(circle,#000 0 12%,rgb(0 0 0 / .6) 30%,transparent 70%);
+  animation:gn-destello 4.2s ease-in-out var(--brilla,2s) infinite}
+@keyframes gn-destello{0%,82%,100%{opacity:0;transform:scale(.3) rotate(0)}
+  90%{opacity:1;transform:scale(1.1) rotate(45deg)}}
+.gn-hilo{position:absolute;left:-.5px;top:0;width:1px;height:var(--hilo);
+  background:linear-gradient(#f6dc8c,#b98a2a)}
+.gn-tapa{position:absolute;left:calc(var(--d) * -.14);top:var(--hilo);width:calc(var(--d) * .28);
+  height:calc(var(--d) * .2);border-radius:2px 2px 1px 1px;
+  background:linear-gradient(90deg,#7a5512,#f6dc8c 38%,#d6a843 62%,#7a5512)}
+.gn-esfera{position:absolute;left:calc(var(--d) / -2);top:calc(var(--hilo) + var(--d) * .15);
+  width:var(--d);height:var(--d);border-radius:50%;
+  box-shadow:inset calc(var(--d) * -.1) calc(var(--d) * -.16) calc(var(--d) * .26) rgb(0 0 0 / .38),
+    inset calc(var(--d) * .06) calc(var(--d) * .06) calc(var(--d) * .12) rgb(255 255 255 / .2),
+    0 calc(var(--d) * .22) calc(var(--d) * .3) calc(var(--d) * -.08) rgb(11 30 20 / .4),
+    0 0 calc(var(--d) * .45) var(--resplandor,rgb(255 70 70 / .45))}
+.gn-dorada{--resplandor:rgb(255 210 90 / .55)}
+/* Cristal rojo: reflejo de ventana arriba, luz rebotada abajo a la derecha y copo dorado. */
+.gn-roja .gn-esfera{background:
+  radial-gradient(circle at 32% 26%, #fff 0, #fff 4%, rgb(255 236 232 / .95) 7%, rgb(255 150 140 / 0) 20%),
+  radial-gradient(ellipse 30% 12% at 62% 18%, rgb(255 255 255 / .55), transparent),
+  radial-gradient(circle at 72% 82%, rgb(255 160 150 / .45) 0, transparent 22%),
+  radial-gradient(circle at 40% 36%, #ff5a52 0, #d7121f 36%, #8c0511 70%, #3a0005 100%)}
+.gn-roja .gn-esfera::after{content:"";position:absolute;inset:22%;opacity:.85;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-10 -10 20 20' fill='none' stroke='%23f2c75c' stroke-width='1.1' stroke-linecap='round'%3E%3Cg id='a'%3E%3Cpath d='M0 0V-9M0-5.5l-2.2-2.2M0-5.5l2.2-2.2'/%3E%3C/g%3E%3Cuse href='%23a' transform='rotate(60)'/%3E%3Cuse href='%23a' transform='rotate(120)'/%3E%3Cuse href='%23a' transform='rotate(180)'/%3E%3Cuse href='%23a' transform='rotate(240)'/%3E%3Cuse href='%23a' transform='rotate(300)'/%3E%3C/svg%3E") center/contain no-repeat}
+/* Dorada con escarcha: brillo fuerte arriba y puntitos claros. */
+.gn-dorada .gn-esfera{background:
+  radial-gradient(circle at 32% 26%, #fff 0, #fffdf0 5%, rgb(255 246 200 / .95) 8%, rgb(255 236 170 / 0) 21%),
+  radial-gradient(ellipse 30% 12% at 62% 18%, rgb(255 255 255 / .5), transparent),
+  radial-gradient(rgb(255 250 225 / .35) .5px, transparent 1px) 0 0/3px 3px,
+  radial-gradient(rgb(255 250 225 / .25) .7px, transparent 1.2px) 1px 2px/5px 4px,
+  radial-gradient(circle at 40% 36%, #fbe39a 0, #dcab3e 38%, #9b6b18 72%, #4a300a 100%)}
+@keyframes gn-balanceo{from{transform:rotate(-5deg)}to{transform:rotate(5deg)}}
+@media (prefers-reduced-motion:reduce){
+  .gn-colgante,.gn-entra,.gn-barrido,.gn-mono,.gn-luz,.gn-esfera::before{animation:none}}
+/* Guirnalda enroscada en la barra del menú (js/componentes/guirnalda-navidad.js → barra).
+   Va DEBAJO de las opciones (z 0 < 1): el texto queda encima, con un halo blanco para que
+   se lea sobre las ramas, y los menús desplegables siguen por encima de todo. No recibe clics. */
+.gnb{position:absolute;inset:0;z-index:0;pointer-events:none}
+.in-head:has(> .gnb) > .tn,.in-head:has(> .gnb) > .in-iconos{position:relative;z-index:1}
+.in-head:has(> .gnb) .tn-btn{text-shadow:0 0 2px #fff,0 0 4px #fff,0 0 8px rgb(255 255 255 / .9)}
+.gnb svg{position:absolute;left:0;top:0;overflow:visible;filter:drop-shadow(0 3px 3px rgb(11 47 30 / .25))}
+.gnb .gnb-trozo{transform-box:fill-box;transform-origin:50% 50%;
+  animation:gnb-aparece .55s cubic-bezier(.3,1.5,.5,1) var(--entra,0s) both}
+@keyframes gnb-aparece{from{transform:scale(.2);opacity:0}to{transform:none;opacity:1}}
+.gnb-quieta .gn-luz{animation-delay:0s,var(--ola,0s)}
+.gnb-quieta .gn-entra{animation:none}
+.gnb-quieta .gnb-trozo{animation:none}
+.gnb .gnb-revela{transform-box:fill-box;transform-origin:0 50%;
+  animation:gnb-revela 3.2s cubic-bezier(.45,.05,.35,1) both}
+@keyframes gnb-revela{from{transform:scaleX(0)}to{transform:none}}
+.gnb-quieta .gnb-revela{animation:none}
+.gnb .gn-luz{width:13px;height:13px;margin:-6.5px 0 0 -6.5px}
+/* Luces de la barra en carrera: una ola de brillo que avanza de izquierda a derecha. */
+.gnb .gnb-carrera{animation:gn-enciende .9s ease-out var(--entra,0s) both,
+  gnb-ola 2.4s ease-in-out calc(var(--entra,0s) + 3.3s + var(--ola,0s)) infinite}
+@keyframes gnb-ola{0%,100%{opacity:.35;transform:scale(.75)}18%{opacity:1;transform:scale(1.25)}40%{opacity:.6;transform:scale(.9)}}
+/* Destello que cruza la barra: franja de luz que pasa cada 7 s. */
+.gnb-brillo{position:absolute;top:-8px;bottom:-8px;left:0;width:120px;pointer-events:none;opacity:0;
+  background:linear-gradient(100deg,transparent,rgb(255 248 220 / .0) 20%,rgb(255 248 220 / .55) 50%,rgb(255 248 220 / 0) 80%,transparent);
+  mix-blend-mode:screen;will-change:transform;
+  animation:gnb-brillo 7s ease-in-out var(--entra,3.6s) infinite}
+@keyframes gnb-brillo{0%{transform:translateX(-140px);opacity:0}6%{opacity:1}
+  40%{transform:translateX(calc(100vw - 40px));opacity:1}46%,100%{transform:translateX(calc(100vw - 40px));opacity:0}}
+.gnb .gn-colgante{z-index:2}
+@media (prefers-reduced-motion:reduce){.gnb .gnb-trozo,.gnb .gnb-revela,.gnb .gnb-carrera,.gnb-brillo{animation:none}}
+@media (max-width:760px){.gnb{display:none}}
+
+/* ══ Tarjetas de las demás páginas (decorarTarjetas en guirnalda-navidad.js) ══
+   La tarjeta de título lleva las guirnaldas de Inicio en pequeño; se escalan desde la
+   esquina de la tarjeta (18 px dentro del dibujo) para que sigan colgando del borde. */
+.nv-anfitrion{position:relative;z-index:5;overflow:visible!important}
+.gn-mini{--gn-escala:.5}
+.gn-mini[data-guirnalda="izq"]{transform:scale(var(--gn-escala));transform-origin:18px 18px}
+.gn-mini[data-guirnalda="der"]{transform:scale(var(--gn-escala));transform-origin:calc(100% - 18px) 18px}
+/* Sin entrada (ya se vio en esta sesión): aparece puesta, con las luces titilando. */
+.gn-quieta .gn-barrido,.gn-quieta .gn-mono,.gn-quieta .gn-entra{animation:none}
+.gn-quieta .gn-luz{animation-delay:0s,var(--ola,0s)}
+/* Ramita de acebo en una esquina de las demás tarjetas: dibujo fijo, sin animación. */
+.nv-acebo{position:absolute;z-index:3;width:46px;height:46px;pointer-events:none;overflow:visible;
+  filter:drop-shadow(0 2px 2px rgb(11 47 30 / .25))}
+.nv-acebo-izq{left:-14px;top:-15px}
+.nv-acebo-der{right:-14px;top:-15px;transform:scaleX(-1)}
+@media (max-width:760px){.nv-acebo{width:34px;height:34px;left:-8px;top:-10px}}
+/* Guirnalda a lo largo del borde de arriba: imagen repetida, sin animación. Va sobre el
+   borde (mitad fuera, mitad en el relleno de arriba) para no tapar el título de la tarjeta. */
+.nv-tira{position:absolute;left:26px;right:26px;top:-11px;height:30px;z-index:2;pointer-events:none;
+  background-repeat:repeat-x;background-size:160px 30px;background-position:0 0;
+  filter:drop-shadow(0 2px 2px rgb(11 47 30 / .22))}
+.nv-tira-titulo{left:130px;right:130px}
+.nv-tira-chica{left:16px;right:16px}
+.nv-acebo{width:58px;height:58px}
+.nv-acebo-izq{left:-18px;top:-20px}
+.nv-acebo-der{right:-18px;top:-20px}
+@media (max-width:760px){.nv-tira{left:18px;right:18px}.nv-tira-titulo{left:18px;right:18px}}
+@media (prefers-reduced-transparency:reduce){.nv-tira{filter:none}}

@@ -171,8 +171,26 @@
     (document.head || document.documentElement).appendChild(sc);
   })();
 
+  // Decoración navideña de la barra del menú en todas las páginas (js/componentes/
+  // guirnalda-navidad.js). Una sola vez aunque la página ya la cargue (Inicio).
+  var VER_NAVIDAD = '20261118s';
+  function cargarNavidad() {
+    if (!document.querySelector('link[href*="guirnalda-navidad.css"]')) {
+      var l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.href = '/css/componentes/guirnalda-navidad.css?v=' + VER_NAVIDAD;
+      document.head.appendChild(l);
+    }
+    if (!document.querySelector('script[src*="guirnalda-navidad.js"]')) {
+      var sc = document.createElement('script');
+      sc.src = '/js/componentes/guirnalda-navidad.js?v=' + VER_NAVIDAD;
+      document.head.appendChild(sc);
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     var nav = document.getElementById('topnav');
     if (nav) iniciar(nav);
+    if (nav && document.querySelector('.in-head')) cargarNavidad();
   });
 })();
