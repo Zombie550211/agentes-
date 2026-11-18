@@ -1148,6 +1148,58 @@
     document.body.appendChild(capa);
   }
 
+  // ── Gorrito de Santa en el avatar y moño en la campana (barra del menú) ──────────────────
+  // Dibujos fijos (sin animación). La barra de iconos la pinta js/layout/topbar-acciones.js
+  // cuando llega la sesión, así que se vigila y se ponen cuando aparecen.
+  var GORRO = '<svg viewBox="0 0 40 34" aria-hidden="true" focusable="false">' +
+    '<defs><linearGradient id="nvg-rojo" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff5a52"/>' +
+    '<stop offset=".5" stop-color="#d7121f"/><stop offset="1" stop-color="#8c0511"/></linearGradient>' +
+    '<radialGradient id="nvg-piel" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#fff"/>' +
+    '<stop offset="1" stop-color="#dfe6ea"/></radialGradient></defs>' +
+    // cono rojo que se dobla hacia la derecha
+    '<path d="M5 24 C6.5 13 14.5 4.5 25.5 4.5 C31.5 4.5 36 8.5 37 14.5 L33.2 16 C31.5 12 28.5 10.8 25.5 11.8 ' +
+    'C28.5 15.5 30.2 19.5 31 24 Z" fill="url(#nvg-rojo)" stroke="#6d0008" stroke-width=".6" stroke-linejoin="round"/>' +
+    '<path d="M10 20 C12 13 17 8.5 23.5 7.5" fill="none" stroke="#ff9a90" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>' +
+    // borde de piel blanca y pompón
+    '<rect x="2.5" y="21" width="31" height="7.5" rx="3.75" fill="url(#nvg-piel)" stroke="#b9c6cd" stroke-width=".5"/>' +
+    '<path d="M6 24.6h1.6M11 23.6h1.4M16 25h1.6M21 23.8h1.4M26 24.8h1.6" stroke="#c9d4da" stroke-width="1" stroke-linecap="round"/>' +
+    '<circle cx="35" cy="17.6" r="4.3" fill="url(#nvg-piel)" stroke="#b9c6cd" stroke-width=".5"/>' +
+    '</svg>';
+  var MONO_CAMPANA = '<svg viewBox="0 0 24 14" aria-hidden="true" focusable="false">' +
+    '<path d="M12 7 C9 1.5 2 1 2.6 5.6 C3 9.4 9 9.2 12 7 Z" fill="#d7121f" stroke="#8c0511" stroke-width=".6"/>' +
+    '<path d="M12 7 C15 1.5 22 1 21.4 5.6 C21 9.4 15 9.2 12 7 Z" fill="#d7121f" stroke="#8c0511" stroke-width=".6"/>' +
+    '<path d="M11 7.5 L8.5 13.5 L10.6 12.6 L11.6 14 Z M13 7.5 L15.5 13.5 L13.4 12.6 L12.4 14 Z" fill="#b30d1a"/>' +
+    '<circle cx="12" cy="7" r="2.1" fill="#f2c75c" stroke="#a87a1c" stroke-width=".5"/>' +
+    '<path d="M5 4.6 C6 3.6 7.6 3.4 8.6 4.2" fill="none" stroke="#ffb0a8" stroke-width=".9" stroke-linecap="round"/></svg>';
+
+  function decorarCabecera() {
+    var av = document.querySelector('.tb-avatar');
+    if (av && !av.querySelector('.nv-gorro')) {
+      var g = document.createElement('span');
+      g.className = 'nv-gorro';
+      g.innerHTML = GORRO;
+      av.appendChild(g);
+    }
+    var campana = document.querySelector('.tb-btn > .ph-bell');
+    if (campana && !campana.parentNode.querySelector('.nv-mono-campana')) {
+      var m = document.createElement('span');
+      m.className = 'nv-mono-campana';
+      m.innerHTML = MONO_CAMPANA;
+      campana.parentNode.appendChild(m);
+    }
+  }
+
+  function vigilarCabecera() {
+    decorarCabecera();
+    var barra = document.getElementById('topbar-acciones');
+    if (!barra || !window.MutationObserver) return;
+    var espera = 0;
+    new MutationObserver(function () {
+      clearTimeout(espera);
+      espera = setTimeout(decorarCabecera, 60);
+    }).observe(barra, { childList: true, subtree: true });
+  }
+
   function iniciar() {
     var nodos = document.querySelectorAll('[data-guirnalda]');
     for (var i = 0; i < nodos.length; i++) {
@@ -1164,6 +1216,7 @@
     });
     decorarTarjetas();
     nevar();
+    vigilarCabecera();
     // Las tarjetas que llegan con los datos se decoran al aparecer.
     [1200, 3500, 8000].forEach(function (ms) { setTimeout(decorarTarjetas, ms); });
     var ligero = document.documentElement.classList.contains('modo-ligero');
