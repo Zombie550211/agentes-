@@ -137,3 +137,43 @@
 .nv-acebo-der{right:-18px;top:-20px}
 @media (max-width:760px){.nv-tira{left:18px;right:18px}.nv-tira-titulo{left:18px;right:18px}}
 @media (prefers-reduced-transparency:reduce){.nv-tira{filter:none}}
+
+/* ══ Celebración al cerrar una venta (window.celebrarVenta) ══ */
+.nv-fiesta{position:fixed;inset:0;z-index:10000;pointer-events:none;overflow:hidden}
+.nv-pieza{position:absolute;left:var(--x);top:-40px;width:var(--tam);height:var(--tam);will-change:transform,opacity;
+  animation:nv-fiesta-cae var(--dur) cubic-bezier(.35,.55,.45,1) var(--ret) both}
+@keyframes nv-fiesta-cae{
+  0%{transform:translate(0,0) rotate(0);opacity:0}
+  8%{opacity:1}
+  85%{opacity:1}
+  100%{transform:translate(var(--dx),calc(100vh + 80px)) rotate(var(--giro));opacity:0}}
+/* Regalo: papel de color con cinta en cruz y moño. */
+.nv-pieza-regalo{border-radius:3px;
+  background:
+    linear-gradient(90deg,transparent 42%,var(--cinta) 42% 58%,transparent 58%),
+    linear-gradient(transparent 42%,var(--cinta) 42% 58%,transparent 58%),
+    linear-gradient(135deg,rgb(255 255 255 / .28),transparent 55%),
+    var(--papel);
+  box-shadow:0 3px 6px rgb(11 30 20 / .3)}
+.nv-pieza-regalo::before{content:"";position:absolute;left:50%;top:0;width:70%;height:38%;transform:translate(-50%,-75%);
+  background:radial-gradient(ellipse 50% 50% at 25% 60%,var(--cinta) 60%,transparent 62%),
+    radial-gradient(ellipse 50% 50% at 75% 60%,var(--cinta) 60%,transparent 62%)}
+.nv-pieza-copo{background:center/contain no-repeat;filter:drop-shadow(0 0 2px rgb(0 112 152 / .7))}
+.nv-pieza-estrella{background:linear-gradient(135deg,#fff6cf,#f2c75c 45%,#b9821f);
+  clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);
+  filter:drop-shadow(0 0 4px rgb(255 214 110 / .9))}
+/* Mensaje en el centro: aparece con un salto y se va solo. */
+.nv-fiesta-msg{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);padding:16px 26px;border-radius:18px;
+  font-size:20px;font-weight:700;color:#7a0611;white-space:nowrap;
+  background:linear-gradient(120deg,rgb(21 128 61 / .12),#fff 30%,#fff 70%,rgb(200 26 39 / .12));
+  border:2px solid #f2c75c;box-shadow:0 18px 40px rgb(11 47 69 / .25);
+  animation:nv-fiesta-msg 3.4s cubic-bezier(.3,1.4,.5,1) both}
+@keyframes nv-fiesta-msg{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}
+  14%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  80%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-60%) scale(.96)}}
+@media (prefers-reduced-motion:reduce){
+  .nv-fiesta-msg{animation:nv-fiesta-msg-suave 3.4s ease both}
+  @keyframes nv-fiesta-msg-suave{0%,100%{opacity:0}12%,85%{opacity:1}}}
+@media (max-width:480px){.nv-fiesta-msg{font-size:16px;white-space:normal;text-align:center;width:80vw}}

@@ -22,6 +22,27 @@
  */
 (function () {
   'use strict';
+
+  // ── Temporada navideña ─────────────────────────────────────────────────────────────────
+  // Del 1 de noviembre al 7 de enero (fecha del equipo). Fuera de ella el CRM vuelve solo a
+  // su diseño normal: <html class="sin-navidad"> y no se carga la decoración. Para probar:
+  // ?navidad=0 (apagada) o ?navidad=1 (encendida) en la dirección.
+  function esNavidad(d) {
+    var forzar = /[?&]navidad=([01])/.exec(location.search);
+    if (forzar) return forzar[1] === '1';
+    d = d || new Date();
+    var mes = d.getMonth() + 1;
+    return mes === 11 || mes === 12 || (mes === 1 && d.getDate() <= 7);
+  }
+  window.crmEsNavidad = esNavidad;
+  if (!esNavidad()) document.documentElement.classList.add('sin-navidad');
+  // Imágenes navideñas con su versión normal en data-sin-navidad (logos).
+  function imagenesSinNavidad() {
+    if (esNavidad()) return;
+    document.querySelectorAll('img[data-sin-navidad]').forEach(function (i) {
+      i.src = i.getAttribute('data-sin-navidad');
+    });
+  }
   // Portal de facturación (js/portal/portal.js): sin la sesión del CRM, este script no aplica.
   if (window.PORTAL) return;
 
@@ -173,7 +194,7 @@
 
   // Decoración navideña de la barra del menú en todas las páginas (js/componentes/
   // guirnalda-navidad.js). Una sola vez aunque la página ya la cargue (Inicio).
-  var VER_NAVIDAD = '20261118s';
+  var VER_NAVIDAD = '20261119a';
   function cargarNavidad() {
     if (!document.querySelector('link[href*="guirnalda-navidad.css"]')) {
       var l = document.createElement('link');
@@ -191,6 +212,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     var nav = document.getElementById('topnav');
     if (nav) iniciar(nav);
-    if (nav && document.querySelector('.in-head')) cargarNavidad();
+    imagenesSinNavidad();
+    if (nav && document.querySelector('.in-head') && esNavidad()) cargarNavidad();
   });
 })();

@@ -1191,6 +1191,8 @@
       if (!r.ok) throw new Error(typeof j.detail === 'string' ? j.detail : 'No se pudo guardar el resultado');
       cerrarResultado();
       cargarHistorial();
+      // Venta cerrada: celebración navideña (js/componentes/guirnalda-navidad.js; solo en temporada).
+      if (resultado === 'completada' && window.celebrarVenta) window.celebrarVenta();
     } catch (e) {
       msgDlg('err', e.message);
     } finally {

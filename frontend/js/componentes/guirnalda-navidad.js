@@ -22,6 +22,8 @@
  */
 (function () {
   'use strict';
+  // Fuera de la temporada navideña (window.crmEsNavidad, js/layout/topnav.js) no se dibuja nada.
+  if (window.crmEsNavidad && !window.crmEsNavidad()) return;
 
   var NS = 'http://www.w3.org/2000/svg';
   var M = 18;       // margen: el borde de la tarjeta queda a 18 px del borde del lienzo
@@ -1042,6 +1044,53 @@
       nAcebo++;
     });
   }
+
+  // ── Celebración navideña al cerrar una venta ───────────────────────────────────────────
+  // window.celebrarVenta(): caen regalos, copos y estrellas unos 3 s y aparece un mensaje.
+  // La llaman el formulario de Residencial, el de Líneas y Transferencias («Venta
+  // completada»). Solo transform/opacity (GPU); con modo ligero caen menos piezas y con
+  // «reducir movimiento» solo aparece el mensaje. Todo se quita del documento al terminar.
+  var COPO = 'url("data:image/svg+xml,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 -10 20 20" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round">' +
+    '<g id="a"><path d="M0 0V-9M0-5.5l-2.6-2.6M0-5.5l2.6-2.6"/></g><use href="#a" transform="rotate(60)"/>' +
+    '<use href="#a" transform="rotate(120)"/><use href="#a" transform="rotate(180)"/><use href="#a" transform="rotate(240)"/>' +
+    '<use href="#a" transform="rotate(300)"/></svg>') + '")';
+  var celebrando = null;
+  window.celebrarVenta = function (texto) {
+    if (celebrando) { celebrando.remove(); celebrando = null; }
+    var ligero = document.documentElement.classList.contains('modo-ligero');
+    var capa = document.createElement('div');
+    capa.className = 'nv-fiesta';
+    capa.setAttribute('aria-hidden', 'true');
+    var n = quieto ? 0 : (ligero ? 14 : 34);
+    var tipos = ['regalo', 'regalo', 'copo', 'copo', 'estrella'];
+    var colores = [['#d7121f', '#f2c75c'], ['#15803d', '#f2c75c'], ['#d6a23a', '#c81a27'], ['#0f5e7a', '#f8e6a8']];
+    for (var i = 0; i < n; i++) {
+      var p = document.createElement('span');
+      var tipo = tipos[i % tipos.length];
+      p.className = 'nv-pieza nv-pieza-' + tipo;
+      var tam = tipo === 'regalo' ? 16 + Math.random() * 12 : tipo === 'copo' ? 12 + Math.random() * 12 : 12 + Math.random() * 8;
+      p.style.setProperty('--x', (Math.random() * 100).toFixed(1) + 'vw');
+      p.style.setProperty('--dx', ((Math.random() - .5) * 160).toFixed(0) + 'px');
+      p.style.setProperty('--giro', ((Math.random() - .5) * 720).toFixed(0) + 'deg');
+      p.style.setProperty('--dur', (2.1 + Math.random() * 1.3).toFixed(2) + 's');
+      p.style.setProperty('--ret', (Math.random() * .7).toFixed(2) + 's');
+      p.style.setProperty('--tam', tam.toFixed(0) + 'px');
+      if (tipo === 'regalo') {
+        var c = colores[i % colores.length];
+        p.style.setProperty('--papel', c[0]);
+        p.style.setProperty('--cinta', c[1]);
+      } else if (tipo === 'copo') p.style.backgroundImage = COPO;
+      capa.appendChild(p);
+    }
+    var msg = document.createElement('div');
+    msg.className = 'nv-fiesta-msg';
+    msg.textContent = texto || '¡Felicidades por tu venta!';
+    capa.appendChild(msg);
+    document.body.appendChild(capa);
+    celebrando = capa;
+    setTimeout(function () { if (celebrando === capa) celebrando = null; capa.remove(); }, 4200);
+  };
 
   function iniciar() {
     var nodos = document.querySelectorAll('[data-guirnalda]');
