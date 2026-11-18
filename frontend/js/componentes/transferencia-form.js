@@ -540,6 +540,12 @@
     return filtroTipo ? lista.filter((f) => f.direccion_tipo === filtroTipo) : lista;
   }
 
+  function usuarioSesion() {
+    try { return JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}') || {}; } catch (e) { return {}; }
+  }
+  function esSupervisor() { return /supervisor/i.test(String(usuarioSesion().role || '')); }
+  function miUsuario() { return String(usuarioSesion().username || '').toLowerCase(); }
+
   /** KPIs del periodo y del filtro (enviadas / recibidas) que se ven en la tabla. */
   function pintarKpis(filas) {
     const n = { total: filas.length, pendiente: 0 };
@@ -552,29 +558,43 @@
     // Monedero: transferencias del periodo y del filtro (enviadas / recibidas)
     // cerradas como venta completada. Cada línea (o venta, si no llegó a Líneas) vale lo que
     // fijó el backend al cerrarla según lo que tardó (valor_linea: $1 / $0.50 / $0.25).
-    let vendidas = 0, monto = 0;
-    filas.forEach(function (f) {
-      if (f.resultado !== 'completada') return;
-      const l = f.lineas || 1;
-      vendidas += l;
-      monto += l * (f.valor_linea == null ? PAGO_POR_VENTA : f.valor_linea);
-    });
-    const conLineas = filas.some((f) => f.resultado === 'completada' && f.lineas);
-    const dinero = '$' + monto.toFixed(2);
+    function monedero(lista) {
+      let vendidas = 0, monto = 0;
+      lista.forEach(function (f) {
+        if (f.resultado !== 'completada') return;
+        const l = f.lineas || 1;
+        vendidas += l;
+        monto += l * (f.valor_linea == null ? PAGO_POR_VENTA : f.valor_linea);
+      });
+      const conLineas = lista.some((f) => f.resultado === 'completada' && f.lineas);
+      return { dinero: '$' + monto.toFixed(2), detalle: vendidas +
+        (conLineas ? (vendidas === 1 ? ' línea' : ' líneas') : (vendidas === 1 ? ' venta' : ' ventas')) };
+    }
     const cifras = [
       { cls: 'tot', v: n.total, label: n.total === 1 ? 'transferencia' : 'transferencias' },
       { cls: 'ok',  v: n.completada, label: n.completada === 1 ? 'cerrada como venta' : 'cerradas como venta' },
       { cls: 'pend', v: n.pendiente, label: 'sin resultado' },
-      { cls: 'mon', v: dinero, label: 'en el monedero · ' + vendidas +
-          (conLineas ? (vendidas === 1 ? ' línea' : ' líneas') : (vendidas === 1 ? ' venta' : ' ventas')) },
     ];
+    // Supervisores: también pasan líneas, así que ven dos monederos: el del team (todo lo
+    // de la lista) y el suyo (solo lo que transfirió él). La moneda animada entra al suyo.
+    const sup = esSupervisor();
+    if (sup) {
+      const team = monedero(filas);
+      const mio = monedero(filas.filter((f) => String(f.created_by || '').toLowerCase() === miUsuario()));
+      cifras.push({ cls: 'mon team', v: team.dinero, label: 'monedero del team · ' + team.detalle });
+      cifras.push({ cls: 'mon', id: 'trf-monedero', v: mio.dinero, label: 'mi monedero · ' + mio.detalle });
+    } else {
+      const m = monedero(filas);
+      cifras.push({ cls: 'mon', id: 'trf-monedero', v: m.dinero, label: 'en el monedero · ' + m.detalle });
+    }
     // Barra de resultados: un tramo por resultado, proporcional a cuántas hay.
     const tramos = VIGENTES.map((k) => ({ cls: RESULTADOS[k].cls, label: RESULTADOS[k].label, v: n[k] }))
       .concat([{ cls: 'pend', label: 'Sin resultado', v: n.pendiente }]);
     q('#trf-kpis').innerHTML =
-      '<div class="trf-cifras">' + cifras.map(function (c) {
-        return '<p class="trf-cifra ' + c.cls + '"' + (c.cls === 'mon' ? ' id="trf-monedero"' : '') + '>' +
-          (c.cls === 'mon' ? MONEDERO_SVG : '') + '<b>' + c.v + '</b><span>' + esc(c.label) + '</span></p>';
+      '<div class="trf-cifras' + (sup ? ' con-team' : '') + '">' + cifras.map(function (c) {
+        const esMon = c.cls.indexOf('mon') === 0;
+        return '<p class="trf-cifra ' + c.cls + '"' + (c.id ? ' id="' + c.id + '"' : '') + '>' +
+          (esMon ? MONEDERO_SVG : '') + '<b>' + c.v + '</b><span>' + esc(c.label) + '</span></p>';
       }).join('') + '</div>' +
       (n.total
         ? '<div class="trf-barra-res" role="img" aria-label="' + esc(tramos.filter((t) => t.v).map((t) => t.label + ': ' + t.v).join(', ')) + '">' +
