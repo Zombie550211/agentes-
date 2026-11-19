@@ -530,11 +530,10 @@ async def bucle_liberadas():
 # ── Cola de agentes (de Líneas para lo que transfiere Residencial y viceversa) ──
 _cola_lock = asyncio.Lock()
 
-# «Pausa» (almuerzo, se levanta del puesto): el agente no recibe transferencias pero conserva
-# su lugar. Se guarda el turno que tenía al pausar; mientras dura la pausa la cola avanza sin
-# él (los demás reciben y bajan al final, él va subiendo) y sigue en la lista aunque se
-# desconecte o se le cierre la sesión. Al quitarla queda en ese mismo lugar hasta que reciba
-# su siguiente transferencia, aunque se haya reconectado en medio. Se guardan en la tabla
+# «Pausa» (almuerzo, se levanta del puesto): el agente no recibe transferencias y sigue en la
+# lista aunque se desconecte o se le cierre la sesión. Al quitarla va al FINAL de la cola
+# (_al_final), como quien vuelve a DISPO. _turno_fijo es de la regla anterior (conservaba el
+# lugar); ya no se crea, solo se limpia. Se guardan en la tabla
 # transferencias_cola_pausa (migración 0086) para que un reinicio o despliegue no las borre;
 # estos dicts son su copia en memoria (un solo worker), cargada en la primera consulta.
 _pausas: dict[int, dict] = {}        # user_id -> {"turno": datetime|None, "desde": datetime}
@@ -678,10 +677,17 @@ async def cola_pausa(body: dict, user: dict = Depends(current_user)):
             _turno_fijo.pop(aid, None)
             await _guardar_pausa(s, aid, "pausa", _pausas[aid])
         else:
-            p = _pausas.pop(aid, None)
-            if p:
-                _turno_fijo[aid] = {"turno": p["turno"], "desde": _utcnow()}
-                await _guardar_pausa(s, aid, "fijo", _turno_fijo[aid])
+            # Al quitarle la pausa va al final de la cola desde ese momento (igual que al
+            # volver a DISPO); no conserva el lugar que tenía.
+            if _pausas.pop(aid, None) is not None or _turno_fijo.pop(aid, None) is not None:
+                ahora = _utcnow()
+                await s.execute(text("""
+                    INSERT INTO transferencias_estado_agente (user_id, estado, desde, cambiado_por, al_final)
+                    VALUES (:u, 'dispo', :d, :by, :d)
+                    ON DUPLICATE KEY UPDATE al_final = VALUES(al_final)
+                """), {"u": aid, "d": ahora, "by": str(user.get("username") or "")[:150]})
+                _al_final[aid] = ahora
+                await _guardar_pausa(s, aid, None)
     realtime.avisar_cola()
     return {"success": True, "pausado": aid in _pausas}
 

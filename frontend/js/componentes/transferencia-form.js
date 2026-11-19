@@ -1596,7 +1596,7 @@
   /** JONATHAN F y administradores: botón Pausar / Quitar pausa en la fila de cualquier agente. */
   function btnPausaFila(a) {
     return '<button type="button" class="trf-cola-subir trf-pausa-fila" data-pausa-id="' + a.id + '" data-pausar="' + (a.pausado ? '0' : '1') + '"' +
-      ' title="' + (a.pausado ? 'Quitar la pausa de ' : 'Poner en pausa a ') + esc(a.nombre) + ' (conserva su lugar)">' +
+      ' title="' + (a.pausado ? 'Quitar la pausa de ' : 'Poner en pausa a ') + esc(a.nombre) + ' (al quitarla pasa al final de la fila)">' +
       (a.pausado ? 'Quitar pausa' : 'Pausar') + '</button>';
   }
 
@@ -1616,7 +1616,7 @@
   function pintarMiCola(lista, agentes, yo, enPausa, admin, miEstado, sinVolver) {
     const resumen = q('#trf-micola-yo');
     const pos = agentes.findIndex((a) => a.id === yo);
-    // Los que están en pausa conservan su lugar pero no reciben: no cuentan como «faltan».
+    // Los que están en pausa no reciben: no cuentan como «faltan».
     const antes = pos > 0 ? agentes.slice(0, pos).filter(recibe).length : 0;
     const suspendido = miEstado !== 'dispo';
     // Agentes de Líneas: una vez en LUNCH o NO DISPO, solo su supervisor los devuelve a DISPO.
@@ -1646,7 +1646,7 @@
       // JONATHAN F y los administradores (puede_pausar) ponen o quitan la pausa; los agentes solo la ven.
       if (admin && (enPausa || pos >= 0)) {
         html += '<button type="button" class="trf-pausa-btn' + (enPausa ? ' on' : '') + '" data-pausar="' + (enPausa ? '0' : '1') + '"' +
-          ' title="' + (enPausa ? 'Volver a recibir transferencias en tu mismo lugar' : 'Almuerzo o te levantas del puesto: conservas tu lugar sin recibir transferencias') + '">' +
+          ' title="' + (enPausa ? 'Volver a recibir transferencias (pasa al final de la fila)' : 'Almuerzo o te levantas del puesto: no recibe transferencias') + '">' +
           (enPausa ? ICONOS.ICO_PLAY : ICONOS.ICO_PAUSA) + (enPausa ? 'Quitar pausa' : 'Pausa') + '</button>';
       }
       // Status: lo elige cada agente (DISPO recibe; LUNCH y NO DISPO quedan suspendidos).
