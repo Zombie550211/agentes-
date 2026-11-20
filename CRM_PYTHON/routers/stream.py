@@ -86,7 +86,9 @@ async def stream_notificaciones(request: Request):
     canales = [realtime.canal_usuario(user.get("id")), realtime.CANAL_TODOS]
     if rbac.tiene(user, "usuarios.gestionar"):
         canales.append(realtime.CANAL_ADMIN)
-    queue = realtime.subscribe_many(canales)
+    queue, nuevas = realtime.subscribe_many(canales)
+    for _uid in nuevas:
+        await realtime.registrar_conexion(_uid)
 
     async def event_gen():
         # Quién es: el worker lo compara con la sesión de cada pestaña para saber si la

@@ -726,6 +726,29 @@ _MIGRATIONS: list[tuple[str, str]] = [
     # cola desde ese momento (routers/transferencias.py, _al_final).
     ("0109_transferencias_estado_al_final", """ALTER TABLE transferencias_estado_agente
         ADD COLUMN al_final DATETIME NULL"""),
+    # Reporte de status (routers/transferencias.py, GET /reporte): los 3 status DISPO/LUNCH/
+    # NO DISPO salen de transferencias_estado_historial (ya existe). Lo que faltaba:
+    # — Pausa: intervalos [inicio, fin] que un supervisor abre/cierra (cola_pausa). fin NULL = en
+    #   pausa ahora. Da «tiempo en pausa» y «cuántas veces» sin tocar el historial de status.
+    ("0110_create_transferencias_pausa_log", """CREATE TABLE IF NOT EXISTS transferencias_pausa_log (
+        id      BIGINT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT      NOT NULL,
+        inicio  DATETIME NOT NULL,
+        fin     DATETIME NULL,
+        INDEX idx_tpl_user (user_id, inicio),
+        INDEX idx_tpl_abierta (user_id, fin)
+    ) ENGINE=InnoDB"""),
+    # — Conexión al CRM por día (realtime.py): primera y última conexión de cada agente ese día
+    #   (hora SV). Se llena desde el stream de notificaciones; antes no se guardaba, así que solo
+    #   hay datos a partir del despliegue.
+    ("0111_create_transferencias_conexion_dia", """CREATE TABLE IF NOT EXISTS transferencias_conexion_dia (
+        user_id INT      NOT NULL,
+        dia     DATE     NOT NULL,
+        primera DATETIME NOT NULL,
+        ultima  DATETIME NOT NULL,
+        PRIMARY KEY (user_id, dia),
+        INDEX idx_tcd_dia (dia)
+    ) ENGINE=InnoDB"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración

@@ -675,6 +675,13 @@ async def cola_pausa(body: dict, user: dict = Depends(current_user)):
                 raise HTTPException(400, "No estás en ninguna cola de transferencias")
             _pausas[aid] = {"turno": fila["turno"], "desde": _utcnow()}
             _turno_fijo.pop(aid, None)
+            # Abre el intervalo de pausa para el reporte (GET /reporte). Si por lo que sea
+            # quedó uno abierto, se cierra antes para no solapar.
+            await s.execute(text("UPDATE transferencias_pausa_log SET fin = :t "
+                                 "WHERE user_id = :u AND fin IS NULL"),
+                            {"t": _pausas[aid]["desde"], "u": aid})
+            await s.execute(text("INSERT INTO transferencias_pausa_log (user_id, inicio) VALUES (:u, :t)"),
+                            {"u": aid, "t": _pausas[aid]["desde"]})
             await _guardar_pausa(s, aid, "pausa", _pausas[aid])
         else:
             # Al quitarle la pausa va al final de la cola desde ese momento (igual que al
@@ -687,6 +694,10 @@ async def cola_pausa(body: dict, user: dict = Depends(current_user)):
                     ON DUPLICATE KEY UPDATE al_final = VALUES(al_final)
                 """), {"u": aid, "d": ahora, "by": str(user.get("username") or "")[:150]})
                 _al_final[aid] = ahora
+                # Cierra el intervalo de pausa abierto (para el reporte).
+                await s.execute(text("UPDATE transferencias_pausa_log SET fin = :t "
+                                     "WHERE user_id = :u AND fin IS NULL"),
+                                {"t": ahora, "u": aid})
                 await _guardar_pausa(s, aid, None)
     realtime.avisar_cola()
     return {"success": True, "pausado": aid in _pausas}
@@ -818,6 +829,131 @@ async def quitar_exclusion(uid: int, user: dict = Depends(current_user)):
         await s.commit()
     realtime.avisar_cola()
     return {"success": True}
+
+
+# ── GET /api/transferencias/reporte?fecha=YYYY-MM-DD ── reporte diario de la cola ──
+#    Por agente y por día (hora SV): tiempo y veces en cada status (DISPO, LUNCH, NO DISPO,
+#    PAUSA) y primera/última conexión al CRM. Lo ven solo supervisores (su propio team) y
+#    administración / JONATHAN F (todos los teams). A quien no le toca: permitido=False (sin
+#    error), igual que /excluidos, para que la página no pinte la sección.
+@router.get("/reporte")
+async def reporte(fecha: str = "", user: dict = Depends(current_user)):
+    es_admin = rbac.tiene(user, "transferencias.ver_todas")
+    ve_todo = es_admin or _es_gestor_cola(user)   # admin y JONATHAN F: los 3 teams
+    async with AsyncSessionLocal() as s:
+        mi_team = (await _mi_team(s, user)).strip()
+    es_sup = _es_supervisor(user.get("role", "")) and rbac.tiene(user, "transferencias.su_equipo")
+    if not ve_todo and not (es_sup and mi_team):
+        return {"success": True, "permitido": False}
+    team_filtro = None if ve_todo else mi_team.lower()
+
+    hoy = _hoy_sv()
+    try:
+        dia = datetime.strptime(fecha, "%Y-%m-%d").date() if fecha else hoy
+    except ValueError:
+        raise HTTPException(400, "Fecha inválida (YYYY-MM-DD)")
+    if dia > hoy:
+        dia = hoy
+    ini_sv = datetime(dia.year, dia.month, dia.day, tzinfo=TZ_SV)
+    desde = ini_sv.astimezone(timezone.utc).replace(tzinfo=None)
+    hasta = (ini_sv + timedelta(days=1)).astimezone(timezone.utc).replace(tzinfo=None)
+    ahora = _utcnow()
+    es_hoy = dia == hoy
+    fin_vent = min(hasta, ahora) if es_hoy else hasta
+
+    def _iso(dt):
+        return dt.replace(tzinfo=timezone.utc).isoformat() if dt else None
+
+    async with AsyncSessionLocal() as s:
+        # Agentes visibles (incluye a los apartados de la cola: igual trabajaron ese día).
+        agentes: dict[int, dict] = {}
+        for seccion in _SECCIONES:
+            for team, lista in (await _agentes_por_team(s, seccion, incluir_excluidos=True)).items():
+                if team_filtro and team.strip().lower() != team_filtro:
+                    continue
+                for a in lista:
+                    agentes[a["id"]] = {"id": a["id"], "nombre": a["nombre"], "team": team,
+                                        "seccion": seccion,
+                                        "dispo_seg": 0, "launch_seg": 0, "no_dispo_seg": 0, "pausa_seg": 0,
+                                        "dispo_n": 0, "launch_n": 0, "no_dispo_n": 0, "pausa_n": 0,
+                                        "primera": None, "ultima": None}
+        if not agentes:
+            return {"success": True, "permitido": True, "fecha": dia.isoformat(),
+                    "hoy": hoy.isoformat(), "agentes": []}
+        enid = "user_id IN (" + ",".join(str(int(i)) for i in agentes) + ")"
+
+        # 1) El reporte es DIARIO y cuenta solo desde el PRIMER cambio de status del día: el
+        #    status que el agente traía puesto de días anteriores (que se queda fijo hasta que
+        #    lo cambie) no se cuenta, porque no refleja tiempo trabajado ese día. Así, el primer
+        #    cambio del día de cada agente se usa solo para su conteo; su `anterior_seg` (que
+        #    venía de antes) se ignora. Los cambios siguientes sí suman: el tiempo entre dos
+        #    cambios del mismo día es intradía.
+        r = await s.execute(text(f"""
+            SELECT user_id, estado, anterior, anterior_seg, created_at
+            FROM transferencias_estado_historial
+            WHERE created_at >= :d AND created_at < :h AND {enid}
+            ORDER BY user_id, created_at"""), {"d": desde, "h": hasta})
+        visto: set[int] = set()
+        for x in r.mappings().all():
+            a = agentes.get(x["user_id"])
+            if not a:
+                continue
+            if x["estado"] in ESTADOS:
+                a[x["estado"] + "_n"] += 1
+            primero = x["user_id"] not in visto   # primer cambio del día de este agente
+            visto.add(x["user_id"])
+            if primero:
+                continue   # lo anterior a su primer cambio venía de días atrás: no se cuenta
+            if x["anterior"] in ESTADOS and x["anterior_seg"]:
+                a[x["anterior"] + "_seg"] += int(x["anterior_seg"])
+
+        # 2) Status abierto (solo hoy): el tiempo en el status actual DESDE su último cambio,
+        #    si ese cambio fue hoy (desde >= 00:00) y el agente sigue CONECTADO. Si no cambió su
+        #    status hoy (lo trae de días atrás) no se cuenta, igual que en el punto 1.
+        if es_hoy:
+            r = await s.execute(text(f"SELECT user_id, estado, desde FROM transferencias_estado_agente WHERE {enid}"))
+            abiertos = {x["user_id"]: x for x in r.mappings().all()}
+            for a in agentes.values():
+                fila = abiertos.get(a["id"])
+                if not fila or fila["desde"] < desde:   # sin cambio hoy → no se cuenta
+                    continue
+                conect = realtime.conectado_desde(a["id"])
+                if not conect:
+                    continue
+                estado = fila["estado"] if fila["estado"] in ESTADOS else "dispo"
+                seg = int((fin_vent - max(fila["desde"], conect)).total_seconds())
+                if seg > 0:
+                    a[estado + "_seg"] += seg
+
+        # 3) Pausa: intervalos [inicio, fin] que se solapan con el día.
+        r = await s.execute(text(f"""
+            SELECT user_id, inicio, COALESCE(fin, :a) AS fin
+            FROM transferencias_pausa_log
+            WHERE inicio < :h AND COALESCE(fin, :a) > :d AND {enid}"""),
+            {"a": ahora, "d": desde, "h": hasta})
+        for x in r.mappings().all():
+            a = agentes.get(x["user_id"])
+            if not a:
+                continue
+            seg = int((min(x["fin"], fin_vent) - max(x["inicio"], desde)).total_seconds())
+            if seg > 0:
+                a["pausa_seg"] += seg
+            if desde <= x["inicio"] < hasta:
+                a["pausa_n"] += 1
+
+        # 4) Conexión del día: primera y última (hora SV).
+        r = await s.execute(text(f"SELECT user_id, primera, ultima FROM transferencias_conexion_dia "
+                                 f"WHERE dia = :dia AND {enid}"), {"dia": dia})
+        for x in r.mappings().all():
+            a = agentes.get(x["user_id"])
+            if a:
+                a["primera"], a["ultima"] = _iso(x["primera"]), _iso(x["ultima"])
+
+    orden = {"residencial": 0, "lineas": 1}
+    filas = sorted(agentes.values(),
+                   key=lambda a: (orden.get(a["seccion"], 9), a["team"], a["nombre"].lower()))
+    return {"success": True, "permitido": True, "fecha": dia.isoformat(),
+            "hoy": hoy.isoformat(), "agentes": filas}
 
 
 # ── POST /api/transferencias ────────────────────────────────────────

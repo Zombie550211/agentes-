@@ -121,8 +121,10 @@
               '<div class="trf-ic"><i class="ph ph-hash"></i></div>' +
               '<div class="trf-head-txt">' +
                 '<h2 class="trf-title" id="trf-micola-title">Tu lugar en la cola</h2>' +
-                '<p class="trf-sub">Cola de ' + ORIGEN_LABEL + ': quién recibe la próxima transferencia de ' + esc(DESTINO_LABEL) + '.</p>' +
               '</div>' +
+              // Solo supervisores / admin (lo revela cargarReporte cuando el backend lo permite).
+              '<button type="button" class="trf-rep-abrir" id="trf-rep-abrir" aria-haspopup="dialog" hidden>' +
+                '<i class="ph ph-timer" aria-hidden="true"></i> Reporte de status</button>' +
             '</div>' +
             '<div class="trf-micola-yo" id="trf-micola-yo" aria-live="polite"></div>' +
             '<ol class="trf-cola-lista" id="trf-micola-lista"></ol>' +
@@ -133,7 +135,6 @@
           '<div class="trf-ic"><i class="fas fa-phone-volume"></i></div>' +
           '<div class="trf-head-txt">' +
             '<h2 class="trf-title" id="trf-title">Nueva transferencia</h2>' +
-            '<p class="trf-sub">Registra la llamada que transfieres a un agente de ' + esc(DESTINO_LABEL) + '.</p>' +
           '</div>' +
         '</div>' +
         '<form class="trf-form" novalidate>' +
@@ -175,7 +176,6 @@
               '<div class="trf-ic"><i class="ph ph-users-three"></i></div>' +
               '<div class="trf-head-txt">' +
                 '<h2 class="trf-title" id="trf-cola-title">Cola de ' + esc(DESTINO_LABEL) + '</h2>' +
-                '<p class="trf-sub">En turno los conectados; la próxima transferencia va al primero.</p>' +
               '</div>' +
             '</div>' +
             '<ol class="trf-cola-lista" id="trf-cola-lista" aria-live="polite"></ol>' +
@@ -1883,12 +1883,182 @@
     });
   }
 
+  // ── Reporte de status (modal) — supervisores: su team; JONATHAN F / admin: los 3 teams ──
+  // No es una sección más en la página: un botón en la cabecera de la cola abre esta ventana.
+  let fechaReporte = fechaISO(0);   // YYYY-MM-DD; por defecto hoy
+  let hoyReporte = fechaISO(0);
+  let repPedido = 0;
+  let repFondo = null;              // el modal cuando está abierto (si no, null)
+  let repAgentes = [];              // última respuesta, para cambiar de sección sin volver a pedir
+  let repSeccion = 'residencial';   // sección activa dentro del modal
+
+  function fmtDur(seg) {
+    seg = Math.max(0, Math.round(seg || 0));
+    const h = Math.floor(seg / 3600), m = Math.floor((seg % 3600) / 60);
+    if (h) return h + 'h ' + (m ? m + 'm' : '');
+    if (m) return m + 'm';
+    return seg ? seg + 's' : '—';
+  }
+  function fmtHora(iso) {
+    if (!iso) return '—';
+    try { return new Date(iso).toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit', hour12: false }); }
+    catch (e) { return '—'; }
+  }
+  const DIAS_SEM = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+  function fechaLargaRep(iso) {
+    const p = String(iso || '').split('-');
+    if (p.length !== 3) return iso;
+    const d = new Date(+p[0], +p[1] - 1, +p[2]);
+    return (iso === hoyReporte ? 'Hoy · ' : '') + DIAS_SEM[d.getDay()] + ' ' + p[2] + '/' + p[1];
+  }
+
+  /** Pide el reporte del día elegido. Revela el botón si el backend lo permite; pinta la
+   *  tabla solo si el modal está abierto. */
+  async function cargarReporte() {
+    const pedido = ++repPedido;
+    let j;
+    try {
+      const r = await fetch('/api/transferencias/reporte?fecha=' + encodeURIComponent(fechaReporte));
+      if (!r.ok) return;
+      j = await r.json();
+    } catch (e) { return; }
+    if (j.permitido === false) return;   // agente normal: ni botón ni reporte
+    const btn = document.getElementById('trf-rep-abrir');
+    if (btn) btn.hidden = false;
+    if (pedido !== repPedido) return;
+    if (j.hoy) hoyReporte = j.hoy;
+    if (j.fecha) fechaReporte = j.fecha;
+    if (repFondo) pintarReporte(j.agentes || []);
+  }
+
+  const REP_SECS = [['residencial', 'Residencial'], ['lineas', 'Líneas']];
+
+  function pintarReporte(agentes) {
+    if (!repFondo) return;
+    repAgentes = agentes || [];
+    const f = repFondo.querySelector('#trf-rep-fecha');
+    if (f) f.textContent = fechaLargaRep(fechaReporte);
+    const sig = repFondo.querySelector('#trf-rep-sig');
+    if (sig) sig.disabled = fechaReporte >= hoyReporte;
+    // Si la sección activa no tiene agentes, salta a la primera que sí tenga.
+    const conDatos = REP_SECS.filter((sx) => repAgentes.some((a) => a.seccion === sx[0])).map((sx) => sx[0]);
+    if (conDatos.length && conDatos.indexOf(repSeccion) < 0) repSeccion = conDatos[0];
+    pintarReporteSeccion();
+  }
+
+  /** Pinta el toggle Residencial / Líneas y la tabla de la sección activa. */
+  function pintarReporteSeccion() {
+    const body = repFondo && repFondo.querySelector('#trf-rep-body');
+    if (!body) return;
+    if (!repAgentes.length) {
+      body.innerHTML = '<div class="trf-cola-vacia">Sin datos para este día.</div>';
+      return;
+    }
+    const cel = (seg, n, cls) => '<td class="trf-rep-num ' + cls + '"><b>' + fmtDur(seg) + '</b>' +
+      (n ? '<small>' + n + (n === 1 ? ' vez' : ' veces') + '</small>' : '') + '</td>';
+    // Toggle de secciones (solo las que tienen agentes).
+    const tabs = REP_SECS.map(function (sx) {
+      const n = repAgentes.filter((a) => a.seccion === sx[0]).length;
+      if (!n) return '';
+      const on = sx[0] === repSeccion;
+      return '<button type="button" class="trf-rep-tab e-' + sx[0] + (on ? ' trf-seg-on' : '') + '" ' +
+        'data-rep-sec="' + sx[0] + '" aria-pressed="' + on + '">' + sx[1] +
+        '<span class="trf-rep-tab-n">' + n + '</span></button>';
+    }).join('');
+    // Tabla de la sección activa.
+    const lista = repAgentes.filter((a) => a.seccion === repSeccion);
+    let rows = '', teamActual = '';
+    lista.forEach(function (a) {
+      const team = String(a.team || '').replace(/^TEAM\s+/i, '');
+      if (team !== teamActual) {
+        teamActual = team;
+        rows += '<tr class="trf-rep-grupo"><td colspan="7">' + esc(team) + '</td></tr>';
+      }
+      rows += '<tr>' +
+        '<td class="trf-rep-nom">' + esc(a.nombre) + '</td>' +
+        cel(a.dispo_seg, a.dispo_n, 'e-dispo') + cel(a.launch_seg, a.launch_n, 'e-launch') +
+        cel(a.no_dispo_seg, a.no_dispo_n, 'e-nodispo') + cel(a.pausa_seg, a.pausa_n, 'e-pausa') +
+        '<td class="trf-rep-con">' + fmtHora(a.primera) + '</td>' +
+        '<td class="trf-rep-con">' + fmtHora(a.ultima) + '</td>' +
+      '</tr>';
+    });
+    const tabla = lista.length
+      ? '<div class="trf-rep-scroll"><table class="trf-rep-tabla">' +
+          '<thead><tr><th>Agente</th><th>DISPO</th><th>LUNCH</th><th>NO DISPO</th><th>PAUSA</th>' +
+            '<th>1ª conexión</th><th>Última</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+      : '<div class="trf-cola-vacia">Sin datos en esta sección.</div>';
+    body.innerHTML = (tabs ? '<div class="trf-seg trf-rep-tabs" role="group" aria-label="Sección">' + tabs + '</div>' : '') + tabla;
+    body.querySelectorAll('[data-rep-sec]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (b.dataset.repSec === repSeccion) return;
+        repSeccion = b.dataset.repSec;
+        pintarReporteSeccion();
+      });
+    });
+  }
+
+  function navReporte(delta) {
+    const p = fechaReporte.split('-');
+    const d = new Date(+p[0], +p[1] - 1, +p[2]);
+    d.setDate(d.getDate() + delta);
+    const z = (n) => String(n).padStart(2, '0');
+    const nueva = d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
+    if (nueva > hoyReporte) return;   // no se navega al futuro
+    fechaReporte = nueva;
+    const body = repFondo && repFondo.querySelector('#trf-rep-body');
+    if (body) body.innerHTML = '<div class="trf-cola-vacia">Cargando…</div>';
+    cargarReporte();
+  }
+
+  function abrirReporte(origenBtn) {
+    if (repFondo) return;
+    const fondo = document.createElement('div');
+    fondo.className = 'trf-dlg-fondo';
+    fondo.innerHTML =
+      '<div class="trf-dlg trf-dlg-rep" role="dialog" aria-modal="true" aria-labelledby="trf-rep-title">' +
+        '<div class="trf-dlg-rank-cab trf-rep-cab">' +
+          '<div><h3 class="trf-dlg-t" id="trf-rep-title">Reporte de status</h3>' +
+          '<p class="trf-dlg-sub">Tiempo y veces en cada status, y la conexión al CRM, por agente.</p></div>' +
+          '<div class="trf-rep-nav" role="group" aria-label="Día del reporte">' +
+            '<button type="button" id="trf-rep-ant" class="trf-rep-btn" aria-label="Día anterior"><i class="ph ph-caret-left" aria-hidden="true"></i></button>' +
+            '<span class="trf-rep-fecha" id="trf-rep-fecha" aria-live="polite"></span>' +
+            '<button type="button" id="trf-rep-sig" class="trf-rep-btn" aria-label="Día siguiente"><i class="ph ph-caret-right" aria-hidden="true"></i></button>' +
+          '</div>' +
+          '<button type="button" class="trf-dlg-x" aria-label="Cerrar"><i class="ph ph-x" aria-hidden="true"></i></button>' +
+        '</div>' +
+        '<div class="trf-rep-body" id="trf-rep-body" aria-live="polite"><div class="trf-cola-vacia">Cargando…</div></div>' +
+      '</div>';
+    function cerrar() {
+      document.removeEventListener('keydown', onKey, true);
+      repFondo = null;
+      fondo.remove();
+      if (origenBtn && document.contains(origenBtn)) origenBtn.focus();
+    }
+    function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); cerrar(); } }
+    fondo.addEventListener('click', function (e) { if (e.target === fondo) cerrar(); });
+    fondo.querySelector('.trf-dlg-x').addEventListener('click', cerrar);
+    fondo.querySelector('#trf-rep-ant').addEventListener('click', function () { navReporte(-1); });
+    fondo.querySelector('#trf-rep-sig').addEventListener('click', function () { navReporte(1); });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(fondo);
+    repFondo = fondo;
+    fondo.querySelector('.trf-dlg-x').focus();
+    cargarReporte();
+  }
+
+  function enlazarReporte() {
+    const btn = document.getElementById('trf-rep-abrir');
+    if (btn) btn.addEventListener('click', function () { abrirReporte(btn); });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     panel = document.getElementById('trf-panel');
     if (!panel) return;
     render();
     enlazarExcluidos();
     cargarExcluidos();
+    enlazarReporte();
+    cargarReporte();
     // Página propia (sin pestañas): el formulario se ve directamente.
     if (!document.querySelector('[data-trf-tab]')) {
       panel.classList.remove('trf-oculto');
@@ -1897,6 +2067,8 @@
       if (window.CRMNotificaciones) {
         window.CRMNotificaciones.on('transferencias_libres', cargarHistorial);
         window.CRMNotificaciones.on('transferencia_asignada', cargarHistorial);   // aparece en la lista al instante
+        // El reporte de hoy se refresca cuando cambia la cola (alguien cambió de status o pausa).
+        window.CRMNotificaciones.on('cola', function () { if (repFondo && fechaReporte === hoyReporte) cargarReporte(); });
       }
       vigilarCola();
       if (ORIGEN === 'lineas') avisoLineasPendientes();

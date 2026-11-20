@@ -148,15 +148,20 @@ def cargar_presencia() -> None:
 async def bucle_guardar_presencia():
     while True:
         await asyncio.sleep(30)
-        if any(_subscribers.get(ch) for ch in list(_presencia)):
+        conectados = [ch for ch in list(_presencia) if _subscribers.get(ch)]
+        if conectados:
             guardar_presencia()
+            await _tocar_ultima_conexion(conectados)
 
 
-def subscribe_many(channels: list[str]) -> asyncio.Queue:
-    """Una sola cola registrada en varios canales."""
+def subscribe_many(channels: list[str]):
+    """Una sola cola registrada en varios canales. Devuelve (cola, nuevas): `nuevas` son los
+    user_id que ESTRENAN conexión ahora (no una recarga dentro de la gracia), para que el
+    endpoint del stream registre su conexión del día (registrar_conexion)."""
     global _tuvo_clientes
     q: asyncio.Queue = asyncio.Queue(maxsize=_MAX_QUEUE)
     cambio_presencia = False
+    nuevas: list[int] = []
     for ch in channels:
         if ch.startswith("usuario:") and not _subscribers.get(ch):
             cambio_presencia = True
@@ -166,13 +171,61 @@ def subscribe_many(channels: list[str]) -> asyncio.Queue:
             gracia = p.get("gracia", GRACIA_RECONEXION) if p else GRACIA_RECONEXION
             if not p or not p.get("salio") or (ahora - p["salio"]).total_seconds() > gracia:
                 _presencia[ch] = {"desde": ahora, "salio": None}
+                try:
+                    nuevas.append(int(ch.split(":", 1)[1]))
+                except (ValueError, IndexError):
+                    pass
             else:
                 p["salio"] = None
                 p.pop("gracia", None)
         _subscribers.setdefault(ch, set()).add(q)
     if cambio_presencia:
         avisar_cola()
-    return q
+    return q, nuevas
+
+
+async def registrar_conexion(user_id) -> None:
+    """Primera conexión del día (se fija una vez) y última (se va adelantando). Hora SV para el
+    `dia`. Solo hay datos desde que esto existe; antes la presencia no se guardaba en BD."""
+    try:
+        import datetime as _dt
+        from sqlalchemy import text as _sql_text
+        from database_mysql import AsyncSessionLocal
+        from tiempo_sv import TZ_SV
+        ahora = _ahora()
+        dia = _dt.datetime.now(TZ_SV).date()
+        async with AsyncSessionLocal() as s:
+            await s.execute(_sql_text("""
+                INSERT INTO transferencias_conexion_dia (user_id, dia, primera, ultima)
+                VALUES (:u, :d, :t, :t)
+                ON DUPLICATE KEY UPDATE primera = LEAST(primera, VALUES(primera)),
+                                        ultima  = GREATEST(ultima, VALUES(ultima))"""),
+                {"u": int(user_id), "d": dia, "t": ahora})
+            await s.commit()
+    except Exception as e:
+        print(f"[realtime] no se pudo registrar la conexión: {e}")
+
+
+async def _tocar_ultima_conexion(canales: list[str]) -> None:
+    """Adelanta la «última conexión» de hoy de los agentes conectados (cada 30 s)."""
+    try:
+        ids = [int(ch.split(":", 1)[1]) for ch in canales if ch.startswith("usuario:")]
+        if not ids:
+            return
+        import datetime as _dt
+        from sqlalchemy import text as _sql_text
+        from database_mysql import AsyncSessionLocal
+        from tiempo_sv import TZ_SV
+        ahora = _ahora()
+        dia = _dt.datetime.now(TZ_SV).date()
+        async with AsyncSessionLocal() as s:
+            await s.execute(_sql_text(
+                "UPDATE transferencias_conexion_dia SET ultima = :t "
+                f"WHERE dia = :d AND user_id IN ({','.join(str(i) for i in ids)})"),
+                {"t": ahora, "d": dia})
+            await s.commit()
+    except Exception as e:
+        print(f"[realtime] no se pudo actualizar la última conexión: {e}")
 
 
 def unsubscribe_many(channels: list[str], q: asyncio.Queue) -> None:
