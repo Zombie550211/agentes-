@@ -417,15 +417,31 @@
     pop.hidden = false;
     $('hr-pop-bg').hidden = false;
     var r = boton.getBoundingClientRect();
-    pop.style.left = Math.max(8, Math.min(r.left + 12, innerWidth - pop.offsetWidth - 8)) + 'px';
-    pop.style.top = Math.max(8, Math.min(r.bottom + 4, innerHeight - pop.offsetHeight - 8)) + 'px';
+    // Se ubica dentro de la pantalla y, si no cabe, se desplaza por dentro (max-height = lo que
+    // queda hasta abajo). Se vuelve a ubicar al abrir «Otro horario…», que lo hace más alto:
+    // antes crecía hacia abajo y el botón «Asignar» quedaba fuera de la pantalla (20-nov).
+    function ubicar() {
+      pop.style.maxHeight = '';
+      var alto = Math.min(pop.scrollHeight + 2, innerHeight - 16);
+      var top = Math.max(8, Math.min(r.bottom + 4, innerHeight - alto - 8));
+      pop.style.left = Math.max(8, Math.min(r.left + 12, innerWidth - pop.offsetWidth - 8)) + 'px';
+      pop.style.top = top + 'px';
+      pop.style.maxHeight = (innerHeight - top - 8) + 'px';
+    }
+    ubicar();
     pop.querySelector('.hr-opt').focus({ preventScroll: true });
 
     pop.onclick = function (ev) {
       var b = ev.target.closest('[data-op]');
       if (!b || b.disabled) return;
       var op = b.dataset.op, body = { employee_id: id, fecha: f };
-      if (op === 'otro') { $('hp-custom').hidden = false; $('hp-start').focus(); return; }
+      if (op === 'otro') {
+        $('hp-custom').hidden = false;
+        ubicar();
+        $('hp-custom').scrollIntoView({ block: 'nearest' });
+        $('hp-start').focus({ preventScroll: true });
+        return;
+      }
       if (op.indexOf('t:') === 0) {
         var T = TURNOS[+op.slice(2)];
         Object.assign(body, { tipo: 'turno', start: T.s, end: T.e, break_minutes: T.sd ? 0 : 60 });
