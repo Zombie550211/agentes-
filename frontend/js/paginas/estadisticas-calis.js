@@ -1,9 +1,9 @@
 /* estadisticas-calis.js — tabla «Calis del día» de Estadísticas (residencial/estadisticas.html).
  *
- * Filas = teams de venta (Residencial y Líneas móviles), una sola columna: el día que se ve
- * (hoy por defecto; ‹ › cambia de día). El API trae la semana de ese día y aquí se muestra solo él.
+ * Filas = teams de venta (Residencial y Líneas móviles); columnas ICON y BAMO (editables) y
+ * Total, del día que se ve (hoy por defecto; ‹ › cambia de día). El API trae la semana de ese día y aquí se muestra solo él.
  * Cada casilla se guarda sola (PUT /api/calis) al salir de ella o con Enter; vacía = sin dato.
- * Teclado como en una hoja: Enter / ↓ baja, ↑ sube, Tab avanza, Esc deshace.
+ * Teclado como en una hoja: Enter / ↓ baja, ↑ sube (en el mismo mercado), Tab avanza, Esc deshace.
  * Si otra persona edita, llega el evento «calis» por el centro de notificaciones y se recarga.
  * API: CRM_PYTHON/routers/calis.py.
  */
@@ -61,62 +61,61 @@
       return;
     }
     var algunaEditable = d.teams.some(function (t) { return t.editable; });
-    $('es-calis-ayuda').textContent = algunaEditable ? 'Escribe el número de calis de cada team' : 'Calis de cada team';
+    $('es-calis-ayuda').textContent = algunaEditable ? 'Escribe las calis de cada team por mercado' : 'Calis de cada team por mercado';
 
     window.ESTeam.registrar(d.teams);
-    var h = '<table class="es-tabla es-calis"><thead><tr><th scope="col" class="es-col-team">Team</th>';
-    h += '<th scope="col" class="es-col-cali">Calis</th></tr></thead>';
+    var MERC = ['ICON', 'BAMO'];
+    var h = '<table class="es-tabla es-calis"><thead><tr><th scope="col" class="es-col-team">Team</th>' +
+      '<th scope="col" class="es-col-cali">ICON</th><th scope="col" class="es-col-cali">BAMO</th>' +
+      '<th scope="col" class="es-col-tot">Total</th></tr></thead>';
 
-    var fila = 0;
-    function celdaHoy(iso, extra) { return '<td class="es-col-cali"' + (extra || '') + '>'; }
+    var fila = 0, iso = diaVisto;
     [['residencial', 'Residencial'], ['lineas', 'Líneas móviles']].forEach(function (g) {
       var teams = d.teams.filter(function (t) { return (t.seccion === 'lineas' ? 'lineas' : 'residencial') === g[0]; });
       if (!teams.length) return;
-      h += '<tbody><tr class="es-sec"><th colspan="2" scope="colgroup">' + g[1] + '</th></tr>';
+      h += '<tbody><tr class="es-sec"><th colspan="4" scope="colgroup">' + g[1] + '</th></tr>';
       teams.forEach(function (t) {
+        var del = t.valores[iso] || {};
         h += '<tr>' + window.ESTeam.celda(t.team);
-        dias.forEach(function (iso, i) {
-          var v = t.valores[iso];
-          h += celdaHoy(iso) + '<input class="es-cali" type="number" inputmode="numeric" min="0" step="1"' +
-            ' data-team="' + esc(t.team) + '" data-fecha="' + iso + '" data-fila="' + fila + '" data-col="' + i + '" data-sec="' + g[0] + '"' +
+        MERC.forEach(function (mk) {
+          var v = del[mk];
+          h += '<td class="es-col-cali"><input class="es-cali" type="number" inputmode="numeric" min="0" step="1"' +
+            ' data-team="' + esc(t.team) + '" data-fecha="' + iso + '" data-fila="' + fila + '" data-col="' + mk + '" data-sec="' + g[0] + '"' +
             ' value="' + (v != null ? v : '') + '" data-guardado="' + (v != null ? v : '') + '"' +
-            ' aria-label="Calis de ' + esc(window.ESTeam.nombre(t.team)) + ', ' + nomDia + ' ' + f.getDate() + '"' +
+            ' aria-label="Calis ' + mk + ' de ' + esc(window.ESTeam.nombre(t.team)) + ', ' + nomDia + ' ' + f.getDate() + '"' +
             (t.editable ? ' placeholder="–"' : ' disabled placeholder="–"') + '></td>';
         });
-        h += '</tr>';
+        h += '<td class="es-col-tot" data-total-fila="' + fila + '"></td></tr>';
         fila++;
       });
-      // Subtotal de la sección
-      h += '<tr class="es-subtotal"><th scope="row" class="es-col-team">Total ' + g[1].toLowerCase() + '</th>';
-      dias.forEach(function (iso, i) { h += celdaHoy(iso, ' data-sub="' + g[0] + '" data-col-sub="' + i + '"') + '</td>'; });
-      h += '</tr></tbody>';
+      h += '<tr class="es-subtotal"><th scope="row" class="es-col-team">Total ' + g[1].toLowerCase() + '</th>' +
+        '<td class="es-col-cali" data-sub="' + g[0] + '" data-col-sub="ICON"></td>' +
+        '<td class="es-col-cali" data-sub="' + g[0] + '" data-col-sub="BAMO"></td>' +
+        '<td class="es-col-tot" data-sub="' + g[0] + '" data-col-sub="t"></td></tr></tbody>';
     });
-    h += '<tfoot><tr><th scope="row" class="es-col-team">Total general</th>';
-    dias.forEach(function (iso, i) { h += celdaHoy(iso, ' data-total-col="' + i + '"') + '</td>'; });
-    h += '</tr></tfoot></table>';
+    h += '<tfoot><tr><th scope="row" class="es-col-team">Total general</th>' +
+      '<td class="es-col-cali" data-total-col="ICON"></td><td class="es-col-cali" data-total-col="BAMO"></td>' +
+      '<td class="es-col-tot" data-total-col="t"></td></tr></tfoot></table>';
     $('es-calis-cuerpo').innerHTML = h;
     totales();
   }
 
-  // Recalcula los totales a partir de lo escrito en pantalla.
+  // Recalcula los totales (por team, por sección y general; por mercado y juntos) con lo escrito.
   function totales() {
-    var cuerpo = $('es-calis-cuerpo'), cols = [0, 0, 0, 0, 0, 0, 0], filas = {}, subs = {};
+    var cuerpo = $('es-calis-cuerpo'), cols = { ICON: 0, BAMO: 0, t: 0 }, filas = {}, subs = {};
     cuerpo.querySelectorAll('.es-cali').forEach(function (inp) {
       var n = parseInt(inp.value, 10);
       if (isNaN(n)) return;
-      cols[+inp.dataset.col] += n;
+      cols[inp.dataset.col] += n; cols.t += n;
       filas[inp.dataset.fila] = (filas[inp.dataset.fila] || 0) + n;
-      var sb = subs[inp.dataset.sec] = subs[inp.dataset.sec] || { t: 0 };
-      sb[inp.dataset.col] = (sb[inp.dataset.col] || 0) + n;
-      sb.t += n;
+      var sb = subs[inp.dataset.sec] = subs[inp.dataset.sec] || { ICON: 0, BAMO: 0, t: 0 };
+      sb[inp.dataset.col] += n; sb.t += n;
     });
     cuerpo.querySelectorAll('[data-sub]').forEach(function (td) {
       td.textContent = (subs[td.dataset.sub] || {})[td.dataset.colSub] || 0;
     });
     cuerpo.querySelectorAll('[data-total-fila]').forEach(function (td) { td.textContent = filas[td.dataset.totalFila] || 0; });
-    var g = 0;
-    cols.forEach(function (n, i) { g += n; var td = cuerpo.querySelector('[data-total-col="' + i + '"]'); if (td) td.textContent = n; });
-    var tt = cuerpo.querySelector('[data-total-col="t"]'); if (tt) tt.textContent = g;
+    cuerpo.querySelectorAll('[data-total-col]').forEach(function (td) { td.textContent = cols[td.dataset.totalCol] || 0; });
   }
 
   function guardar(inp) {
@@ -133,7 +132,7 @@
     inp.dataset.enviando = txt;
     fetch('/api/calis', {
       method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ team: inp.dataset.team, fecha: inp.dataset.fecha, cantidad: n })
+      body: JSON.stringify({ team: inp.dataset.team, fecha: inp.dataset.fecha, mercado: inp.dataset.col, cantidad: n })
     }).then(function (r) {
       if (!r.ok) return r.json().catch(function () { return {}; }).then(function (e) { throw new Error(e.detail || 'Error ' + r.status); });
       inp.dataset.guardado = n == null ? '' : String(n);
@@ -159,14 +158,35 @@
     cuerpo.addEventListener('focusout', function (e) {
       if (!e.target.classList.contains('es-cali')) return;
       editando = false;
+      clearTimeout(e.target._tGuardar);
       guardar(e.target);
     });
-    cuerpo.addEventListener('input', function (e) { if (e.target.classList.contains('es-cali')) { e.target.classList.remove('es-err'); totales(); } });
+    // Si cierran o cambian de página con algo sin guardar, se manda igual (keepalive).
+    window.addEventListener('pagehide', function () {
+      cuerpo.querySelectorAll('.es-cali').forEach(function (inp) {
+        var txt = inp.value.trim();
+        if (txt === inp.dataset.guardado || !/^\d+$/.test(txt) && txt !== '') return;
+        try {
+          fetch('/api/calis', { method: 'PUT', credentials: 'include', keepalive: true, headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ team: inp.dataset.team, fecha: inp.dataset.fecha, mercado: inp.dataset.col, cantidad: txt === '' ? null : +txt }) });
+        } catch (_) {}
+      });
+    });
+    // Se guarda también mientras se escribe (0,7 s después de la última tecla): antes solo al salir
+    // de la casilla o con Enter, y quien escribía y cerraba la página perdía el dato (20-nov).
+    cuerpo.addEventListener('input', function (e) {
+      var inp = e.target;
+      if (!inp.classList.contains('es-cali')) return;
+      inp.classList.remove('es-err');
+      totales();
+      clearTimeout(inp._tGuardar);
+      inp._tGuardar = setTimeout(function () { guardar(inp); }, 700);
+    });
     cuerpo.addEventListener('keydown', function (e) {
       var inp = e.target;
       if (!inp.classList.contains('es-cali')) return;
-      if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); guardar(inp); mover(inp, 1); }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); guardar(inp); mover(inp, -1); }
+      if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); clearTimeout(inp._tGuardar); guardar(inp); mover(inp, 1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); clearTimeout(inp._tGuardar); guardar(inp); mover(inp, -1); }
       else if (e.key === 'Escape') { inp.value = inp.dataset.guardado; inp.classList.remove('es-err'); totales(); inp.blur(); }
     });
     // La rueda del ratón no debe cambiar el número por accidente.
@@ -185,10 +205,16 @@
       cargar();
     }
     cuerpo.addEventListener('focusout', function () { if (pendiente) { pendiente = false; setTimeout(function () { if (!editando) cargar(); }, 300); } });
-    if (window.CRMNotificaciones) window.CRMNotificaciones.on('calis', refrescar);
-    else document.addEventListener('DOMContentLoaded', function () { if (window.CRMNotificaciones) window.CRMNotificaciones.on('calis', refrescar); });
-    // Respaldo sin conexión en vivo.
-    setInterval(function () { if (!(window.CRMNotificaciones && window.CRMNotificaciones.enVivo()) && !document.hidden) refrescar(); }, 60000);
+    // El centro de notificaciones lo carga topbar-acciones.js después de esta página: se espera a
+    // que exista para escuchar «calis» (antes se preguntaba una sola vez, muy pronto, y nunca
+    // quedaba escuchando: lo que escribía otra persona no se veía sin recargar).
+    (function escuchar(intentos) {
+      if (window.CRMNotificaciones) { window.CRMNotificaciones.on('calis', refrescar); return; }
+      if (intentos > 0) setTimeout(function () { escuchar(intentos - 1); }, 500);
+    })(60);
+    // Respaldo: cada 30 s, aunque haya conexión en vivo (es una consulta pequeña).
+    setInterval(function () { if (!document.hidden) refrescar(); }, 30000);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) refrescar(); });
   }
 
   function iniciar() { enlazar(); cargar(); }

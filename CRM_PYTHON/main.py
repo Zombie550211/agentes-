@@ -761,6 +761,12 @@ _MIGRATIONS: list[tuple[str, str]] = [
         PRIMARY KEY (team, fecha),
         INDEX idx_calis_fecha (fecha)
     ) ENGINE=InnoDB"""),
+    # Calis por mercado (20-nov-2026): una cifra por team, día y mercado (ICON / BAMO).
+    # La tabla estaba vacía en producción al hacer el cambio.
+    ("0113_calis_dia_mercado", """ALTER TABLE calis_dia
+        ADD COLUMN mercado VARCHAR(10) NOT NULL DEFAULT 'ICON' AFTER fecha,
+        DROP PRIMARY KEY,
+        ADD PRIMARY KEY (team, fecha, mercado)"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración

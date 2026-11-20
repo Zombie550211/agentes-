@@ -1,17 +1,19 @@
 """Calis del día (residencial/estadisticas.html, tabla de la izquierda).
 
-Una cifra por team y por día, que se escribe a mano. Filas = equipos de venta (los que
-tienen al menos un supervisor, mismo criterio que /api/teams?sales=1), de Residencial
-y de Líneas. Columnas = los 7 días de una semana (lunes a domingo, hora de El Salvador).
+Una cifra por team, día y mercado (ICON / BAMO), que se escribe a mano. Filas = equipos
+de venta (los que tienen al menos un supervisor, mismo criterio que /api/teams?sales=1), de
+Residencial y de Líneas. El API trae la semana (lunes a domingo, hora de El Salvador); la
+página muestra un día con las columnas ICON, BAMO y Total.
 
 - GET /api/calis?semana=YYYY-MM-DD → la semana que contiene ese día (por defecto la
   actual), con los teams, los valores y qué teams puede editar quien consulta.
-- PUT /api/calis {team, fecha, cantidad} → guarda una casilla; cantidad null la vacía.
+- PUT /api/calis {team, fecha, mercado, cantidad} → guarda una casilla; cantidad null la vacía.
   Admin / Back Office: todos los teams (calis.editar_todos). Supervisor: solo el suyo
   (calis.su_equipo; el team se lee de la BD, no del token). Cada cambio avisa a todas
   las pestañas por el centro de notificaciones (evento «calis»).
 
-Tabla calis_dia (migración 0112).
+Tabla calis_dia (migraciones 0112 y 0113: clave team + fecha + mercado).
+valores: {"YYYY-MM-DD": {"ICON": n, "BAMO": n}}.
 """
 from datetime import date, datetime, timedelta
 from typing import Optional
@@ -29,6 +31,7 @@ from tiempo_sv import ahora_sv
 router = APIRouter(prefix="/api/calis", tags=["Calis"])
 
 MAX_CANTIDAD = 100000
+MERCADOS = ("ICON", "BAMO")
 
 
 def _lunes_de(d: date) -> date:
@@ -70,13 +73,14 @@ async def semana_calis(semana: str = "", user: dict = Depends(current_user)):
         teams = await _teams_venta(s)
         mi_team = await _mi_team(s, user)
         r = await s.execute(text("""
-            SELECT team, fecha, cantidad FROM calis_dia WHERE fecha BETWEEN :d AND :h
+            SELECT team, fecha, mercado, cantidad FROM calis_dia WHERE fecha BETWEEN :d AND :h
         """), {"d": lunes, "h": domingo})
         filas = r.mappings().all()
 
-    valores: dict[str, dict[str, int]] = {}
+    valores: dict[str, dict[str, dict[str, int]]] = {}
     for f in filas:
-        valores.setdefault(f["team"].upper(), {})[f["fecha"].isoformat()] = int(f["cantidad"])
+        (valores.setdefault(f["team"].upper(), {})
+                .setdefault(f["fecha"].isoformat(), {}))[f["mercado"]] = int(f["cantidad"])
 
     # Un team que ya no existe pero tiene datos en esa semana sigue saliendo (no se pierden).
     nombres = {t.upper(): t for t in teams}
@@ -104,6 +108,7 @@ async def semana_calis(semana: str = "", user: dict = Depends(current_user)):
 class CaliIn(BaseModel):
     team: str = Field(min_length=1, max_length=150)
     fecha: str
+    mercado: str = Field(pattern="^(ICON|BAMO)$")
     cantidad: Optional[int] = Field(default=None, ge=0, le=MAX_CANTIDAD)
 
 
@@ -124,15 +129,16 @@ async def guardar_cali(body: CaliIn, user: dict = Depends(current_user)):
             raise HTTPException(403, "No puedes editar los calis de ese team")
 
         if body.cantidad is None:
-            await s.execute(text("DELETE FROM calis_dia WHERE team = :t AND fecha = :f"),
-                            {"t": team, "f": fecha})
+            await s.execute(text("DELETE FROM calis_dia WHERE team = :t AND fecha = :f AND mercado = :m"),
+                            {"t": team, "f": fecha, "m": body.mercado})
         else:
             await s.execute(text("""
-                INSERT INTO calis_dia (team, fecha, cantidad, editado_por)
-                VALUES (:t, :f, :c, :u)
+                INSERT INTO calis_dia (team, fecha, mercado, cantidad, editado_por)
+                VALUES (:t, :f, :m, :c, :u)
                 ON DUPLICATE KEY UPDATE cantidad = VALUES(cantidad), editado_por = VALUES(editado_por)
-            """), {"t": team, "f": fecha, "c": body.cantidad, "u": user.get("username") or ""})
+            """), {"t": team, "f": fecha, "m": body.mercado, "c": body.cantidad, "u": user.get("username") or ""})
         await s.commit()
 
     await realtime.publish(realtime.CANAL_TODOS, {"type": "calis", "fecha": fecha.isoformat()})
-    return {"success": True, "team": team, "fecha": fecha.isoformat(), "cantidad": body.cantidad}
+    return {"success": True, "team": team, "fecha": fecha.isoformat(), "mercado": body.mercado,
+            "cantidad": body.cantidad}
