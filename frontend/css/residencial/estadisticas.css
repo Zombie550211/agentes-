@@ -1,180 +1,235 @@
-/* Estadísticas (residencial/estadisticas.html).
-   Sistema común en css/base/sistema.css. Misma línea que Llamadas y ventas y
-   Productividad B.O: barra de vidrio con el mes, indicadores en fila y tarjetas.
-   La versión anterior de esta hoja sigue en _clasico/ para quien no es administrador. */
+/* Estadísticas (residencial/estadisticas.html) — tablero de rendimiento (20-nov-2026).
+   Sistema común en css/base/sistema.css y css/componentes/marco-amplio.css.
+   Estilo sobrio de reporte (pedido de Daniel: «algo más serio»): un solo azul de marca,
+   IBM Plex Sans con cifras tabulares, líneas finas, esquinas pequeñas, sin colores por team.
+   Las dos tarjetas miden lo mismo (cabecera, encabezado y filas) para que cada team quede
+   a la misma altura en Calis y en Ventas. */
+
+:root{
+  --es-fuente:"IBM Plex Sans",system-ui,"Segoe UI",sans-serif;
+  --es-tinta:#16232c;      /* texto principal */
+  --es-gris:#5f6d77;       /* texto secundario */
+  --es-tenue:#a3afb7;      /* ceros y vacíos */
+  --es-linea:#e2e8ec;      /* separadores de fila */
+  --es-campo:#f3f6f8;      /* casillas editables */
+  --es-marca:#005f82;      /* azul Connecting (oscuro) */
+  --es-marca-claro:#d6e6ee;
+}
 
 .in-hoja{display:flex;flex-direction:column;gap:var(--space-3)}
 .in-head{margin-bottom:calc(var(--space-3) * -1)}
-:root{--es-num:"Inter",system-ui,"Segoe UI",sans-serif}
 
-/* ═══ Barra: título y mes ═══ */
-.es-barra{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);padding:12px var(--space-4)}
-.es-titulo{display:flex;align-items:center;gap:12px;min-width:0}
-.es-ico{flex:none;width:36px;height:36px;display:grid;place-items:center;font-size:19px;color:#fff;background:var(--color-accent-2-500)}
-.es-titulo h1{margin:0;font-size:20px;line-height:1.2;color:var(--color-text)}
-.es-titulo p{margin:2px 0 0;font-size:11px;color:var(--color-neutral-600)}
-.es-mes{display:flex;align-items:center;gap:6px}
-.es-mes-lbl{display:flex;align-items:center;justify-content:center;min-width:150px;height:36px;padding:0 12px;border:1px solid rgb(0 112 152 / .18);
-  background:rgb(255 255 255 / .8);font-family:var(--es-num);font-size:12px;font-weight:600;color:var(--color-text)}
-.es-paso,.es-hoy{height:36px;border:1px solid rgb(0 112 152 / .18);border-radius:0;background:rgb(255 255 255 / .8);color:var(--color-accent-2-600);
-  font:inherit;cursor:pointer;transition:background .15s,border-color .15s}
-.es-paso{width:36px;display:grid;place-items:center;font-size:15px}
-.es-hoy{padding:0 14px;font-family:var(--es-num);font-size:12px;font-weight:600}
-.es-paso:hover:not(:disabled),.es-hoy:hover:not(:disabled){background:#fff;border-color:var(--color-accent-2-500)}
-.es-paso:disabled,.es-hoy:disabled{opacity:.4;cursor:default}
-.es-paso:focus-visible,.es-hoy:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:2px}
-.es-dia{font:inherit;font-family:var(--es-num);font-size:12px;font-weight:600;border-radius:0;color-scheme:light;cursor:pointer}
-.es-dia:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:2px}
-.es-mes-sel{min-width:150px;padding:0 30px 0 12px;appearance:none;-webkit-appearance:none;color:var(--color-text);
-  background:rgb(255 255 255 / .8) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23007098' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 11px center}
+.es-contenido{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:stretch;font-family:var(--es-fuente);color:var(--es-tinta)}
 
-/* ═══ Indicadores ═══ */
-.es-tiles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:var(--space-2)}
-@media (max-width:1200px){ .es-tiles{grid-template-columns:repeat(3,minmax(0,1fr))} }
-@media (max-width:560px){ .es-tiles{grid-template-columns:repeat(2,minmax(0,1fr))} }
-.es-tile{display:flex;flex-direction:column;align-items:flex-start;min-width:0;padding:var(--space-3);--glass-fondo:rgb(255 255 255 / .85)}
-.es-tico{width:28px;height:28px;display:grid;place-items:center;font-size:15px;color:var(--color-accent-2-500);border:1px solid rgb(0 112 152 / .22)}
-.es-tico-verde{color:#15803d;border-color:rgb(22 163 74 / .3)}
-.es-tile-val{margin-top:14px;height:22px;font-family:var(--es-num);font-size:22px;font-weight:600;line-height:22px;letter-spacing:-.01em;
-  color:var(--color-neutral-900);font-variant-numeric:lining-nums tabular-nums}
-.es-tile-lbl{margin-top:8px;font-size:11px;color:var(--color-neutral-600)}
-.es-tile-dest .es-tile-val{color:var(--color-accent-2-600)}
-.es-barrita{width:100%;height:3px;margin-top:8px;background:rgb(0 112 152 / .1)}
-.es-barrita span{display:block;width:0;height:100%;background:#16a34a;transition:width .4s ease}
+/* ═══ Tarjeta ═══ */
+.es-card{display:flex;flex-direction:column;min-width:0;overflow:hidden;--glass-fondo:rgb(255 255 255 / .94);--radius-glass:8px}
+.es-card-head{display:flex;flex-wrap:nowrap;align-items:center;justify-content:space-between;gap:12px;min-height:72px;
+  padding:14px 20px;border-bottom:1px solid var(--es-linea)}
+.es-card-head h2{display:flex;align-items:center;gap:8px;margin:0;font-family:var(--es-fuente)!important;font-size:17px!important;
+  font-weight:600!important;letter-spacing:0;color:var(--es-tinta)}
+.es-card-head h2 i{color:var(--es-marca);font-size:18px}
+.es-card-head p{margin:2px 0 0 26px;font-size:12px;color:var(--es-gris);white-space:nowrap}
 
-/* ═══ Rejilla de tarjetas ═══ */
-.es-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-3);align-items:stretch}
-@media (max-width:1000px){ .es-grid{grid-template-columns:minmax(0,1fr)} }
-.es-card{display:flex;flex-direction:column;min-width:0}
-.es-card-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-2);padding:var(--space-3) var(--space-4);
-  border-bottom:1px solid rgb(0 112 152 / .12)}
-.es-card-head h2{display:flex;align-items:center;gap:6px;margin:0;font-size:16px;color:var(--color-text)}
-.es-card-head h2 i{font-size:17px;color:var(--color-accent-2-500)}
-.es-card-head p{margin:2px 0 0;font-size:11px;color:var(--color-neutral-600)}
-/* Cabeceras con color para distinguir las dos tablas: Residencial (azul del logo) y
-   Team Líneas (verde de los gráficos). */
-.es-equipos .es-card-head{background:linear-gradient(90deg,rgb(0 112 152 / .13),rgb(48 160 200 / .05));
-  border-left:4px solid #007098;border-bottom-color:rgb(0 112 152 / .22)}
-.es-equipos .es-card-head h2 i{color:#007098}
-.es-lineas .es-card-head{background:linear-gradient(90deg,rgb(22 163 74 / .13),rgb(22 163 74 / .04));
-  border-left:4px solid #16a34a;border-bottom-color:rgb(22 163 74 / .25)}
-.es-lineas .es-card-head h2 i{color:#15803d}
-.es-lineas .es-tbl thead th{background:#eef7f1;border-bottom-color:rgb(22 163 74 / .18)}
-.es-lineas .es-tbl th.es-grupo{color:#15803d;border-bottom-color:rgb(22 163 74 / .3)}
-.es-lineas .es-n-dest{color:#15803d}
-.es-lineas .es-tabs{background:rgb(22 163 74 / .07);border-color:rgb(22 163 74 / .18)}
-.es-lineas .es-tab[aria-selected="true"]{color:#15803d;box-shadow:0 1px 4px rgb(22 163 74 / .18)}
-.es-lineas .es-tab:focus-visible{outline-color:#16a34a}
-.es-chip{flex:none;padding:4px 10px;font-family:var(--es-num);font-size:11px;font-weight:600;color:var(--color-accent-2-600);background:rgb(0 112 152 / .08)}
+/* Navegación de semana */
+.es-semana{display:flex;align-items:center;gap:4px;flex:none}
+.es-paso,.es-hoy{height:30px;border:1px solid var(--es-linea);border-radius:4px;background:#fff;color:var(--es-tinta);cursor:pointer;
+  font:500 12px var(--es-fuente)}
+.es-paso{width:30px;display:grid;place-items:center;font-size:13px}
+.es-hoy{padding:0 10px}
+.es-paso:hover:not(:disabled),.es-hoy:hover:not(:disabled){border-color:var(--es-marca);color:var(--es-marca)}
+.es-paso:disabled,.es-hoy:disabled{color:var(--es-tenue);cursor:default}
+.es-paso:focus-visible,.es-hoy:focus-visible{outline:2px solid var(--es-marca);outline-offset:2px}
+.es-rango{min-width:118px;text-align:center;font:500 13px var(--es-fuente)}
 
-/* Pestañas Mes / Hoy (como las de Llamadas y ventas) */
-.es-tabs{display:inline-flex;padding:3px;background:rgb(0 112 152 / .06);border:1px solid rgb(0 112 152 / .12)}
-.es-tab{height:30px;padding:0 16px;border:0;border-radius:0;background:transparent;cursor:pointer;font:inherit;font-size:12px;font-weight:600;
-  color:var(--color-neutral-700);transition:background .15s,color .15s}
-.es-tab:hover{color:var(--color-text)}
-.es-tab[aria-selected="true"]{background:#fff;color:var(--color-accent-2-600);box-shadow:0 1px 4px rgb(0 112 152 / .14)}
-.es-tab:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:2px}
+/* Pestañas Día / Mes: control segmentado */
+.es-tabs{display:inline-flex;border:1px solid var(--es-linea);border-radius:4px;overflow:hidden;flex:none}
+.es-tab{height:30px;padding:0 18px;border:0;background:#fff;color:var(--es-gris);font:500 13px var(--es-fuente);cursor:pointer}
+.es-tab+.es-tab{border-left:1px solid var(--es-linea)}
+.es-tab:hover{color:var(--es-tinta)}
+.es-tab[aria-selected="true"]{background:var(--es-marca);color:#fff}
+.es-tab:focus-visible{outline:2px solid var(--es-marca);outline-offset:-2px}
 
-/* ═══ Tablas ═══ */
-.es-scroll{flex:1;overflow:auto;max-height:440px;overscroll-behavior:contain}
-.es-scroll[hidden]{display:none}
-.es-tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:12px}
-.es-tbl thead th{position:sticky;top:0;z-index:2;padding:9px 10px;background:#eef4f7;border-bottom:1px solid rgb(0 112 152 / .12);
-  font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;text-align:center;white-space:nowrap;color:var(--color-neutral-700)}
-.es-tbl thead tr:nth-child(2) th{top:31px}
-.es-tbl th.es-grupo{color:var(--color-accent-2-600);border-bottom-color:rgb(0 112 152 / .2)}
-.es-tbl .es-izq{text-align:left;padding-left:var(--space-4)}
-.es-tbl tbody th,.es-tbl tbody td{padding:7px 10px;border-bottom:1px solid rgb(0 112 152 / .06);font-weight:400}
-.es-tbl tbody tr:not(.es-total):hover>*{background:rgb(0 112 152 / .03)}
-.es-n{text-align:center;font-family:var(--es-num);font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--color-neutral-800)}
-.es-n-dest{font-weight:700;color:var(--color-accent-2-600)}
-.es-sep{border-left:1px solid rgb(0 112 152 / .1)}
-.es-tbl thead tr:first-child th.es-grupo:last-child,.es-tbl thead tr:nth-child(2) th:nth-child(3){border-left:1px solid rgb(0 112 152 / .1)}
-.es-eq{display:flex;align-items:center;gap:9px;min-width:170px}
-.es-avatar{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-family:var(--es-num);font-size:10px;font-weight:700;
-  color:var(--color-accent-2-700);background:var(--color-accent-100);border:1px solid rgb(0 112 152 / .15)}
-.es-eq-nom{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:600;color:var(--color-text)}
-/* Ventas del mes: número y barra proporcional al mejor equipo */
-.es-n-barra{min-width:120px}
-.es-num{display:inline-block;min-width:26px;font-weight:700;color:var(--color-neutral-900)}
-.es-num-on{color:#15803d}
-.es-mini{display:inline-block;width:70px;height:4px;margin-left:8px;vertical-align:middle;background:rgb(0 112 152 / .1)}
-.es-mini span{display:block;height:100%;background:var(--color-accent-2-500)}
-.es-tbl tr.es-total>*{position:sticky;bottom:0;z-index:1;padding:10px;background:#e3edf2;border-top:1px solid rgb(0 112 152 / .2);border-bottom:0;
-  font-weight:700;color:var(--color-neutral-900)}
-.es-tbl tr.es-total th{padding-left:var(--space-4);font-size:11px;letter-spacing:.04em;text-transform:uppercase}
-.es-vacio{padding:32px var(--space-3) !important;text-align:center;font-size:12px;font-style:italic;color:var(--color-neutral-600)}
+/* ═══ Tabla base (Calis y Ventas) ═══ */
+.es-card .es-tabla-wrap{flex:1;overflow-x:auto;padding:0 12px}
+.es-tabla{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+.es-tabla th,.es-tabla td{padding:0 6px;height:40px;text-align:right;white-space:nowrap;font-weight:400}
+.es-tabla td{font:400 14px var(--es-fuente)}
+.es-tabla tbody tr:not(.es-sec){border-bottom:1px solid var(--es-linea)}
+.es-tabla tbody tr:not(.es-sec):not(.es-subtotal):hover{background:#f7fafb}
+
+.es-tabla thead th{height:48px;font:500 12px var(--es-fuente);color:var(--es-gris);vertical-align:bottom;padding-bottom:8px;
+  border-bottom:1px solid #c9d3d9}
+.es-tabla .es-col-team{text-align:left;padding-left:8px;min-width:160px}
+.es-nom{font:500 14px var(--es-fuente);color:var(--es-tinta)}
+
+/* Sección */
+.es-tabla .es-sec th{height:40px;padding:14px 8px 4px;text-align:left;vertical-align:bottom;font:600 13px var(--es-fuente);color:var(--es-marca)}
+.es-tabla .es-sec th span{margin-left:4px;font:400 12px var(--es-fuente);color:var(--es-gris)}
+
+/* Subtotal: negrita sobre gris muy claro */
+.es-tabla .es-subtotal{background:#f5f7f9}
+.es-tabla .es-subtotal th,.es-tabla .es-subtotal td{font:600 14px var(--es-fuente);color:var(--es-tinta)}
+.es-tabla small{font:400 11px var(--es-fuente);color:var(--es-gris)}
+
+/* Total general */
+.es-tabla tfoot tr{border-top:2px solid var(--es-tinta)}
+.es-tabla tfoot th,.es-tabla tfoot td{height:48px;font:700 15px var(--es-fuente);color:var(--es-tinta)}
+.es-tabla .es-doble{line-height:1.15}
+.es-tabla .es-doble small{display:block;font-weight:400}
+
+.es-cero{color:var(--es-tenue)}
+
+/* ═══ Calis ═══ */
+.es-calis th:not(.es-col-team),.es-calis td{text-align:center}
+.es-calis .es-sec th{text-align:left}
+.es-calis thead .es-dia{display:block;font:400 11px var(--es-fuente);color:var(--es-gris)}
+.es-calis thead th:not(.es-col-team):not(.es-col-total){font:600 13px var(--es-fuente);color:var(--es-tinta);min-width:44px}
+.es-calis thead .es-hoy-col{box-shadow:inset 0 -2px 0 var(--es-marca)}
+.es-calis thead .es-hoy-col,.es-calis thead .es-hoy-col .es-dia{color:var(--es-marca)!important}
+.es-calis .es-col-total{font-weight:600}
+.es-calis td{padding:0 2px}
+.es-cali{width:100%;min-width:38px;height:30px;padding:0 4px;border:1px solid var(--es-linea);border-radius:3px;background:#fff;
+  font:400 14px var(--es-fuente);font-variant-numeric:tabular-nums;text-align:center;color:var(--es-tinta);
+  -moz-appearance:textfield;appearance:textfield}
+.es-cali::-webkit-outer-spin-button,.es-cali::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.es-cali::placeholder{color:var(--es-tenue)}
+.es-cali:hover:not(:disabled){border-color:#b9c5cc}
+.es-cali:focus{outline:none;border-color:var(--es-marca);box-shadow:0 0 0 2px var(--es-marca-claro)}
+.es-cali:disabled{border-color:transparent;background:transparent;cursor:default}
+.es-hoy-col .es-cali:not(:disabled){background:#f4f9fb}
+.es-cali.es-ok{border-color:#2f7d4f}
+.es-cali.es-err{border-color:#b42318;background:#fdf3f2}
+
+/* ═══ Ventas: barra fina en un solo azul ═══ */
+.es-ventas .es-col-barra{width:38%;text-align:left}
+.es-barra{display:flex;align-items:center;gap:10px}
+.es-barra-n{min-width:28px;font:600 14px var(--es-fuente);text-align:right}
+.es-barra-t{flex:1;height:6px;background:#edf1f4}
+.es-barra-t span{display:block;height:100%;background:var(--es-marca)}
+.es-ventas .es-sin .es-barra-n{color:var(--es-tenue)}
+.es-ventas .es-subtotal .es-col-barra,.es-ventas tfoot .es-col-barra{padding-left:6px;text-align:left}
+
+/* Estados y pie */
+.es-vacio,.es-estado{padding:24px 16px;text-align:center;font-size:13px;color:var(--es-gris)}
+.es-pie{display:flex;justify-content:space-between;gap:8px;padding:10px 20px 12px;font-size:12px;color:var(--es-gris);border-top:1px solid var(--es-linea)}
+
+@media (max-width:1100px){.es-contenido{grid-template-columns:minmax(0,1fr)}}
 
 /* ═══ Desglose por servicio ═══ */
-/* Columna derecha: Desglose arriba y CXC Xfinity debajo; a la izquierda Ventas por
-   equipo y Team Líneas (dense rellena el hueco de la izquierda). */
-.es-grid{grid-auto-flow:row dense}
-.es-servicios .es-leg{max-height:none;overflow:visible}
-.es-donut-wrap{flex:1;display:flex;align-items:center;gap:var(--space-4);padding:var(--space-4)}
-.es-donut{position:relative;flex:none;width:180px;height:180px}
-.es-donut-centro{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
-.es-donut-centro span{font-family:var(--es-num);font-size:28px;font-weight:700;line-height:1;color:var(--color-neutral-900)}
-.es-donut-centro small{margin-top:4px;font-size:11px;color:var(--color-neutral-600)}
-.es-leg{flex:1;min-width:0;max-height:220px;overflow-y:auto;display:flex;flex-direction:column}
-.es-leg-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgb(0 112 152 / .06);font-size:12px}
-.es-leg-row:last-child{border-bottom:0}
-.es-leg-dot{flex:none;width:9px;height:9px;border-radius:50%}
-.es-leg-nom{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-text)}
-.es-leg-n{font-family:var(--es-num);font-weight:700;color:var(--color-neutral-900)}
-.es-leg-p{width:46px;text-align:right;font-family:var(--es-num);font-size:11px;color:var(--color-neutral-600)}
-.es-ver-todos{align-self:flex-start;margin-top:var(--space-2);padding:6px 12px;border:1px solid rgb(0 112 152 / .2);background:#fff;cursor:pointer;
-  font:inherit;font-size:12px;font-weight:600;color:var(--color-accent-2-600)}
-.es-ver-todos:hover{background:rgb(0 112 152 / .05)}
-.es-ver-todos:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:2px}
+.es-servicios .es-pct{color:var(--es-gris);width:64px}
+.es-servicios .es-col-team{min-width:200px}
 
-/* Modal «Ver todos los servicios» */
-.es-dlg{width:min(520px,calc(100% - 32px));max-height:none;padding:0;border:1px solid rgb(0 112 152 / .18);background:#fff;
-  box-shadow:0 18px 48px rgb(20 33 42 / .22);color:var(--color-text)}
+/* ═══ CXC Xfinity ═══ */
+.es-cx-ctrl{display:flex;align-items:center;gap:8px;flex:none}
+.es-cxc .es-col-n{width:88px}
+.es-cxc .es-ag .es-nom{padding-left:14px;font-weight:400;color:var(--es-gris)}
+.es-cxc .es-ag-team{background:#fafbfc}
+.es-cxc .es-ag-team th,.es-cxc .es-ag-team td{font-weight:600}
+@media (max-width:1366px){.es-cx-ctrl .es-rango{min-width:72px}}
+
+/* CXC: su alto lo marca la tarjeta de al lado (Desglose); lo que no cabe se desplaza por dentro.
+   height:0 + min-height:100% → el elemento de la cuadrícula no empuja la fila, solo la llena. */
+.es-card-cxc{height:0;min-height:max(100%, 440px)}
+.es-card-cxc .es-tabla-wrap{flex:1 1 0;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.es-card-cxc thead th{position:sticky;top:0;z-index:1;background:#fff}
+.es-card-cxc tfoot th,.es-card-cxc tfoot td{position:sticky;bottom:0;z-index:1;background:#fff;box-shadow:inset 0 2px 0 var(--es-tinta)}
+.es-card-cxc tfoot tr{border-top:0}
+@media (max-width:1100px){.es-card-cxc{height:auto;min-height:0}.es-card-cxc .es-tabla-wrap{max-height:480px}}
+
+/* ═══ Desglose por servicio: mes día por día (ocupa las dos columnas) ═══ */
+.es-ancho{grid-column:1 / -1}
+.es-svc-wrap{overflow-x:auto;overscroll-behavior-x:contain}
+.es-svcmes{min-width:100%;width:max-content}
+.es-svcmes th,.es-svcmes td{padding:0 4px;text-align:center}
+.es-svcmes thead th:not(.es-col-team):not(.es-col-total){min-width:30px;font:600 12px var(--es-fuente);color:var(--es-tinta)}
+.es-svcmes thead .es-dia{display:block;font:400 10px var(--es-fuente);color:var(--es-gris)}
+.es-svcmes td{font-size:13px}
+.es-svcmes .es-col-team{position:sticky;left:0;z-index:2;background:#fff;min-width:210px;max-width:240px;text-align:left;
+  overflow:hidden;text-overflow:ellipsis;box-shadow:inset -1px 0 0 var(--es-linea)}
+.es-svcmes .es-col-total{position:sticky;right:0;z-index:2;background:#fff;min-width:56px;font-weight:600;box-shadow:inset 1px 0 0 var(--es-linea)}
+.es-svcmes tbody tr:hover .es-col-team,.es-svcmes tbody tr:hover .es-col-total{background:#f7fafb}
+.es-svcmes .es-hoy-col{background:#f1f7fa}
+.es-svcmes thead .es-hoy-col{box-shadow:inset 0 -2px 0 var(--es-marca);color:var(--es-marca)!important}
+.es-svcmes .es-futuro{color:var(--es-tenue)}
+.es-svcmes .es-finde{background:#fafbfc}
+.es-svcmes tfoot .es-col-team,.es-svcmes tfoot .es-col-total{background:#fff}
+.es-svcmes .es-sec th{text-align:left}
+.es-svcmes .es-sec-n{position:sticky;left:8px;font:600 14px var(--es-fuente);color:var(--es-marca)}
+
+/* Desglose: alto fijo y la lista corre por dentro (también a lo ancho si no cabe).
+   Encabezado arriba y Total general abajo quedan fijos; la columna Servicio y Mes, a los lados. */
+.es-svc-wrap{max-height:min(560px, 70vh);overflow:auto;overscroll-behavior:contain;padding-top:0}
+.es-svcmes thead th{position:sticky;top:0;z-index:3;background:#fff}
+.es-svcmes thead .es-hoy-col{background:#f1f7fa}
+.es-svcmes thead .es-col-team,.es-svcmes thead .es-col-total{z-index:4}
+.es-svcmes tfoot th,.es-svcmes tfoot td{position:sticky;bottom:0;z-index:3;background:#fff;box-shadow:inset 0 2px 0 var(--es-tinta)}
+.es-svcmes tfoot .es-col-team,.es-svcmes tfoot .es-col-total{z-index:4}
+.es-svcmes tfoot tr{border-top:0}
+
+/* ═══ Botón Expandir y modal del Desglose ═══ */
+.es-expandir{display:inline-flex;align-items:center;gap:6px}
+.es-dlg{width:min(1400px, calc(100vw - 32px));max-width:none;height:calc(100vh - 32px);max-height:none;padding:0;border:0;border-radius:8px;
+  background:#fff;color:var(--es-tinta);font-family:var(--es-fuente);box-shadow:0 24px 64px rgb(11 47 69 / .28);overflow:hidden}
 .es-dlg[open]{display:flex;flex-direction:column}
-.es-dlg::backdrop{background:rgb(20 33 42 / .35)}
-/* Sin scroll interno: el modal crece hasta mostrar todos los servicios. */
-.es-dlg-cuerpo{max-height:none;overflow:visible}
-.es-dlg-cuerpo .es-tbl tbody th,.es-dlg-cuerpo .es-tbl tbody td{padding-top:6px;padding-bottom:6px}
-.es-dlg-nom{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600}
-.es-dlg-cerrar{flex:none;width:32px;height:32px;display:grid;place-items:center;border:1px solid rgb(0 112 152 / .15);background:#fff;cursor:pointer;
-  font-size:16px;color:var(--color-neutral-700)}
-.es-dlg-cerrar:hover{color:var(--color-text);background:rgb(0 112 152 / .05)}
-.es-dlg-cerrar:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:2px}
+.es-dlg::backdrop{background:rgb(16 30 40 / .55)}
+.es-dlg .es-dlg-cuerpo{flex:1;min-height:0;max-height:none}
 
-/* ═══ Cantidad de CXC Xfinity ═══ */
-.es-cxc{grid-column:2}
-.es-cxc .es-card-head{background:linear-gradient(90deg,rgb(13 47 92 / .14),rgb(13 47 92 / .04));
-  border-left:4px solid #0d2f5c;border-bottom-color:rgb(13 47 92 / .22)}
-.es-cxc .es-card-head h2{color:#0d2f5c}
-.es-cxc .es-tab[aria-selected="true"]{color:#0d2f5c}
-.es-cxc .es-scroll{max-height:400px}
-.es-cx-tbl td.es-n{width:88px}
-.es-cx-tbl td.es-cx-mes{font-weight:700;color:#0d2f5c}
-.es-cx-grupo>*{background:#f2f5f9;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:#0d2f5c}
-.es-tbl tbody tr.es-cx-grupo:hover>*{background:#f2f5f9}
-.es-tbl .es-cx-ag{padding-left:calc(var(--space-4) + 12px);font-size:12px;font-weight:500;color:var(--color-text)}
-.es-tbl tr.es-cx-total>*{background:#fcd34d;border-top-color:#e0b100;color:#0d2f5c;font-size:13px}
-@media (max-width:1000px){ .es-cxc{grid-column:auto} }
+/* Desglose: cuadrícula bien dividida y números firmes (pedido 20-nov: «no pálidos»). */
+.es-svcmes{border-collapse:separate;border-spacing:0}
+.es-svcmes th,.es-svcmes td{border-right:1px solid #d3dce2;border-bottom:1px solid #d3dce2}
+.es-svcmes thead th{border-bottom:2px solid #16232c}
+.es-svcmes tbody tr{border-bottom:0!important}
+.es-svcmes td{font:600 14px var(--es-fuente);color:#0b1720}
+.es-svcmes tbody .es-col-team .es-nom{font-weight:600;color:#0b1720}
+.es-svcmes thead th:not(.es-col-team):not(.es-col-total){font-weight:700;color:#0b1720}
+.es-svcmes thead .es-dia{color:#3f4c55;font-weight:500}
+.es-svcmes .es-col-team{box-shadow:none;border-right:2px solid #16232c}
+.es-svcmes .es-col-total{box-shadow:none;border-left:2px solid #16232c;font-weight:700;color:#0b1720}
+.es-svcmes .es-finde{background:#eef2f5}
+.es-svcmes .es-hoy-col{background:#dcebf3}
+.es-svcmes .es-sec th{border-right:0;border-bottom:1px solid #d3dce2;background:#f6f9fb}
+.es-svcmes .es-subtotal th,.es-svcmes .es-subtotal td{background:#e9eff3;font-weight:700;color:#0b1720;border-bottom:2px solid #9fb0bb}
+.es-svcmes tfoot th,.es-svcmes tfoot td{font-weight:700;color:#0b1720;box-shadow:none;border-top:2px solid #16232c;border-bottom:0}
+.es-tabla.es-svcmes .es-sec th .es-sec-n{margin:0;font:700 14px var(--es-fuente);color:var(--es-marca);letter-spacing:.02em}
+.es-svcmes tbody .es-col-team{vertical-align:middle}
 
-@media (max-width:760px){
-  .es-barra{padding:10px var(--space-2)}
-  .es-mes{width:100%}
-  .es-mes-lbl{flex:1;min-width:0}
-  .es-card-head{padding:var(--space-3)}
-  .es-donut-wrap{flex-direction:column;align-items:stretch}
-  .es-donut{align-self:center}
-  .es-leg{max-height:260px}
-  .es-mini{display:none}
-  .es-n-barra{min-width:0}
-  /* La columna del equipo queda fija al desplazar los números hacia los lados */
-  .es-tbl .es-izq{position:sticky;left:0;z-index:1;background:#f6f9fb;box-shadow:1px 0 0 rgb(0 112 152 / .1)}
-  .es-tbl thead th.es-izq{z-index:3;background:#eef4f7}
-  .es-lineas .es-tbl thead th.es-izq{background:#eef7f1}
-  .es-tbl tr.es-total>th.es-izq{z-index:2;background:#e3edf2}
-  .es-tbl tr.es-cx-total>th.es-izq{background:#fcd34d}
-  .es-cx-grupo>th.es-izq{background:#f2f5f9}
-  .es-eq{min-width:0;max-width:170px}
-  .es-tbl td.es-vacio{position:sticky;left:0}
-}
-@media (max-width:560px){ .es-tiles>.es-tile:nth-child(odd):last-child{grid-column:1 / -1} }
-@media (prefers-reduced-motion:reduce){ .es-barrita span{transition:none} }
+/* Calis: una sola columna (el día que se ve) */
+.es-calis .es-col-cali{width:140px;text-align:center}
+.es-calis td.es-col-cali{padding:0 12px}
+.es-calis thead .es-col-cali{font:600 12px var(--es-fuente)!important;color:var(--es-gris)!important}
+.es-calis .es-cali{max-width:120px}
+
+/* ═══ Distribución (20-nov, tarde): fila de arriba con tres tarjetas ═══
+   Calis (angosta, ya es una sola columna) | CXC Xfinity | Ventas; abajo el Desglose a todo el ancho.
+   Las tres de arriba usan la misma cabecera (título arriba, controles abajo) y el mismo alto de
+   fila, así cada team sigue en la misma línea en Calis y en Ventas. */
+.es-contenido{grid-template-columns:minmax(260px,.75fr) minmax(320px,1fr) minmax(0,1.45fr)}
+.es-contenido > .es-card:not(.es-ancho) > .es-card-head{flex-direction:column;align-items:flex-start;justify-content:center;
+  gap:8px;height:104px;min-height:104px;flex-wrap:nowrap!important}
+.es-contenido > .es-card:not(.es-ancho) > .es-card-head > div:first-child{width:100%}
+.es-contenido > .es-card:not(.es-ancho) .es-cx-ctrl{flex-wrap:wrap}
+.es-calis .es-col-team{min-width:120px}
+.es-calis .es-col-cali{width:96px}
+.es-calis td.es-col-cali{padding:0 8px}
+.es-cxc .es-col-team{min-width:120px}
+.es-cxc .es-col-n{width:56px}
+@media (max-width:1100px){.es-contenido{grid-template-columns:minmax(0,1fr)}}
+.es-contenido > .es-card-cxc .es-cx-ctrl{flex-wrap:nowrap;gap:6px}
+.es-card-cxc .es-tab{padding:0 10px}
+.es-card-cxc .es-rango{min-width:0;padding:0 2px}
+.es-card-cxc .es-pie{flex-wrap:wrap}
+.es-card-cxc .es-tabla{border-collapse:separate;border-spacing:0}
+.es-card-cxc .es-tabla tbody th,.es-card-cxc .es-tabla tbody td{border-bottom:1px solid var(--es-linea)}
+/* CXC: fila de team resaltada y agentes debajo con sangría */
+.es-cxc .es-ag-team th,.es-cxc .es-ag-team td{background:#eef3f6;font-weight:700;color:var(--es-tinta)}
+.es-cxc .es-ag-team .es-nom{font-weight:700}
+.es-cxc .es-ag .es-nom{padding-left:12px;font-weight:400;color:var(--es-tinta)}
+
+/* ═══ Navidad (solo en temporada: html.sin-navidad la apaga, js/layout/topnav.js) ═══
+   - Las tarjetas dejan ver fuera de su borde para que js/componentes/guirnalda-navidad.js
+     les cuelgue la guirnalda, la tira de pino y el acebo (antes overflow:hidden lo impedía).
+   - Íconos 3D navideños en los títulos, como en Inicio; fuera de temporada vuelven los normales. */
+.es-card{overflow:visible}
+.es-ico-nav{width:22px;height:22px;filter:drop-shadow(0 2px 3px rgb(0 112 152 / .2))}
+html:not(.sin-navidad) .es-card-head h2 i.ph{display:none}
+html.sin-navidad .es-ico-nav{display:none}

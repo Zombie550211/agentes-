@@ -69,6 +69,8 @@ from routers import (
     consolidado as consolidado_router,
     consolidado_lineas as consolidado_lineas_router,
     auditoria as auditoria_router,
+    calis as calis_router,
+    estadisticas as estadisticas_router,
 )
 
 # ── Rutas base ──────────────────────────────────────────────────
@@ -749,6 +751,16 @@ _MIGRATIONS: list[tuple[str, str]] = [
         PRIMARY KEY (user_id, dia),
         INDEX idx_tcd_dia (dia)
     ) ENGINE=InnoDB"""),
+    # Calis del día (routers/calis.py): una cifra por team y día, escrita a mano.
+    ("0112_create_calis_dia", """CREATE TABLE IF NOT EXISTS calis_dia (
+        team        VARCHAR(150) NOT NULL,
+        fecha       DATE         NOT NULL,
+        cantidad    INT          NOT NULL,
+        editado_por VARCHAR(150) NOT NULL DEFAULT '',
+        updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (team, fecha),
+        INDEX idx_calis_fecha (fecha)
+    ) ENGINE=InnoDB"""),
 ]
 
 # Subcadenas de error MySQL que significan "el objeto ya existe" → la migración
@@ -1215,6 +1227,8 @@ app.include_router(tickets_router.router)
 app.include_router(promociones_router.router)
 app.include_router(promo_video_router.router)
 app.include_router(monitoreo_router.router)
+app.include_router(calis_router.router)
+app.include_router(estadisticas_router.router)
 app.include_router(consolidado_router.router)
 app.include_router(consolidado_lineas_router.router)
 app.include_router(auditoria_router.router)

@@ -16,11 +16,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+  <!-- Tipografía de Estadísticas (20-nov-2026): IBM Plex Sans, sobria y con cifras tabulares. -->
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/vendor/phosphor/phosphor-inicio.css?v=20261008h">
   <link rel="stylesheet" href="/css/base/sistema.css?v=20261117b">
   <link rel="stylesheet" href="/css/componentes/marco-amplio.css?v=20261119a">
   <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
-  <link rel="stylesheet" href="/css/residencial/estadisticas.css?v=20261106b">
+  <link rel="stylesheet" href="/css/residencial/estadisticas.css?v=20261120x">
   <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
   <script src="/js/layout/transicion.js?v=20261105a"></script>
   <script src="/vendor/chartjs/chart.umd.min.js"></script>
@@ -39,835 +41,111 @@
     <div id="topbar-acciones" class="in-iconos"></div>
   </header>
 
-  <!-- ══ Título y mes ══ -->
-  <section class="es-barra in-glass" aria-label="Día y mes consultados">
-    <div class="es-titulo">
-      <span class="es-ico"><i class="ph ph-chart-bar" aria-hidden="true"></i></span>
+  <!-- Contenido nuevo de Estadísticas: se está reordenando (20-nov-2026). -->
+  <main id="es-contenido" class="es-contenido">
+
+    <!-- ══ Calis del día (js/paginas/estadisticas-calis.js) ══ -->
+    <section class="es-card in-glass" aria-labelledby="es-calis-t">
+      <div class="es-card-head">
+        <div>
+          <h2 id="es-calis-t"><i class="ph ph-phone-call" aria-hidden="true"></i><img class="es-ico-nav" src="/images/dise%C3%B1o%20Navide%C3%B1o/iconos/campana.webp" alt="" width="22" height="22"> Calis del día</h2>
+          <p id="es-calis-ayuda">Calis de cada team</p>
+        </div>
+        <div class="es-semana">
+          <button type="button" class="es-paso" id="es-calis-prev" aria-label="Día anterior"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
+          <span class="es-rango" id="es-calis-rango" aria-live="polite">—</span>
+          <button type="button" class="es-paso" id="es-calis-next" aria-label="Día siguiente"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
+          <button type="button" class="es-hoy" id="es-calis-hoy">Hoy</button>
+        </div>
+      </div>
+      <div class="es-tabla-wrap" id="es-calis-cuerpo"><div class="es-estado">Cargando…</div></div>
+      <div class="es-pie"><span id="es-calis-estado" aria-live="polite"></span><span>Se guarda al salir de la casilla o con Enter</span></div>
+    </section>
+
+    <!-- ══ Cantidad de CXC Xfinity: cada team con su total y sus agentes (js/paginas/estadisticas-cxc.js) ══ -->
+    <section class="es-card es-card-cxc in-glass" aria-labelledby="es-cx-t">
+      <div class="es-card-head">
+        <div>
+          <h2 id="es-cx-t"><i class="ph ph-hash" aria-hidden="true"></i><img class="es-ico-nav" src="/images/dise%C3%B1o%20Navide%C3%B1o/iconos/estrella.webp" alt="" width="22" height="22"> Cantidad de CXC Xfinity</h2>
+          <p id="es-cx-sub">Del día y acumulado del mes</p>
+        </div>
+        <div class="es-cx-ctrl">
+          <div class="es-semana">
+            <button type="button" class="es-paso" id="es-cx-prev" aria-label="Día anterior"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
+            <span class="es-rango" id="es-cx-dia" aria-live="polite">—</span>
+            <button type="button" class="es-paso" id="es-cx-next" aria-label="Día siguiente"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
+          </div>
+        </div>
+      </div>
+      <div class="es-tabla-wrap" id="es-cx-cuerpo"><div class="es-estado">Cargando…</div></div>
+      <div class="es-pie"><span id="es-cx-estado" aria-live="polite"></span><span>Motivo «CXC Xfinity», sin canceladas ni repro.</span></div>
+    </section>
+    <!-- ══ Ventas por team, del día (por defecto) o del mes (js/paginas/estadisticas-ventas.js) ══ -->
+    <section class="es-card in-glass" aria-labelledby="es-ven-t">
+      <div class="es-card-head">
+        <div>
+          <h2 id="es-ven-t"><i class="ph ph-shopping-cart" aria-hidden="true"></i><img class="es-ico-nav" src="/images/dise%C3%B1o%20Navide%C3%B1o/iconos/regalo.webp" alt="" width="22" height="22"> Ventas</h2>
+          <p id="es-ven-sub">Del día</p>
+        </div>
+        <div class="es-tabs" role="tablist" aria-label="Periodo de ventas">
+          <button type="button" role="tab" class="es-tab" id="es-ven-dia" aria-selected="true" aria-controls="es-ven-cuerpo">Día</button>
+          <button type="button" role="tab" class="es-tab" id="es-ven-mes" aria-selected="false" aria-controls="es-ven-cuerpo" tabindex="-1">Mes</button>
+        </div>
+      </div>
+      <div class="es-tabla-wrap" id="es-ven-cuerpo" role="tabpanel" aria-labelledby="es-ven-dia"><div class="es-estado">Cargando…</div></div>
+      <div class="es-pie"><span id="es-ven-estado" aria-live="polite"></span><span>No cuenta canceladas ni repro. Se actualiza solo.</span></div>
+    </section>
+    <!-- ══ Desglose por servicio: el mes día por día (js/paginas/estadisticas-servicios.js) ══ -->
+    <section class="es-card es-ancho in-glass" aria-labelledby="es-svc-t">
+      <div class="es-card-head">
+        <div>
+          <h2 id="es-svc-t"><i class="ph ph-stack" aria-hidden="true"></i><img class="es-ico-nav" src="/images/dise%C3%B1o%20Navide%C3%B1o/iconos/arbol.webp" alt="" width="22" height="22"> Desglose por servicio</h2>
+          <p id="es-svc-sub">Ventas de cada servicio, día por día</p>
+        </div>
+        <div class="es-cx-ctrl">
+          <div class="es-semana">
+            <button type="button" class="es-paso" id="es-svc-prev" aria-label="Mes anterior"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
+            <span class="es-rango" id="es-svc-mes" aria-live="polite">—</span>
+            <button type="button" class="es-paso" id="es-svc-next" aria-label="Mes siguiente"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
+          </div>
+          <div class="es-tabs" role="tablist" aria-label="Mercado" id="es-svc-merc">
+            <button type="button" role="tab" class="es-tab" data-merc="icon" aria-selected="true" aria-controls="es-svc-cuerpo">ICON</button>
+            <button type="button" role="tab" class="es-tab" data-merc="bamo" aria-selected="false" aria-controls="es-svc-cuerpo" tabindex="-1">BAMO</button>
+          </div>
+          <button type="button" class="es-hoy es-expandir" id="es-svc-expandir" aria-haspopup="dialog">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2h4v4M6 14H2v-4M14 2 9.5 6.5M2 14l4.5-4.5"/></svg>
+            Expandir
+          </button>
+        </div>
+      </div>
+      <div class="es-tabla-wrap es-svc-wrap" id="es-svc-cuerpo"><div class="es-estado">Cargando…</div></div>
+      <div class="es-pie"><span id="es-svc-estado" aria-live="polite"></span><span>Residencial. ICON + BAMO de cada día = Ventas de ese día.</span></div>
+    </section>
+
+  </main>
+
+  <!-- Desglose por servicio a pantalla completa (botón «Expandir») -->
+  <dialog class="es-dlg" id="es-svc-dlg" aria-labelledby="es-svc-dlg-t">
+    <div class="es-card-head">
       <div>
-        <h1>Estadísticas</h1>
-        <p>Rendimiento comercial de Residencial y Líneas · en tiempo real</p>
+        <h2 id="es-svc-dlg-t"><i class="ph ph-stack" aria-hidden="true"></i><img class="es-ico-nav" src="/images/dise%C3%B1o%20Navide%C3%B1o/iconos/arbol.webp" alt="" width="22" height="22"> Desglose por servicio</h2>
+        <p id="es-svc-dlg-sub">—</p>
       </div>
+      <button type="button" class="es-paso" id="es-svc-dlg-cerrar" aria-label="Cerrar"><i class="ph ph-x" aria-hidden="true"></i></button>
     </div>
-    <div class="es-mes">
-      <button type="button" class="es-paso" id="btn-prev" aria-label="Día anterior"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
-      <input type="date" class="es-mes-lbl es-dia" id="day-filter" aria-label="Día consultado">
-      <button type="button" class="es-paso" id="btn-next" aria-label="Día siguiente"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
-      <select class="es-hoy es-mes-sel" id="month-filter" aria-label="Mes consultado"></select>
-    </div>
-  </section>
-
-  <!-- ══ Indicadores del mes ══ -->
-  <div class="es-tiles">
-    <div class="es-tile in-glass"><span class="es-tico"><i class="ph ph-shopping-cart"></i></span><div class="es-tile-val" id="kv-ventas">—</div><div class="es-tile-lbl">Ventas del mes</div></div>
-    <div class="es-tile in-glass"><span class="es-tico es-tico-verde"><i class="ph ph-calendar-check"></i></span><div class="es-tile-val" id="s-hoy">—</div><div class="es-tile-lbl">Ventas hoy</div></div>
-    <div class="es-tile es-tile-dest in-glass"><span class="es-tico"><i class="ph ph-target"></i></span><div class="es-tile-val" id="kv-puntaje">—</div><div class="es-tile-lbl">Puntaje acumulado</div></div>
-    <div class="es-tile in-glass"><span class="es-tico"><i class="ph ph-lightning"></i></span><div class="es-tile-val" id="kv-icon">—</div><div class="es-tile-lbl">Puntaje ICON</div></div>
-    <div class="es-tile in-glass"><span class="es-tico es-tico-verde"><i class="ph ph-gauge"></i></span><div class="es-tile-val" id="kv-activacion">—</div>
-      <div class="es-barrita" aria-hidden="true"><span id="kv-activacion-bar"></span></div><div class="es-tile-lbl">Tasa de activación</div></div>
-    <div class="es-tile in-glass"><span class="es-tico"><i class="ph ph-users-three"></i></span><div class="es-tile-val" id="s-equipos">—</div><div class="es-tile-lbl">Equipos con ventas</div></div>
-  </div>
-
-  <div class="es-grid">
-
-    <!-- ══ Ventas por equipo (mes / hoy) ══ -->
-    <section class="es-card es-equipos in-glass" aria-labelledby="es-eq-t">
-      <div class="es-card-head">
-        <div>
-          <h2 id="es-eq-t"><i class="ph ph-house-line" aria-hidden="true"></i> Ventas por equipo</h2>
-          <p id="es-eq-sub">Producción acumulada del mes</p>
-        </div>
-        <div class="es-tabs" role="tablist" aria-label="Periodo">
-          <button type="button" role="tab" class="es-tab" id="es-tab-mes" aria-selected="true" aria-controls="es-pan-mes">Mes</button>
-          <button type="button" role="tab" class="es-tab" id="es-tab-hoy" aria-selected="false" aria-controls="es-pan-hoy" tabindex="-1">Hoy</button>
-        </div>
-      </div>
-      <div class="es-scroll" id="es-pan-mes" role="tabpanel" aria-labelledby="es-tab-mes">
-        <table class="es-tbl">
-          <thead><tr>
-            <th scope="col" class="es-izq">Equipo</th>
-            <th scope="col">Ventas</th>
-            <th scope="col">Puntos</th>
-            <th scope="col">ICON</th>
-            <th scope="col">BAMO</th>
-          </tr></thead>
-          <tbody id="teams-tbody"><tr><td colspan="5" class="es-vacio">Cargando…</td></tr></tbody>
-        </table>
-      </div>
-      <div class="es-scroll" id="es-pan-hoy" role="tabpanel" aria-labelledby="es-tab-hoy" hidden>
-        <table class="es-tbl">
-          <thead><tr>
-            <th scope="col" class="es-izq">Equipo</th>
-            <th scope="col">BAMO hoy</th>
-            <th scope="col">ICON hoy</th>
-            <th scope="col" title="Total de ventas de ambos mercados">Ventas hoy</th>
-            <th scope="col" title="Total de puntos de ambos mercados">Puntos hoy</th>
-          </tr></thead>
-          <tbody id="teams-daily-tbody"><tr><td colspan="5" class="es-vacio">Cargando…</td></tr></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- ══ Desglose por servicio ══ -->
-    <section class="es-card es-servicios in-glass" aria-labelledby="es-sv-t">
-      <div class="es-card-head">
-        <div>
-          <h2 id="es-sv-t">Desglose por servicio</h2>
-          <p id="es-sv-sub">Ventas del mes por tipo de servicio</p>
-        </div>
-        <div class="es-tabs" role="tablist" aria-label="Periodo del desglose por servicio">
-          <button type="button" role="tab" class="es-tab" id="es-sv-tab-mes" aria-selected="true" aria-controls="es-sv-pan">Mes</button>
-          <button type="button" role="tab" class="es-tab" id="es-sv-tab-hoy" aria-selected="false" aria-controls="es-sv-pan" tabindex="-1">Hoy</button>
-        </div>
-      </div>
-      <div class="es-donut-wrap" id="es-sv-pan" role="tabpanel" aria-labelledby="es-sv-tab-mes">
-        <div class="es-donut">
-          <canvas id="donut-chart" aria-label="Ventas por servicio"></canvas>
-          <div class="es-donut-centro"><span id="donut-total">—</span><small>ventas</small></div>
-        </div>
-        <div class="es-leg" id="service-legend"></div>
-      </div>
-    </section>
-
-    <!-- ══ Cantidad de CXC Xfinity (automática, por team y por agente) ══ -->
-    <section class="es-card es-cxc in-glass" aria-labelledby="es-cx-t">
-      <div class="es-card-head">
-        <div>
-          <h2 id="es-cx-t">Cantidad de CXC Xfinity</h2>
-          <p id="es-cx-sub">Del día</p>
-        </div>
-        <div class="es-tabs" role="tablist" aria-label="Ver CXC Xfinity">
-          <button type="button" role="tab" class="es-tab" id="es-cx-tab-team" aria-selected="true" aria-controls="es-cx-pan-team">Por team</button>
-          <button type="button" role="tab" class="es-tab" id="es-cx-tab-ag" aria-selected="false" aria-controls="es-cx-pan-ag" tabindex="-1">Por agente</button>
-        </div>
-      </div>
-      <div class="es-scroll" id="es-cx-pan-team" role="tabpanel" aria-labelledby="es-cx-tab-team">
-        <table class="es-tbl es-cx-tbl">
-          <thead><tr><th scope="col" class="es-izq">Team</th><th scope="col">Día</th><th scope="col">Mes</th></tr></thead>
-          <tbody id="cxc-team-body"><tr><td colspan="3" class="es-vacio">Cargando…</td></tr></tbody>
-        </table>
-      </div>
-      <div class="es-scroll" id="es-cx-pan-ag" role="tabpanel" aria-labelledby="es-cx-tab-ag" hidden>
-        <table class="es-tbl es-cx-tbl">
-          <thead><tr><th scope="col" class="es-izq">Agente</th><th scope="col">Día</th><th scope="col">Mes</th></tr></thead>
-          <tbody id="cxc-ag-body"><tr><td colspan="3" class="es-vacio">Cargando…</td></tr></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- ══ Team Líneas ══ -->
-    <section class="es-card es-lineas in-glass" aria-labelledby="es-ln-t">
-      <div class="es-card-head">
-        <div>
-          <h2 id="es-ln-t"><i class="ph ph-device-mobile" aria-hidden="true"></i> Team Líneas</h2>
-          <p id="es-ln-sub">Ventas y líneas del mes</p>
-        </div>
-        <div class="es-tabs" role="tablist" aria-label="Periodo de Team Líneas">
-          <button type="button" role="tab" class="es-tab" id="es-ln-tab-mes" aria-selected="true" aria-controls="es-ln-pan-mes">Mes</button>
-          <button type="button" role="tab" class="es-tab" id="es-ln-tab-hoy" aria-selected="false" aria-controls="es-ln-pan-hoy" tabindex="-1">Hoy</button>
-        </div>
-      </div>
-      <div class="es-scroll" id="es-ln-pan-mes" role="tabpanel" aria-labelledby="es-ln-tab-mes">
-        <table class="es-tbl">
-          <thead><tr>
-            <th scope="col" class="es-izq">Team</th>
-            <th scope="col">Ventas</th>
-            <th scope="col">Líneas</th>
-          </tr></thead>
-          <tbody id="lineas-body"><tr><td colspan="3" class="es-vacio">Cargando…</td></tr></tbody>
-        </table>
-      </div>
-      <div class="es-scroll" id="es-ln-pan-hoy" role="tabpanel" aria-labelledby="es-ln-tab-hoy" hidden>
-        <table class="es-tbl">
-          <thead><tr>
-            <th scope="col" class="es-izq">Team</th>
-            <th scope="col">Ventas hoy</th>
-            <th scope="col">Líneas hoy</th>
-          </tr></thead>
-          <tbody id="lineas-hoy-body"><tr><td colspan="3" class="es-vacio">Cargando…</td></tr></tbody>
-        </table>
-      </div>
-    </section>
-
-
-  </div>
+    <div class="es-tabla-wrap es-svc-wrap es-dlg-cuerpo" id="es-svc-dlg-cuerpo"></div>
+  </dialog>
 
 </div>
 </div>
-
-<!-- Todos los servicios del periodo del desglose (botón «Ver todos») -->
-<dialog class="es-dlg" id="es-sv-dlg" aria-labelledby="es-sv-dlg-t">
-  <div class="es-card-head">
-    <div>
-      <h2 id="es-sv-dlg-t">Todos los servicios</h2>
-      <p id="es-sv-dlg-sub"></p>
-    </div>
-    <button type="button" class="es-dlg-cerrar" id="es-sv-dlg-cerrar" aria-label="Cerrar"><i class="ph ph-x" aria-hidden="true"></i></button>
-  </div>
-  <div class="es-scroll es-dlg-cuerpo">
-    <table class="es-tbl">
-      <thead><tr>
-        <th scope="col" class="es-izq">Servicio</th>
-        <th scope="col">Ventas</th>
-        <th scope="col">% del total</th>
-      </tr></thead>
-      <tbody id="es-sv-dlg-body"></tbody>
-    </table>
-  </div>
-</dialog>
 
 <script src="/js/layout/topnav.js?v=20261119g" defer></script>
 <script src="/js/layout/topbar-acciones.js?v=20261106a" defer></script>
 <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
-<script>
-(function(){
-  'use strict';
-
-  var now=new Date();
-  var cY=now.getFullYear(), cM=now.getMonth()+1;
-  var MN=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-
-  function $(id){return document.getElementById(id);}
-  function setT(id,v){var e=$(id);if(e)e.textContent=v;}
-  function esc(s){var d=document.createElement('div');d.textContent=String(s==null?'':s);return d.innerHTML;}
-  function mStr(y,m){return y+'-'+String(m).padStart(2,'0');}
-  function fStr(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-  function aFecha(s){var p=String(s).split('-');return new Date(+p[0],+p[1]-1,+p[2]);}
-  // Día consultado (YYYY-MM-DD): es el "hoy" de las tablas del día, Team Líneas y la
-  // tendencia. El mes consultado (cY/cM) es siempre el de ese día.
-  var selDia=fStr(now);
-  function diaSel(){return selDia;}
-  function llenarMeses(){
-    var sel=$('month-filter'), y=now.getFullYear(), html='';
-    for(var m=now.getMonth()+1;m>=1;m--){html+='<option value="'+mStr(y,m)+'">'+MN[m-1]+' '+y+'</option>';}
-    sel.innerHTML=html;
-  }
-  function updateDisplay(){
-    var hoy=fStr(now), sel=$('month-filter'), ms=mStr(cY,cM);
-    $('day-filter').value=selDia;
-    $('day-filter').max=hoy;
-    $('day-filter').min=now.getFullYear()+'-01-01';
-    if(!sel.querySelector('option[value="'+ms+'"]')){
-      var o=document.createElement('option');o.value=ms;o.textContent=MN[cM-1]+' '+cY;sel.appendChild(o);
-    }
-    sel.value=ms;
-    $('btn-next').disabled=selDia>=hoy;
-    $('btn-prev').disabled=selDia<=$('day-filter').min;
-  }
-  function irADia(ds){
-    var hoy=fStr(now);
-    if(!ds)return;
-    if(ds>hoy)ds=hoy;
-    if(ds<now.getFullYear()+'-01-01')ds=now.getFullYear()+'-01-01';
-    var d=aFecha(ds), cambiaMes=(d.getFullYear()!==cY||d.getMonth()+1!==cM);
-    selDia=ds;cY=d.getFullYear();cM=d.getMonth()+1;
-    updateDisplay();refrescarSubtitulo();
-    loadWeekendRotation().then(function(){ if(cambiaMes)load(); else{ rerender(); loadCxc(); } });
-  }
-  function pasoDia(n){var d=aFecha(selDia);d.setDate(d.getDate()+n);irADia(fStr(d));}
-  function elegirMes(ms){
-    var p=ms.split('-'), y=+p[0], m=+p[1];
-    // Mes en curso: hoy. Mes pasado: su último día.
-    irADia((y===now.getFullYear()&&m===now.getMonth()+1)?fStr(now):fStr(new Date(y,m,0)));
-  }
-
-  var TTL=2*60*1000;
-  function ck(m){return 'res_stats_v13_'+m;}
-  function cSave(m,d){try{localStorage.setItem(ck(m),JSON.stringify({ts:Date.now(),d:d}));}catch(_){}}
-  function cLoad(m){try{var r=localStorage.getItem(ck(m));if(!r)return null;var p=JSON.parse(r);return(Date.now()-p.ts<TTL)?p.d:null;}catch(_){return null;}}
-
-  async function fetchData(m){
-    try{
-      var res=await fetch('/api/leads/bootstrap?stats=1&seccion=residencial&salesTeams=1&month='+encodeURIComponent(m),{credentials:'include'});
-      if(!res.ok)return null;
-      var j=await res.json();
-      return j.success?j:null;
-    }catch(_){return null;}
-  }
-
-  // Paleta de gráficos: los dos azules del logo, verde y amarillo del semáforo y un azul
-  // claro para el top 5; el 6.º (gris) es siempre "Otros".
-  var PAL=['#007098','#30a0c8','#16a34a','#eab308','#a3d7ec','#8f9ca6'];
-  function teamInitials(n){return String(n||'').replace(/^TEAM\s+/i,'').split(/\s+/).filter(Boolean).map(function(w){return w[0];}).join('').toUpperCase().slice(0,2)||'??';}
-  function todayStr(){return diaSel();}
-
-  var NUM_FONT={family:'Inter',size:11,weight:500};
-  var TIP={backgroundColor:'rgba(255,255,255,.97)',titleColor:'#14212a',bodyColor:'#3a464e',borderColor:'rgba(0,112,152,.18)',
-    borderWidth:1,cornerRadius:0,padding:10,titleFont:{family:'Inter',size:11,weight:600},bodyFont:{family:'Inter',size:11}};
-
-  var _donut=null;
-  function renderDonut(labels,data,colors,total){
-    var ctx=$('donut-chart');if(!ctx)return;
-    if(_donut){_donut.destroy();_donut=null;}
-    setT('donut-total',total);
-    _donut=new Chart(ctx,{type:'doughnut',
-      data:{labels:labels,datasets:[{data:data,backgroundColor:colors,borderWidth:2,borderColor:'#fff',hoverBorderWidth:0}]},
-      options:{responsive:true,maintainAspectRatio:true,cutout:'74%',
-        plugins:{legend:{display:false},tooltip:Object.assign({},TIP,{
-          callbacks:{label:function(c){return ' '+c.label+': '+c.raw+' ('+(total>0?(c.raw/total*100).toFixed(1):0)+'%)';}}})}}});
-  }
-
-
-  // ── Servicios: nombre del catálogo (Permisos → Servicios y Puntajes) ──
-  // Cada servicio y sus nombres equivalentes (AIR, AT&T AIR… → ATT AIR) apuntan al
-  // nombre del catálogo, para que el desglose no muestre el mismo servicio dos veces.
-  var _svcCanon={};
-  var LEG_MAX=8;   // servicios que caben en la tarjeta; el resto, en «Ver todos»
-  function normSvc(x){ return String(x||'').trim().replace(/\s+/g,' ').toUpperCase(); }
-  async function loadServicios(){
-    try{
-      var res=await fetch('/api/productos',{credentials:'include'});
-      if(!res||!res.ok)return;
-      var j=await res.json();
-      (j.productos||[]).forEach(function(p){
-        if(!p.servicio)return;
-        _svcCanon[normSvc(p.servicio)]=p.servicio;
-        (p.equivalentes||[]).forEach(function(e){ _svcCanon[normSvc(e)]=p.servicio; });
-      });
-    }catch(_){}
-  }
-
-  // ── Equipos: fuente ÚNICA = backend ──
-  // Se llenan desde /api/leads/bootstrap -> teams (DISTINCT de users.team, que se
-  // gestiona en la página de permisos). SIN lista hardcodeada: si un equipo se
-  // renombra o se crea en la BD, aquí se refleja solo, sin tocar código.
-  var _configTeams=[];
-
-  // Mapa dinámico supervisor -> su equipo (desde /api/teams/supervisors-list).
-  // El lead guarda el nombre del supervisor; aquí lo resolvemos a su TEAM actual.
-  var _supTeam={};
-  async function loadSupervisors(){
-    try{
-      var res=await fetch('/api/teams/supervisors-list',{credentials:'include'});
-      if(!res||!res.ok)return;
-      var j=await res.json();
-      (j.supervisors||[]).forEach(function(sv){
-        var team=String(sv.team||'').trim();
-        if(!team)return;
-        if(sv.name)_supTeam[normMatch(sv.name)]=team;
-        if(sv.username)_supTeam[normMatch(sv.username)]=team;
-      });
-    }catch(_){}
-  }
-
-  // Rotación de fin de semana: qué equipos trabajan HOY. null = sin filtro (entre
-  // semana o sin config). El backend calcula la rotación (/api/weekend-rotation).
-  var _weekendTeams = null;
-  async function loadWeekendRotation(){
-    try{
-      var res=await fetch('/api/weekend-rotation?date='+encodeURIComponent(todayStr()),{credentials:'include'});
-      if(!res||!res.ok)return;
-      var j=await res.json();
-      _weekendTeams = (j && j.today && j.today.teams) ? j.today.teams : null;
-    }catch(_){ _weekendTeams = null; }
-  }
-
-  // Teams con alguien conectado ahora (/api/teams/conectados). Las tablas «Hoy» del día
-  // actual solo muestran estos (y los que ya vendieron hoy, para no perder ventas).
-  // null = no se pudo cargar → sin filtro.
-  var _conectados = null;
-  var _conectadosLineas = [];   // nombres de los teams de Líneas conectados
-  async function loadConectados(){
-    try{
-      var res=await fetch('/api/teams/conectados',{credentials:'include'});
-      if(!res||!res.ok)return;
-      var j=await res.json();
-      _conectados=(j.teams||[]).map(function(t){return normMatch(t);});
-      _conectadosLineas=(j.detalle||[]).filter(function(d){return d.seccion==='lineas';}).map(function(d){return d.team;});
-    }catch(_){}
-  }
-  function esDiaActual(){ return diaSel()===fStr(new Date()); }
-  // ¿El team sale en la tabla «Hoy»? Día actual: conectado o con ventas hoy.
-  function visibleHoy(label,ventasHoy){
-    if(!esDiaActual()||!_conectados)return true;
-    return ventasHoy>0||_conectados.indexOf(normMatch(label))!==-1;
-  }
-
-  // Equipos de Líneas (para mostrar filas a cero cuando no hay datos).
-  // Dinámico desde el backend (/api/teams?seccion=lineas) — sin nombres hardcodeados.
-  var _lineasTeams = [];
-  async function loadLineasTeams(){
-    try{
-      // Sin sales=1: en Líneas solo VICTOR tiene a alguien con rol supervisor y los demás
-      // teams (JONATHAN, LUIS) desaparecían del Mes mientras no tuvieran ventas.
-      var res=await fetch('/api/teams?seccion=lineas',{credentials:'include'});
-      if(!res||!res.ok)return;
-      var j=await res.json();
-      _lineasTeams=(j.teams||[]).map(function(t){return t.value||t;});
-    }catch(_){}
-  }
-  // Contadores de un team de Líneas: ventas (C, un cliente = una venta) y líneas (L),
-  // del mes y del día consultado, sumando los dos mercados.
-  function equipoLineasVacio(t){ return {team:t,mesC:0,mesL:0,hoyC:0,hoyL:0}; }
-  function _lineasPlaceholder(){
-    return _lineasTeams.map(function(t){return equipoLineasVacio(t);});
-  }
-
-  // Renames cargados del API [{old_name, new_name, changed_at:'YYYY-MM-DD'}]
-  var _renames=[];
-
-  function normMatch(s){
-    try{return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();}
-    catch(_){return String(s||'').toLowerCase().trim();}
-  }
-
-  // Canoniza el team de un lead contra la lista REAL de equipos del backend
-  // (_configTeams). Sin mapa hardcodeado: si el texto del lead coincide (o contiene)
-  // el nombre de un equipo real, se usa ese. Los renombres de negocio (por fecha)
-  // los aplica resolveTeam con la tabla team_renames del backend.
-  function matchTeam(raw){
-    if(!raw)return null;
-    var n=normMatch(raw);
-    if(!n)return null;
-    for(var i=0;i<_configTeams.length;i++){ if(normMatch(_configTeams[i])===n)return _configTeams[i]; }
-    for(var j=0;j<_configTeams.length;j++){
-      var t=normMatch(_configTeams[j]);
-      if(t&&(n.indexOf(t)>=0||t.indexOf(n)>=0))return _configTeams[j];
-    }
-    return null;
-  }
-
-  // Resuelve el nombre de equipo correcto para un lead según la fecha de la venta.
-  // Si existe un rename vigente (dia_venta >= changed_at), usa el nuevo nombre.
-  function resolveTeam(teamRaw, diaVenta){
-    if(!teamRaw)return null;
-    var canonical = _supTeam[normMatch(teamRaw)] || matchTeam(teamRaw) || teamRaw;
-    if(!diaVenta)return canonical;
-    var leadDate = diaVenta.slice(0,10);
-    for(var i=0;i<_renames.length;i++){
-      var r=_renames[i];
-      var oldNorm = matchTeam(r.old_name) || r.old_name;
-      if(normMatch(canonical)===normMatch(oldNorm) && leadDate>=r.changed_at){
-        canonical=r.new_name;
-      }
-    }
-    return canonical;
-  }
-
-  function celdaEquipo(label,corto){
-    return '<th scope="row" class="es-izq"><div class="es-eq"><span class="es-avatar" aria-hidden="true">'+esc(teamInitials(label))+'</span>'+
-      '<span class="es-eq-nom"'+(corto&&corto!==label?' title="'+esc(label)+'"':'')+'>'+esc(corto||label)+'</span></div></th>';
-  }
-
-  function render(leads,configTeams){
-    if(configTeams&&configTeams.length){
-      _configTeams=configTeams.map(function(t){return typeof t==='string'?t:(t&&t.team)||'';}).filter(Boolean);
-    }
-    var today=todayStr();
-    var ms=mStr(cY,cM);
-
-    // Ventas del mes: solo leads con dia_venta en el mes. Excluye canceladas y REPRO
-    // (un REPRO reprocesa una venta de días atrás, que ya se contó).
-    var filtered=leads.filter(function(l){
-      var st=String(l.status||'').toLowerCase();
-      return String(l.dia_venta||'').slice(0,7)===ms&&st!=='cancelled'&&!/repro|resched|reagend/.test(st);
-    });
-
-    var total=filtered.length;
-    var totalPts=filtered.reduce(function(a,l){return a+(parseFloat(l.puntaje||0)||0);},0);
-    var iconPts=filtered.filter(function(l){return String(l.mercado||'').toUpperCase().includes('ICON');})
-                        .reduce(function(a,l){return a+(parseFloat(l.puntaje||0)||0);},0);
-    var active=filtered.filter(function(l){var s=String(l.status||'').toLowerCase();return s==='active'||s==='activa'||s.includes('activ')||s==='completed'||s.includes('complet');}).length;
-    var colchonLeads=leads.filter(function(l){var dinst=String(l.dia_instalacion||'').slice(0,7);var dv=String(l.dia_venta||'').slice(0,7);return dinst===ms&&(!dv||dv<ms);});
-    var activeColchon=colchonLeads.filter(function(l){var s=String(l.status||'').toLowerCase();return s==='completed'||s.includes('complet');}).length;
-    var totalParaActivacion=total+colchonLeads.length;
-    var actPct=totalParaActivacion>0?((active+activeColchon)/totalParaActivacion)*100:0;
-
-    setT('kv-ventas',total);
-    setT('kv-icon',iconPts.toFixed(2));
-    setT('kv-puntaje',totalPts.toFixed(2));
-    setT('kv-activacion',actPct.toFixed(1)+'%');
-    $('kv-activacion-bar').style.width=Math.min(100,actPct)+'%';
-
-    // ── Grupos por EQUIPO (no supervisor) ──
-    // Sin lista pre-cargada: los equipos salen de las ventas reales del mes,
-    // canonizados contra la lista del backend.
-    var teams={};
-    filtered.forEach(function(l){
-      var teamRaw=String(l.team||'').trim();
-      var dv=String(l.dia_venta||'').slice(0,10);
-      var matched=resolveTeam(teamRaw,dv)||resolveTeam(l.supervisor,dv)||(teamRaw||null);
-      if(!matched)return;
-      var k=matched.toUpperCase();
-      if(!teams[k])teams[k]={v:0,pts:0,hoy:0,ptsH:0,icon:0,bamo:0,iconH:0,bamoH:0,label:matched};
-      teams[k].v++;
-      teams[k].pts+=(parseFloat(l.puntaje||0)||0);
-      var mkt=String(l.mercado||'').toUpperCase();
-      if(mkt.includes('ICON')){teams[k].icon++;}
-      if(mkt.includes('BAMO')){teams[k].bamo++;}
-      if(String(l.dia_venta||'').slice(0,10)===today){
-        teams[k].hoy++;
-        teams[k].ptsH+=(parseFloat(l.puntaje||0)||0);
-        if(mkt.includes('ICON'))teams[k].iconH++;
-        if(mkt.includes('BAMO'))teams[k].bamoH++;
-      }
-    });
-    // Todos los equipos de venta (los que tienen supervisor, desde el backend) salen
-    // aunque aún no tengan ventas: un equipo nuevo aparece en cuanto se crea en Permisos
-    // y se le asigna supervisor, con 0 hasta su primera venta.
-    _configTeams.forEach(function(t){
-      var k=String(t).toUpperCase();
-      if(!teams[k])teams[k]={v:0,pts:0,hoy:0,ptsH:0,icon:0,bamo:0,iconH:0,bamoH:0,label:t};
-    });
-    var tNames=Object.keys(teams).sort(function(a,b){
-      var diff=teams[b].v-teams[a].v;
-      return diff!==0?diff:(teams[a].label||a).localeCompare(teams[b].label||b);
-    });
-    setT('s-equipos',tNames.filter(function(k){return teams[k].v>0;}).length);
-    var maxV=tNames.reduce(function(a,s){return Math.max(a,teams[s].v);},0);
-
-    // Tabla mensual (con barra proporcional a las ventas)
-    var tbody=$('teams-tbody');
-    if(!tNames.length){
-      tbody.innerHTML='<tr><td colspan="5" class="es-vacio">Sin ventas en este mes</td></tr>';
-    }else{
-      var rowsMes=tNames.map(function(s){
-        var t=teams[s];
-        return '<tr>'+celdaEquipo(t.label||s)+
-          '<td class="es-n es-n-barra"><span class="es-num">'+t.v+'</span>'+
-            '<span class="es-mini" aria-hidden="true"><span style="width:'+(maxV?Math.round(t.v*100/maxV):0)+'%"></span></span></td>'+
-          '<td class="es-n">'+t.pts.toFixed(2)+'</td>'+
-          '<td class="es-n">'+t.icon+'</td>'+
-          '<td class="es-n">'+t.bamo+'</td>'+
-        '</tr>';
-      });
-      var tV=tNames.reduce(function(a,s){return a+teams[s].v;},0);
-      var tP=tNames.reduce(function(a,s){return a+teams[s].pts;},0);
-      var tI=tNames.reduce(function(a,s){return a+teams[s].icon;},0);
-      var tB=tNames.reduce(function(a,s){return a+teams[s].bamo;},0);
-      rowsMes.push('<tr class="es-total"><th scope="row" class="es-izq">Total general</th>'+
-        '<td class="es-n">'+tV+'</td><td class="es-n">'+tP.toFixed(2)+'</td><td class="es-n">'+tI+'</td><td class="es-n">'+tB+'</td></tr>');
-      tbody.innerHTML=rowsMes.join('');
-    }
-
-    // Tabla diaria — día actual: solo los teams con alguien conectado (o que ya vendieron).
-    // Otro día: en fin de semana los de la rotación (backend); entre semana todos.
-    // Orden: ventas del día, luego puntos del día, luego nombre.
-    var dayTNames=tNames.slice();
-    if(esDiaActual()&&_conectados){
-      dayTNames=dayTNames.filter(function(s){return visibleHoy(teams[s].label||s,teams[s].hoy);});
-    }else if(_weekendTeams){
-      var _wt=_weekendTeams.map(function(x){return normMatch(x);});
-      dayTNames=tNames.filter(function(s){return _wt.indexOf(normMatch(teams[s].label||s))!==-1;});
-    }
-    dayTNames.sort(function(a,b){
-      return (teams[b].hoy-teams[a].hoy)||(teams[b].ptsH-teams[a].ptsH)||(teams[a].label||a).localeCompare(teams[b].label||b);
-    });
-    var tH=dayTNames.reduce(function(a,s){return a+teams[s].hoy;},0);
-    var tPH=dayTNames.reduce(function(a,s){return a+teams[s].ptsH;},0);
-    var tIH=dayTNames.reduce(function(a,s){return a+teams[s].iconH;},0);
-    var tBH=dayTNames.reduce(function(a,s){return a+teams[s].bamoH;},0);
-    var rowsDay=dayTNames.length ? dayTNames.map(function(s){
-      var t=teams[s];
-      return '<tr>'+celdaEquipo(t.label||s)+
-        '<td class="es-n">'+t.bamoH+'</td>'+
-        '<td class="es-n">'+t.iconH+'</td>'+
-        '<td class="es-n"><span class="es-num'+(t.hoy?' es-num-on':'')+'">'+t.hoy+'</span></td>'+
-        '<td class="es-n">'+t.ptsH.toFixed(2)+'</td>'+
-      '</tr>';
-    }) : ['<tr><td colspan="5" class="es-vacio">'+(esDiaActual()&&_conectados?'Ningún equipo conectado':tNames.length?'Ningún equipo trabaja hoy':'Sin ventas hoy')+'</td></tr>'];
-    rowsDay.push('<tr class="es-total"><th scope="row" class="es-izq">Total hoy</th>'+
-      '<td class="es-n">'+tBH+'</td><td class="es-n">'+tIH+'</td><td class="es-n">'+tH+'</td><td class="es-n">'+tPH.toFixed(2)+'</td></tr>');
-    $('teams-daily-tbody').innerHTML=rowsDay.join('');
-    setT('s-hoy',tH);   // coherente con la tabla del día
-
-    // Donut: top 5 servicios + Otros, del mes o del día consultado (pestañas Mes / Hoy)
-    var svHoy=tabOn('es-sv-tab-hoy');
-    var svFilas=svHoy?filtered.filter(function(l){return String(l.dia_venta||'').slice(0,10)===today;}):filtered;
-    var svTotal=svFilas.length;
-    var svc={};
-    svFilas.forEach(function(l){
-      var s=l.servicios||l.tipo_servicio;
-      if(Array.isArray(s))s=s[0]||'Otro';
-      s=String(s||'Otro').trim()||'Otro';
-      s=_svcCanon[normSvc(s)]||s;
-      svc[s]=(svc[s]||0)+1;
-    });
-    var svcS=Object.keys(svc).sort(function(a,b){return svc[b]-svc[a];});
-    var top=svcS.slice(0,5),otrosVal=svcS.slice(5).reduce(function(a,k){return a+svc[k];},0);
-    var dLbls=top.slice(),dVals=top.map(function(k){return svc[k];});
-    if(otrosVal>0){dLbls.push('Otros');dVals.push(otrosVal);}
-    var cols=dLbls.map(function(_,i){return PAL[i%PAL.length];});
-    renderDonut(dLbls,dVals,cols,svTotal);
-    // Leyenda: los LEG_MAX primeros (los que no están en el top del donut comparten el
-    // color de "Otros"). La lista completa va en el modal «Ver todos», así la tarjeta
-    // no crece y no estira las de la izquierda.
-    var colMap={};dLbls.forEach(function(l,i){colMap[l]=cols[i];});
-    var colOtros=colMap.Otros||PAL[PAL.length-1];
-    function pctSv(l){ return svTotal>0?((svc[l]/svTotal)*100).toFixed(1):0; }
-    var filasLeg=svcS.slice(0,LEG_MAX).map(function(l){
-      return '<div class="es-leg-row"><span class="es-leg-dot" style="background:'+(colMap[l]||colOtros)+'"></span>'+
-        '<span class="es-leg-nom">'+esc(l)+'</span>'+
-        '<span class="es-leg-n">'+svc[l]+'</span>'+
-        '<span class="es-leg-p">'+pctSv(l)+'%</span></div>';
-    }).join('');
-    if(svcS.length>LEG_MAX){
-      filasLeg+='<button type="button" class="es-ver-todos" data-sv-todos>Ver todos los servicios ('+svcS.length+')</button>';
-    }
-    $('service-legend').innerHTML=svcS.length ? filasLeg : '<div class="es-vacio">'+(svHoy?'Sin ventas este día':'Sin ventas en este mes')+'</div>';
-    var dSel=aFecha(diaSel());
-    setT('es-sv-dlg-sub', svHoy ? 'Ventas del '+dSel.getDate()+'/'+(dSel.getMonth()+1)+'/'+dSel.getFullYear()+' · '+svTotal+' en total' : 'Ventas del mes · '+svTotal+' en total');
-    $('es-sv-dlg-body').innerHTML=svcS.map(function(l){
-      return '<tr><th scope="row" class="es-izq"><span class="es-dlg-nom"><span class="es-leg-dot" style="background:'+(colMap[l]||colOtros)+'"></span>'+esc(l)+'</span></th>'+
-        '<td class="es-n es-n-dest">'+svc[l]+'</td><td class="es-n">'+pctSv(l)+'%</td></tr>';
-    }).join('')+
-      '<tr class="es-total"><th scope="row" class="es-izq">Total</th><td class="es-n">'+svTotal+'</td><td class="es-n">100%</td></tr>';
-
-  }
-
-  // ── Team Líneas — /api/lineas-stats ────────────
-  async function loadLineas(){
-    try{
-      var res=await fetch('/api/lineas-stats?month='+mStr(cY,cM),{credentials:'include'});
-      if(!res.ok)throw new Error('no auth');
-      var j=await res.json();
-      var data=j.data||[];
-      var today=todayStr();
-      var ms=mStr(cY,cM);
-
-      // Agrupar por team — clientes (registros) + líneas (cantidad_lineas)
-      var teams={};
-      data.forEach(function(r){
-        var t=(r.team||r.supervisor||'SIN TEAM').toUpperCase();
-        if(!teams[t])teams[t]=equipoLineasVacio(t);
-        var lineas=parseInt(r.cantidad_lineas||1)||1;
-        var dv=String(r.dia_venta||'').slice(0,7);
-        var dvFull=String(r.dia_venta||'').slice(0,10);
-        function sumar(p){ teams[t][p+'C']++; teams[t][p+'L']+=lineas; }
-        if(dv===ms)sumar('mes');
-        if(dvFull===today)sumar('hoy');
-      });
-
-      // Igual que en Residencial: todos los teams de Líneas con supervisor, aunque
-      // todavía no tengan ventas (un team nuevo sale en cuanto se crea).
-      _lineasTeams.forEach(function(t){
-        var k=String(t).toUpperCase();
-        if(!teams[k])teams[k]=equipoLineasVacio(k);
-      });
-      var arr=Object.values(teams).sort(function(a,b){return b.mesC-a.mesC||String(a.team).localeCompare(String(b.team));});
-      renderLineas(arr);
-    }catch(_){
-      renderLineas(_lineasPlaceholder());
-    }
-  }
-
-  // Dos tablas, como Ventas por equipo: la del mes y la del día consultado.
-  function renderLineas(todos){
-    // Columnas: ventas y líneas (ambos mercados juntos).
-    function tabla(id,p,total){
-      var body=$(id);
-      if(!body)return;
-      var teams=todos;
-      if(p==='hoy'){
-        // Día actual: los teams de Líneas conectados salen aunque no estén en la lista de
-        // teams de venta (p.ej. sin supervisor asignado), con 0 hasta su primera venta.
-        if(esDiaActual()){
-          todos=todos.slice();
-          _conectadosLineas.forEach(function(t){
-            if(!todos.some(function(x){return normMatch(x.team)===normMatch(t);}))todos.push(equipoLineasVacio(String(t).toUpperCase()));
-          });
-        }
-        // Solo teams conectados (o con ventas hoy); orden por ventas del día.
-        teams=todos.filter(function(t){return visibleHoy(t.team,t.hoyC);}).sort(function(a,b){
-          return (b.hoyC-a.hoyC)||(b.hoyL-a.hoyL)||String(a.team).localeCompare(String(b.team));
-        });
-        if(!teams.length&&todos.length){ body.innerHTML='<tr><td colspan="3" class="es-vacio">Ningún team conectado</td></tr>'; return; }
-      }
-      if(!teams.length){ body.innerHTML='<tr><td colspan="3" class="es-vacio">Sin datos de Líneas</td></tr>'; return; }
-      function suma(k){return teams.reduce(function(a,t){return a+t[k];},0);}
-      function celdas(v){
-        return '<td class="es-n es-n-dest">'+v(p+'C')+'</td><td class="es-n">'+v(p+'L')+'</td>';
-      }
-      body.innerHTML=teams.map(function(t){
-        // La tarjeta ya dice «Team Líneas»: basta con el nombre propio (LUIS, VICTOR…).
-        var corto=String(t.team).replace(/^TEAM\s+L[IÍ]NEAS\s+/i,'')||t.team;
-        return '<tr>'+celdaEquipo(t.team,corto)+celdas(function(k){return t[k];})+'</tr>';
-      }).join('')+
-      '<tr class="es-total"><th scope="row" class="es-izq">'+total+'</th>'+celdas(suma)+'</tr>';
-    }
-    tabla('lineas-body','mes','Total del mes');
-    tabla('lineas-hoy-body','hoy','Total hoy');
-  }
-
-  // ── Cantidad de CXC Xfinity — /api/cxc-xfinity (solo lectura) ──
-  // Cuenta los registros con motivo «CXC Xfinity»; se actualiza sola con los eventos en vivo.
-  var _cx=null;
-  function sinTeam(t){ return String(t||'').replace(/^TEAM\s+/i,'')||t; }
-  function dCorto(ds){ var p=String(ds).split('-'); return (+p[2])+'/'+(+p[1])+'/'+p[0]; }
-  async function loadCxc(){
-    var dia=diaSel();
-    try{
-      var res=await fetch('/api/cxc-xfinity?fecha='+dia,{credentials:'include'});
-      if(!res.ok)throw new Error(res.status);
-      var j=await res.json();
-      if(dia!==diaSel())return;            // cambiaron de día mientras cargaba
-      _cx=j;
-    }catch(_){
-      if(dia!==diaSel())return;
-      _cx=null;
-      ['cxc-team-body','cxc-ag-body'].forEach(function(id){
-        $(id).innerHTML='<tr><td colspan="3" class="es-vacio">No se pudo cargar la tabla</td></tr>';
-      });
-      return;
-    }
-    renderCxc();
-  }
-  function cxValor(tipo,clave){
-    var v=(_cx.valores||[]).find(function(x){return x.tipo===tipo&&String(x.clave)===String(clave);});
-    return v?(+v.cantidad||0):0;
-  }
-  function cxMes(tipo,clave){
-    var v=(_cx.mes||[]).find(function(x){return x.tipo===tipo&&String(x.clave)===String(clave);});
-    return v?(+v.total||0):0;
-  }
-  // Casillas de una fila: Día y Mes (suma de sus días).
-  function cxCeldas(tipo,clave){
-    return '<td class="es-n es-n-dest">'+(cxValor(tipo,clave)||'')+'</td><td class="es-n es-cx-mes">'+(cxMes(tipo,clave)||'')+'</td>';
-  }
-  function cxTotal(dia,mes,etiqueta){
-    return '<tr class="es-total es-cx-total"><th scope="row" class="es-izq">'+etiqueta+'</th><td class="es-n">'+dia+'</td><td class="es-n">'+mes+'</td></tr>';
-  }
-  function renderCxc(){
-    if(!_cx)return;
-    var d=aFecha(_cx.fecha);
-    setT('es-cx-sub', 'Día '+dCorto(_cx.fecha)+' · Mes: '+MN[d.getMonth()]+' '+d.getFullYear());
-
-    // Por team: teams de venta + los que tienen dato en el mes aunque ya no existan.
-    var teams=(_cx.teams||[]).slice();
-    (_cx.mes||[]).forEach(function(v){ if(v.tipo==='team'&&teams.indexOf(v.clave)===-1)teams.push(v.clave); });
-    var totT=0, totTM=0;
-    var filasT=teams.map(function(t){
-      totT+=cxValor('team',t); totTM+=cxMes('team',t);
-      return '<tr>'+celdaEquipo(t,sinTeam(t))+cxCeldas('team',t)+'</tr>';
-    });
-    $('cxc-team-body').innerHTML=teams.length ? filasT.join('')+cxTotal(totT,totTM,'Total')
-      : '<tr><td colspan="3" class="es-vacio">No hay teams de venta</td></tr>';
-
-    // Por agente: agrupados por team, con subtotal en la fila del team.
-    var ags=(_cx.agentes||[]).slice(), ids={};
-    ags.forEach(function(a){ids[a.id]=1;});
-    (_cx.mes||[]).forEach(function(v){
-      if(v.tipo==='agente'&&!ids[v.clave])ags.push({id:v.clave,nombre:v.nombre,team:v.team||'Sin team'});
-    });
-    var grupos={}, orden=[];
-    ags.forEach(function(a){ var t=a.team||'Sin team'; if(!grupos[t]){grupos[t]=[];orden.push(t);} grupos[t].push(a); });
-    orden.sort(function(a,b){return a.localeCompare(b);});
-    var totA=0, totAM=0, filasA=[];
-    orden.forEach(function(t){
-      var sub=0, subM=0;
-      grupos[t].forEach(function(x){ sub+=cxValor('agente',x.id); subM+=cxMes('agente',x.id); });
-      totA+=sub; totAM+=subM;
-      filasA.push('<tr class="es-cx-grupo"><th scope="rowgroup" class="es-izq">'+esc(sinTeam(t))+'</th><td class="es-n">'+(sub||'')+'</td><td class="es-n">'+(subM||'')+'</td></tr>');
-      grupos[t].forEach(function(a){
-        filasA.push('<tr><th scope="row" class="es-izq es-cx-ag">'+esc(a.nombre)+'</th>'+cxCeldas('agente',a.id)+'</tr>');
-      });
-    });
-    $('cxc-ag-body').innerHTML=ags.length ? filasA.join('')+cxTotal(totA,totAM,'Total')
-      : '<tr><td colspan="3" class="es-vacio">No hay agentes de Residencial</td></tr>';
-  }
-  function initCxc(){
-    initTabs([$('es-cx-tab-team'),$('es-cx-tab-ag')]);
-  }
-
-  // Repinta con los últimos datos del mes (cambio de día dentro del mismo mes).
-  var _ult=null;
-  function rerender(){
-    if(_ult)render(_ult.leads,_ult.teams);
-    loadLineas();
-  }
-
-  async function load(){
-    var ms=mStr(cY,cM);
-    loadCxc();
-    var cached=cLoad(ms);
-    if(cached&&cached.leads&&cached.leads.length>0){
-      if(cached.renames)_renames=cached.renames;
-      _ult={leads:cached.leads,teams:cached.teams||[]};
-      render(cached.leads,cached.teams||[]);
-    }
-    // Bootstrap y líneas en paralelo
-    await loadConectados();
-    if(_ult)render(_ult.leads,_ult.teams);
-    var results=await Promise.all([fetchData(ms), loadLineas()]);
-    var data=results[0];
-    if(data&&data.leads){
-      if(data.renames)_renames=data.renames;
-      cSave(ms,{leads:data.leads,teams:data.teams||[],renames:data.renames||[]});
-      var changed=!cached||!cached.leads||data.leads.length!==cached.leads.length||
-        (data.leads[0]&&cached.leads&&cached.leads[0]&&data.leads[0].id!==cached.leads[0].id);
-      _ult={leads:data.leads,teams:data.teams||[]};
-      if(changed||!cached)render(data.leads,data.teams||[]);
-    }
-  }
-
-  // ── Pestañas Mes / Hoy (con teclado: ← →) ──
-  function tabOn(id){ var t=$(id); return !!t&&t.getAttribute('aria-selected')==='true'; }
-  function refrescarSubtitulo(){
-    var d=aFecha(diaSel()), hoy=$('es-tab-hoy');
-    var txt=d.getDate()+'/'+(d.getMonth()+1)+'/'+d.getFullYear();
-    setT('es-eq-sub', hoy&&hoy.getAttribute('aria-selected')==='true' ? 'Ventas del '+txt : 'Producción acumulada del mes');
-    var lnHoy=$('es-ln-tab-hoy');
-    setT('es-ln-sub', lnHoy&&lnHoy.getAttribute('aria-selected')==='true' ? 'Ventas y líneas del '+txt : 'Ventas y líneas del mes');
-    setT('es-sv-sub', tabOn('es-sv-tab-hoy') ? 'Ventas del '+txt+' por tipo de servicio' : 'Ventas del mes por tipo de servicio');
-  }
-  // alCambiar: para las pestañas que no cambian de panel sino que repintan el mismo
-  // (desglose por servicio).
-  function initTabs(tabs,alCambiar){
-    function elegir(t,foco){
-      tabs.forEach(function(x){
-        x.setAttribute('aria-selected',String(x===t));
-        x.tabIndex=x===t?0:-1;
-        $(x.getAttribute('aria-controls')).hidden=true;
-      });
-      $(t.getAttribute('aria-controls')).hidden=false;
-      $(t.getAttribute('aria-controls')).setAttribute('aria-labelledby',t.id);
-      refrescarSubtitulo();
-      if(alCambiar)alCambiar();
-      if(foco)t.focus();
-    }
-    tabs.forEach(function(t,i){
-      t.addEventListener('click',function(){elegir(t,false);});
-      t.addEventListener('keydown',function(e){
-        if(e.key!=='ArrowRight'&&e.key!=='ArrowLeft')return;
-        e.preventDefault();
-        elegir(tabs[(i+(e.key==='ArrowRight'?1:tabs.length-1))%tabs.length],true);
-      });
-    });
-  }
-
-  document.addEventListener('DOMContentLoaded',function(){
-    llenarMeses();
-    updateDisplay();
-    initTabs([$('es-tab-mes'),$('es-tab-hoy')]);
-    initTabs([$('es-ln-tab-mes'),$('es-ln-tab-hoy')]);
-    function repintar(){ if(_ult)render(_ult.leads,_ult.teams); }
-    initTabs([$('es-sv-tab-mes'),$('es-sv-tab-hoy')],repintar);
-    initCxc();
-    // Modal con todos los servicios (el botón lo pinta render() dentro de la leyenda)
-    var dlg=$('es-sv-dlg');
-    $('service-legend').addEventListener('click',function(e){
-      if(e.target.closest('[data-sv-todos]')&&dlg.showModal)dlg.showModal();
-    });
-    $('es-sv-dlg-cerrar').addEventListener('click',function(){dlg.close();});
-    dlg.addEventListener('click',function(e){ if(e.target===dlg)dlg.close(); });
-    $('btn-prev').addEventListener('click',function(){pasoDia(-1);});
-    $('btn-next').addEventListener('click',function(){pasoDia(1);});
-    $('day-filter').addEventListener('change',function(){irADia(this.value);});
-    $('month-filter').addEventListener('change',function(){elegirMes(this.value);});
-    // Cargar el mapa supervisor->equipo ANTES del primer render (para agrupar bien)
-    Promise.all([loadSupervisors(), loadWeekendRotation(), loadLineasTeams(), loadServicios()]).then(load);
-    // Tiempo real: refresca al cambiar datos de residencial o de líneas (esta
-    // página muestra ambos). load() solo re-renderiza si los datos cambiaron.
-    // Quién está conectado cambia sin que cambien los datos: se revisa cada minuto.
-    setInterval(function(){
-      if(document.hidden||!esDiaActual())return;
-      loadConectados().then(rerender);
-    },60000);
-    if (window.CRMRealtime) {
-      CRMRealtime.connect('residencial', load);
-      CRMRealtime.connect('lineas', load);
-    }
-  });
-})();
-</script>
+<script src="/js/paginas/estadisticas-comun.js?v=20261120g" defer></script>
+<script src="/js/paginas/estadisticas-calis.js?v=20261120h" defer></script>
+<script src="/js/paginas/estadisticas-servicios.js?v=20261120d" defer></script>
+<script src="/js/paginas/estadisticas-cxc.js?v=20261120b" defer></script>
+<script src="/js/paginas/estadisticas-ventas.js?v=20261120g" defer></script>
 </body>
 </html>

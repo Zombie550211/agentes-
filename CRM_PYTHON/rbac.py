@@ -96,6 +96,8 @@ ACCIONES = [
     ("comisiones.gestionar", "Comisiones", "Gestionar comisiones",
      "Ver la tendencia y decidir qué agentes no comisionan un mes.", [ADMIN, BO, ICON]),
     ("consolidado.ver_todo", "Estadísticas", "Ver el consolidado de todos los equipos", "", [ADMIN, BO]),
+    ("calis.editar_todos", "Estadísticas", "Editar los calis del día de todos los equipos", "", [ADMIN, BO]),
+    ("calis.su_equipo", "Estadísticas", "Editar los calis del día de su equipo", "", [SUP, SUP_LIN]),
     ("llamadas_ventas.registro", "Llamadas y ventas", "Registro diario de llamadas y ventas", "", [ADMIN, BO]),
     # ── Transferencias ──
     ("transferencias.gestionar_cola", "Transferencias", "Gestionar la cola",
