@@ -1,6 +1,7 @@
 /* estadisticas-ventas.js — cuadro «Ventas» de Estadísticas (residencial/estadisticas.html).
  *
- * Ventas por team del DÍA (por defecto) o del MES, con pestañas. Residencial: ventas, ICON,
+ * Ventas por team del DÍA (por defecto) o del MES, con pestañas y flechas ‹ › para elegir
+ * cualquier día o mes anterior (botón Hoy / Este mes para volver). Residencial: ventas, ICON,
  * BAMO y puntos; Líneas móviles: ventas, ICON, BAMO y líneas. Sin canceladas ni repro.
  * Se refresca solo cuando cambian ventas (CRMRealtime 'residencial' y 'lineas') y cada 2 min.
  * API: CRM_PYTHON/routers/estadisticas.py → GET /api/estadisticas/ventas.
@@ -12,6 +13,8 @@
                'septiembre', 'octubre', 'noviembre', 'diciembre'];
   var $ = function (id) { return document.getElementById(id); };
   var periodo = 'dia';
+  var dia = '';        // fecha elegida (YYYY-MM-DD); vacío = hoy
+  var hoySrv = '';     // «hoy» según el servidor (hora de El Salvador)
   var pidiendo = 0;
 
   function esc(s) {
@@ -22,10 +25,14 @@
   function nombreTeam(t) { return String(t).replace(/^TEAM\s+(L[IÍ]NEAS\s+)?/i, ''); }
   function num(n, dec) { return n ? (dec ? Number(n).toFixed(2) : String(n)) : '<span class="es-cero">–</span>'; }
   function fecha(iso) { var p = iso.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  function iso(f) {
+    return f.getFullYear() + '-' + String(f.getMonth() + 1).padStart(2, '0') + '-' + String(f.getDate()).padStart(2, '0');
+  }
+  function hoyISO() { return hoySrv || iso(new Date()); }
 
   function cargar() {
     var yo = ++pidiendo;
-    return fetch('/api/estadisticas/ventas?periodo=' + periodo, { credentials: 'include' })
+    return fetch('/api/estadisticas/ventas?periodo=' + periodo + (dia ? '&fecha=' + dia : ''), { credentials: 'include' })
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(function (d) { if (yo === pidiendo) pintar(d); })
       .catch(function () {
@@ -36,9 +43,19 @@
 
   function pintar(d) {
     var f = fecha(d.fecha);
+    if (d.hoy) hoySrv = d.hoy;
+    var h0 = fecha(hoyISO());
+    var actual = d.periodo === 'dia' ? d.fecha >= hoyISO()
+      : (f.getFullYear() > h0.getFullYear() || (f.getFullYear() === h0.getFullYear() && f.getMonth() >= h0.getMonth()));
     $('es-ven-sub').textContent = d.periodo === 'dia'
-      ? (d.fecha === d.hoy ? 'Hoy, ' : '') + f.getDate() + ' de ' + MESES[f.getMonth()]
+      ? (d.fecha === d.hoy ? 'Hoy, ' : '') + f.getDate() + ' de ' + MESES[f.getMonth()] + ' ' + f.getFullYear()
       : 'Mes de ' + MESES[f.getMonth()] + ' ' + f.getFullYear();
+    $('es-ven-rango').textContent = d.periodo === 'dia'
+      ? f.getDate() + ' ' + MESES[f.getMonth()].slice(0, 3) + ' ' + f.getFullYear()
+      : MESES[f.getMonth()].charAt(0).toUpperCase() + MESES[f.getMonth()].slice(1) + ' ' + f.getFullYear();
+    $('es-ven-next').disabled = actual;
+    $('es-ven-hoy').disabled = actual;
+    $('es-ven-hoy').textContent = d.periodo === 'dia' ? 'Hoy' : 'Este mes';
 
     var grupos = { residencial: [], lineas: [] };
     d.teams.forEach(function (t) { (grupos[t.seccion] || grupos.residencial).push(t); });
@@ -90,6 +107,19 @@
       b.tabIndex = on ? 0 : -1;
     });
     $('es-ven-cuerpo').setAttribute('aria-labelledby', 'es-ven-' + p);
+    var mesTxt = p === 'dia' ? 'Día' : 'Mes';
+    $('es-ven-prev').setAttribute('aria-label', mesTxt + ' anterior');
+    $('es-ven-next').setAttribute('aria-label', mesTxt + ' siguiente');
+    cargar();
+  }
+
+  // Día: avanza/retrocede un día. Mes: un mes (queda en el día 1; al llegar al mes actual vuelve a hoy).
+  function mover(n) {
+    var f = fecha(dia || hoyISO());
+    if (periodo === 'dia') f.setDate(f.getDate() + n);
+    else { f.setDate(1); f.setMonth(f.getMonth() + n); }
+    var x = iso(f), h = hoyISO();
+    dia = (periodo === 'dia' ? x >= h : x.slice(0, 7) >= h.slice(0, 7)) ? '' : x;
     cargar();
   }
 
@@ -102,6 +132,9 @@
   function iniciar() {
     $('es-ven-dia').addEventListener('click', function () { elegir('dia'); });
     $('es-ven-mes').addEventListener('click', function () { elegir('mes'); });
+    $('es-ven-prev').addEventListener('click', function () { mover(-1); });
+    $('es-ven-next').addEventListener('click', function () { mover(1); });
+    $('es-ven-hoy').addEventListener('click', function () { if (dia) { dia = ''; cargar(); } });
     document.querySelector('.es-tabs[aria-label="Periodo de ventas"]').addEventListener('keydown', function (e) {
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
       var p = periodo === 'dia' ? 'mes' : 'dia';
