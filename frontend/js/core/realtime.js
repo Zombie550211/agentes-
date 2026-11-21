@@ -54,14 +54,69 @@
     }
   }
 
+  // ── Una sola conexión por canal en cada página (21-nov-2026) ──────────────
+  // Antes cada connect() abría su propio EventSource: Estadísticas llegaba a 4 al
+  // canal 'residencial' + 1 a 'lineas', más el de notificaciones = 6, justo el tope
+  // de conexiones por servidor de Chrome en HTTP/1.1 (el CRM local): la página
+  // siguiente se quedaba «cargando» esperando una conexión libre. Ahora los que
+  // piden el mismo canal comparten un EventSource; cada uno conserva su callback,
+  // su debounce y su badge.
+  var canales = {};   // channel → { es, subs: [], backoff, closed }
+
+  function abrirCanal(channel) {
+    var c = canales[channel];
+    if (!c || c.closed) return;
+    try {
+      c.es = new EventSource('/api/stream?channel=' + encodeURIComponent(channel));
+    } catch (e) {
+      console.warn(LOG, 'no se pudo crear EventSource:', e);
+      reintentarCanal(channel);
+      return;
+    }
+
+    c.es.onopen = function () {
+      c.backoff = 2000;
+      c.subs.forEach(function (s) { s.live(); });
+    };
+
+    c.es.onmessage = function (ev) {
+      try {
+        var data = JSON.parse(ev.data || '{}');
+        if (data && data.type === 'connected') {
+          c.subs.forEach(function (s) { s.live(); });
+          return;
+        }
+      } catch (_) { /* payload no-JSON → tratar como cambio */ }
+      c.subs.forEach(function (s) { s.live(); s.fire(); });
+    };
+
+    c.es.onerror = function () {
+      console.warn(LOG, 'conexión perdida (canal ' + channel + '), comprobando sesión…');
+      c.subs.forEach(function (s) { s.off(); });
+      try { c.es.close(); } catch (_) {}
+      // Comprobar sesión antes de reintentar: renueva la cookie (sliding
+      // session) y evita reconectar en bucle si el usuario ya no tiene sesión.
+      fetch('/api/auth/me', { credentials: 'include' })
+        .then(function (r) {
+          if (r.status === 401) { c.closed = true; console.warn(LOG, 'sesión expirada, no se reintenta'); return; }
+          reintentarCanal(channel);
+        })
+        .catch(function () { reintentarCanal(channel); });
+    };
+  }
+
+  function reintentarCanal(channel) {
+    var c = canales[channel];
+    if (!c || c.closed) return;
+    setTimeout(function () { abrirCanal(channel); }, c.backoff);
+    c.backoff = Math.min(c.backoff * 2, MAX_BACKOFF_MS);
+  }
+
   function connect(channel, onChange, opts) {
     opts = opts || {};
     var showBadge = opts.indicator !== false;
     var debounceTimer = null;
-    var es = null;
-    var backoff = 2000;
-    var closed = false;
-
+    var cerrado = false;
 
     function fireChange() {
       if (debounceTimer) clearTimeout(debounceTimer);
@@ -70,65 +125,41 @@
       }, DEBOUNCE_MS);
     }
 
-    function open() {
-      if (closed) return;
-      try {
-        es = new EventSource('/api/stream?channel=' + encodeURIComponent(channel));
-      } catch (e) {
-        console.warn(LOG, 'no se pudo crear EventSource:', e);
-        scheduleReconnect();
-        return;
-      }
+    var sub = {
+      fire: fireChange,
+      live: function () { if (showBadge) setBadge('live'); },
+      off: function () { if (showBadge) setBadge('off'); },
+    };
 
-      es.onopen = function () {
-        backoff = 2000;
-        if (showBadge) setBadge('live');
-      };
-
-      es.onmessage = function (ev) {
-        try {
-          var data = JSON.parse(ev.data || '{}');
-          if (data && data.type === 'connected') {
-            if (showBadge) setBadge('live');
-            return;
-          }
-        } catch (_) { /* payload no-JSON → tratar como cambio */ }
-        if (showBadge) setBadge('live');
-        fireChange();
-      };
-
-      es.onerror = function () {
-        console.warn(LOG, 'conexión perdida (canal ' + channel + '), comprobando sesión…');
-        if (showBadge) setBadge('off');
-        try { es.close(); } catch (_) {}
-        // Comprobar sesión antes de reintentar: renueva la cookie (sliding
-        // session) y evita reconectar en bucle si el usuario ya no tiene sesión.
-        fetch('/api/auth/me', { credentials: 'include' })
-          .then(function (r) {
-            if (r.status === 401) { closed = true; console.warn(LOG, 'sesión expirada, no se reintenta'); return; }
-            scheduleReconnect();
-          })
-          .catch(function () { scheduleReconnect(); });
-      };
-    }
-
-    function scheduleReconnect() {
-      if (closed) return;
-      setTimeout(open, backoff);
-      backoff = Math.min(backoff * 2, MAX_BACKOFF_MS);
-    }
+    var c = canales[channel];
+    var nuevo = !c || c.closed;
+    if (nuevo) c = canales[channel] = { es: null, subs: [], backoff: 2000, closed: false };
+    c.subs.push(sub);
+    if (nuevo) abrirCanal(channel);
+    else if (c.es && c.es.readyState === 1 /* OPEN */) sub.live();
 
     // Al volver a la pestaña: refresca de inmediato y asegura conexión viva.
     document.addEventListener('visibilitychange', function () {
-      if (document.hidden) return;
+      if (document.hidden || cerrado) return;
       fireChange();
-      if (es && es.readyState === 2 /* CLOSED */ && !closed) open();
+      var cc = canales[channel];
+      if (cc && !cc.closed && cc.es && cc.es.readyState === 2 /* CLOSED */) abrirCanal(channel);
     });
 
-    open();
-
     return {
-      close: function () { closed = true; if (es) { try { es.close(); } catch (_) {} } },
+      // Se da de baja este suscriptor; la conexión se cierra cuando no queda ninguno.
+      close: function () {
+        if (cerrado) return;
+        cerrado = true;
+        var cc = canales[channel];
+        if (!cc) return;
+        cc.subs = cc.subs.filter(function (s) { return s !== sub; });
+        if (!cc.subs.length) {
+          cc.closed = true;
+          if (cc.es) { try { cc.es.close(); } catch (_) {} }
+          delete canales[channel];
+        }
+      },
       refreshNow: fireChange,
     };
   }

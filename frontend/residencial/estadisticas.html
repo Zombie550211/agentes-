@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="/css/base/sistema.css?v=20261117b">
   <link rel="stylesheet" href="/css/componentes/marco-amplio.css?v=20261119a">
   <link rel="stylesheet" href="/css/componentes/transicion.css?v=20261008a">
-  <link rel="stylesheet" href="/css/residencial/estadisticas.css?v=20261120y">
+  <link rel="stylesheet" href="/css/residencial/estadisticas.css?v=20261121c">
   <!-- Transición entre páginas: en el <head> y sin defer, para que no parpadee. -->
   <script src="/js/layout/transicion.js?v=20261105a"></script>
   <script src="/vendor/chartjs/chart.umd.min.js"></script>
@@ -103,11 +103,48 @@
       <div class="es-tabla-wrap" id="es-ven-cuerpo" role="tabpanel" aria-labelledby="es-ven-dia"><div class="es-estado">Cargando…</div></div>
       <div class="es-pie"><span id="es-ven-estado" aria-live="polite"></span><span>No cuenta canceladas ni repro. Se actualiza solo.</span></div>
     </section>
+    <!-- ══ Desglose por servicio: gráfica de pastel del mes / de hoy (js/paginas/estadisticas-dona.js) ══ -->
+    <section class="es-card es-ancho es-dona-card in-glass" aria-labelledby="es-dona-t">
+      <div class="es-card-head">
+        <div>
+          <h2 id="es-dona-t"><i class="ph ph-stack" aria-hidden="true"></i><img class="es-ico-nav" src="/images/dise%C3%B1o%20Navide%C3%B1o/iconos/arbol.webp" alt="" width="22" height="22"> Desglose por servicio</h2>
+          <p id="es-dona-sub">Ventas del mes por servicio</p>
+        </div>
+        <div class="es-tabs" role="tablist" aria-label="Periodo de la gráfica" id="es-dona-tabs">
+          <button type="button" role="tab" class="es-tab" data-periodo="mes" aria-selected="true" aria-controls="es-dona-pan">Mes</button>
+          <button type="button" role="tab" class="es-tab" data-periodo="hoy" aria-selected="false" aria-controls="es-dona-pan" tabindex="-1">Hoy</button>
+        </div>
+      </div>
+      <div class="es-dona-wrap" id="es-dona-pan" role="tabpanel">
+        <div class="es-dona-grupo">
+          <h3 class="es-dona-h">Por servicio</h3>
+          <div class="es-dona-fila">
+            <div class="es-dona">
+              <canvas id="es-dona-canvas" aria-label="Ventas por servicio"></canvas>
+              <div class="es-dona-centro"><span id="es-dona-total">—</span><small>ventas</small></div>
+            </div>
+            <div class="es-dona-leg" id="es-dona-leg"><div class="es-estado">Cargando…</div></div>
+          </div>
+        </div>
+        <div class="es-dona-grupo es-dona-grupo-merc">
+          <h3 class="es-dona-h">Por mercado</h3>
+          <div class="es-dona-fila">
+            <div class="es-dona">
+              <canvas id="es-dona-merc-canvas" aria-label="Ventas por mercado"></canvas>
+              <div class="es-dona-centro"><span id="es-dona-merc-total">—</span><small>ventas</small></div>
+            </div>
+            <div class="es-dona-leg" id="es-dona-merc-leg"><div class="es-estado">Cargando…</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="es-pie"><span id="es-dona-estado" aria-live="polite"></span><span>Residencial. Por servicio: top 5 + Otros. Sin canceladas ni repro.</span></div>
+    </section>
+
     <!-- ══ Desglose por servicio: el mes día por día (js/paginas/estadisticas-servicios.js) ══ -->
     <section class="es-card es-ancho in-glass" aria-labelledby="es-svc-t">
       <div class="es-card-head">
         <div>
-          <h2 id="es-svc-t"><i class="ph ph-stack" aria-hidden="true"></i><img class="es-ico-nav" src="/images/dise%C3%B1o%20Navide%C3%B1o/iconos/arbol.webp" alt="" width="22" height="22"> Desglose por servicio</h2>
+          <h2 id="es-svc-t"><i class="ph ph-stack" aria-hidden="true"></i><img class="es-ico-nav" src="/images/dise%C3%B1o%20Navide%C3%B1o/iconos/arbol.webp" alt="" width="22" height="22"> Desglose por servicio día por día</h2>
           <p id="es-svc-sub">Ventas de cada servicio, día por día</p>
         </div>
         <div class="es-cx-ctrl">
@@ -153,6 +190,7 @@
 <script src="/js/paginas/estadisticas-comun.js?v=20261120g" defer></script>
 <script src="/js/paginas/estadisticas-calis.js?v=20261120j" defer></script>
 <script src="/js/paginas/estadisticas-servicios.js?v=20261120d" defer></script>
+<script src="/js/paginas/estadisticas-dona.js?v=20261121c" defer></script>
 <script src="/js/paginas/estadisticas-cxc.js?v=20261120b" defer></script>
 <script src="/js/paginas/estadisticas-ventas.js?v=20261121a" defer></script>
 </body>

@@ -19,13 +19,17 @@ from __future__ import annotations
 import io
 import json
 import re
-import resource
 import subprocess
 import sys
 from datetime import date
 from pathlib import Path
 
 from pypdf import PdfReader
+
+try:
+    import resource  # solo existe en Linux/macOS (el EC2 de producción)
+except ImportError:   # Windows (desarrollo local): sin topes de memoria/CPU, sí con timeout
+    resource = None
 
 MAX_PAGINAS = 20
 # Límites del proceso aislado que lee el PDF (ver escanear_aislado).
@@ -209,9 +213,10 @@ def escanear_aislado(contenido: bytes, timeout: float = 20, memoria_mb: int = ME
 
 if __name__ == "__main__":
     # Proceso hijo de escanear_aislado: PDF por stdin, JSON por stdout.
-    _lim = int(sys.argv[1]) * 1024 * 1024
-    resource.setrlimit(resource.RLIMIT_AS, (_lim, _lim))
-    resource.setrlimit(resource.RLIMIT_CPU, (int(sys.argv[2]), int(sys.argv[2])))
+    if resource is not None:
+        _lim = int(sys.argv[1]) * 1024 * 1024
+        resource.setrlimit(resource.RLIMIT_AS, (_lim, _lim))
+        resource.setrlimit(resource.RLIMIT_CPU, (int(sys.argv[2]), int(sys.argv[2])))
     try:
         _salida = escanear(sys.stdin.buffer.read())
     except MemoryError:
