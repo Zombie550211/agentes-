@@ -22,6 +22,12 @@ jobs:
       - name: Python (sintaxis 3.12)
         run: git ls-files -z 'CRM_PYTHON/*.py' | xargs -0 python3 -m py_compile
 
+      - name: Pruebas automáticas (pytest)
+        working-directory: CRM_PYTHON
+        run: |
+          python3 -m pip install --quiet -r requirements.txt -r requirements-dev.txt
+          python3 -m pytest tests -q
+
       - name: JavaScript (sintaxis, sin /vendor/)
         run: |
           fallos=0

@@ -49,6 +49,37 @@ trap 'rm -rf "${T}"' EXIT
 chmod 755 "${T}"   # aplicar_release.sh extrae el paquete como el usuario de la app
 RESUMEN="${REMOTO:0:7}"
 
+# ── ¿Pasó el CI de GitHub (pruebas automáticas)? ─────────────────
+# Solo se despliega un commit cuyo workflow "Comprobar el código" terminó en verde.
+# Mientras corre (o si la API de GitHub no responde) se sale sin hacer nada y se
+# vuelve a mirar en un minuto.
+# DESACTIVADO por defecto (EXIGIR_CI=0): en nov-2026 GitHub no ejecuta el CI porque la
+# cuenta está bloqueada por facturación, y exigirlo frenaría todos los despliegues.
+# Cuando el CI vuelva a correr, activarlo con Environment=EXIGIR_CI=1 en
+# crm-auto-desplegar.service. Las pruebas igual se corren aquí abajo, en el propio EC2.
+estado_ci() {  # imprime: ok | pendiente | fallo:<nombre del paso>
+  local api="https://api.github.com/repos/${REPO_URL#https://github.com/}"
+  api="${api%.git}/commits/${REMOTO}/check-runs"
+  timeout 30 curl -fsS -H "Accept: application/vnd.github+json" "${api}" 2>/dev/null | "${PY}" -c '
+import json, sys
+runs = json.load(sys.stdin).get("check_runs", [])
+if not runs:
+    print("pendiente"); sys.exit()
+for r in runs:
+    if r.get("status") != "completed":
+        print("pendiente"); sys.exit()
+malos = [r["name"] for r in runs if r.get("conclusion") not in ("success", "skipped", "neutral")]
+print("fallo:" + ", ".join(malos) if malos else "ok")' || echo "pendiente"
+}
+if [[ "${EXIGIR_CI:-0}" == "1" ]]; then
+  CI="$(estado_ci)"
+  case "${CI}" in
+    ok) ;;
+    pendiente) exit 0 ;;
+    fallo:*) fallar "el CI de GitHub falló (${CI#fallo:}): las pruebas no pasan. Ver la pestaña Actions del repositorio." ;;
+  esac
+fi
+
 fallar() {
   log "FALLO ${REMOTO:0:7}: $1"
   mkdir -p "$(dirname "${FALLIDO}")"
@@ -101,6 +132,25 @@ if (( ${#PYS[@]} > 0 )); then
 $(head -15 "${T}/py.err")"
   fi
 fi
+# Pruebas automáticas (CRM_PYTHON/tests) con el Python de la app. Corren como el
+# usuario de la app, NUNCA como root: ejecutan código del commit nuevo. Si el venv
+# aún no tiene pytest (pip install -r requirements-dev.txt), se avisa en el registro
+# y se sigue, para no frenar los despliegues por eso.
+VENV_PY="${APP}/CRM_PYTHON/.venv/bin/python"
+if [[ -d "${T}/arbol/CRM_PYTHON/tests" ]]; then
+  if "${VENV_PY}" -c "import pytest" 2>/dev/null; then
+    if ! ( cd "${T}/arbol/CRM_PYTHON" && runuser -u "${APP_USER:-ubuntu}" -- \
+             env -i PATH=/usr/bin:/bin HOME=/tmp "${VENV_PY}" -m pytest tests -q -p no:cacheprovider ) \
+           > "${T}/pytest.out" 2>&1; then
+      fallar "las pruebas automáticas fallan:
+$(tail -25 "${T}/pytest.out")"
+    fi
+    log "pruebas OK: $(tail -1 "${T}/pytest.out")"
+  else
+    log "aviso: pytest no está instalado en ${VENV_PY%/bin/python}; pruebas omitidas"
+  fi
+fi
+
 APLICAR="${T}/arbol/CRM_PYTHON/scripts/deploy/aplicar_release.sh"
 bash -n "${APLICAR}" || fallar "aplicar_release.sh tiene errores de sintaxis"
 
