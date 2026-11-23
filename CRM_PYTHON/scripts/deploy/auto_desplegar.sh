@@ -139,7 +139,10 @@ fi
 VENV_PY="${APP}/CRM_PYTHON/.venv/bin/python"
 if [[ -d "${T}/arbol/CRM_PYTHON/tests" ]]; then
   if "${VENV_PY}" -c "import pytest" 2>/dev/null; then
-    if ! ( cd "${T}/arbol/CRM_PYTHON" && runuser -u "${APP_USER:-ubuntu}" -- \
+    # Copia propia del usuario de la app: al importarse, la app crea logs/ y uploads/
+    # junto al código, y el árbol extraído es de root. La copia que se despliega no se toca.
+    cp -a "${T}/arbol" "${T}/pruebas" && chown -R "${APP_USER:-ubuntu}" "${T}/pruebas"
+    if ! ( cd "${T}/pruebas/CRM_PYTHON" && runuser -u "${APP_USER:-ubuntu}" -- \
              env -i PATH=/usr/bin:/bin HOME=/tmp "${VENV_PY}" -m pytest tests -q -p no:cacheprovider ) \
            > "${T}/pytest.out" 2>&1; then
       fallar "las pruebas automáticas fallan:

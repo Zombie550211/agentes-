@@ -15,6 +15,8 @@ from tiempo_sv import ahora_sv
 from estado_comision import (INICIAL as INICIAL_COMISION, SQL_REPRO_SI_PENDIENTE, grupo as grupo_comision,
                              inicial_para as comision_inicial_para, normalizar as normalizar_comision)
 import rbac
+import logging
+log = logging.getLogger(__name__)
 _GRUPOS_COMISION = ("completed", "cancelled", "pending", "hold", "oficina", "reserva", "repro")
 
 
@@ -46,7 +48,7 @@ async def _log_activity(activity_type: str, client_name: str, description: str, 
             })
             await s.commit()
     except Exception:
-        pass
+        log.warning("leads: no se pudo registrar en el historial", exc_info=True)
 
 
 def _is_admin_or_bo(user: dict) -> bool:
@@ -1096,7 +1098,7 @@ async def comisiones_agentes_lineas(
                 name_to_team[_norm(a["name"])] = info
                 name_to_team[_norm(a["username"])] = info
     except Exception:
-        pass
+        log.warning("leads: no se pudo armar el mapa agente→team", exc_info=True)
 
     tasa = _LINEAS_COMISION_CONFIG["tasaPorLinea"]
     for row in rows:

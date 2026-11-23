@@ -22,6 +22,8 @@ from estado_comision import grupo as grupo_comision
 from database_mysql import AsyncSessionLocal
 from deps import current_user
 import re
+import logging
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/productividad-bo", tags=["Productividad BO"])
 
@@ -217,7 +219,7 @@ async def productividad_bo(
             """), {"f": f})
             instalan_hoy = int((r.first() or [0])[0] or 0)
     except Exception:
-        pass
+        log.warning("productividad_bo: falló el conteo de instalaciones de hoy", exc_info=True)
     instaladas_hoy = sum(
         1 for (tipo, _cli), item in last_by_client.items()
         if tipo == "Cambio de estado comisión" and grupo_comision(item["status"]) == "completed"

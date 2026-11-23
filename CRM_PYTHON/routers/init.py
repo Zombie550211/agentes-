@@ -6,6 +6,8 @@ import rbac
 from typing import Optional
 import datetime as _dt, unicodedata, re, json, calendar
 from tiempo_sv import ahora_sv
+import logging
+log = logging.getLogger(__name__)
 
 def _utcnow() -> _dt.datetime:
     """UTC naive (reemplazo de datetime.utcnow() deprecado en Python 3.12+)."""
@@ -196,7 +198,7 @@ async def init_dashboard(user: dict = Depends(current_user)):
         if top_team[0]:
             kpis["mejor_team"] = top_team[0]
     except Exception:
-        pass
+        log.warning("init: falló el cálculo del mejor team", exc_info=True)
 
     agent_map:   dict = {}
     product_map: dict = {}
@@ -237,7 +239,7 @@ async def init_dashboard(user: dict = Depends(current_user)):
             pos = next((i + 1 for i, (n, _) in enumerate(ranking) if norm_text(n) == norm_text(username)), 0)
             user_personal_stats["posicionRanking"] = f"#{pos}/{len(ranking)}" if pos > 0 else "-"
         except Exception:
-            pass
+            log.warning("init: falló la posición en el ranking del usuario", exc_info=True)
 
     return {
         "success": True, "timestamp": _utcnow().isoformat(),
@@ -303,7 +305,7 @@ async def init_rankings(user: dict = Depends(current_user)):
                 "posicion": i + 1, "position": i + 1, "mes": mes_key,
             })
     except Exception:
-        pass
+        log.warning("init: falló el ranking del mes", exc_info=True)
 
     monthly_rankings: dict = {}
     for i in range(6):
@@ -409,7 +411,7 @@ async def init_estadisticas(user: dict = Depends(current_user)):
         for t in teams_data:
             t["Puntaje"] = round(t["Puntaje"], 2)
     except Exception:
-        pass
+        log.warning("init: falló el resumen por team", exc_info=True)
 
     agents_data = []
     try:
@@ -436,7 +438,7 @@ async def init_estadisticas(user: dict = Depends(current_user)):
         for a in agents_data:
             a["totalPuntos"] = round(a["totalPuntos"], 2)
     except Exception:
-        pass
+        log.warning("init: falló el resumen por agente", exc_info=True)
 
     leads_chart_data = []
     try:
@@ -460,7 +462,7 @@ async def init_estadisticas(user: dict = Depends(current_user)):
                 for row in r.mappings().all()
             ]
     except Exception:
-        pass
+        log.warning("init: falló la serie diaria de ventas", exc_info=True)
 
     status_summary: dict = {}
     try:
@@ -475,7 +477,7 @@ async def init_estadisticas(user: dict = Depends(current_user)):
                 k = normalize_status(row["status_raw"])
                 status_summary[k] = status_summary.get(k, 0) + int(row["cnt"])
     except Exception:
-        pass
+        log.warning("init: falló el resumen por status", exc_info=True)
 
     return {
         "success": True, "timestamp": _utcnow().isoformat(),
@@ -515,7 +517,7 @@ async def init_all_pages(user: dict = Depends(current_user)):
             """), params)
             customers = [_row_to_lead(row) for row in r.mappings().all()]
     except Exception:
-        pass
+        log.warning("init: falló la lista de clientes", exc_info=True)
 
     rankings = []
     try:
@@ -543,7 +545,7 @@ async def init_all_pages(user: dict = Depends(current_user)):
             for i, (k, d) in enumerate(sorted_agg)
         ]
     except Exception:
-        pass
+        log.warning("init: falló el ranking agregado", exc_info=True)
 
     stats_agg: dict = {}
     try:
@@ -567,7 +569,7 @@ async def init_all_pages(user: dict = Depends(current_user)):
                     "promedio": round(float(row["promedio"] or 0)),
                 }
     except Exception:
-        pass
+        log.warning("init: falló el promedio de ventas", exc_info=True)
 
     return {
         "success": True, "timestamp": _utcnow().isoformat(),
@@ -599,7 +601,7 @@ async def init_lead(user: dict = Depends(current_user)):
             """), params)
             leads_data = [_row_to_lead(row) for row in r.mappings().all()]
     except Exception:
-        pass
+        log.warning("init: falló la lista de leads", exc_info=True)
 
     status_summary: dict = {}
     try:
@@ -613,7 +615,7 @@ async def init_lead(user: dict = Depends(current_user)):
                 k = normalize_status(row["status_raw"])
                 status_summary[k] = status_summary.get(k, 0) + int(row["cnt"])
     except Exception:
-        pass
+        log.warning("init: falló el resumen por status (leads)", exc_info=True)
 
     return {
         "success": True, "timestamp": _utcnow().isoformat(),
@@ -647,7 +649,7 @@ async def init_facturacion(user: dict = Depends(current_user)):
             """), params)
             facturacion_data = [_row_to_lead(row) for row in r.mappings().all()]
     except Exception:
-        pass
+        log.warning("init: falló la lista de facturación", exc_info=True)
 
     ingresos_summary = {"total": 0, "completadas": 0}
     try:
@@ -664,7 +666,7 @@ async def init_facturacion(user: dict = Depends(current_user)):
                 ingresos_summary["total"]       = int(row["total_count"] or 0)
                 ingresos_summary["completadas"] = int(row["completadas"] or 0)
     except Exception:
-        pass
+        log.warning("init: falló el resumen de ingresos", exc_info=True)
 
     return {
         "success": True, "timestamp": _utcnow().isoformat(),
@@ -703,7 +705,7 @@ async def init_multimedia(user: dict = Depends(current_user)):
                 d["fileSize"]   = d.get("file_size")
                 multimedia_data.append(d)
     except Exception:
-        pass
+        log.warning("init: falló la lista de multimedia", exc_info=True)
 
     try:
         async with AsyncSessionLocal() as s:
@@ -716,7 +718,7 @@ async def init_multimedia(user: dict = Depends(current_user)):
             for row in r.mappings().all():
                 type_summary[str(row["ft"])] = int(row["cnt"])
     except Exception:
-        pass
+        log.warning("init: falló el resumen de multimedia por tipo", exc_info=True)
 
     return {
         "success": True, "timestamp": _utcnow().isoformat(),

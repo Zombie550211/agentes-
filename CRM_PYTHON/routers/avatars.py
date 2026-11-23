@@ -6,6 +6,8 @@ from deps import current_user
 from pathlib import Path
 import datetime as _dt
 import aiofiles, os, re
+import logging
+log = logging.getLogger(__name__)
 
 
 def _utcnow() -> _dt.datetime:
@@ -133,7 +135,7 @@ async def _process_avatar(data: bytes, mimetype: str) -> tuple[bytes, str, str, 
             })
             return processed, "image/png", "png", details, secure_url
         except Exception:
-            pass
+            log.warning("avatars: falló la subida a Cloudinary, se usa el respaldo local", exc_info=True)
         details["bytesAfter"] = len(data)
         return data, mimetype or "image/png", _infer_ext(mimetype), details, secure_url
 

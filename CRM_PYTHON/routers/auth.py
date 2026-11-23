@@ -34,6 +34,8 @@ router = APIRouter(prefix="/api/auth", tags=["Auth"])
 # despliegue corre 1 worker); un reinicio limpia los contadores, lo cual es
 # aceptable para este fin. Un login correcto limpia el contador de esa cuenta.
 import time as _time
+import logging
+log = logging.getLogger(__name__)
 
 _LOGIN_MAX_FALLOS   = 8       # fallos seguidos antes de bloquear
 _LOGIN_BLOQUEO_SEGS = 15 * 60 # duración del bloqueo
@@ -226,7 +228,7 @@ def _save_maintenance(state: dict):
     try:
         MAINTENANCE_FILE.write_text(json.dumps(state, indent=2))
     except Exception:
-        pass
+        log.warning("auth: no se pudo guardar el estado de mantenimiento", exc_info=True)
 
 # ── RUTAS ────────────────────────────────────────────────────────
 
@@ -621,7 +623,7 @@ async def forgot_password(request: Request, body: ForgotPasswordBody):
     try:
         _send_email(row["email"], "Código de verificación — Restablecer contraseña", html)
     except Exception:
-        pass
+        log.warning("auth: no se pudo enviar el correo con el código de restablecimiento", exc_info=True)
 
     # Misma respuesta exista o no el usuario (antes el correo enmascarado lo delataba).
     return {"success": True, "message": "Si el usuario existe, recibirás un código en tu correo."}

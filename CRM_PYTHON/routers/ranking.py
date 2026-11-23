@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from typing import Optional
 import unicodedata, re, time, json
 from tiempo_sv import ahora_sv
+import logging
+log = logging.getLogger(__name__)
 
 
 def _utcnow() -> datetime:
@@ -444,7 +446,7 @@ async def ranking_init(
                     "uploaded_at":  str(row["uploaded_at"]),
                 }
     except Exception:
-        pass
+        log.warning("ranking: no se pudo leer la imagen del ranking", exc_info=True)
 
     return {
         "success": True,

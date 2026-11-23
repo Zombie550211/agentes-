@@ -13,6 +13,8 @@ import re, random, unicodedata, time, json, os, secrets, asyncio
 import realtime
 from tiempo_sv import ahora_sv
 import rbac
+import logging
+log = logging.getLogger(__name__)
 
 
 def _utcnow() -> datetime:
@@ -399,7 +401,7 @@ async def _rr_pick(rr_key: str, choices: list):
             if row:
                 return choices[(row["idx"] - 1) % len(choices)]
     except Exception:
-        pass
+        log.warning("lineas: no se pudo elegir por rotación", exc_info=True)
     return random.choice(choices)
 
 

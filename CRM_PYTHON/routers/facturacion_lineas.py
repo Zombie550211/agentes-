@@ -6,6 +6,8 @@ import rbac
 from datetime import datetime, timezone
 from typing import Optional, List, Any
 import re, json
+import logging
+log = logging.getLogger(__name__)
 
 def _utcnow() -> datetime:
     """UTC naive (reemplazo de _utcnow() deprecado en Python 3.12+)."""
@@ -95,7 +97,7 @@ async def _lineas_team_cols() -> list:
         if teams:
             return teams
     except Exception:
-        pass
+        log.warning("facturacion_lineas: no se pudieron leer los teams de Líneas", exc_info=True)
     return [{"token": tok, "label": "TEAM " + tok.upper()} for tok in _LEGACY_TEAM_ORDER]
 
 

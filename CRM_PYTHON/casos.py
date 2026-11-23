@@ -45,6 +45,8 @@ from sqlalchemy import text
 
 from estado_comision import grupo as grupo_comision
 import rbac
+import logging
+log = logging.getLogger(__name__)
 
 HORAS_VERDE = 72
 HORAS_AMARILLO = 120
@@ -178,7 +180,7 @@ async def team_de_usuario(session, user: dict) -> str:
         if row and row[0]:
             return str(row[0]).strip()
     except Exception:
-        pass
+        log.warning("casos: no se pudo leer el dato del caso", exc_info=True)
     return str(user.get("team") or "").strip()
 
 
@@ -415,7 +417,7 @@ async def vencer_casos() -> int:
         import realtime
         await realtime.publish("residencial", {"type": "residencial", "action": "semaforo"})
     except Exception:
-        pass
+        log.warning("casos: no se pudo avisar en tiempo real (semáforo)", exc_info=True)
     print(f"[semaforo] {len(filas)} caso(s) vencido(s) → oficina")
     return len(filas)
 

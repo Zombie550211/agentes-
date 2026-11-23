@@ -6,6 +6,8 @@ from sqlalchemy import text
 from deps import current_user
 import rbac
 import datetime as _dt
+import logging
+log = logging.getLogger(__name__)
 
 def _utcnow() -> _dt.datetime:
     """UTC naive (reemplazo de datetime.utcnow() deprecado en Python 3.12+)."""
@@ -116,7 +118,7 @@ async def create_comentario(lead_id: str, body: ComentarioBody, user: dict = Dep
             })
             await s.commit()
         except Exception:
-            pass
+            log.warning("comentarios: no se pudo registrar en el historial", exc_info=True)
 
     return {
         "success": True, "message": "Comentario creado",
