@@ -1,82 +1,88 @@
-# CRM Agente – Dashboard
+# CRM Connecting
 
-## Descripción General
+CRM interno de Connecting para agentes, supervisores, Back Office y administración:
+ventas residenciales y de Líneas, comisiones, ranking, horarios, monitoreo,
+transferencias, facturación, chat, tickets y estadísticas, con permisos por rol.
 
-Este proyecto es un sistema de gestión y monitoreo para agentes, supervisores y equipos de ventas. Permite administrar clientes, leads, facturación, estadísticas, multimedia, empleados del mes y más, todo desde un panel centralizado con soporte para diferentes roles y módulos.
+## Tecnología
 
-## Estructura de Carpetas y Archivos
+| Parte | Qué usa |
+|---|---|
+| Backend | Python 3.12 + **FastAPI** (`CRM_PYTHON/`), SQLAlchemy async + MySQL |
+| Frontend | HTML, CSS y JavaScript sin framework (`frontend/`), servido por el mismo backend |
+| Tiempo real | Server-Sent Events (`/api/stream`) |
+| Producción | EC2 (Ubuntu) + nginx + systemd, base de datos en Amazon RDS (MySQL) |
 
-- **agentes/**: Recursos y scripts relacionados con agentes.
-- **components/**: Componentes HTML reutilizables (sidebar, navbar de usuario, etc).
-- **config/**: Configuración de la base de datos y otros parámetros globales.
-- **controllers/**: Lógica de negocio y controladores para autenticación, equipos, etc.
-- **css/**: Hojas de estilo para los diferentes módulos y temas (incluye dark mode, tablas, sidebar, etc).
-- **frontend/**: Vistas HTML para estadísticas y otros módulos.
-- **images/**: Imágenes usadas en la aplicación.
-- **js/**: Scripts de frontend para manejo de usuario, ranking, sidebar, etc.
-- **js/core/**: (Reservado para lógica central de JS, si aplica).
-- **licencia/**: Información de licencias.
-- **middleware/**: Middlewares para autenticación y otras funciones de backend.
-- **models/**: Modelos de datos (Costumer, Lead, User, etc).
-- **public/**: Archivos públicos y estáticos (404.html, imágenes, etc).
-- **routes/**: Definición de rutas y endpoints de la API.
-- **scripts/**: Utilidades y scripts de mantenimiento, migración y pruebas.
-- **TEAM LINEAS/**: Recursos y scripts específicos para el equipo Team Líneas.
-- **uploads/**: Carpeta para archivos subidos.
-- **utils/**: Utilidades y helpers generales.
+## Estructura
 
-## Instalación y Requisitos
+```
+CRM_PYTHON/
+  main.py              app FastAPI: middlewares, cabeceras de seguridad, registro de routers
+  routers/             un archivo por módulo de la API (leads, lineas, auth, horarios…)
+  deps.py              sesión (JWT en cookie httponly) — fuente única
+  rbac.py              roles y permisos (acciones en código, asignación en la BD)
+  scoring.py           puntajes por servicio
+  estado_comision.py   status de comisión y sus grupos
+  tests/               pruebas automáticas (pytest)
+  scripts/             migraciones, respaldos, despliegue (scripts/deploy/)
+frontend/              páginas HTML, js/, css/, imágenes
+docs/                  notas de mantenimiento
+```
 
-1. Clona el repositorio:
-   ```bash
-   git clone <repo-url>
-   cd dashboard
-   ```
-2. Instala dependencias:
-   ```bash
-   npm install
-   ```
-3. Configura la base de datos y variables de entorno en `config/db.js` y archivos `.env` si aplica.
-4. Inicia el servidor:
-   ```bash
-   npm start
-   ```
+## Arrancar en local
 
-## Uso y Desarrollo
+Requisitos: Python 3.12+ y, para la base de datos local, Docker.
 
-- Accede al panel principal en `index.html` o `inicio.html`.
-- Los módulos principales están en archivos HTML y se comunican con el backend vía fetch/AJAX.
-- Scripts de utilidad y mantenimiento están en la carpeta `scripts/`.
-- Para desarrollo de estilos, modifica los archivos en `css/`.
-- Para agregar lógica de negocio, usa los controladores en `controllers/` y modelos en `models/`.
+```bash
+cd CRM_PYTHON
+python -m venv .venv
+.venv/Scripts/pip install -r requirements.txt -r requirements-dev.txt   # Windows
+# .venv/bin/pip install -r requirements.txt -r requirements-dev.txt     # Linux/Mac
+```
 
-## Scripts y Utilidades
+- **Con la BD local (recomendado):** crear el contenedor una vez con
+  `bash CRM_PYTHON/scripts/init_local_db.sh` y luego `./iniciar-local.sh`.
+  Usa `CRM_PYTHON/.env.local` y se niega a arrancar si la URL no apunta al MySQL local.
+- **Windows:** `iniciar-servidor.bat` o `iniciar-servidor.ps1`.
 
-- `npm start`: Inicia el servidor principal.
-- `server.js`: Servidor backend principal.
-- `server_backup.js`, `server_clean.js`: Scripts para respaldo y limpieza de datos.
-- Scripts de prueba y migración en `scripts/` y archivos como `test.js`, `test-db-connection.js`.
+El CRM queda en <http://localhost:8001> (solo en este equipo; para abrirlo desde
+otro dispositivo: `CRM_HOST=0.0.0.0`). La documentación de la API está en `/py-docs`
+fuera de producción.
 
-## Endpoints y API
+### Variables de entorno (`CRM_PYTHON/.env`, nunca se sube al repo)
 
-Las rutas de la API están definidas en la carpeta `routes/`:
-- `api.js`: Endpoints principales.
-- `auth.js`: Autenticación y gestión de usuarios.
-- `equipoRoutes.js`: Gestión de equipos y agentes.
-- `facturacion.js`: Facturación y reportes.
-- Otros módulos según necesidades del negocio.
+| Variable | Para qué |
+|---|---|
+| `JWT_SECRET` | **Obligatoria.** Firma de las sesiones. `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `MYSQL_URL` | Conexión a MySQL |
+| `NODE_ENV=production` | Activa el modo producción (cookies `secure`, sin `/py-docs`, HSTS) |
+| `CORS_ORIGINS` | Orígenes permitidos |
+| `CRM_DATA_KEY` | Cifrado de datos sensibles |
+| `EMAIL_*`, `SMTP_*` | Correo de recuperación de contraseña |
+| `CLOUDINARY_*` | Imágenes y avatares |
+| `CUADRATURA_*` | Integración con el sistema de cuadratura |
 
-## Temas y Estilos
+## Pruebas
 
-- El sistema soporta dark mode y estilos modernos en la carpeta `css/`.
-- Los componentes visuales reutilizables están en `components/`.
+```bash
+cd CRM_PYTHON
+python -m pytest
+```
 
-## Créditos y Contacto
+No necesitan base de datos. Cubren contraseñas, sesiones, validaciones anti-XSS,
+status de comisión, puntajes, permisos por rol y que **ninguna ruta `/api`
+entregue datos sin sesión** (`tests/test_rutas.py`: si agregas un endpoint público
+a propósito, anótalo en `PUBLICAS`).
 
-Desarrollado por el equipo de Zombie550211.
+## Despliegue
 
-Para soporte o dudas, contacta a: [tu-email@dominio.com]
+Automático: el EC2 revisa `main` cada minuto (`scripts/deploy/auto_desplegar.sh`).
+Antes de publicar comprueba que el Python compila y **corre las pruebas**; si algo
+falla, no despliega y avisa por correo. Cada despliegue guarda un punto de retorno
+y vuelve atrás solo si el servicio no responde.
 
----
+> Todo lo que se sube a `main` llega a producción en ~1 minuto. Trabaja en ramas y
+> corre `python -m pytest` antes de fusionar.
 
-> Documentación generada automáticamente. Puedes ampliarla o personalizarla según las necesidades del proyecto.
+El CI de GitHub (`.github/workflows/comprobar.yml`) revisa la sintaxis y corre las
+pruebas en cada push.
