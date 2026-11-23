@@ -234,6 +234,11 @@
 <script src="/js/componentes/llamadas-bloqueo.js" defer></script>
 <script src="/js/componentes/celdas-navegacion.js?v=20261010b"></script>
 <script>
+// Escapa texto antes de meterlo en innerHTML (nombres de asesores y publicistas).
+function _escHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
 /* =====================================================================
    AUTH GUARD (solo administradores)
    ===================================================================== */
@@ -678,7 +683,7 @@ function refreshDashboard() {
     <div class="top-item">
       <div class="top-rank">${i + 1}</div>
       <div class="top-main">
-        <div class="top-name">${a.nombre}</div>
+        <div class="top-name">${_escHtml(a.nombre)}</div>
         <div class="top-bar"><span style="width:${Math.max(4, (a.monto / max) * 100)}%;background:${a.color}"></span></div>
       </div>
       <div class="top-val">${money(a.monto)}</div>
@@ -997,7 +1002,7 @@ function refreshDashboardL(t) {
     <div class="top-item">
       <div class="top-rank">${i + 1}</div>
       <div class="top-main">
-        <div class="top-name">${p.nombre}</div>
+        <div class="top-name">${_escHtml(p.nombre)}</div>
         <div class="top-bar"><span style="width:${Math.max(4, (p.monto / max) * 100)}%;background:${p.color}"></span></div>
       </div>
       <div class="top-val">${money(p.monto)}</div>

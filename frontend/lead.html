@@ -765,16 +765,19 @@ function renderLeads(lista) {
     return;
   }
 
+  // Todo dato del lead se escapa: lo escriben agentes y quien procesa (XSS almacenado).
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   tbody.innerHTML = lista.map(l => `
     <tr>
-      <td><strong>#${l.leadId}</strong></td>
-      <td>${l.nombre}</td>
-      <td>${l.phone1}${l.phone2 ? '<br><span style="color:var(--text-dim);font-size:0.8rem;">' + l.phone2 + '</span>' : ''}</td>
-      <td>${l.direccion}</td>
-      <td>${l.servicio}</td>
-      <td>${l.fechaVenta || '—'}</td>
-      <td>${l.fechaInstalacion || '—'}</td>
-      <td><div class="nota-cell" title="Toca para expandir" onclick="this.classList.toggle('expanded')">${l.notaProcesamiento || '—'}</div></td>
+      <td><strong>#${esc(l.leadId)}</strong></td>
+      <td>${esc(l.nombre)}</td>
+      <td>${esc(l.phone1)}${l.phone2 ? '<br><span style="color:var(--text-dim);font-size:0.8rem;">' + esc(l.phone2) + '</span>' : ''}</td>
+      <td>${esc(l.direccion)}</td>
+      <td>${esc(l.servicio)}</td>
+      <td>${esc(l.fechaVenta || '—')}</td>
+      <td>${esc(l.fechaInstalacion || '—')}</td>
+      <td><div class="nota-cell" title="Toca para expandir" onclick="this.classList.toggle('expanded')">${esc(l.notaProcesamiento || '—')}</div></td>
       <td>${badgeEstado(l)}</td>
     </tr>
   `).join('');

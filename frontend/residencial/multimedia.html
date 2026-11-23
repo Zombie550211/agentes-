@@ -315,7 +315,7 @@
             </div>
           </div>
           <div class="media-info">
-            <div class="media-name">${file.name}</div>
+            <div class="media-name">${_escHtml(file.name)}</div>
             <div class="media-details">
               ${formatFileSize(file.size)} • ${new Date(file.uploadDate).toLocaleDateString()}
             </div>
@@ -341,13 +341,19 @@
       return u.startsWith('/') ? u : '/' + u;
     }
 
+    // El nombre del archivo lo pone quien lo sube: se escapa siempre (XSS almacenado).
+    function _escHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g,
+        (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
     function renderMediaPreview(file) {
       const type = getFileType(file.type);
       const url = _resolveMediaUrl(file.url);
       if (type === 'image' || type === 'gif') {
-        return `<img src="${url}" alt="${file.name}">`;
+        return `<img src="${_escHtml(url)}" alt="${_escHtml(file.name)}">`;
       } else if (type === 'video') {
-        return `<video src="${url}" muted></video>`;
+        return `<video src="${_escHtml(url)}" muted></video>`;
       }
 
       return `<i class="fas fa-file" style="font-size: 3rem; color: #cbd5e0;"></i>`;
@@ -406,9 +412,9 @@
       
       const type = getFileType(file.type);
       if (type === 'image' || type === 'gif') {
-        modalBody.innerHTML = `<img src="${_resolveMediaUrl(file.url)}" class="modal-media" alt="${file.name}">`;
+        modalBody.innerHTML = `<img src="${_escHtml(_resolveMediaUrl(file.url))}" class="modal-media" alt="${_escHtml(file.name)}">`;
       } else if (type === 'video') {
-        modalBody.innerHTML = `<video src="${_resolveMediaUrl(file.url)}" class="modal-media" controls></video>`;
+        modalBody.innerHTML = `<video src="${_escHtml(_resolveMediaUrl(file.url))}" class="modal-media" controls></video>`;
       }
 
       modal.style.display = 'block';
