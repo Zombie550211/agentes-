@@ -14,3 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # deps.py exige JWT_SECRET al importarse. Valor fijo solo para pruebas.
 os.environ.setdefault("JWT_SECRET", "secreto-solo-para-pruebas-" + "x" * 32)
+
+# API externa de facturación: con una llave de prueba responde 401 sin llave
+# (sin ninguna llave configurada estaría apagada y respondería 503).
+os.environ.setdefault("FACTURACION_API_KEYS", "llave-de-pruebas")

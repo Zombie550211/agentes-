@@ -36,7 +36,7 @@ from routers import auth as auth_router
 from routers import dashboard as dashboard_router
 from routers import (
     teams, premios, facturacion, chat, media, pre_leads, employees_month,
-    facturacion_lineas, facturacion_lineas_pub, recibos_google, portal, llamadas_ventas_lineas, bulk_status,
+    facturacion_lineas, facturacion_lineas_pub, facturacion_externa, recibos_google, portal, llamadas_ventas_lineas, bulk_status,
     users as users_router, lineas as lineas_router,
     ranking as ranking_router, equipo as equipo_router,
     leads as leads_router,
@@ -1193,6 +1193,7 @@ app.include_router(premios.router)
 app.include_router(facturacion.router)
 app.include_router(facturacion_lineas.router)
 app.include_router(facturacion_lineas_pub.router)
+app.include_router(facturacion_externa.router)   # API de solo lectura con llave (resumen diario)
 app.include_router(recibos_google.router)
 app.include_router(portal.router)
 app.include_router(llamadas_ventas_lineas.router)
