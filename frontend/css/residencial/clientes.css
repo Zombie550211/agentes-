@@ -10,19 +10,6 @@ body.cl-pagina{font-size:13px;--font-mono:"JetBrains Mono",ui-monospace,"SFMono-
 .cl-pagina .in-hoja{display:flex;flex-direction:column;gap:var(--space-3)}
 .cl-pagina .in-head{margin-bottom:calc(var(--space-3) * -1)}
 
-/* ═══ Título e indicadores ═════════════════════════════════════════════════ */
-/* Sólo los indicadores, a todo el ancho. */
-.cl-hero{padding:var(--space-3);background:linear-gradient(135deg, rgb(48 160 200 / .14), rgb(255 255 255 / .7)) !important}
-.cl-kpis{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:var(--space-2)}
-.cl-kpi{display:flex;flex-direction:column;align-items:flex-start;min-width:0;padding:var(--space-3);
-  background:rgb(255 255 255 / .85);border:1px solid var(--glass-borde);box-shadow:0 2px 10px rgb(0 112 152 / .05)}
-.cl-kpi-ico{width:28px;height:28px;display:grid;place-items:center;font-size:15px;color:var(--color-accent-2-500);
-  border:1px solid rgb(0 112 152 / .22)}
-.cl-kpi-num{display:block;margin-top:14px;font-family:var(--font-num);font-size:22px;font-weight:600;line-height:1;letter-spacing:-.01em;color:var(--color-neutral-900);font-variant-numeric:lining-nums tabular-nums}
-.cl-kpi-lbl{margin-top:5px;font-size:11px;color:var(--color-neutral-600);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-@media (max-width:900px){ .cl-kpis{grid-template-columns:repeat(4,minmax(0,1fr))} }
-@media (max-width:460px){ .cl-kpis{grid-template-columns:repeat(2,minmax(0,1fr))} }
-
 /* ═══ Filtros ══════════════════════════════════════════════════════════════ */
 /* Fila 1: búsqueda + 5 filtros en columnas que llenan el ancho (nunca se parten).
    Fila 2: chips de status a la izquierda; recuento, puntos y Actualizar a la derecha. */
@@ -60,7 +47,6 @@ body.cl-pagina{font-size:13px;--font-mono:"JetBrains Mono",ui-monospace,"SFMono-
 /* Las hojas antiguas ponen mayúsculas y letra monoespaciada a estos elementos: fuera. */
 .cl-pagina .cl-chip,.cl-pagina #recuentoCount,.cl-pagina #puntajeTotalCount,.cl-pagina #pageInfo,.cl-pagina .cl-btn,.cl-pagina #toggleMonthsBtn{
   text-transform:none;letter-spacing:normal;font-family:var(--font-body)}
-.cl-pagina .cl-tabla,.cl-pagina .cl-scroll,.cl-pagina .cl-table,.cl-pagina .cl-table th{border-radius:0}
 
 /* Chips de status */
 .cl-chips{display:flex;flex-wrap:wrap;gap:6px}
@@ -96,28 +82,7 @@ body.cl-pagina{font-size:13px;--font-mono:"JetBrains Mono",ui-monospace,"SFMono-
 .cl-btn-icono:hover:not(:disabled){background:#fff;color:var(--color-accent-2-600);border-color:rgb(0 112 152 / .4)}
 .cl-btn-icono:disabled{opacity:.4;cursor:default}
 
-/* ═══ Tabla ════════════════════════════════════════════════════════════════ */
-.cl-tabla{display:flex;flex-direction:column;min-height:0;padding:0}
-.cl-scroll{overflow:auto;max-height:calc(100vh - 210px);min-height:260px;overscroll-behavior:contain}
-.cl-table{width:100%;min-width:1060px;border-collapse:separate;border-spacing:0;font-size:12px}
-/* Cabecera fija como UNA pieza (thead): fijando cada th por separado, Chrome dejaba
-   costuras oscuras entre columnas. */
-.cl-table thead{position:sticky;top:0;z-index:2;background:#eef4f7}
-.cl-table thead th{padding:10px 10px;text-align:left;white-space:normal;line-height:1.3;font-size:11px;font-weight:600;
-  color:var(--color-neutral-700);background:transparent;border-bottom:1px solid rgb(0 112 152 / .14)}
-/* Columnas ordenables: clic (o Enter) alterna ascendente → descendente → sin orden. */
-.cl-table th[data-orden]{cursor:pointer;user-select:none}
-.cl-table th[data-orden]:hover{color:var(--color-text)}
-.cl-table th[data-orden] i{font-size:11px;vertical-align:-1px;margin-left:2px;white-space:nowrap;color:var(--color-neutral-400)}
-.cl-table th[aria-sort="ascending"],.cl-table th[aria-sort="descending"]{color:var(--color-accent-2-600)}
-.cl-table th[aria-sort="ascending"] i,.cl-table th[aria-sort="descending"] i{color:var(--color-accent-2-500)}
-.cl-table .cl-th-acc{text-align:center}
-.cl-table tbody td{padding:8px 10px;vertical-align:middle;border-bottom:1px solid rgb(0 112 152 / .07);color:var(--color-text)}
-.cl-reg{transition:background .12s}
-.cl-reg:hover{background:rgb(0 112 152 / .035)}
-.cl-reg.cl-es-colchon{background:rgb(48 160 200 / .04)}
-/* Franja de color por status a la izquierda de la fila */
-.cl-reg td:first-child{box-shadow:inset 3px 0 0 var(--franja,transparent)}
+/* ═══ Color de status (franja de la tarjeta) ═══ */
 .st-pending{--franja:var(--cl-pending)}.st-completed,.st-active{--franja:var(--cl-active)}.st-cancelled{--franja:var(--cl-cancelled)}
 .st-hold,.st-rescheduled{--franja:var(--cl-hold)}.st-oficina{--franja:var(--cl-oficina)}.st-reserva{--franja:var(--color-accent-2-500)}
 
@@ -133,7 +98,6 @@ body.cl-pagina{font-size:13px;--font-mono:"JetBrains Mono",ui-monospace,"SFMono-
 .cl-tel{font-family:var(--font-num);font-size:12px;font-weight:600;letter-spacing:.01em;color:var(--color-neutral-900);font-variant-numeric:lining-nums tabular-nums}
 .cl-tel-alt{font-weight:400;color:var(--color-neutral-700)}
 .cl-dir{margin-top:2px;max-width:200px;font-size:11px;color:var(--color-neutral-600);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cl-table td:nth-child(3){min-width:190px}
 .cl-tags{display:flex;flex-wrap:wrap;gap:4px}
 .cl-tag{display:inline-flex;align-items:center;height:18px;padding:0 6px;font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:0;white-space:nowrap;
   color:var(--color-text);background:rgb(255 255 255 / .8);border:1px solid rgb(20 33 42 / .18)}
@@ -203,7 +167,6 @@ body.cl-pagina{font-size:13px;--font-mono:"JetBrains Mono",ui-monospace,"SFMono-
 .cl-accion:hover{color:var(--color-accent-2-600);background:#fff;border-color:rgb(0 112 152 / .25)}
 .cl-accion-borrar:hover{color:var(--cl-cancelled);border-color:rgb(220 38 38 / .3)}
 
-.cl-vacia td{padding:48px 12px !important;border:0 !important}
 .cl-vacia-box{display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--color-neutral-600);font-size:12px}
 .cl-vacia-box i{font-size:26px;color:var(--color-accent-2-400)}
 .cl-vacia-box strong{font-size:14px;color:var(--color-text)}
@@ -231,4 +194,252 @@ body.cl-pagina{font-size:13px;--font-mono:"JetBrains Mono",ui-monospace,"SFMono-
 /* Colores de status (semánticos; los mismos en chips, franja, listas e insignias) */
 :root{--cl-pending:#eab308;--cl-active:#16a34a;--cl-cancelled:#dc2626;--cl-hold:#8f9ca6;--cl-oficina:#14212a}
 
-@media (prefers-reduced-motion:reduce){ .cl-reg,.cl-chip,.cl-btn,.cl-accion{transition:none} }
+@media (prefers-reduced-motion:reduce){ .cl-chip,.cl-btn,.cl-accion{transition:none} }
+
+/* ═══ Maestro-detalle (rediseño 24-nov-2026) ═══════════════════════════════
+   Lista de clientes a la izquierda y ficha del seleccionado a la derecha. La barra de
+   arriba (.in-head, menú e iconos) es la de siempre y se queda fija: aquí no se toca.
+   Cada panel se desplaza por dentro; el alto lo pone costumer-main.js (--cl-alto). */
+.cl-pagina .in-marco-amplio{padding-bottom:16px}
+.cl-maestro{--cl-r:14px;--cl-r-sm:10px;--cl-linea:rgb(20 33 42 / .09);--cl-tinta:#0f1d26;--cl-gris:#5b6b76;
+  display:grid;grid-template-columns:minmax(330px,400px) minmax(0,1fr);gap:var(--space-3);
+  height:var(--cl-alto,calc(100dvh - 150px));min-height:520px}
+.cl-panel{display:flex;flex-direction:column;min-height:0;overflow:hidden;border-radius:var(--cl-r) !important}
+.cl-pagina .cl-panel{background:rgb(255 255 255 / .8)}
+
+/* ── Columna izquierda ── */
+.cl-panel-lista{padding:var(--space-4) var(--space-3) 0}
+.cl-lista-cab{display:flex;align-items:center;gap:10px;padding:0 4px var(--space-3)}
+.cl-titulo{margin:0;font-family:"Inter",system-ui,sans-serif;font-size:26px;font-weight:700;letter-spacing:-.02em;color:var(--cl-tinta);line-height:1}
+.cl-pagina #recuentoCount.cl-cuenta{display:inline-flex;align-items:center;justify-content:center;min-width:0;width:auto;height:26px;padding:0 9px;border-radius:8px;
+  font-family:var(--font-num);font-size:14px;font-weight:600;color:var(--color-neutral-700);background:rgb(20 33 42 / .06);font-variant-numeric:tabular-nums}
+.cl-pagina #puntajeTotalCount.cl-puntos{margin-left:auto;height:26px;padding:0 10px;border:0;border-radius:8px;font-size:12px;font-weight:600;
+  color:var(--color-accent-2-600);background:rgb(0 112 152 / .08)}
+
+.cl-lista-busca{display:flex;gap:8px;padding:0 4px}
+.cl-lista-busca .cl-buscar{flex:1}
+.cl-pagina .cl-lista-busca #costumer-search{height:42px;border-radius:var(--cl-r-sm);border-color:rgb(20 33 42 / .14);background:#fff}
+.cl-pagina .cl-btn-filtros{position:relative;width:42px;height:42px;border-radius:var(--cl-r-sm);background:#fff;border-color:rgb(20 33 42 / .14);font-size:18px}
+.cl-pagina .cl-btn-filtros.is-active{color:#fff;background:var(--color-accent-2-500);border-color:var(--color-accent-2-500)}
+.cl-filtros-n{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;display:grid;place-items:center;
+  font-family:var(--font-num);font-size:10px;font-weight:700;color:#fff;background:var(--cl-cancelled)}
+.cl-filtros-n[hidden]{display:none}
+
+/* Filtros avanzados plegables: dos columnas dentro del panel. */
+.cl-pagina .cl-filtros-mas{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 4px 0;padding:10px;
+  border:1px solid var(--cl-linea);border-radius:var(--cl-r-sm);background:rgb(246 249 251 / .9)}
+.cl-pagina .cl-filtros-mas[hidden]{display:none}
+.cl-filtros-mas .cl-filtro{height:36px;border-radius:8px;background:#fff;border-color:rgb(20 33 42 / .12)}
+.cl-filtros-mas .cl-filtro .sel-btn{height:34px}
+.cl-filtros-mas .cl-filtro-fecha{grid-column:1 / -1}
+.cl-filtros-btns{grid-column:1 / -1;display:flex;gap:6px}
+.cl-pagina .cl-filtros-btns .cl-btn-sec,.cl-pagina .cl-filtros-btns #toggleMonthsBtn{border-radius:8px;height:32px}
+
+/* Pestañas de status (como en el diseño: texto, la activa con fondo suave). */
+.cl-tabs-wrap{position:relative;display:flex;align-items:center;margin:12px 0 8px;padding:0 4px}
+.cl-pagina .cl-tabs-wrap .cl-chips{flex:1;display:flex;flex-wrap:nowrap;gap:2px;overflow-x:auto;scrollbar-width:none;scroll-behavior:smooth}
+.cl-tabs-wrap .cl-chips::-webkit-scrollbar{display:none}
+.cl-pagina .cl-tabs-wrap .cl-chip{flex:none;height:32px;padding:0 11px;border:0;border-radius:8px;background:transparent;font-size:13px;font-weight:500;color:var(--color-neutral-700)}
+.cl-pagina .cl-tabs-wrap .cl-chip:hover{background:rgb(20 33 42 / .05);color:var(--cl-tinta)}
+.cl-pagina .cl-tabs-wrap .cl-chip.is-active{background:rgb(0 112 152 / .12);color:var(--color-accent-2-700);font-weight:600}
+.cl-pagina .cl-tabs-wrap .cl-chip.is-active .cl-punto{box-shadow:none}
+.cl-tabs-mas{flex:none;display:grid;place-items:center;width:26px;height:32px;margin-left:2px;padding:0;border:0;border-radius:8px;
+  background:linear-gradient(90deg,transparent,rgb(255 255 255 / .95) 40%);color:var(--color-neutral-700);font-size:15px;cursor:pointer}
+.cl-tabs-mas[hidden]{display:none}
+.cl-tabs-menos{margin:0 2px 0 0;background:linear-gradient(270deg,transparent,rgb(255 255 255 / .95) 40%)}
+
+/* Lista de tarjetas: franja ancha del status a la izquierda, avatar con el color del agente,
+   puntaje grande a la derecha y abajo status de comisión · mercado · venta → instalación. */
+.cl-lista{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:8px;padding:4px 4px 12px;outline:none}
+.cl-card{flex:none;position:relative;display:grid;grid-template-columns:40px minmax(0,1fr) auto;grid-template-areas:"av txt pts" "pie pie pie";
+  column-gap:11px;row-gap:8px;width:100%;margin:0;padding:11px 12px 9px 17px;text-align:left;font:inherit;color:inherit;cursor:pointer;overflow:hidden;
+  background:#fff;border:1px solid var(--cl-linea);border-radius:var(--cl-r-sm);box-shadow:0 1px 2px rgb(20 33 42 / .05);
+  transition:border-color .15s,box-shadow .15s,transform .15s}
+.cl-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--franja,#c8d0d6)}
+.cl-card:hover{border-color:rgb(0 112 152 / .32);box-shadow:0 6px 18px rgb(20 33 42 / .08);transform:translateY(-1px)}
+.cl-card.is-sel{border-color:var(--color-accent-2-500);background:linear-gradient(90deg,rgb(230 241 246 / .9),#fff 70%);
+  box-shadow:0 0 0 1px var(--color-accent-2-500),0 8px 22px rgb(0 112 152 / .14)}
+.cl-card:focus-visible{outline:2px solid var(--color-accent-2-500);outline-offset:2px}
+
+.cl-card-av{grid-area:av;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-family:"Inter",system-ui,sans-serif;
+  font-size:13px;font-weight:700;letter-spacing:.02em;box-shadow:inset 0 0 0 1px rgb(20 33 42 / .06)}
+.cl-card-txt{grid-area:txt;display:flex;flex-direction:column;min-width:0}
+.cl-card .cl-nombre{display:flex;align-items:center;gap:6px;min-width:0;font-family:"Inter",system-ui,sans-serif;font-size:13.5px;font-weight:700;
+  letter-spacing:.005em;text-transform:uppercase;color:var(--cl-tinta);line-height:1.25}
+.cl-nombre-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cl-card-agente{display:flex;align-items:baseline;gap:8px;min-width:0;margin-top:2px;font-size:12.5px;color:var(--color-neutral-700);white-space:nowrap}
+.cl-card-agente > span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.cl-card-tel{flex:none;font-family:var(--font-num);font-size:11.5px;font-weight:500;letter-spacing:.02em;color:var(--cl-gris);font-variant-numeric:tabular-nums}
+
+.cl-card-pts{grid-area:pts;display:flex;flex-direction:column;align-items:flex-end;line-height:1}
+.cl-card-pts b{font-family:"Inter",system-ui,sans-serif;font-size:20px;font-weight:700;letter-spacing:-.02em;color:var(--cl-tinta);font-variant-numeric:tabular-nums}
+.cl-card-pts small{margin-top:3px;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--cl-gris)}
+.cl-card-pts.cl-pts-nada b{color:var(--color-neutral-400)}
+.cl-card-pts.cl-pts-alto b{color:#15803d}
+
+.cl-card-pie{grid-area:pie;display:flex;align-items:center;gap:6px;min-width:0;padding-top:8px;border-top:1px dashed rgb(20 33 42 / .1)}
+.cl-card-pie .cl-badge{flex:none;height:22px;padding:0 8px;border-radius:6px;font-size:10px;font-weight:700;letter-spacing:.02em;max-width:130px;overflow:hidden;text-overflow:ellipsis}
+.cl-card-merc{flex:none;height:22px;display:inline-flex;align-items:center;padding:0 7px;border-radius:6px;font-family:"Inter",system-ui,sans-serif;
+  font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--color-accent-2-700);background:rgb(0 112 152 / .08)}
+.cl-card-fechas{margin-left:auto;display:inline-flex;align-items:center;gap:3px;min-width:0;white-space:nowrap;
+  font-family:var(--font-num);font-size:11px;font-weight:500;color:var(--color-neutral-700);font-variant-numeric:tabular-nums}
+.cl-card-fechas em{margin-right:3px;font-style:normal;font-size:9.5px;font-weight:700;color:var(--color-neutral-500)}
+.cl-card-fechas i{font-size:10px;color:var(--color-neutral-400)}
+.cl-card .cl-ico-colchon{flex:none}
+.cl-badge-nada{--sel-texto:var(--color-neutral-600);--sel-fondo:rgb(20 33 42 / .05);--sel-borde:transparent}
+.cl-pagina .cl-badge{border-radius:6px}
+.cl-pagina .cl-tag{border-radius:5px}
+.cl-lista .cl-vacia-box{padding:48px 12px;text-align:center}
+
+/* Paginación compacta al pie de la lista */
+.cl-pagina .cl-panel-lista #paginationControls{flex:none;gap:6px;margin:0 -15px;padding:10px 15px;border-top:1px solid var(--cl-linea);background:rgb(255 255 255 / .6)}
+.cl-pagina .cl-panel-lista #pageInfo{font-size:11px}
+.cl-pagina .cl-panel-lista .cl-filas{height:32px;border-radius:8px}
+.cl-panel-lista .cl-filas > span:not(.sel){display:none}
+.cl-panel-lista .cl-filas .sel{flex:none;width:86px}
+.cl-pagina .cl-panel-lista .cl-btn-icono,.cl-pagina .cl-panel-lista .cl-pag-num{width:30px;min-width:30px;height:30px;border-radius:8px;font-size:14px}
+.cl-pagina .cl-panel-lista #pageFirst,.cl-pagina .cl-panel-lista #pageLast{display:none}
+
+/* ── Columna derecha ── */
+.cl-panel-det{padding:0}
+.cl-pagina .cl-det-acc .cl-btn,.cl-pagina .cl-det-vacio .cl-btn{height:38px;border-radius:var(--cl-r-sm);padding:0 16px;font-size:13px;box-shadow:0 2px 8px rgb(0 112 152 / .22)}
+.cl-det-vacio .cl-btn{margin-top:10px}
+
+.cl-detalle{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:var(--space-4) var(--space-6) var(--space-6)}
+.cl-det-cab{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap}
+.cl-avatar-xl{width:60px !important;height:60px !important;font-size:20px !important}
+.cl-det-tit{flex:1;min-width:220px;display:flex;flex-direction:column}
+.cl-det-eti{font-size:13px;color:var(--cl-gris)}
+.cl-colchon-eti{color:var(--color-accent-600);font-weight:600}
+.cl-det-nombre{margin:2px 0;font-family:"Inter",system-ui,sans-serif;font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.1;color:var(--cl-tinta);text-transform:uppercase;overflow-wrap:anywhere}
+.cl-det-agente{font-size:15px;color:var(--cl-gris)}
+.cl-det-acc{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cl-det-acc > .cl-badge{height:32px;padding:0 12px;font-size:12px;border-radius:8px}
+.cl-pagina .cl-det-acc .cl-btn-sec{height:38px;gap:6px;padding:0 14px;border-radius:var(--cl-r-sm);font-size:13px;color:var(--cl-tinta);background:#fff;border-color:rgb(20 33 42 / .16)}
+.cl-pagina .cl-det-acc .cl-btn-sec:hover{border-color:var(--color-accent-2-500);color:var(--color-accent-2-600)}
+.cl-pagina .cl-det-acc .cl-btn-icono{width:38px;height:38px;border-radius:var(--cl-r-sm);background:#fff;border-color:rgb(20 33 42 / .16)}
+.cl-pagina .cl-det-acc .cl-btn-borrar:hover{color:var(--cl-cancelled);border-color:rgb(220 38 38 / .4)}
+.cl-det-acc .cl-accion-aud{width:38px;height:38px;border-radius:var(--cl-r-sm);background:#fff;border-color:rgb(20 33 42 / .16)}
+
+/* Franja de cifras del cliente */
+.cl-det-cifras{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));margin-top:var(--space-4);
+  background:#fff;border:1px solid var(--cl-linea);border-radius:var(--cl-r);box-shadow:0 1px 3px rgb(20 33 42 / .04)}
+.cl-cifra{min-width:0;padding:14px 18px;border-left:1px solid var(--cl-linea)}
+.cl-cifra:first-child{border-left:0}
+.cl-cifra-lbl{display:block;margin-bottom:6px;font-size:13px;color:var(--cl-gris)}
+.cl-cifra-val{min-height:30px;display:flex;flex-direction:column;justify-content:center;align-items:flex-start}
+.cl-cifra-txt{font-family:var(--font-num);font-size:20px;font-weight:700;color:var(--cl-tinta)}
+.cl-pagina .cl-cifra .cl-sel{width:100%;max-width:190px;height:32px;border-radius:8px;font-size:12px}
+.cl-pagina .cl-cifra .cl-badge{height:30px;border-radius:8px;font-size:12px}
+.cl-pts-xl{font-size:20px !important;font-weight:700 !important}
+
+/* Tarjetas de la ficha */
+.cl-det-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-3);margin-top:var(--space-3)}
+.cl-det-card{min-width:0;padding:16px 18px;background:#fff;border:1px solid var(--cl-linea);border-radius:var(--cl-r);box-shadow:0 1px 3px rgb(20 33 42 / .04)}
+.cl-det-card h3{display:flex;align-items:center;gap:7px;margin:0 0 12px;font-family:"Inter",system-ui,sans-serif;font-size:15px;font-weight:600;color:var(--cl-tinta)}
+.cl-det-card h3 i{font-size:17px;color:var(--color-accent-2-500)}
+.cl-tel-xl{font-family:var(--font-num);font-size:24px;font-weight:700;letter-spacing:.01em;color:var(--cl-tinta);font-variant-numeric:tabular-nums}
+.cl-tel-alt{margin-top:2px;font-family:var(--font-num);font-size:13px;color:var(--cl-gris)}
+.cl-dir-xl{margin:6px 0 0;font-size:13px;line-height:1.4;color:var(--color-neutral-800)}
+.cl-datos{display:grid;gap:7px;margin:12px 0 0}
+.cl-dato{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.cl-dato dt{flex:none;font-size:13px;color:var(--cl-gris)}
+.cl-dato dd{margin:0;min-width:0;text-align:right;font-family:var(--font-num);font-size:13px;font-weight:600;color:var(--cl-tinta);overflow-wrap:anywhere}
+.cl-tags-xl{gap:6px}
+.cl-tags-xl .cl-tag{height:24px;padding:0 8px;font-size:11px}
+.cl-nada{color:var(--color-neutral-400);font-weight:400}
+.cl-nueva{color:var(--cl-cancelled);font-weight:700}
+.cl-asesor{display:flex;align-items:center;gap:10px}
+.cl-asesor .cl-avatar{width:38px;height:38px;font-size:13px}
+.cl-asesor strong{display:block;font-size:14px;color:var(--cl-tinta)}
+.cl-asesor span:not(.cl-avatar){display:block;font-size:12px;color:var(--cl-gris)}
+.cl-resumen-pts{display:flex;align-items:baseline;gap:6px}
+.cl-pts-grande{font-family:var(--font-num);font-size:30px;font-weight:700;letter-spacing:-.01em;color:var(--cl-tinta);font-variant-numeric:tabular-nums}
+.cl-resumen-pts small{font-size:14px;font-weight:600;color:var(--cl-gris)}
+.cl-barra{height:5px;margin-top:8px;border-radius:3px;background:rgb(20 33 42 / .07);overflow:hidden}
+.cl-barra span{display:block;height:100%;border-radius:3px;background:var(--pts-marca,var(--color-accent-2-500));transition:width .3s}
+.cl-comprobante{position:relative;display:block;width:100%;height:110px;margin-top:12px;padding:0;border:1px solid var(--cl-linea);border-radius:var(--cl-r-sm);overflow:hidden;cursor:zoom-in;background:#f3f6f8}
+.cl-comprobante img{width:100%;height:100%;object-fit:cover}
+.cl-comprobante span{position:absolute;right:6px;bottom:6px;padding:2px 8px;border-radius:6px;font-size:11px;color:#fff;background:rgb(0 0 0 / .5)}
+
+.cl-det-vacio{height:100%;min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--cl-gris);text-align:center}
+.cl-det-vacio i{font-size:40px;color:var(--color-accent-2-400)}
+.cl-det-vacio strong{font-size:16px;color:var(--cl-tinta)}
+
+/* ── Pantallas medianas y chicas ── */
+@media (max-width:1400px){
+  .cl-det-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:1150px){
+  .cl-det-cifras{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .cl-cifra:nth-child(4){border-left:0}
+  .cl-cifra:nth-child(n+4){border-top:1px solid var(--cl-linea)}
+  .cl-detalle{padding:var(--space-4)}
+}
+@media (max-width:900px){
+  .cl-maestro{grid-template-columns:minmax(0,1fr);height:auto}
+  .cl-panel-lista{max-height:75vh}
+  .cl-panel-det{min-height:60vh}
+  .cl-det-grid{grid-template-columns:minmax(0,1fr)}
+  .cl-det-nombre{font-size:24px}
+}
+@media (prefers-reduced-motion:reduce){ .cl-card,.cl-barra span{transition:none} .cl-tabs-wrap .cl-chips{scroll-behavior:auto} }
+
+/* ═══ Resumen arriba de la ficha: Distribución de registros + Resumen de puntos ═══
+   Colores de status = los de la página (chips/franjas); 2px de hueco entre tramos. */
+.cl-resumen-graf{flex:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-3);padding:var(--space-4) var(--space-6) 0}
+.cl-res-card{min-width:0;padding:16px 18px;background:#fff;border:1px solid var(--cl-linea);border-radius:var(--cl-r);box-shadow:0 1px 3px rgb(20 33 42 / .04)}
+.cl-res-card h3{margin:0 0 10px;font-family:"Inter",system-ui,sans-serif;font-size:15px;font-weight:600;color:var(--cl-tinta)}
+.cl-res-cab{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.cl-res-cab h3{margin:0}
+.cl-res-num{display:inline-block;font-family:"Inter",system-ui,sans-serif;font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.1;color:var(--cl-tinta);font-variant-numeric:tabular-nums}
+.cl-res-num-xl{font-size:32px}
+.cl-res-sub{display:block;margin-top:2px;font-size:12px;color:var(--cl-gris)}
+
+/* Distribución */
+.cl-dist{display:grid;grid-template-columns:minmax(0,1fr) 92px auto;align-items:center;gap:16px}
+.cl-dist-izq{min-width:0}
+.cl-dist-barra{display:flex;gap:2px;height:8px;margin-top:12px}
+.cl-dist-barra span{min-width:3px;height:100%;border-radius:4px;cursor:default}
+.cl-dist-barra .cl-vacio-barra{flex:1;background:rgb(20 33 42 / .07)}
+.cl-dona{width:92px;height:92px;transform:rotate(-90deg)}
+.cl-dona circle{fill:none;stroke-width:14;cursor:default}
+.cl-dona .cl-dona-fondo{stroke:rgb(20 33 42 / .06);cursor:auto}
+.cl-dona circle[data-g]:hover,.cl-dist-barra span:hover{filter:brightness(1.08)}
+.cl-dist-ley{list-style:none;display:grid;gap:4px;margin:0;padding:0;font-size:12px}
+.cl-dist-ley li{display:grid;grid-template-columns:8px auto auto;align-items:center;gap:7px;cursor:default}
+.cl-dist-ley i{width:8px;height:8px;border-radius:50%}
+.cl-dist-ley span{color:var(--color-neutral-800);white-space:nowrap}
+.cl-dist-ley b{justify-self:end;min-width:28px;text-align:right;font-family:var(--font-num);font-weight:600;color:var(--cl-tinta);font-variant-numeric:tabular-nums}
+
+/* Puntos: periodo + área */
+.cl-rangos{display:inline-flex;gap:4px}
+.cl-rangos button{height:26px;padding:0 9px;border:1px solid rgb(20 33 42 / .14);border-radius:7px;background:#fff;font:inherit;font-family:"Inter",system-ui,sans-serif;
+  font-size:11px;font-weight:600;color:var(--color-neutral-700);cursor:pointer;transition:background .15s,border-color .15s}
+.cl-rangos button:hover{border-color:var(--color-accent-2-500);color:var(--color-accent-2-600)}
+.cl-rangos button.is-active{background:rgb(20 33 42 / .08);border-color:transparent;color:var(--cl-tinta)}
+.cl-fin{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:18px}
+.cl-fin-u{font-size:16px;font-weight:600;color:var(--cl-gris)}
+.cl-spark{position:relative;height:84px;min-width:0;cursor:crosshair}
+.cl-spark svg{display:block;width:100%;height:100%;overflow:visible}
+.cl-spark-linea{fill:none;stroke:#007098;stroke-width:2;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.cl-spark-base{stroke:rgb(20 33 42 / .1);stroke-width:1;vector-effect:non-scaling-stroke}
+.cl-spark-cruz{stroke:rgb(20 33 42 / .35);stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
+.cl-spark-punto{position:absolute;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;background:#007098;box-shadow:0 0 0 2px #fff;pointer-events:none}
+.cl-spark-punto[hidden]{display:none}
+.cl-spark-vacio{height:100%;display:grid;place-items:center;font-size:12px;color:var(--color-neutral-500);border:1px dashed rgb(20 33 42 / .12);border-radius:8px}
+
+/* Tooltip de las gráficas */
+.cl-tip{position:fixed;z-index:1000;min-width:140px;padding:8px 10px;border-radius:8px;pointer-events:none;
+  background:#fff;border:1px solid rgb(20 33 42 / .12);box-shadow:0 8px 24px rgb(20 33 42 / .16);font-family:"Inter",system-ui,sans-serif;font-size:12px;color:var(--cl-tinta,#0f1d26)}
+.cl-tip[hidden]{display:none}
+.cl-tip-tit{display:block;margin-bottom:4px;font-size:12px}
+.cl-tip-fila{display:flex;align-items:center;gap:7px}
+.cl-tip-fila i{width:8px;height:8px;border-radius:50%;flex:none}
+.cl-tip-fila span{color:#5b6b76}
+.cl-tip-fila b{margin-left:auto;padding-left:12px;font-variant-numeric:tabular-nums}
+
+@media (max-width:1400px){ .cl-resumen-graf{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:1150px){ .cl-resumen-graf{padding:var(--space-4) var(--space-4) 0} }
+@media (max-width:600px){ .cl-dist{grid-template-columns:minmax(0,1fr) 80px} .cl-dist-ley{grid-column:1 / -1;grid-template-columns:repeat(2,minmax(0,1fr))} .cl-fin{grid-template-columns:minmax(0,1fr)} }
+@media (prefers-reduced-motion:reduce){ .cl-rangos button{transition:none} }

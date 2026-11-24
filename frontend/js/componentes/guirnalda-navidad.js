@@ -1252,7 +1252,9 @@
       dibujar(cont).forEach(function (b) { b.cont = cont; bolas.push(b); });
     }
     reubicarDerecha();
-    iniciarBarra();
+    // Guirnalda enroscada en la barra del menú: quitada en todo el CRM (24-nov-2026, a pedido
+    // del usuario). iniciarBarra() se conserva por si se quiere volver a poner.
+    // iniciarBarra();
     document.querySelectorAll('[data-navidad]').forEach(function (cont) {
       if (cont.firstChild) return;
       if (cont.getAttribute('data-navidad') === 'arbol') dibujarArbol(cont).forEach(function (b) { bolas.push(b); });

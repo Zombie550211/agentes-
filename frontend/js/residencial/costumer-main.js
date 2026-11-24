@@ -677,7 +677,7 @@
     if(res&&res.ok){
       const d=await res.json().catch(function(){return{};});
       lead.riesgo_cx=d.riesgo_cx||v;lead.riesgo_cx_manual=!!d.riesgo_cx_manual;
-      const td=selectEl.closest('td');if(td)td.innerHTML=riesgoCxCellHTML(leadId,lead.riesgo_cx,lead.riesgo_cx_manual);
+      const td=selectEl.closest('[data-celda],td');if(td)td.innerHTML=riesgoCxCellHTML(leadId,lead.riesgo_cx,lead.riesgo_cx_manual);
       showToast('Riesgo CX: '+(RIESGO_CX[lead.riesgo_cx]||lead.riesgo_cx)+(lead.riesgo_cx_manual?'':' (automático)')+' · el semáforo empieza a contar ✓','ok');
     }else if(res){
       const e=await res.json().catch(function(){return{};});
@@ -715,71 +715,222 @@
   };
   document.addEventListener('auditoria:vinculos',function(){renderTableRows();});
 
-  /* ── TABLE ROWS ── */
-  function renderTableRows(){
-    const tbody=document.getElementById('costumer-tbody');if(!tbody)return;
-    const total=__filteredLeads.length,ps=pageSize===99999?total:pageSize,start=(currentPage-1)*ps,paged=__filteredLeads.slice(start,start+ps);
-    if(!paged.length){tbody.innerHTML='<tr class="cl-vacia"><td colspan="9"><div class="cl-vacia-box"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><strong>Sin resultados</strong><span>Prueba con otros filtros o limpia la búsqueda.</span></div></td></tr>';}
-    else{tbody.innerHTML=paged.map(function(lead){
-      const lid=String(lead._id);
-      const _dv7=String(lead.dia_venta||'').slice(0,7),_di7=String(lead.dia_instalacion||'').slice(0,7);
-      const isCol=!!lead._es_colchon_route||(_dv7&&_di7&&_dv7!==_di7);
-      const _st=String(lead.status_grupo||'pending');
-      const pts=lead.puntaje!==''&&lead.puntaje!==null&&lead.puntaje!==undefined?parseFloat(String(lead.puntaje).replace(',','.')):null;
-      const ptsCls=pts===null?'cl-pts-nada':pts>=1?'cl-pts-alto':pts>=0.5?'cl-pts-medio':'cl-pts-bajo';
-      const _svcArr=(function(){var s=lead.servicios;if(Array.isArray(s))return s.map(function(x){return String(x||'').trim();}).filter(Boolean);var str=String(s||'').trim();return str?[str]:[];})();
-      const _rg=String(lead.riesgo||'').trim();
-      const chips=_svcArr.map(function(sv){return'<span class="cl-tag">'+escHTML(sv)+'</span>';}).join('')+
-        (lead.sistema&&lead.sistema!=='N/A'?'<span class="cl-tag cl-tag-sis">'+escHTML(lead.sistema)+'</span>':'')+
-        (_rg&&_rg!=='N/A'?'<span class="cl-tag cl-tag-riesgo cl-riesgo-'+escHTML(_rg.toLowerCase())+'">'+escHTML(_rg)+'</span>':'');
-      const _nm=String(lead.nombre_cliente||'').trim();
-      const _ini=(_nm.split(/\s+/).filter(Boolean).slice(0,2).map(function(w){return w.charAt(0);}).join('')||'?').toUpperCase();
-      return'<tr data-id="'+escHTML(lid)+'" class="cl-reg st-'+_st+(isCol?' cl-es-colchon':'')+'">'+
-        // Cliente / Agente
-        '<td><div class="cl-cliente">'+
-          '<span class="cl-avatar" aria-hidden="true">'+escHTML(_ini)+'</span>'+
-          '<div class="cl-cliente-txt">'+
-            '<div class="cl-nombre">'+
-              (isCol?'<i class="ph ph-bed cl-ico-colchon" title="Venta colchón" aria-label="Venta colchón"></i>':'')+
-              '<span>'+escHTML(lead.nombre_cliente)+'</span>'+
-              (_hasUnreadNotes(lead)?'<span class="cl-sin-leer unread-note-dot" title="Nota sin leer" aria-label="Nota sin leer"></span>':'')+
-            '</div>'+
-            '<div class="cl-sub">'+escHTML(lead.agente||'—')+'</div>'+
-          '</div></div></td>'+
-        // Contacto / Dirección
-        '<td>'+
-          (lead.telefono?'<div class="cl-tel">'+escHTML(normalizePhoneNumber(lead.telefono))+'</div>':'')+
-          (lead.telefono_alt?'<div class="cl-tel cl-tel-alt">'+escHTML(normalizePhoneNumber(lead.telefono_alt))+'</div>':'')+
-          (lead.direccion?'<div class="cl-dir" title="'+escHTML(lead.direccion)+'">'+escHTML(lead.direccion)+'</div>':'')+
-        '</td>'+
-        // Servicio / Sistema (+ motivo y No. de cuenta)
-        '<td>'+
-          '<div class="cl-tags">'+chips+'</div>'+
-          (lead.motivo_llamada?'<div class="cl-motivo">'+escHTML(lead.motivo_llamada)+'</div>':'')+
-          '<div class="cl-acc">ACC '+escHTML(lead.numero_cuenta||'—')+'</div>'+
-        '</td>'+
-        // Logística
-        '<td><dl class="cl-fechas">'+
-          '<dt>Venta</dt><dd>'+escHTML(fmtDate(lead.dia_venta))+'</dd>'+
-          '<dt>Inst.</dt><dd>'+escHTML(fmtDate(lead.dia_instalacion))+'</dd>'+
-        '</dl></td>'+
-        // Estatus (informativo) · Comisión · Riesgo CX
-        '<td class="cl-td-sel">'+statusCellHTML(lid,lead.status,isCol)+'</td>'+
-        '<td class="cl-td-sel">'+statusComisionCellHTML(lid,lead.status_comision,isCol)+'</td>'+
-        '<td class="cl-td-sel">'+riesgoCxCellHTML(lid,lead.riesgo_cx,lead.riesgo_cx_manual)+'</td>'+
-        // Puntos / Supervisor
-        '<td>'+
-          '<div class="cl-pts '+ptsCls+'">'+(pts!==null?escHTML(String(lead.puntaje)):'—')+' <small>pts</small></div>'+
-          '<div class="cl-sub">'+escHTML(fmtSupervisor(lead.supervisor)||'—')+'</div>'+
-        '</td>'+
-        // Acción
-        '<td class="cl-td-acc"><div class="cl-acciones">'+
+  /* ── Interacción del maestro-detalle (tarjetas, filtros plegables, orden y alto) ── */
+  function _initMaestro(){
+    const lista=document.getElementById('costumer-tbody');
+    if(lista){
+      lista.addEventListener('click',function(e){const c=e.target.closest('.cl-card');if(c)seleccionarCliente(c.dataset.id,false);});
+      lista.addEventListener('dblclick',function(e){const c=e.target.closest('.cl-card');if(c)window.toggleRowExpand(c.dataset.id);});
+      // ↑/↓ recorren la lista, Inicio/Fin van a los extremos.
+      lista.addEventListener('keydown',function(e){
+        const cards=Array.from(lista.querySelectorAll('.cl-card'));if(!cards.length)return;
+        let i=cards.findIndex(function(c){return c.dataset.id===__selLid;});
+        if(e.key==='ArrowDown')i=Math.min(cards.length-1,i+1);
+        else if(e.key==='ArrowUp')i=Math.max(0,i-1);
+        else if(e.key==='Home')i=0;
+        else if(e.key==='End')i=cards.length-1;
+        else return;
+        e.preventDefault();seleccionarCliente(cards[i].dataset.id,true);
+      });
+    }
+
+    // Filtros avanzados: se pliegan; el botón muestra cuántos hay puestos.
+    const btnF=document.getElementById('cl-btn-filtros'),panelF=document.getElementById('cl-filtros-mas'),nF=document.getElementById('cl-filtros-n');
+    if(btnF&&panelF){
+      btnF.addEventListener('click',function(){const abrir=panelF.hidden;panelF.hidden=!abrir;btnF.setAttribute('aria-expanded',abrir?'true':'false');btnF.classList.toggle('is-active',abrir);_ajustarAlto();});
+      const contar=function(){
+        const n=['serviceFilter','teamFilter','agentFilter','mercadoFilter','monthFilter','fechaVentaFilter','fechaInstFilter','ordenSelect']
+          .filter(function(id){const el=document.getElementById(id);if(!el||!el.value)return false;
+          // El mes en curso viene puesto por defecto: no cuenta como filtro.
+          if(id==='monthFilter'){const d=new Date();return el.value!==d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+          return true;}).length;
+        if(nF){nF.hidden=!n;nF.textContent=n;}
+        btnF.title=n?('Más filtros · '+n+(n===1?' activo':' activos')):'Más filtros';
+      };
+      panelF.addEventListener('change',contar);panelF.addEventListener('input',contar);
+      setTimeout(contar,1500);
+    }
+
+    // Orden de la lista (antes: clic en la cabecera de la tabla).
+    const ord=document.getElementById('ordenSelect');
+    if(ord)ord.addEventListener('change',function(){
+      const p=String(ord.value||'').split(':');
+      ordenCol=p[0]||null;ordenDir=p[1]==='desc'?-1:1;
+      if(ordenCol)ordenarLeads();else{applyFilters();return;}
+      currentPage=1;renderTableRows();
+    });
+
+    // Pestañas de status: la flecha desplaza las que no caben.
+    const tabs=document.getElementById('quickStatusChips'),mas=document.getElementById('cl-tabs-mas'),menos=document.getElementById('cl-tabs-menos');
+    if(tabs&&mas){
+      const flecha=function(){
+        mas.hidden=tabs.scrollLeft+tabs.clientWidth>=tabs.scrollWidth-2;
+        if(menos)menos.hidden=tabs.scrollLeft<=2;
+      };
+      mas.addEventListener('click',function(){tabs.scrollBy({left:160,behavior:'smooth'});});
+      if(menos)menos.addEventListener('click',function(){tabs.scrollBy({left:-160,behavior:'smooth'});});
+      tabs.addEventListener('scroll',flecha,{passive:true});
+      if(window.ResizeObserver)new ResizeObserver(flecha).observe(tabs);
+      flecha();
+    }
+
+    // Alto: los dos paneles llenan la ventana bajo la barra de arriba y cada uno se desplaza solo.
+    window.addEventListener('resize',_ajustarAlto);
+    _ajustarAlto();setTimeout(_ajustarAlto,400);
+  }
+  function _ajustarAlto(){
+    const m=document.getElementById('cl-maestro');if(!m)return;
+    if(window.matchMedia('(max-width:900px)').matches){m.style.removeProperty('--cl-alto');return;}
+    const top=m.getBoundingClientRect().top+window.scrollY;
+    m.style.setProperty('--cl-alto',Math.max(520,window.innerHeight-top-16)+'px');
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',_initMaestro);else _initMaestro();
+
+  /* ── LISTA DE TARJETAS + FICHA DEL CLIENTE (rediseño maestro-detalle, 24-nov-2026) ──
+     A la izquierda una tarjeta por cliente en #costumer-tbody (mismo id que tenía el <tbody>);
+     a la derecha la ficha del seleccionado en #cl-detalle. Los cambios de status, comisión y
+     Riesgo CX se hacen desde la ficha con las mismas funciones inline de siempre. */
+  let __selLid=null;
+  // Botón Actualizar de la cabecera de la ficha (el clic lo atiende el listener de #refresh-table).
+  const BTN_ACTUALIZAR='<button id="refresh-table" type="button" class="cl-btn"><i class="ph ph-arrows-clockwise" aria-hidden="true"></i><span>Actualizar</span></button>';
+  function _esColchon(lead){const _dv7=String(lead.dia_venta||'').slice(0,7),_di7=String(lead.dia_instalacion||'').slice(0,7);return !!lead._es_colchon_route||!!(_dv7&&_di7&&_dv7!==_di7);}
+  function _iniciales(n){return(String(n||'').trim().split(/\s+/).filter(Boolean).slice(0,2).map(function(w){return w.charAt(0);}).join('')||'?').toUpperCase();}
+  function _servArr(lead){var s=lead.servicios;if(Array.isArray(s))return s.map(function(x){return String(x||'').trim();}).filter(Boolean);var str=String(s||'').trim();return str?[str]:[];}
+  function _ptsNum(lead){if(lead.puntaje===''||lead.puntaje===null||lead.puntaje===undefined)return null;const n=parseFloat(String(lead.puntaje).replace(',','.'));return isNaN(n)?null:n;}
+  function _ptsCls(p){return p===null?'cl-pts-nada':p>=1?'cl-pts-alto':p>=0.5?'cl-pts-medio':'cl-pts-bajo';}
+  function _badgeComision(valor){const v=LISTA_COMISION.indexOf(valor)>=0?valor:'';return'<span class="cl-badge '+(v?comisionCls(v):'cl-badge-nada')+'">'+(v?escHTML(v):'Sin status')+'</span>';}
+  function _mesLargo(ym){if(!/^\d{4}-\d{2}$/.test(ym||''))return'—';const p=ym.split('-');const t=new Date(+p[0],+p[1]-1,1).toLocaleDateString('es-MX',{month:'short',year:'numeric'}).replace('.','');return t.charAt(0).toUpperCase()+t.slice(1);}
+  function _txt(x){const s=String(x==null?'':x).trim();return s&&s.toUpperCase()!=='N/A'?escHTML(s):'<span class="cl-nada">—</span>';}
+
+  /* Color propio de cada agente (siempre el mismo para el mismo nombre): tinte claro + tinta
+     oscura del mismo tono, para que el avatar diga de quién es la venta de un vistazo. */
+  const COLORES_AGENTE=[['#dbeafe','#1e3a8a'],['#dcfce7','#14532d'],['#fef3c7','#78350f'],['#fce7f3','#831843'],['#ede9fe','#4c1d95'],
+    ['#ccfbf1','#134e4a'],['#ffedd5','#7c2d12'],['#e0e7ff','#312e81'],['#fae8ff','#701a75'],['#e2e8f0','#1e293b']];
+  function _colorAgente(nombre){
+    const s=_stripAccents(String(nombre||'').toLowerCase().replace(/[._]/g,' ').replace(/\s+/g,' ').trim());
+    if(!s)return['#eef1f3','#8a979f'];
+    let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;
+    return COLORES_AGENTE[h%COLORES_AGENTE.length];
+  }
+  function _diaCorto(v){const s=String(v||'').slice(0,10);return/^\d{4}-\d{2}-\d{2}$/.test(s)?_fechaCorta(s):'';}
+
+  function cardHTML(lead){
+    const lid=String(lead._id),isCol=_esColchon(lead),st=String(lead.status_grupo||'pending'),sel=lid===__selLid;
+    const pts=_ptsNum(lead),col=_colorAgente(lead.agente),tel=lead.telefono?normalizePhoneNumber(lead.telefono):'';
+    const telFmt=tel.length===10?tel.slice(0,3)+'-'+tel.slice(3,6)+'-'+tel.slice(6):tel;
+    const dv=_diaCorto(lead.dia_venta),di=_diaCorto(lead.dia_instalacion);
+    const merc=String(lead.mercado||'').trim().toUpperCase();
+    return'<button type="button" role="option" aria-selected="'+sel+'" tabindex="'+(sel?'0':'-1')+'" data-id="'+escHTML(lid)+'" class="cl-card st-'+escHTML(st)+(isCol?' cl-es-colchon':'')+(sel?' is-sel':'')+'">'+
+      '<span class="cl-card-av" style="background:'+col[0]+';color:'+col[1]+'" title="'+escHTML(lead.agente||'Sin agente')+'" aria-hidden="true">'+escHTML(lead.agente?_iniciales(lead.agente):'?')+'</span>'+
+      '<span class="cl-card-txt">'+
+        '<span class="cl-nombre">'+
+          (isCol?'<i class="ph ph-bed cl-ico-colchon" title="Venta colchón"></i>':'')+
+          '<span class="cl-nombre-txt">'+escHTML(lead.nombre_cliente)+'</span>'+
+          (_hasUnreadNotes(lead)?'<span class="cl-sin-leer unread-note-dot" title="Nota sin leer"></span>':'')+
+        '</span>'+
+        '<span class="cl-card-agente"><span>'+escHTML(lead.agente||'Sin agente')+'</span>'+(telFmt?'<span class="cl-card-tel">'+escHTML(telFmt)+'</span>':'')+'</span>'+
+      '</span>'+
+      '<span class="cl-card-pts '+_ptsCls(pts)+'"><b>'+(pts!==null?escHTML(pts.toFixed(2)):'—')+'</b><small>pts</small></span>'+
+      '<span class="cl-card-pie">'+
+        _badgeComision(lead.status_comision)+
+        (merc&&merc!=='N/A'?'<span class="cl-card-merc">'+escHTML(merc)+'</span>':'')+
+        '<span class="cl-card-fechas" title="Día de venta → día de instalación">'+
+          '<span><em>V</em>'+(dv?escHTML(dv):'—')+'</span><i class="ph ph-caret-right" aria-hidden="true"></i><span><em>I</em>'+(di?escHTML(di):'—')+'</span>'+
+        '</span>'+
+      '</span>'+
+    '</button>';
+  }
+
+  function detalleHTML(lead){
+    const lid=String(lead._id),isCol=_esColchon(lead),pts=_ptsNum(lead);
+    const tel=lead.telefono?normalizePhoneNumber(lead.telefono):'';
+    const alt=lead.telefono_alt?normalizePhoneNumber(lead.telefono_alt):'';
+    const img=_safeImgUrl(lead.imagen_url);
+    const notas=Array.isArray(lead.notas)?lead.notas.length:0;
+    const servicios=_servArr(lead);
+    function tarjeta(ico,titulo,cuerpo){return'<section class="cl-det-card"><h3><i class="ph '+ico+'" aria-hidden="true"></i>'+titulo+'</h3>'+cuerpo+'</section>';}
+    function dato(lbl,val){return'<div class="cl-dato"><dt>'+lbl+'</dt><dd>'+val+'</dd></div>';}
+    function cifra(lbl,val){return'<div class="cl-cifra"><span class="cl-cifra-lbl">'+lbl+'</span><div class="cl-cifra-val">'+val+'</div></div>';}
+    const nivel=pts===null?'Sin puntaje':pts>=1?'Puntaje alto':pts>=0.5?'Puntaje medio':'Puntaje bajo';
+    return''+
+      '<header class="cl-det-cab">'+
+        '<span class="cl-avatar cl-avatar-xl" aria-hidden="true">'+escHTML(_iniciales(lead.nombre_cliente))+'</span>'+
+        '<div class="cl-det-tit">'+
+          '<span class="cl-det-eti">Cliente'+(isCol?' · <span class="cl-colchon-eti"><i class="ph ph-bed" aria-hidden="true"></i> Venta colchón</span>':'')+'</span>'+
+          '<h2 class="cl-det-nombre">'+escHTML(lead.nombre_cliente)+'</h2>'+
+          '<span class="cl-det-agente">'+escHTML(lead.agente||'Sin agente')+'</span>'+
+        '</div>'+
+        '<div class="cl-det-acc">'+
+          _badgeComision(lead.status_comision)+
           audBoton(lead,lid)+
-          '<button type="button" class="cl-accion" onclick="toggleRowExpand(\''+lid+'\')" title="Editar" aria-label="Editar cliente"><i class="ph ph-pencil-simple" aria-hidden="true"></i></button>'+
-          '<button type="button" class="cl-accion cl-accion-borrar" onclick="event.stopPropagation();deleteLead(\''+lid+'\')" title="Eliminar" aria-label="Eliminar cliente"><i class="ph ph-trash" aria-hidden="true"></i></button>'+
-        '</div></td>'+
-      '</tr>';
-    }).join('');}
+          '<button type="button" class="cl-btn-sec cl-btn-editar" onclick="toggleRowExpand(\''+lid+'\')"><i class="ph ph-pencil-simple" aria-hidden="true"></i><span>Editar</span></button>'+
+          '<button type="button" class="cl-btn-icono cl-btn-borrar" onclick="deleteLead(\''+lid+'\')" title="Eliminar cliente" aria-label="Eliminar cliente"><i class="ph ph-trash" aria-hidden="true"></i></button>'+
+          BTN_ACTUALIZAR+
+        '</div>'+
+      '</header>'+
+      '<div class="cl-det-cifras">'+
+        cifra('Status comisión','<div data-celda>'+statusComisionCellHTML(lid,lead.status_comision,false)+'</div>')+
+        cifra('Estatus','<div data-celda>'+statusCellHTML(lid,lead.status,false)+'</div>')+
+        cifra('Riesgo CX','<div data-celda>'+riesgoCxCellHTML(lid,lead.riesgo_cx,lead.riesgo_cx_manual)+'</div>')+
+        cifra('Puntos','<span class="cl-pts cl-pts-xl '+_ptsCls(pts)+'">'+(pts!==null?escHTML(String(lead.puntaje)):'—')+'</span>')+
+        cifra('Mes','<span class="cl-cifra-txt">'+escHTML(_mesLargo(mesRef(lead)))+'</span>')+
+      '</div>'+
+      '<div class="cl-det-grid">'+
+        tarjeta('ph-phone','Contacto & Dirección',
+          '<div class="cl-tel-xl">'+(tel?escHTML(tel):'<span class="cl-nada">Sin teléfono</span>')+'</div>'+
+          (alt&&alt!==tel?'<div class="cl-tel-alt">Alterno: '+escHTML(alt)+'</div>':'')+
+          '<p class="cl-dir-xl">'+_txt(lead.direccion)+'</p>'+
+          '<dl class="cl-datos">'+dato('ZIP',_txt(lead.zip_code))+'</dl>')+
+        tarjeta('ph-wifi-high','Servicio & Detalle',
+          '<div class="cl-tags cl-tags-xl">'+(servicios.map(function(sv){return'<span class="cl-tag">'+escHTML(sv)+'</span>';}).join('')||'<span class="cl-nada">Sin servicio</span>')+
+            (lead.sistema&&lead.sistema!=='N/A'?'<span class="cl-tag cl-tag-sis">'+escHTML(lead.sistema)+'</span>':'')+'</div>'+
+          '<dl class="cl-datos">'+dato('Tipo',_txt(lead.tipo_servicio))+dato('Mercado',_txt(lead.mercado))+dato('No. cuenta','<span class="cl-num">'+_txt(lead.numero_cuenta)+'</span>')+'</dl>')+
+        tarjeta('ph-calendar-check','Fechas clave',
+          '<dl class="cl-datos cl-datos-fechas">'+dato('Día de venta',escHTML(fmtDate(lead.dia_venta)))+dato('Día de instalación',escHTML(fmtDate(lead.dia_instalacion)))+dato('Colchón',isCol?'Sí':'No')+'</dl>')+
+        tarjeta('ph-credit-card','Pago & Riesgo',
+          '<dl class="cl-datos">'+dato('Autopago',_txt(lead.autopago))+dato('Riesgo',lead.riesgo?'<span class="cl-tag cl-tag-riesgo cl-riesgo-'+escHTML(String(lead.riesgo).toLowerCase())+'">'+escHTML(lead.riesgo)+'</span>':'<span class="cl-nada">—</span>')+'</dl>')+
+        tarjeta('ph-user-circle','Asesor',
+          '<div class="cl-asesor"><span class="cl-avatar" style="background:'+_colorAgente(lead.agente)[0]+';color:'+_colorAgente(lead.agente)[1]+';border-color:transparent" aria-hidden="true">'+escHTML(lead.agente?_iniciales(lead.agente):'?')+'</span><div><strong>'+_txt(lead.agente)+'</strong><span>'+_txt(fmtSupervisor(lead.supervisor))+'</span></div></div>'+
+          '<dl class="cl-datos">'+dato('Motivo',_txt(lead.motivo_llamada))+'</dl>')+
+        tarjeta('ph-chart-bar','Resumen',
+          '<div class="cl-resumen-pts"><span class="cl-pts-grande">'+(pts!==null?escHTML(pts.toFixed(2)):'—')+'</span><small>pts</small></div>'+
+          '<div class="cl-barra" role="img" aria-label="'+nivel+'"><span class="'+_ptsCls(pts)+'" style="width:'+(pts===null?0:Math.min(100,Math.round(pts/1.5*100)))+'%"></span></div>'+
+          '<dl class="cl-datos">'+dato('Nivel',nivel)+dato('Notas',notas?notas+(notas===1?' nota':' notas')+(_hasUnreadNotes(lead)?' · <span class="cl-nueva">nueva</span>':''):'Sin notas')+'</dl>'+
+          (img?'<button type="button" class="cl-comprobante" onclick="_openCostumerImgLightbox(this.dataset.src)" data-src="'+escHTML(img)+'"><img src="'+escHTML(img)+'" alt="Imagen del cliente" loading="lazy"><span><i class="ph ph-magnifying-glass" aria-hidden="true"></i> Ver imagen</span></button>':''))+
+      '</div>';
+  }
+
+  function pintarDetalle(){
+    const box=document.getElementById('cl-detalle');if(!box)return;
+    const lead=__selLid?(__allLeadsData||[]).find(function(l){return String(l._id)===__selLid;}):null;
+    box.innerHTML=lead?detalleHTML(lead):'<div class="cl-det-vacio"><i class="ph ph-users" aria-hidden="true"></i><strong>Ningún cliente seleccionado</strong><span>Elige un cliente de la lista para ver su ficha.</span>'+BTN_ACTUALIZAR+'</div>';
+  }
+
+  function seleccionarCliente(lid,conFoco){
+    __selLid=String(lid);
+    document.querySelectorAll('#costumer-tbody .cl-card').forEach(function(c){
+      const on=c.dataset.id===__selLid;
+      c.classList.toggle('is-sel',on);c.setAttribute('aria-selected',on?'true':'false');c.tabIndex=on?0:-1;
+      if(on&&conFoco){c.focus({preventScroll:true});c.scrollIntoView({block:'nearest'});}
+    });
+    pintarDetalle();
+    const det=document.getElementById('cl-detalle');if(det)det.scrollTop=0;
+    // En pantallas angostas la ficha va debajo de la lista: llevarla a la vista.
+    if(!conFoco&&window.matchMedia('(max-width:900px)').matches){const p=document.getElementById('cl-panel-det');if(p)p.scrollIntoView({behavior:'smooth',block:'start'});}
+  }
+
+  function renderTableRows(){
+    const lista=document.getElementById('costumer-tbody');if(!lista)return;
+    const total=__filteredLeads.length,ps=pageSize===99999?total:pageSize,start=(currentPage-1)*ps,paged=__filteredLeads.slice(start,start+ps);
+    if(!paged.length){
+      __selLid=null;
+      lista.innerHTML='<div class="cl-vacia-box"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><strong>Sin resultados</strong><span>Prueba con otros filtros o limpia la búsqueda.</span></div>';
+    }else{
+      // Se conserva el cliente elegido mientras siga en la página; si no, el primero.
+      if(!__selLid||!paged.some(function(l){return String(l._id)===__selLid;}))__selLid=String(paged[0]._id);
+      lista.innerHTML=paged.map(cardHTML).join('');
+    }
+    pintarDetalle();
     if(window.AudCliente&&paged.length)window.AudCliente.pedir(paged.map(function(l){return String(l._id);}));
     window._openCostumerImgLightbox=function(src){
       var ov=document.createElement('div');
@@ -799,7 +950,7 @@
       document.addEventListener('keydown',onKey,true);
       document.body.appendChild(ov);
     };
-    const countEl=document.getElementById('recuentoCount');if(countEl){countEl.value=total;countEl.textContent=total.toLocaleString('es-SV')+(total===1?' registro total':' registros totales');}
+    const countEl=document.getElementById('recuentoCount');if(countEl){countEl.value=total;countEl.textContent=total.toLocaleString('es-SV');countEl.title=total===1?'1 registro':total.toLocaleString('es-SV')+' registros';}
     const puntajeTotal=__filteredLeads.reduce(function(sum,lead){
       const raw=lead._raw||{};
       const candidates=[lead.puntaje,raw.puntaje,raw.score,raw.puntos,raw.Puntaje,raw.Score,raw.Puntos];
@@ -810,7 +961,7 @@
     const puntajeEl=document.getElementById('puntajeTotalCount');
     if(puntajeEl)puntajeEl.value=puntajeTotal.toFixed(2)+' pts';
     const pages=Math.ceil(total/(pageSize===99999?total||1:pageSize))||1;
-    const pageEl=document.getElementById('pageInfo');if(pageEl){const _ini=total?start+1:0,_fin=Math.min(start+ps,total);pageEl.textContent='Mostrando '+_ini+'–'+_fin+' de '+total.toLocaleString('es-SV')+' · página '+currentPage+' de '+pages;}
+    const pageEl=document.getElementById('pageInfo');if(pageEl){const _ini=total?start+1:0,_fin=Math.min(start+ps,total);pageEl.textContent=_ini+'–'+_fin+' de '+total.toLocaleString('es-SV');pageEl.title='Página '+currentPage+' de '+pages;}
     const prev=document.getElementById('pagePrev'),next=document.getElementById('pageNext');
     if(prev)prev.disabled=currentPage<=1;if(next)next.disabled=currentPage>=pages;
     const first=document.getElementById('pageFirst'),last=document.getElementById('pageLast'),num=document.getElementById('pageNum');
@@ -823,6 +974,159 @@
   // Cada venta cuenta en el mes de su instalación (mesRef), igual que la tabla y Comisiones;
   // Colchón dice cuántas de ese mes se vendieron un mes anterior (ya suman en sus status).
   // Hoy cuenta las vendidas hoy aunque se instalen otro mes.
+  /* ── RESUMEN (arriba de la ficha): Distribución de registros y Resumen de puntos ──
+     Los datos salen de updateKPIs: mismos filtros (team, agente, servicio, mercado, mes o día)
+     y NO la pestaña de status. Colores: los de status de toda la página (chips y franjas). */
+  const RES_GRUPOS=[
+    {k:'activas',lbl:'Active',color:'#16a34a'},
+    {k:'pend',lbl:'Pending',color:'#eab308'},
+    {k:'cancel',lbl:'Cancelled',color:'#dc2626'},
+    {k:'hold',lbl:'Hold',color:'#8f9ca6'},
+    {k:'oficina',lbl:'Oficina',color:'#14212a'},
+    {k:'otros',lbl:'Reserva / Repro',color:'#007098'}
+  ];
+  function _grupoRes(st){return st==='completed'||st==='active'?'activas':st==='pending'?'pend':st==='cancelled'?'cancel':st==='hold'?'hold':st==='oficina'?'oficina':'otros';}
+  function _ptsDe(l){const n=parseFloat(String(l.puntaje==null?'':l.puntaje).replace(',','.'));return isNaN(n)||n<0?0:n;}
+  function _fmtN(n){return Number(n).toLocaleString('es-SV');}
+  function _fmtPts(n){return Number(n).toLocaleString('es-SV',{minimumFractionDigits:2,maximumFractionDigits:2});}
+  function _ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function _fechaCorta(ymd){const p=ymd.split('-');return new Date(+p[0],+p[1]-1,+p[2]).toLocaleDateString('es-MX',{day:'numeric',month:'short'}).replace('.','');}
+
+  let __res={mes:[],todos:[],refMon:'',rango:'mes'};
+
+  // Tooltip compartido (hover en barra, dona y gráfica)
+  function _tip(html,x,y){
+    let t=document.getElementById('cl-tip');
+    if(!t){t=document.createElement('div');t.id='cl-tip';t.className='cl-tip';t.setAttribute('role','tooltip');document.body.appendChild(t);}
+    if(html==null){t.hidden=true;return;}
+    t.innerHTML=html;t.hidden=false;
+    const w=t.offsetWidth,h=t.offsetHeight;
+    t.style.left=Math.min(window.innerWidth-w-8,Math.max(8,x-w/2))+'px';
+    t.style.top=Math.max(8,y-h-12)+'px';
+  }
+  function _tipFila(color,lbl,val){return'<span class="cl-tip-fila">'+(color?'<i style="background:'+color+'"></i>':'')+'<span>'+lbl+'</span><b>'+val+'</b></span>';}
+
+  function pintarResumen(delMes,filtrados,refMon){
+    __res.mes=delMes||[];__res.todos=filtrados||[];__res.refMon=refMon||'';
+    pintarDistribucion();pintarPuntos();
+  }
+
+  function pintarDistribucion(){
+    const tot=document.getElementById('cl-dist-total');if(!tot)return;
+    const c={activas:0,pend:0,cancel:0,hold:0,oficina:0,otros:0};
+    __res.mes.forEach(function(l){c[_grupoRes(l.status_grupo)]++;});
+    const total=__res.mes.length;
+    const grupos=RES_GRUPOS.filter(function(g){return c[g.k]>0||['activas','pend','cancel','hold'].indexOf(g.k)>=0;});
+    tot.textContent=_fmtN(total);
+    const sub=document.getElementById('cl-dist-sub');
+    if(sub){const fv=getVal('fechaVentaFilter'),fi=getVal('fechaInstFilter');sub.textContent=fv||fi?'Registros del día':'Registros · '+_mesLargo(__res.refMon);}
+    const pct=function(n){return total?n/total*100:0;};
+
+    // Barra apilada (2px de separación entre tramos)
+    const barra=document.getElementById('cl-dist-barra');
+    if(barra){
+      barra.innerHTML=total?grupos.filter(function(g){return c[g.k];}).map(function(g){
+        return'<span data-g="'+g.k+'" style="flex:'+c[g.k]+' 1 0;background:'+g.color+'"></span>';}).join(''):'<span class="cl-vacio-barra"></span>';
+    }
+    // Dona: un círculo por tramo con stroke-dasharray (pathLength 100) y 1.2 de hueco
+    const dona=document.getElementById('cl-dona');
+    if(dona){
+      let acc=0,html='<circle cx="50" cy="50" r="38" class="cl-dona-fondo" pathLength="100"></circle>';
+      const conDatos=grupos.filter(function(g){return c[g.k];});
+      const hueco=conDatos.length>1?1.2:0;
+      conDatos.forEach(function(g){
+        const p=pct(c[g.k]),largo=Math.max(0.01,p-hueco);
+        html+='<circle data-g="'+g.k+'" cx="50" cy="50" r="38" pathLength="100" stroke="'+g.color+'" stroke-dasharray="'+largo.toFixed(3)+' '+(100-largo).toFixed(3)+'" stroke-dashoffset="'+(-acc).toFixed(3)+'"></circle>';
+        acc+=p;
+      });
+      dona.innerHTML=html;
+      dona.setAttribute('aria-label','Distribución: '+conDatos.map(function(g){return g.lbl+' '+c[g.k];}).join(', ')||'sin registros');
+    }
+    // Leyenda: nombre + conteo (el color nunca va solo)
+    const ley=document.getElementById('cl-dist-ley');
+    if(ley)ley.innerHTML=grupos.map(function(g){return'<li data-g="'+g.k+'"><i style="background:'+g.color+'"></i><span>'+g.lbl+'</span><b>'+_fmtN(c[g.k])+'</b></li>';}).join('');
+
+    // Hover: el mismo tooltip para barra, dona y leyenda
+    [barra,dona,ley].forEach(function(el){
+      if(!el||el._hoverOk)return;el._hoverOk=true;
+      el.addEventListener('mousemove',function(e){
+        const t=e.target.closest('[data-g]');if(!t){_tip(null);return;}
+        const g=RES_GRUPOS.find(function(x){return x.k===t.dataset.g;});
+        const n=__res.mes.filter(function(l){return _grupoRes(l.status_grupo)===g.k;}).length,tt=__res.mes.length;
+        _tip(_tipFila(g.color,g.lbl,_fmtN(n)+' · '+(tt?(n/tt*100).toFixed(1):'0.0')+'%'),e.clientX,e.clientY);
+      });
+      el.addEventListener('mouseleave',function(){_tip(null);});
+    });
+  }
+
+  function _seriePuntos(){
+    const r=__res.rango,hoy=new Date();hoy.setHours(0,0,0,0);
+    let desde,hasta,leads;
+    if(r==='mes'){
+      leads=__res.mes;
+      const p=(__res.refMon||_ymd(hoy).slice(0,7)).split('-');
+      desde=new Date(+p[0],+p[1]-1,1);hasta=new Date(+p[0],+p[1],0);if(hasta>hoy&&desde<=hoy)hasta=hoy;
+      // En el mes por instalación las fechas de venta pueden caer en el mes anterior (colchón).
+      leads.forEach(function(l){const dv=String(l.dia_venta||'').slice(0,10);if(/^\d{4}-\d{2}-\d{2}$/.test(dv)){const d=new Date(dv+'T00:00:00');if(d<desde)desde=d;}});
+    }else if(r==='todo'){
+      leads=__res.todos;
+      const fs=leads.map(function(l){return String(l.dia_venta||'').slice(0,10);}).filter(function(s){return/^\d{4}-\d{2}-\d{2}$/.test(s);}).sort();
+      desde=fs.length?new Date(fs[0]+'T00:00:00'):new Date(hoy);hasta=fs.length?new Date(fs[fs.length-1]+'T00:00:00'):new Date(hoy);
+    }else{
+      const n=parseInt(r,10)||7;hasta=new Date(hoy);desde=new Date(hoy);desde.setDate(desde.getDate()-(n-1));
+      const d0=_ymd(desde),d1=_ymd(hasta);
+      leads=__res.todos.filter(function(l){const dv=String(l.dia_venta||'').slice(0,10);return dv>=d0&&dv<=d1;});
+    }
+    const porDia={};
+    leads.forEach(function(l){const dv=String(l.dia_venta||'').slice(0,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(dv))return;porDia[dv]=(porDia[dv]||0)+_ptsDe(l);});
+    const dias=[];let acum=0;
+    for(let d=new Date(desde),i=0;d<=hasta&&i<800;d.setDate(d.getDate()+1),i++){const k=_ymd(d);acum+=porDia[k]||0;dias.push({k:k,dia:porDia[k]||0,acum:acum});}
+    return{leads:leads,dias:dias,total:leads.reduce(function(s,l){return s+_ptsDe(l);},0)};
+  }
+
+  function pintarPuntos(){
+    const totEl=document.getElementById('cl-fin-total'),box=document.getElementById('cl-spark');if(!totEl||!box)return;
+    const s=_seriePuntos();
+    totEl.textContent=_fmtPts(s.total);
+    const act=s.leads.filter(function(l){return _grupoRes(l.status_grupo)==='activas';}).reduce(function(a,l){return a+_ptsDe(l);},0);
+    const sub=document.getElementById('cl-fin-sub');
+    if(sub)sub.textContent=_fmtN(s.leads.length)+(s.leads.length===1?' venta':' ventas')+' · '+_fmtPts(act)+' pts activas';
+    document.querySelectorAll('#cl-rangos [data-rango]').forEach(function(b){const on=b.dataset.rango===__res.rango;b.classList.toggle('is-active',on);b.setAttribute('aria-pressed',on?'true':'false');});
+
+    // Área de puntos acumulados (una sola serie: el título la nombra, sin leyenda)
+    const W=300,H=90,pad=4,d=s.dias,max=Math.max(1,d.length?d[d.length-1].acum:0);
+    const x=function(i){return d.length>1?pad+i*(W-2*pad)/(d.length-1):W/2;};
+    const y=function(v){return H-pad-(v/max)*(H-2*pad);};
+    if(!d.length||s.total<=0){box.innerHTML='<div class="cl-spark-vacio">Sin puntos en este periodo</div>';return;}
+    const linea=d.map(function(p,i){return(i?'L':'M')+x(i).toFixed(1)+' '+y(p.acum).toFixed(1);}).join(' ');
+    box.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="Puntos acumulados: '+_fmtPts(s.total)+' en '+d.length+' días">'+
+      '<defs><linearGradient id="clSparkG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#007098" stop-opacity=".22"/><stop offset="1" stop-color="#007098" stop-opacity="0"/></linearGradient></defs>'+
+      '<line class="cl-spark-base" x1="0" y1="'+(H-pad)+'" x2="'+W+'" y2="'+(H-pad)+'"/>'+
+      '<path d="'+linea+' L'+x(d.length-1).toFixed(1)+' '+(H-pad)+' L'+x(0).toFixed(1)+' '+(H-pad)+' Z" fill="url(#clSparkG)"/>'+
+      '<path class="cl-spark-linea" d="'+linea+'"/>'+
+      '<line class="cl-spark-cruz" id="cl-spark-cruz" x1="0" y1="0" x2="0" y2="'+H+'" visibility="hidden"/>'+
+    '</svg><span class="cl-spark-punto" id="cl-spark-punto" hidden></span>';
+    box._serie=d;box._geo={W:W,H:H,x:x,y:y};
+    if(!box._hoverOk){
+      box._hoverOk=true;
+      box.addEventListener('mousemove',function(e){
+        const dd=box._serie,g=box._geo;if(!dd||!dd.length)return;
+        const rc=box.getBoundingClientRect(),fx=(e.clientX-rc.left)/rc.width*g.W;
+        let i=dd.length>1?Math.round((fx-4)/((g.W-8)/(dd.length-1))):0;i=Math.max(0,Math.min(dd.length-1,i));
+        const p=dd[i],px=g.x(i)/g.W*rc.width,py=g.y(p.acum)/g.H*rc.height;
+        const cruz=document.getElementById('cl-spark-cruz');if(cruz){cruz.setAttribute('x1',g.x(i));cruz.setAttribute('x2',g.x(i));cruz.setAttribute('visibility','visible');}
+        const pt=document.getElementById('cl-spark-punto');if(pt){pt.hidden=false;pt.style.left=px+'px';pt.style.top=py+'px';}
+        _tip('<strong class="cl-tip-tit">'+_fechaCorta(p.k)+'</strong>'+_tipFila('','Ese día',_fmtPts(p.dia)+' pts')+_tipFila('','Acumulado',_fmtPts(p.acum)+' pts'),rc.left+px,rc.top+py);
+      });
+      box.addEventListener('mouseleave',function(){_tip(null);const c=document.getElementById('cl-spark-cruz');if(c)c.setAttribute('visibility','hidden');const pt=document.getElementById('cl-spark-punto');if(pt)pt.hidden=true;});
+    }
+  }
+
+  document.addEventListener('click',function(e){
+    const b=e.target.closest('#cl-rangos [data-rango]');if(!b)return;
+    __res.rango=b.dataset.rango;pintarPuntos();
+  });
+
   function updateKPIs(){
     const d=new Date(),pad=function(n){return String(n).padStart(2,'0');};
     const today=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
@@ -831,6 +1135,7 @@
     const refMon=selectedMonth||realMon;
     const fVenta=getVal('fechaVentaFilter'),fInst=getVal('fechaInstFilter');
     let kpi={hoy:0,mes:0,activas:0,colchon:0,pend:0,cancel:0,oficina:0,reserva:0,hold:0};
+    const delMes=[],filtrados=[];   // para el resumen de arriba de la ficha (pintarResumen)
     const toYM=function(v){if(!v)return'';const s=String(v).trim();return/^\d{4}-\d{2}/.test(s)?s.slice(0,7):'';};
 
     // Filtros activos (sin pestaña de status)
@@ -863,6 +1168,7 @@
       if(fAgent&&normName(l.agente)!==normName(fAgent)&&normName(l.agenteNombre||'')!==normName(fAgent))return;
       if(fMercado&&l.mercado!==fMercado)return;
       if(fSvc){const su=fSvc.toUpperCase();if(String(l.servicios||'').toUpperCase().indexOf(su)===-1&&String(l.tipo_servicio||'').toUpperCase().indexOf(su)===-1)return;}
+      filtrados.push(l);
 
       const dv=String(l.dia_venta||'').slice(0,10);
       const st=l.status_grupo;
@@ -874,6 +1180,7 @@
         if(fVenta&&dv!==fVenta)return;
         if(fInst&&String(l.dia_instalacion||'').slice(0,10)!==fInst)return;
       } else if(mesRef(l)!==refMon)return;
+      delMes.push(l);
       const dvYM=toYM(l.dia_venta),diYM=toYM(l.dia_instalacion);
       if(dvYM&&diYM&&dvYM<diYM)kpi.colchon++;
       if(st==='oficina'){kpi.oficina++;return;}
@@ -892,6 +1199,7 @@
     animateCount('costumer-oficina',kpi.oficina);
     animateCount('costumer-hold',kpi.hold);
     animateCount('costumer-colchon',kpi.colchon);
+    pintarResumen(delMes,filtrados,refMon);
   }
   function animateCount(id,to){const el=document.getElementById(id);if(!el)return;const from=parseInt(el.textContent,10)||0;const dur=500,start=performance.now();function step(now){const p=Math.min((now-start)/dur,1);el.textContent=Math.round(from+(to-from)*p);if(p<1)requestAnimationFrame(step);}requestAnimationFrame(step);}
   window.updateKPIsWithColchon=function(){updateKPIs();};
@@ -1099,7 +1407,7 @@
 
     var lead=__allLeadsData.find(function(l){return String(l._id)===String(lid);});
     if(!lead)return;
-    var row=document.querySelector('tr[data-id="'+lid+'"]');
+    var row=document.querySelector('#costumer-tbody [data-id="'+lid+'"]');
 
     // Marcar notas como vistas y quitar el puntito de la fila
     _setNoteSeen(lid);
@@ -2385,8 +2693,8 @@
     }
 
     const searchEl=document.getElementById('costumer-search');if(searchEl)searchEl.addEventListener('input',applyFiltersDebounced);
-    const refreshBtn=document.getElementById('refresh-table');
-    if(refreshBtn)refreshBtn.addEventListener('click',async function(){refreshBtn.disabled=true;const _rbTxt=refreshBtn.querySelector('span')||refreshBtn;_rbTxt.textContent='Cargando…';__allDataLoaded=false;const data=await fetchBootstrap();if(data){_applyBootstrapFilters(data);window.renderCostumerTable(data.leads||[]);}refreshBtn.disabled=false;_rbTxt.textContent='Actualizar';});
+    // Actualizar va dentro de la ficha, que se repinta: el clic se escucha en el documento.
+    document.addEventListener('click',async function(e){const refreshBtn=e.target.closest('#refresh-table');if(!refreshBtn||refreshBtn.disabled)return;refreshBtn.disabled=true;const _rbTxt=refreshBtn.querySelector('span')||refreshBtn;_rbTxt.textContent='Cargando…';__allDataLoaded=false;const data=await fetchBootstrap();if(data){_applyBootstrapFilters(data);window.renderCostumerTable(data.leads||[]);}refreshBtn.disabled=false;_rbTxt.textContent='Actualizar';});
     document.querySelectorAll('#quickStatusChips .stab').forEach(function(btn){btn.addEventListener('click',function(){document.querySelectorAll('#quickStatusChips .stab').forEach(function(b){b.classList.remove('is-active');});btn.classList.add('is-active');activeStatusTab=btn.dataset.status||'all';currentPage=1;applyFiltersDebounced();});});
     const pagePrev=document.getElementById('pagePrev'),pageNext=document.getElementById('pageNext');
     if(pagePrev)pagePrev.addEventListener('click',function(){if(currentPage>1){currentPage--;renderTableRows();}});
