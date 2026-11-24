@@ -428,6 +428,7 @@
     const search=getVal('costumer-search').toUpperCase();
     const svc=getVal('serviceFilter'),team=getVal('teamFilter'),agent=getVal('agentFilter'),mercado=getVal('mercadoFilter'),month=getVal('monthFilter'),from=getVal('dateFrom'),to=getVal('dateTo');
     const fVenta=getVal('fechaVentaFilter'),fInst=getVal('fechaInstFilter');
+    const hoyStr=_ymd(new Date()),soloHoy=activeStatusTab==='hoy';
 
     // Si se borró el buscador y teníamos resultados de búsqueda, recargar el mes completo
     if(!search && __searchResultsOnly){
@@ -562,14 +563,16 @@
       if(mercado&&lead.mercado!==mercado)return false;
 
       if(activeStatusTab&&activeStatusTab!=='all'){
-        if(activeStatusTab==='colchon'){if(!lead._es_colchon_route)return false;}
+        if(soloHoy){if(String(lead.dia_venta||'').slice(0,10)!==hoyStr)return false;}
+        else if(activeStatusTab==='colchon'){if(!lead._es_colchon_route)return false;}
         else if(activeStatusTab==='completed'){if(lead.status_grupo!=='completed')return false;}
         else if(activeStatusTab==='pending'){if(lead.status_grupo!=='pending')return false;}
         else{if(lead.status_grupo!==activeStatusTab)return false;}
       }
 
       // Mes = mes de instalación (ver mesRef); la pestaña Colchón deja solo las vendidas antes.
-      if(month && !__searchResultsOnly && mesRef(lead)!==month)return false;
+      // La pestaña Hoy no mira el mes: una venta de hoy puede instalarse el mes que viene.
+      if(month && !__searchResultsOnly && !soloHoy && mesRef(lead)!==month)return false;
       // Día exacto de venta / de instalación (calendarios junto al Mes).
       if(fVenta && String(lead.dia_venta||'').slice(0,10)!==fVenta)return false;
       if(fInst && String(lead.dia_instalacion||'').slice(0,10)!==fInst)return false;
@@ -1136,6 +1139,7 @@
     const fVenta=getVal('fechaVentaFilter'),fInst=getVal('fechaInstFilter');
     let kpi={hoy:0,mes:0,activas:0,colchon:0,pend:0,cancel:0,oficina:0,reserva:0,hold:0};
     const delMes=[],filtrados=[];   // para el resumen de arriba de la ficha (pintarResumen)
+    let vendidasHoy=0;              // pestaña «Hoy»: todas las de hoy, se instalen cuando se instalen
     const toYM=function(v){if(!v)return'';const s=String(v).trim();return/^\d{4}-\d{2}/.test(s)?s.slice(0,7):'';};
 
     // Filtros activos (sin pestaña de status)
@@ -1169,6 +1173,7 @@
       if(fMercado&&l.mercado!==fMercado)return;
       if(fSvc){const su=fSvc.toUpperCase();if(String(l.servicios||'').toUpperCase().indexOf(su)===-1&&String(l.tipo_servicio||'').toUpperCase().indexOf(su)===-1)return;}
       filtrados.push(l);
+      if(String(l.dia_venta||'').slice(0,10)===today)vendidasHoy++;
 
       const dv=String(l.dia_venta||'').slice(0,10);
       const st=l.status_grupo;
@@ -1200,6 +1205,7 @@
     animateCount('costumer-hold',kpi.hold);
     animateCount('costumer-colchon',kpi.colchon);
     pintarResumen(delMes,filtrados,refMon);
+    const nHoy=document.getElementById('cl-tab-hoy-n');if(nHoy){nHoy.textContent=vendidasHoy;nHoy.hidden=!vendidasHoy;}
   }
   function animateCount(id,to){const el=document.getElementById(id);if(!el)return;const from=parseInt(el.textContent,10)||0;const dur=500,start=performance.now();function step(now){const p=Math.min((now-start)/dur,1);el.textContent=Math.round(from+(to-from)*p);if(p<1)requestAnimationFrame(step);}requestAnimationFrame(step);}
   window.updateKPIsWithColchon=function(){updateKPIs();};
