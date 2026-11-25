@@ -449,3 +449,20 @@ body.cl-pagina{font-size:13px;--font-mono:"JetBrains Mono",ui-monospace,"SFMono-
 .cl-tab-n{display:inline-grid;place-items:center;min-width:18px;height:18px;margin-left:2px;padding:0 5px;border-radius:9px;
   font-family:var(--font-num);font-size:10.5px;font-weight:700;color:#fff;background:var(--color-accent-2-500);font-variant-numeric:tabular-nums}
 .cl-tab-n[hidden]{display:none}
+
+/* Tarjeta «Ventas del día» (misma regla que Estadísticas). Va primera en la fila de resumen. */
+.cl-pagina .cl-resumen-graf{grid-template-columns:minmax(200px,.7fr) minmax(0,1.2fr) minmax(0,1fr)}
+.cl-vd{display:flex;flex-direction:column;background:linear-gradient(160deg,#fff 55%,rgb(0 112 152 / .06))}
+.cl-vd-fecha{font-size:12px;font-weight:600;color:var(--color-accent-2-600);white-space:nowrap}
+.cl-vd .cl-res-num-xl{font-size:40px;line-height:1}
+.cl-vd-datos{display:flex;gap:14px;margin:10px 0 0}
+.cl-vd-datos div{display:flex;flex-direction:column}
+.cl-vd-datos dt{font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--cl-gris)}
+.cl-vd-datos dd{margin:1px 0 0;font-family:"Inter",system-ui,sans-serif;font-size:15px;font-weight:700;color:var(--cl-tinta);font-variant-numeric:tabular-nums}
+.cl-vd-fuera{margin-top:8px;font-size:11.5px;color:#a16207}
+.cl-vd-fuera[hidden]{display:none}
+.cl-vd-ver{align-self:flex-start;display:inline-flex;align-items:center;gap:4px;margin-top:auto;padding:10px 0 0;border:0;background:none;
+  font:inherit;font-family:"Inter",system-ui,sans-serif;font-size:12.5px;font-weight:600;color:var(--color-accent-2-600);cursor:pointer}
+.cl-vd-ver:hover{color:var(--color-accent-2-700);text-decoration:underline;text-underline-offset:3px}
+@media (max-width:1400px){ .cl-pagina .cl-resumen-graf{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} .cl-vd{grid-column:1 / -1} }
+@media (max-width:760px){ .cl-pagina .cl-resumen-graf{grid-template-columns:minmax(0,1fr)} }

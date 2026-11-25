@@ -90,9 +90,11 @@ async def _mercado_restrict(user: dict) -> str:
 # Si alguna vez hace falta uno de estos campos en el frontend, quítalo de aquí; no
 # hay ninguna otra capa filtrando. Ojo: el ahorro es modesto (~9 % sobre la
 # respuesta ya comprimida) — el peso real se resolvió activando gzip en main.py.
+# excluir_de_reporte SÍ se envía: la tarjeta «Ventas del día» de la lista de Clientes la usa
+# para contar igual que Estadísticas (routers/estadisticas.py).
 _CAMPOS_INTERNOS = frozenset({
     "created_by", "updated_by", "updated_at",
-    "excluir_de_reporte", "source_collection", "mongo_id",
+    "source_collection", "mongo_id",
     "fecha_completed", "fecha_ultima_llamada",
     "llamada_cliente", "llamadas_realizadas",
 })

@@ -1014,6 +1014,16 @@
     pintarDistribucion();pintarPuntos();
   }
 
+  function pintarVentasDia(v,hoyYmd){
+    const n=document.getElementById('cl-vd-num');if(!n)return;
+    n.textContent=_fmtN(v.ventas);
+    const f=document.getElementById('cl-vd-fecha');if(f)f.textContent='Hoy · '+_fechaCorta(hoyYmd);
+    const set=function(id,t){const e=document.getElementById(id);if(e)e.textContent=t;};
+    set('cl-vd-icon',_fmtN(v.icon));set('cl-vd-bamo',_fmtN(v.bamo));set('cl-vd-pts',_fmtPts(v.pts));
+    const fuera=document.getElementById('cl-vd-fuera');
+    if(fuera){fuera.hidden=!v.fuera;fuera.textContent=v.fuera+(v.fuera===1?' venta de hoy no cuenta':' ventas de hoy no cuentan')+' (canceladas, repro o excluidas del reporte)';}
+  }
+
   function pintarDistribucion(){
     const tot=document.getElementById('cl-dist-total');if(!tot)return;
     const c={activas:0,pend:0,cancel:0,hold:0,oficina:0,otros:0};
@@ -1125,6 +1135,11 @@
     }
   }
 
+  // «Ver ventas de hoy» abre la pestaña Hoy de la lista.
+  document.addEventListener('click',function(e){
+    if(!e.target.closest('#cl-vd-ver'))return;
+    const t=document.querySelector('#quickStatusChips [data-status="hoy"]');if(t){t.click();t.scrollIntoView({block:'nearest',inline:'nearest'});}
+  });
   document.addEventListener('click',function(e){
     const b=e.target.closest('#cl-rangos [data-rango]');if(!b)return;
     __res.rango=b.dataset.rango;pintarPuntos();
@@ -1140,6 +1155,9 @@
     let kpi={hoy:0,mes:0,activas:0,colchon:0,pend:0,cancel:0,oficina:0,reserva:0,hold:0};
     const delMes=[],filtrados=[];   // para el resumen de arriba de la ficha (pintarResumen)
     let vendidasHoy=0;              // pestaña «Hoy»: todas las de hoy, se instalen cuando se instalen
+    // Tarjeta «Ventas del día»: mismas reglas que Estadísticas (routers/estadisticas.py): día de
+    // venta = hoy, sin canceladas ni repro/reagendadas (según el Estatus) y sin excluir_de_reporte.
+    const vDia={ventas:0,icon:0,bamo:0,pts:0,fuera:0};
     const toYM=function(v){if(!v)return'';const s=String(v).trim();return/^\d{4}-\d{2}/.test(s)?s.slice(0,7):'';};
 
     // Filtros activos (sin pestaña de status)
@@ -1173,7 +1191,12 @@
       if(fMercado&&l.mercado!==fMercado)return;
       if(fSvc){const su=fSvc.toUpperCase();if(String(l.servicios||'').toUpperCase().indexOf(su)===-1&&String(l.tipo_servicio||'').toUpperCase().indexOf(su)===-1)return;}
       filtrados.push(l);
-      if(String(l.dia_venta||'').slice(0,10)===today)vendidasHoy++;
+      if(String(l.dia_venta||'').slice(0,10)===today){
+        vendidasHoy++;
+        const raw=l._raw||{},stRaw=String(raw.status||l.status||'').toLowerCase(),excl=raw.excluir_de_reporte;
+        if(/cancel|repro|resched|reagend/.test(stRaw)||excl===true||excl===1||excl==='1'){vDia.fuera++;}
+        else{const m=String(l.mercado||'').toUpperCase();vDia.ventas++;vDia.pts+=_ptsDe(l);if(m.indexOf('ICON')>=0)vDia.icon++;if(m.indexOf('BAMO')>=0)vDia.bamo++;}
+      }
 
       const dv=String(l.dia_venta||'').slice(0,10);
       const st=l.status_grupo;
@@ -1205,6 +1228,7 @@
     animateCount('costumer-hold',kpi.hold);
     animateCount('costumer-colchon',kpi.colchon);
     pintarResumen(delMes,filtrados,refMon);
+    pintarVentasDia(vDia,today);
     const nHoy=document.getElementById('cl-tab-hoy-n');if(nHoy){nHoy.textContent=vendidasHoy;nHoy.hidden=!vendidasHoy;}
   }
   function animateCount(id,to){const el=document.getElementById(id);if(!el)return;const from=parseInt(el.textContent,10)||0;const dur=500,start=performance.now();function step(now){const p=Math.min((now-start)/dur,1);el.textContent=Math.round(from+(to-from)*p);if(p<1)requestAnimationFrame(step);}requestAnimationFrame(step);}
