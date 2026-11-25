@@ -4,9 +4,13 @@ GET /api/estadisticas/ventas?periodo=dia|mes&fecha=YYYY-MM-DD
   Ventas por team del día (por defecto) o del mes de esa fecha (hora de El Salvador).
   Filas = equipos de venta (con supervisor), Residencial y Líneas móviles, aunque estén en 0.
 
-  Residencial (leads, por dia_venta), mismas reglas que la Estadísticas anterior:
-  - No cuentan canceladas ni repro / reagendadas (una repro reprocesa una venta ya contada)
-    ni las marcadas excluir_de_reporte. Respeta la restricción de mercado del usuario.
+  Residencial (leads, por dia_venta):
+  - No cuentan canceladas ni repro según el STATUS DE COMISIÓN (grupo status_grupo:
+    cancelled = CANCEL, CANCEL BY SYSTEM, CHARGEBACK; repro = REPRO, RESCHED), el status que
+    mueve el CRM (estado_comision.py) y el mismo criterio del Track de ventas. Tampoco las
+    marcadas excluir_de_reporte. Respeta la restricción de mercado del usuario.
+    (Hasta el 24-nov-2026 se miraba leads.status, el informativo: las ventas canceladas en
+    comisión cuyo Estatus seguía en Pending se contaban de más, ~55 en noviembre.)
   - Team: el de su supervisor en Permisos (leads.supervisor → users.team); si no se
     encuentra, leads.team. Columnas: ventas, ICON, BAMO y puntos (suma de puntaje).
   Líneas (lineas_clientes, por dia_venta o, sin ella, la fecha de creación), igual que
@@ -28,7 +32,8 @@ from tiempo_sv import ahora_sv
 
 router = APIRouter(prefix="/api/estadisticas", tags=["Estadísticas"])
 
-_NO_CUENTA = re.compile(r"cancel|repro|resched|reagend")
+# Grupos del status de comisión que no son venta (estado_comision.grupo / leads.status_grupo).
+_NO_CUENTA = frozenset({"cancelled", "repro"})
 
 
 def _clave(nombre) -> str:
@@ -73,7 +78,7 @@ async def ventas_por_team(periodo: str = "dia", fecha: str = "", user: dict = De
         usuarios = r.mappings().all()
         r = await s.execute(text(f"""
             SELECT TRIM(COALESCE(supervisor, '')) AS supervisor, TRIM(COALESCE(team, '')) AS team,
-                   COALESCE(status, '') AS status, COALESCE(puntaje, 0) AS puntaje,
+                   COALESCE(status_grupo, '') AS grupo, COALESCE(puntaje, 0) AS puntaje,
                    UPPER(TRIM(COALESCE(mercado, ''))) AS mercado
             FROM leads
             WHERE dia_venta >= :d AND dia_venta < :h
@@ -107,7 +112,7 @@ async def ventas_por_team(periodo: str = "dia", fecha: str = "", user: dict = De
         return filas[k]
 
     for v in ventas_res:
-        if _NO_CUENTA.search(v["status"].lower()):
+        if v["grupo"] in _NO_CUENTA:
             continue
         f = destino(v["supervisor"], v["team"])
         f["ventas"] += 1
@@ -140,7 +145,8 @@ async def servicios_por_dia(mes: str = "", user: dict = Depends(current_user)):
 
     mes=YYYY-MM (por defecto el actual). Cada servicio trae, por día del mes, cuántas ventas
     hubo en ICON, BAMO y sin mercado; la página filtra por mercado y suma.
-    Mismas reglas que /ventas (sin canceladas, repro ni excluidas; restricción de mercado),
+    Mismas reglas que /ventas (sin canceladas ni repro por status de comisión, ni excluidas;
+    restricción de mercado),
     así el total de un día coincide con Ventas de ese día. Cada venta cuenta una vez, con su
     primer servicio, llevado a su nombre oficial con los equivalentes de Productos.
     """
@@ -177,7 +183,7 @@ async def servicios_por_dia(mes: str = "", user: dict = Depends(current_user)):
             for e in eq or []:
                 canon[_norm_svc(e)] = p["servicio"]
         r = await s.execute(text(f"""
-            SELECT dia_venta, servicios, tipo_servicio, COALESCE(status, '') AS status,
+            SELECT dia_venta, servicios, tipo_servicio, COALESCE(status_grupo, '') AS grupo,
                    UPPER(TRIM(COALESCE(mercado, ''))) AS mercado
             FROM leads
             WHERE dia_venta >= :d AND dia_venta < :h
@@ -188,7 +194,7 @@ async def servicios_por_dia(mes: str = "", user: dict = Depends(current_user)):
 
     servicios: dict[str, dict] = {}
     for v in filas:
-        if _NO_CUENTA.search(v["status"].lower()) or not v["dia_venta"]:
+        if v["grupo"] in _NO_CUENTA or not v["dia_venta"]:
             continue
         sv = v["servicios"]
         if isinstance(sv, str):

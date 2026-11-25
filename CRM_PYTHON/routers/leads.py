@@ -266,16 +266,15 @@ async def _leads_bootstrap_core(
                     OR (dia_venta IS NULL AND created_at >= :dts AND created_at < :dte_excl)
                 )""")
             elif por_instalacion:
-                # Lista de Clientes: el mes de la venta es el de INSTALACIÓN (el mismo que
-                # usa Comisiones); sin fecha de instalación, el de venta. Se suman las ventas
-                # de hoy que se instalan otro mes, solo para el KPI «Hoy» (el filtro del
-                # navegador las saca de la tabla).
-                params["hoy_sv"] = _sv.strftime("%Y-%m-%d")
+                # Lista de Clientes: las FILAS van por mes de INSTALACIÓN (sin fecha de
+                # instalación, el de venta). Pero los KPIs, tarjetas y gráficas de la página
+                # van por DÍA DE VENTA (regla del CRM, 24-nov-2026), así que también se mandan
+                # todas las vendidas en el mes aunque se instalen otro mes; el filtro del
+                # navegador (mesRef) las saca de la lista y los KPIs sí las cuentan.
                 where.append("""(
                     (dia_instalacion >= :dts AND dia_instalacion < :dte_excl)
-                    OR (dia_instalacion IS NULL AND dia_venta >= :dts AND dia_venta < :dte_excl)
+                    OR (dia_venta >= :dts AND dia_venta < :dte_excl)
                     OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at >= :dts AND created_at < :dte_excl)
-                    OR dia_venta = :hoy_sv
                 )""")
             else:
                 where.append("""(

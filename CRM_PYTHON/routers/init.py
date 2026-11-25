@@ -135,8 +135,10 @@ async def init_dashboard(user: dict = Depends(current_user)):
     start_date, end_date = _month_range(_sv.year, _sv.month)
     sup_agents = await get_supervisor_agents(username) if is_sup else []
 
+    # Ventas del mes por DÍA DE VENTA (regla del CRM, 24-nov-2026). La segunda condición
+    # solo trae las colchón para el KPI «colchón»; «ventas» las excluye con is_colchon().
     where  = ["""(
-        (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR LEFT(dia_instalacion,7)=LEFT(dia_venta,7)))
+        (dia_venta BETWEEN :s AND :e)
         OR (dia_instalacion IS NOT NULL AND LEFT(dia_instalacion,7)=LEFT(:s,7) AND (dia_venta IS NULL OR LEFT(dia_venta,7)<LEFT(:s,7)))
         OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at BETWEEN :s AND :e)
     )"""]
@@ -275,8 +277,7 @@ async def init_rankings(user: dict = Depends(current_user)):
                        status_grupo AS status
                 FROM leads
                 WHERE (
-                    (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR LEFT(dia_instalacion,7)=LEFT(dia_venta,7)))
-                    OR (dia_instalacion IS NOT NULL AND LEFT(dia_instalacion,7)=LEFT(:s,7) AND (dia_venta IS NULL OR LEFT(dia_venta,7)<LEFT(:s,7)))
+                    (dia_venta BETWEEN :s AND :e)
                     OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at BETWEEN :s AND :e)
                 )
                 AND COALESCE(agente_nombre, agente, '') != ''
@@ -324,8 +325,7 @@ async def init_rankings(user: dict = Depends(current_user)):
                            status_grupo AS status
                     FROM leads
                     WHERE (
-                        (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR LEFT(dia_instalacion,7)=LEFT(dia_venta,7)))
-                        OR (dia_instalacion IS NOT NULL AND LEFT(dia_instalacion,7)=LEFT(:s,7) AND (dia_venta IS NULL OR LEFT(dia_venta,7)<LEFT(:s,7)))
+                        (dia_venta BETWEEN :s AND :e)
                         OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at BETWEEN :s AND :e)
                     )
                     AND COALESCE(agente, agente_nombre, '') != ''
@@ -381,8 +381,7 @@ async def init_estadisticas(user: dict = Depends(current_user)):
     ms, me = _month_range(_sv.year, _sv.month)
 
     date_cond = """(
-        (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR LEFT(dia_instalacion,7)=LEFT(dia_venta,7)))
-        OR (dia_instalacion IS NOT NULL AND LEFT(dia_instalacion,7)=LEFT(:s,7) AND (dia_venta IS NULL OR LEFT(dia_venta,7)<LEFT(:s,7)))
+        (dia_venta BETWEEN :s AND :e)
         OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at BETWEEN :s AND :e)
     )"""
     params    = {"s": ms, "e": me}
@@ -498,8 +497,7 @@ async def init_all_pages(user: dict = Depends(current_user)):
     _sv = ahora_sv()  # «hoy»/«mes en curso» en hora de El Salvador
     ms, me = _month_range(_sv.year, _sv.month)
     date_cond = """(
-        (dia_venta BETWEEN :s AND :e AND (dia_instalacion IS NULL OR LEFT(dia_instalacion,7)=LEFT(dia_venta,7)))
-        OR (dia_instalacion IS NOT NULL AND LEFT(dia_instalacion,7)=LEFT(:s,7) AND (dia_venta IS NULL OR LEFT(dia_venta,7)<LEFT(:s,7)))
+        (dia_venta BETWEEN :s AND :e)
         OR (dia_venta IS NULL AND dia_instalacion IS NULL AND created_at BETWEEN :s AND :e)
     )"""
     params    = {"s": ms, "e": me}

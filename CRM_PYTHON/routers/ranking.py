@@ -128,16 +128,10 @@ async def _get_ranking_core(
     }
 
     where = [
-        # Lead normal (dia_venta en el mes) O lead colchón (dia_instalacion en el mes, dia_venta anterior)
-        """(
-            (dia_venta >= :s AND dia_venta < :end_excl)
-            OR (
-                dia_instalacion IS NOT NULL
-                AND LEFT(dia_instalacion,7) >= :s_ym
-                AND LEFT(dia_instalacion,7) < :e_ym
-                AND (dia_venta IS NULL OR LEFT(dia_venta,7) < :s_ym)
-            )
-        )""",
+        # Ventas del mes por DÍA DE VENTA (regla del CRM, 24-nov-2026: solo la lista de clientes
+        # y Comisiones van por instalación). Antes se sumaban también las colchón (instaladas
+        # este mes, vendidas antes); ahora «colchon» sale siempre en 0.
+        "(dia_venta >= :s AND dia_venta < :end_excl)",
         "(agente_nombre IS NOT NULL AND agente_nombre != '') OR (agente IS NOT NULL AND agente != '')",
         "excluir_de_reporte = FALSE OR excluir_de_reporte IS NULL",
         """UPPER(TRIM(COALESCE(status_grupo,''))) IN (

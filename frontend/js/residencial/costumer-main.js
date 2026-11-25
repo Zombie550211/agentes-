@@ -1032,7 +1032,7 @@
     const grupos=RES_GRUPOS.filter(function(g){return c[g.k]>0||['activas','pend','cancel','hold'].indexOf(g.k)>=0;});
     tot.textContent=_fmtN(total);
     const sub=document.getElementById('cl-dist-sub');
-    if(sub){const fv=getVal('fechaVentaFilter'),fi=getVal('fechaInstFilter');sub.textContent=fv||fi?'Registros del día':'Registros · '+_mesLargo(__res.refMon);}
+    if(sub){const fv=getVal('fechaVentaFilter'),fi=getVal('fechaInstFilter');sub.textContent=fv||fi?'Registros del día · todos los status':'Por día de venta · todos los status · '+_mesLargo(__res.refMon);}
     const pct=function(n){return total?n/total*100:0;};
 
     // Barra apilada (2px de separación entre tramos)
@@ -1079,8 +1079,6 @@
       leads=__res.mes;
       const p=(__res.refMon||_ymd(hoy).slice(0,7)).split('-');
       desde=new Date(+p[0],+p[1]-1,1);hasta=new Date(+p[0],+p[1],0);if(hasta>hoy&&desde<=hoy)hasta=hoy;
-      // En el mes por instalación las fechas de venta pueden caer en el mes anterior (colchón).
-      leads.forEach(function(l){const dv=String(l.dia_venta||'').slice(0,10);if(/^\d{4}-\d{2}-\d{2}$/.test(dv)){const d=new Date(dv+'T00:00:00');if(d<desde)desde=d;}});
     }else if(r==='todo'){
       leads=__res.todos;
       const fs=leads.map(function(l){return String(l.dia_venta||'').slice(0,10);}).filter(function(s){return/^\d{4}-\d{2}-\d{2}$/.test(s);}).sort();
@@ -1156,7 +1154,7 @@
     const delMes=[],filtrados=[];   // para el resumen de arriba de la ficha (pintarResumen)
     let vendidasHoy=0;              // pestaña «Hoy»: todas las de hoy, se instalen cuando se instalen
     // Tarjeta «Ventas del día»: mismas reglas que Estadísticas (routers/estadisticas.py): día de
-    // venta = hoy, sin canceladas ni repro/reagendadas (según el Estatus) y sin excluir_de_reporte.
+    // venta = hoy, sin canceladas ni repro según el STATUS DE COMISIÓN y sin excluir_de_reporte.
     const vDia={ventas:0,icon:0,bamo:0,pts:0,fuera:0};
     const toYM=function(v){if(!v)return'';const s=String(v).trim();return/^\d{4}-\d{2}/.test(s)?s.slice(0,7):'';};
 
@@ -1193,8 +1191,8 @@
       filtrados.push(l);
       if(String(l.dia_venta||'').slice(0,10)===today){
         vendidasHoy++;
-        const raw=l._raw||{},stRaw=String(raw.status||l.status||'').toLowerCase(),excl=raw.excluir_de_reporte;
-        if(/cancel|repro|resched|reagend/.test(stRaw)||excl===true||excl===1||excl==='1'){vDia.fuera++;}
+        const excl=(l._raw||{}).excluir_de_reporte;
+        if(l.status_grupo==='cancelled'||l.status_grupo==='rescheduled'||excl===true||excl===1||excl==='1'){vDia.fuera++;}
         else{const m=String(l.mercado||'').toUpperCase();vDia.ventas++;vDia.pts+=_ptsDe(l);if(m.indexOf('ICON')>=0)vDia.icon++;if(m.indexOf('BAMO')>=0)vDia.bamo++;}
       }
 
@@ -1207,7 +1205,8 @@
         // Con un día elegido los KPIs cuentan ese día, no el mes.
         if(fVenta&&dv!==fVenta)return;
         if(fInst&&String(l.dia_instalacion||'').slice(0,10)!==fInst)return;
-      } else if(mesRef(l)!==refMon)return;
+      // KPIs, tarjetas y gráficas: por DÍA DE VENTA (solo las filas de la lista van por instalación).
+      } else if((_ym(l.dia_venta)||_ym(l.createdAt||l.created_at))!==refMon)return;
       delMes.push(l);
       const dvYM=toYM(l.dia_venta),diYM=toYM(l.dia_instalacion);
       if(dvYM&&diYM&&dvYM<diYM)kpi.colchon++;
